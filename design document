@@ -1,0 +1,355 @@
+# Travel Journey Map - Project Design Document (Updated)
+
+## 1. Project Overview
+
+A single-page web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes and Instagram content alongside the map. The application includes an offline-capable editing interface with local storage for adding and managing travel entries without an internet connection.
+
+## 2. Features and Requirements
+
+### Core Features
+- Interactive OSM map display
+- Route visualization with different styles by transportation type
+- Chronological travel timeline
+- Location markers with popup information
+- Instagram post integration
+- Responsive design for desktop and mobile
+- **Offline-capable editing interface**
+- **Local storage for offline data**
+- **Background synchronization when online**
+
+### Route Visualization Types
+- Land routes: Follow road networks (approximated)
+- Air routes: Great circle or curved lines between points
+- Sea routes: Similar to air but with different styling
+- Custom routes: Manually drawn paths
+
+### Timeline Content Types
+- Date headers with location info
+- Transportation segments with distance
+- Notes and descriptions
+- Embedded Instagram posts
+- Photos or other media
+
+### Offline Editing Features
+- Add new journey days and entries
+- Edit existing content
+- Create location markers
+- Draft Instagram post placeholders
+- Cache map tiles for offline viewing
+- Sync status indicator
+
+## 3. Technical Architecture
+
+### Frontend Architecture
+- Single Page Application (SPA)
+- Component-based structure
+- State management for travel data
+- Map rendering with OSM libraries
+- Responsive layout with CSS Grid/Flexbox
+- **Service Worker for offline capabilities**
+- **IndexedDB/LocalStorage for offline data persistence**
+
+### Data Flow
+1. Load travel data (JSON/API/LocalStorage)
+2. Process routes and timeline
+3. Render map with routes
+4. Display synchronized timeline
+5. Handle user interactions
+6. **Persist changes to local storage**
+7. **Sync with remote storage when online**
+
+## 4. UI/UX Design
+
+### Layout (Updated)
+```
+Desktop:
+┌────────────────────────┬───────────────────┐
+│                        │                   │
+│                        │  Day 1 - Feb 12   │
+│                        │  Cienfuegos       │
+│                        │  ─────────────    │
+│        MAP AREA        │  🚌 Bus to        │
+│    (OpenStreetMap)     │  Trinidad (750km) │
+│                        │  ─────────────    │
+│                        │  [Instagram Post] │
+│                        │  ─────────────    │
+│                        │  Day 2 - Feb 13   │
+│                        │                   │
+└────────────────────────┴───────────────────┘
+             ↓ Toggle Edit Mode ↓
+┌────────────────────────────────────────────┐
+│                                            │
+│             EDITING INTERFACE              │
+│                                            │
+└────────────────────────────────────────────┘
+
+Mobile:
+┌────────────────────────┐
+│                        │
+│                        │
+│        MAP AREA        │
+│    (OpenStreetMap)     │
+│                        │
+│                        │
+└────────────────────────┘
+┌────────────────────────┐
+│  Day 1 - Feb 12        │
+│  Cienfuegos            │
+│  ──────────────────    │
+│  🚌 Bus to Trinidad    │
+│  (750km)               │
+│  ──────────────────    │
+│  [Instagram Post]      │
+│  ──────────────────    │
+│  Day 2 - Feb 13        │
+└────────────────────────┘
+      ↓ Edit Mode ↓
+┌────────────────────────┐
+│                        │
+│   EDITING INTERFACE    │
+│                        │
+└────────────────────────┘
+```
+
+### Editing Interface
+- Toggle button to show/hide editing panel
+- Form-based entry creation and editing
+- Drag-and-drop for reordering entries
+- Map point selection interface
+- Sync status indicator (online/offline/syncing)
+- Local drafts management
+- Conflict resolution UI when needed
+
+## 5. Data Model (Updated)
+
+### Travel Journey Data Structure
+```json
+{
+  "journey": {
+    "title": "Cuba Trip 2025",
+    "startDate": "2025-02-12",
+    "endDate": "2025-02-20",
+    "lastSynced": "2025-02-15T14:30:00Z",
+    "syncStatus": "synced",  // "synced", "pending", "conflict"
+    "days": [
+      {
+        "id": "day-2025-02-12",
+        "date": "2025-02-12",
+        "title": "Arriving in Cienfuegos",
+        "locations": [
+          {
+            "id": "loc-123456",
+            "name": "Cienfuegos",
+            "coordinates": [22.1456, -80.4352],
+            "arrivalTime": "10:00",
+            "notes": "Arrived at the central plaza"
+          }
+        ],
+        "instagramPosts": [
+          {
+            "id": "post123456",
+            "url": "https://instagram.com/p/post123456",
+            "offline": false
+          }
+        ],
+        "customNotes": "First day exploring the colonial architecture",
+        "editStatus": "synced"  // "synced", "draft", "modified"
+      },
+      {
+        "id": "day-2025-02-13",
+        "date": "2025-02-13",
+        "title": "Travel to Trinidad",
+        "transportation": {
+          "id": "trans-123456",
+          "type": "bus",
+          "from": "Cienfuegos",
+          "to": "Trinidad",
+          "fromCoordinates": [22.1456, -80.4352],
+          "toCoordinates": [21.8056, -79.9847],
+          "distance": 750,
+          "departureTime": "09:30",
+          "arrivalTime": "11:45"
+        },
+        "locations": [
+          {
+            "id": "loc-789012",
+            "name": "Trinidad",
+            "coordinates": [21.8056, -79.9847],
+            "arrivalTime": "11:45",
+            "notes": "Checked into casa particular"
+          }
+        ],
+        "customNotes": "Beautiful countryside along the route",
+        "editStatus": "draft"  // Created while offline
+      }
+    ]
+  }
+}
+```
+
+### Offline Storage Schema
+```json
+{
+  "journeys": {
+    "current": "journey-123456",
+    "list": ["journey-123456", "journey-789012"]
+  },
+  "pendingUploads": [
+    {
+      "type": "newDay",
+      "journeyId": "journey-123456",
+      "data": { /* day data */ },
+      "timestamp": "2025-02-15T10:30:00Z"
+    },
+    {
+      "type": "modifyLocation",
+      "journeyId": "journey-123456",
+      "dayId": "day-2025-02-13",
+      "locationId": "loc-789012",
+      "data": { /* updated location data */ },
+      "timestamp": "2025-02-15T11:15:00Z"
+    }
+  ],
+  "cachedMapTiles": [
+    {
+      "z": 13,
+      "x": 4956,
+      "y": 6053,
+      "data": "base64-encoded-tile-data",
+      "expires": "2025-02-22T00:00:00Z"
+    }
+  ]
+}
+```
+
+## 6. Implementation Plan (Updated)
+
+### Phase 1: Setup and Core Map Functionality
+- Project scaffolding
+- OSM map integration
+- Basic UI layout
+
+### Phase 2: Route Visualization
+- Data model implementation
+- Route rendering algorithms
+- Transportation type styling
+
+### Phase 3: Timeline Interface
+- Timeline component development
+- Day and event rendering
+- Synchronization with map
+
+### Phase 4: Offline Editing Capability
+- Local storage implementation
+- Service worker setup
+- Offline editing interface
+- Map tile caching
+
+### Phase 5: Synchronization Mechanism
+- Online/offline detection
+- Data synchronization logic
+- Conflict resolution
+
+### Phase 6: Social Media Integration
+- Instagram API connection
+- Embedding posts in timeline
+- Media display optimization
+
+### Phase 7: Responsive Design & Polish
+- Mobile layout optimization
+- Performance improvements
+- Visual refinements
+
+## 7. Technologies to Use (Updated)
+
+### Frontend
+- HTML5, CSS3, JavaScript
+- Framework: React or Vue.js
+- Map Library: Leaflet with OpenStreetMap
+- UI Components: Custom or Material UI/Bootstrap
+- State Management: Redux or Context API
+
+### Map and Routing
+- OpenStreetMap for base map layers
+- Leaflet.js for map rendering
+- Turf.js for geospatial calculations
+
+### Offline Capabilities
+- Service Workers for offline application access
+- IndexedDB for structured data storage
+- LocalForage for simplified storage API
+- Workbox for service worker management
+
+### Data Management
+- JSON for data structure
+- IndexedDB for client-side persistence
+- Optional backend (Firebase/Node.js) for multi-user support
+
+### Synchronization
+- Navigator.online API for connection detection
+- Background Sync API where supported
+- Custom synchronization logic as fallback
+
+### Social Media Integration
+- Instagram Basic Display API
+- oEmbed for Instagram post embedding
+
+## 8. Technical Challenges and Solutions (Updated)
+
+### Challenge: Route Approximation
+**Solution:** Use routing APIs like OSRM or MapBox for land routes, great-circle calculations for air routes, and custom path algorithms for manual routes.
+
+### Challenge: Offline Map Viewing
+**Solution:** Implement tile caching with Leaflet.offline or a custom solution using IndexedDB to store map tiles for regions of interest.
+
+### Challenge: Data Synchronization
+**Solution:** Implement a queue-based synchronization system that tracks changes made offline and applies them in order when connection is restored.
+
+### Challenge: Conflict Resolution
+**Solution:** Create a version control mechanism that detects conflicts between offline changes and server updates, with a user interface for resolving conflicts.
+
+### Challenge: Limited Storage
+**Solution:** Implement storage quotas and management tools, with prioritization of critical data and optional purging of cached map tiles.
+
+### Challenge: Instagram Integration
+**Solution:** Allow creation of placeholder entries while offline that can be linked to actual Instagram posts once online.
+
+### Challenge: Performance with Complex Routes
+**Solution:** Implement route simplification for zoomed-out views, lazy loading of timeline content, and efficient map tile management.
+
+## 9. Offline Editing Interface Details
+
+### Edit Mode Components
+- Day entry creator/editor
+- Location picker integrated with map
+- Transportation details editor
+- Note editor with rich text support
+- Media placeholder manager
+- Sync status dashboard
+
+### Offline Actions
+- Create new day entries
+- Add/edit locations and transportation
+- Create placeholders for Instagram posts
+- Pre-cache map areas for offline viewing
+- Manage pending changes
+
+### Sync Dashboard
+- Connection status indicator
+- Last successful sync timestamp
+- Pending changes counter
+- Manual sync trigger button
+- Conflict resolution access
+
+## 10. Extensions and Future Features
+
+- Trip statistics (total distance, countries visited)
+- Weather data integration
+- Collaborative journey editing
+- Export/share functionality
+- Additional social media platforms
+- Offline map routing
+- End-to-end encryption for private journeys
+- Cross-device synchronization
+
+This updated design document includes comprehensive details for implementing the travel journey visualization website with offline editing capabilities and synchronization functionality.

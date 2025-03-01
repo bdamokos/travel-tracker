@@ -1,0 +1,34 @@
+{
+  "name": "travel-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "date-fns": "^2.30.0",
+    "idb": "^7.1.1",
+    "leaflet": "^1.9.4",
+    "next": "^14.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-leaflet": "^4.2.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.8",
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@types/uuid": "^9.0.7",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.0.4",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3"
+  }
+} 
