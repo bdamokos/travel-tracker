@@ -33,7 +33,7 @@ A single-page web application that visualizes travel journeys on an OpenStreetMa
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/travel-tracker.git
+git clone https://github.com/bdamokos/travel-tracker.git
 cd travel-tracker
 ```
 

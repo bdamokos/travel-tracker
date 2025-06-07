@@ -40,11 +40,21 @@ interface MapProps {
 
 const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) => {
   const mapRef = useRef<L.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [days, setDays] = useState<JourneyDay[]>([]);
+  const [key, setKey] = useState(0);
   
   // Fix Leaflet icons
   useEffect(() => {
     fixLeafletIcons();
+  }, []);
+  
+  // Cleanup effect to handle strict mode double initialization
+  useEffect(() => {
+    return () => {
+      // Force re-render on cleanup to prevent map container reuse
+      setKey(prev => prev + 1);
+    };
   }, []);
   
   // Update days when journey changes
@@ -97,14 +107,15 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     );
   }
   
-  return (
-    <MapContainer
-      className="h-full w-full"
-      center={[20, 0]} // Default center (will be overridden by the fit bounds)
-      zoom={2}
-      scrollWheelZoom={true}
-      ref={mapRef}
-    >
+      return (
+      <MapContainer
+        key={key} // Force re-creation on key change
+        className="h-full w-full"
+        center={[20, 0]} // Default center (will be overridden by the fit bounds)
+        zoom={2}
+        scrollWheelZoom={true}
+        ref={mapRef}
+      >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

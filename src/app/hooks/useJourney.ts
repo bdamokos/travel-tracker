@@ -27,13 +27,19 @@ export const useJourney = (journeyId?: string) => {
 
   // Load journey data
   useEffect(() => {
+    let cancelled = false;
+    
     const loadJourney = async () => {
       try {
+        if (cancelled) return;
+        
         setLoading(true);
         setError(null);
 
         if (journeyId) {
           const loadedJourney = await storageService.getJourney(journeyId);
+          if (cancelled) return;
+          
           if (loadedJourney) {
             setJourney(loadedJourney);
           } else {
@@ -42,6 +48,8 @@ export const useJourney = (journeyId?: string) => {
         } else {
           // If no journey ID provided, load the current journey or the first one
           const journeys = await storageService.getAllJourneys();
+          if (cancelled) return;
+          
           if (journeys && journeys.length > 0) {
             setJourney(journeys[0]);
           } else {
@@ -49,13 +57,20 @@ export const useJourney = (journeyId?: string) => {
           }
         }
       } catch (err) {
+        if (cancelled) return;
         setError(err instanceof Error ? err.message : 'Failed to load journey');
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadJourney();
+    
+    return () => {
+      cancelled = true;
+    };
   }, [journeyId]);
 
   // Create a new journey
@@ -117,12 +132,12 @@ export const useJourney = (journeyId?: string) => {
 
       const updatedDayData = {
         ...dayData,
-        editStatus: isOnline ? 'synced' : 'modified',
+        editStatus: isOnline ? 'synced' as const : 'modified' as const,
       };
 
       const updatedJourney = await storageService.updateDay(journey.id, dayId, updatedDayData);
       setJourney(updatedJourney);
-      return updatedJourney.days.find(day => day.id === dayId);
+      return updatedJourney.days.find((day: JourneyDay) => day.id === dayId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update day');
       throw err;
@@ -136,7 +151,7 @@ export const useJourney = (journeyId?: string) => {
         throw new Error('No journey loaded');
       }
 
-      const day = journey.days.find(d => d.id === dayId);
+      const day = journey.days.find((d: JourneyDay) => d.id === dayId);
       if (!day) {
         throw new Error(`Day with ID ${dayId} not found`);
       }
@@ -153,7 +168,7 @@ export const useJourney = (journeyId?: string) => {
       const updatedDay = {
         ...day,
         locations: updatedLocations,
-        editStatus: isOnline ? 'synced' : 'modified',
+        editStatus: isOnline ? 'synced' as const : 'modified' as const,
       };
 
       const updatedJourney = await storageService.updateDay(journey.id, dayId, updatedDay);
@@ -172,7 +187,7 @@ export const useJourney = (journeyId?: string) => {
         throw new Error('No journey loaded');
       }
 
-      const day = journey.days.find(d => d.id === dayId);
+      const day = journey.days.find((d: JourneyDay) => d.id === dayId);
       if (!day) {
         throw new Error(`Day with ID ${dayId} not found`);
       }
@@ -192,7 +207,7 @@ export const useJourney = (journeyId?: string) => {
       const updatedDay = {
         ...day,
         transportation: newTransportation,
-        editStatus: isOnline ? 'synced' : 'modified',
+        editStatus: isOnline ? 'synced' as const : 'modified' as const,
       };
 
       const updatedJourney = await storageService.updateDay(journey.id, dayId, updatedDay);
@@ -211,7 +226,7 @@ export const useJourney = (journeyId?: string) => {
         throw new Error('No journey loaded');
       }
 
-      const day = journey.days.find(d => d.id === dayId);
+      const day = journey.days.find((d: JourneyDay) => d.id === dayId);
       if (!day) {
         throw new Error(`Day with ID ${dayId} not found`);
       }
@@ -226,7 +241,7 @@ export const useJourney = (journeyId?: string) => {
       const updatedDay = {
         ...day,
         instagramPosts: updatedPosts,
-        editStatus: isOnline ? 'synced' : 'modified',
+        editStatus: isOnline ? 'synced' as const : 'modified' as const,
       };
 
       const updatedJourney = await storageService.updateDay(journey.id, dayId, updatedDay);
@@ -252,11 +267,11 @@ export const useJourney = (journeyId?: string) => {
       if (journey) {
         const updatedJourney = {
           ...journey,
-          syncStatus: 'synced',
+          syncStatus: 'synced' as const,
           lastSynced: new Date().toISOString(),
           days: journey.days.map(day => ({
             ...day,
-            editStatus: 'synced',
+            editStatus: 'synced' as const,
           })),
         };
 

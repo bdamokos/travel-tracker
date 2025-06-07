@@ -9,9 +9,10 @@ interface TimelineProps {
   journey: Journey | null;
   selectedDayId?: string;
   onDaySelect: (dayId: string) => void;
+  onAddDay: () => void;
 }
 
-const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect }) => {
+const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect, onAddDay }) => {
   const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
   
   const toggleDay = (dayId: string) => {
@@ -31,9 +32,12 @@ const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect
     return (
       <div className="h-full flex items-center justify-center bg-white">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">No days added to this journey yet</p>
-          <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-            Add First Day
+          <p className="text-gray-500 mb-4">No travel periods added to this journey yet</p>
+          <button 
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={onAddDay}
+          >
+            Add First Period
           </button>
         </div>
       </div>

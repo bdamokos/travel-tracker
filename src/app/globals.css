@@ -23,6 +23,18 @@ body {
   width: 100%;
   height: 100%;
   min-height: 400px;
+  /* Set a reasonable z-index that won't interfere with our UI components */
+  z-index: 10;
+}
+
+/* Set z-index for Leaflet popups that should appear over the map but below our modals */
+.leaflet-popup {
+  z-index: 20;
+}
+
+/* All leaflet controls should be accessible but below our modals */
+.leaflet-control {
+  z-index: 20;
 }
 
 /* Custom styles for our components */

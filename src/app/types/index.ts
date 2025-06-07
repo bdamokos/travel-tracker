@@ -8,17 +8,17 @@ export type Location = {
 };
 
 // Transportation type for route segments
-export type Transportation = {
+export interface Transportation {
   id: string;
-  type: 'walk' | 'bus' | 'train' | 'plane' | 'car' | 'ferry' | 'bike' | 'other';
+  type: 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other';
   from: string;
   to: string;
-  fromCoordinates: [number, number];
-  toCoordinates: [number, number];
-  distance?: number;
   departureTime?: string;
   arrivalTime?: string;
-};
+  distance?: number; // Distance in kilometers
+  fromCoordinates?: [number, number]; // [latitude, longitude]
+  toCoordinates?: [number, number]; // [latitude, longitude]
+}
 
 // Instagram post reference
 export type InstagramPost = {
@@ -27,10 +27,11 @@ export type InstagramPost = {
   offline: boolean;
 };
 
-// Single day of a journey
-export type JourneyDay = {
+// Single travel period (could be a day, part of a day, or multiple days)
+export type JourneyPeriod = {
   id: string;
-  date: string;
+  date: string;        // Primary date for the period
+  endDate?: string;    // Optional end date if period spans multiple days
   title: string;
   locations: Location[];
   transportation?: Transportation;
@@ -38,6 +39,9 @@ export type JourneyDay = {
   customNotes?: string;
   editStatus: 'synced' | 'draft' | 'modified';
 };
+
+// For backward compatibility
+export type JourneyDay = JourneyPeriod;
 
 // Complete journey data structure
 export type Journey = {
@@ -47,7 +51,7 @@ export type Journey = {
   endDate?: string;
   lastSynced?: string;
   syncStatus: 'synced' | 'pending' | 'conflict';
-  days: JourneyDay[];
+  days: JourneyPeriod[];  // Still called "days" for API compatibility, but contains periods
 };
 
 // Offline storage schema
@@ -62,9 +66,9 @@ export type OfflineStorage = {
 
 export type PendingUpload = {
   id: string;
-  type: 'newDay' | 'modifyDay' | 'modifyLocation' | 'deleteDay' | 'deleteLocation';
+  type: 'newPeriod' | 'modifyPeriod' | 'modifyLocation' | 'deletePeriod' | 'deleteLocation';
   journeyId: string;
-  dayId?: string;
+  periodId?: string;
   locationId?: string;
   data: any;
   timestamp: string;
