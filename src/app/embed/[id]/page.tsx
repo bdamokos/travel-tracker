@@ -9,18 +9,33 @@ interface TravelData {
   startDate: string;
   endDate: string;
   locations: Array<{
+    id: string;
     name: string;
     coordinates: [number, number];
     date: string;
     notes?: string;
+    instagramPosts?: Array<{
+      id: string;
+      url: string;
+      caption?: string;
+    }>;
+    blogPosts?: Array<{
+      id: string;
+      title: string;
+      url: string;
+      excerpt?: string;
+    }>;
   }>;
   routes: Array<{
+    id: string;
     from: string;
     to: string;
     fromCoords: [number, number];
     toCoords: [number, number];
     transportType: string;
     date: string;
+    duration?: string;
+    notes?: string;
   }>;
   createdAt: string;
 }

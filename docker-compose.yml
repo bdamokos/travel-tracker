@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  travel-tracker-admin:
+    build: .
+    ports:
+      - "3001:3000"
+    volumes:
+      - travel-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_MODE=admin
+    restart: unless-stopped
+    
+  travel-tracker-embed:
+    build: .
+    ports:
+      - "3002:3000"
+    volumes:
+      - travel-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_MODE=embed
+    restart: unless-stopped
+
+volumes:
+  travel-data:
+    driver: local 

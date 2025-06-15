@@ -123,6 +123,11 @@ export const generateRoutePoints = (
 ): [number, number][] => {
   const { type, fromCoordinates, toCoordinates } = transportation;
   
+  // Handle case where coordinates are undefined
+  if (!fromCoordinates || !toCoordinates) {
+    return [];
+  }
+  
   switch (type) {
     case 'plane':
     case 'ferry':

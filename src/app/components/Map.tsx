@@ -13,7 +13,8 @@ const fixLeafletIcons = () => {
   if (typeof window === 'undefined') return;
   
   // Fix leaflet's default icon paths
-  delete L.Icon.Default.prototype._getIconUrl;
+  // Use type assertion to handle TypeScript issues with Leaflet internals
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
   
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: '/images/marker-icon-2x.png',
@@ -87,8 +88,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       });
       
       if (day.transportation) {
-        allLocations.push(day.transportation.fromCoordinates);
-        allLocations.push(day.transportation.toCoordinates);
+        if (day.transportation.fromCoordinates) {
+          allLocations.push(day.transportation.fromCoordinates);
+        }
+        if (day.transportation.toCoordinates) {
+          allLocations.push(day.transportation.toCoordinates);
+        }
       }
     });
     

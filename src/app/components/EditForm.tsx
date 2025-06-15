@@ -332,8 +332,8 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       ...prev,
       locations: [...(prev.locations || []), { 
         id: `temp-${Date.now()}`,
-        name: newLocation.name,
-        coordinates: newLocation.coordinates || [0, 0],
+        name: newLocation.name!,  // Use non-null assertion since we've checked above
+        coordinates: newLocation.coordinates || [0, 0] as [number, number],
         arrivalTime: newLocation.arrivalTime,
         notes: newLocation.notes,
       }]
@@ -356,10 +356,10 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       transportation: {
         id: `temp-${Date.now()}`,
         type: newTransportation.type || 'other',
-        from: newTransportation.from,
-        to: newTransportation.to,
-        fromCoordinates: newTransportation.fromCoordinates || [0, 0],
-        toCoordinates: newTransportation.toCoordinates || [0, 0],
+        from: newTransportation.from!,  // Use non-null assertion since we've checked above
+        to: newTransportation.to!,      // Use non-null assertion since we've checked above
+        fromCoordinates: newTransportation.fromCoordinates || [0, 0] as [number, number],
+        toCoordinates: newTransportation.toCoordinates || [0, 0] as [number, number],
         distance: newTransportation.distance,
         departureTime: newTransportation.departureTime,
         arrivalTime: newTransportation.arrivalTime,
@@ -386,7 +386,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       ...prev,
       instagramPosts: [...(prev.instagramPosts || []), {
         id: `temp-${Date.now()}`,
-        url: newPost.url,
+        url: newPost.url!,  // Use non-null assertion since we've checked above
         offline: newPost.offline || false,
       }]
     }));
