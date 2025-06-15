@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { JourneyDay, Location, Transportation, InstagramPost } from '../types';
+import { JourneyDay, Location, Transportation, InstagramPost, BlogPost } from '../types';
 import { 
   geocodeLocation, 
   reverseGeocode,
@@ -32,6 +32,8 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     coordinates: [0, 0],
     arrivalTime: '',
     notes: '',
+    instagramPosts: [],
+    blogPosts: [],
   });
   
   const [newTransportation, setNewTransportation] = useState<Partial<Transportation>>({
@@ -50,7 +52,15 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     offline: false,
   });
   
-  const [activeTab, setActiveTab] = useState<'basic' | 'location' | 'transport' | 'instagram'>('basic');
+  const [newBlogPost, setNewBlogPost] = useState<Partial<BlogPost>>({
+    title: '',
+    url: '',
+    offline: false,
+  });
+  
+  const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<number>(-1);
+  
+  const [activeTab, setActiveTab] = useState<'basic' | 'location' | 'transport' | 'instagram' | 'blog'>('basic');
   const [geoLocationStatus, setGeoLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [geoLocationError, setGeoLocationError] = useState<string>('');
   
@@ -97,6 +107,14 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   const handlePostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setNewPost(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value 
+    }));
+  };
+  
+  const handleBlogPostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setNewBlogPost(prev => ({ 
       ...prev, 
       [name]: type === 'checkbox' ? checked : value 
     }));
@@ -336,6 +354,8 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
         coordinates: newLocation.coordinates || [0, 0] as [number, number],
         arrivalTime: newLocation.arrivalTime,
         notes: newLocation.notes,
+        instagramPosts: newLocation.instagramPosts || [],
+        blogPosts: newLocation.blogPosts || [],
       }]
     }));
     
@@ -345,6 +365,8 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       coordinates: [0, 0],
       arrivalTime: '',
       notes: '',
+      instagramPosts: [],
+      blogPosts: [],
     });
   };
   
@@ -418,6 +440,92 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       instagramPosts: prev.instagramPosts?.filter((_, i) => i !== index),
     }));
   };
+
+  const addInstagramPostToLocation = (locationIndex: number) => {
+    if (!newPost.url || locationIndex < 0) return;
+    
+    setFormData(prev => {
+      const updatedLocations = [...(prev.locations || [])];
+      if (updatedLocations[locationIndex]) {
+        updatedLocations[locationIndex] = {
+          ...updatedLocations[locationIndex],
+          instagramPosts: [
+            ...(updatedLocations[locationIndex].instagramPosts || []),
+            {
+              id: `temp-${Date.now()}`,
+              url: newPost.url!,
+              offline: newPost.offline || false,
+            }
+          ]
+        };
+      }
+      return { ...prev, locations: updatedLocations };
+    });
+    
+    // Reset the form
+    setNewPost({
+      url: '',
+      offline: false,
+    });
+    setSelectedLocationForPosts(-1);
+  };
+
+  const addBlogPostToLocation = (locationIndex: number) => {
+    if (!newBlogPost.title || !newBlogPost.url || locationIndex < 0) return;
+    
+    setFormData(prev => {
+      const updatedLocations = [...(prev.locations || [])];
+      if (updatedLocations[locationIndex]) {
+        updatedLocations[locationIndex] = {
+          ...updatedLocations[locationIndex],
+          blogPosts: [
+            ...(updatedLocations[locationIndex].blogPosts || []),
+            {
+              id: `temp-${Date.now()}`,
+              title: newBlogPost.title!,
+              url: newBlogPost.url!,
+              offline: newBlogPost.offline || false,
+            }
+          ]
+        };
+      }
+      return { ...prev, locations: updatedLocations };
+    });
+    
+    // Reset the form
+    setNewBlogPost({
+      title: '',
+      url: '',
+      offline: false,
+    });
+    setSelectedLocationForPosts(-1);
+  };
+
+  const removeInstagramPostFromLocation = (locationIndex: number, postIndex: number) => {
+    setFormData(prev => {
+      const updatedLocations = [...(prev.locations || [])];
+      if (updatedLocations[locationIndex]) {
+        updatedLocations[locationIndex] = {
+          ...updatedLocations[locationIndex],
+          instagramPosts: updatedLocations[locationIndex].instagramPosts?.filter((_, i) => i !== postIndex) || []
+        };
+      }
+      return { ...prev, locations: updatedLocations };
+    });
+  };
+
+  const removeBlogPostFromLocation = (locationIndex: number, postIndex: number) => {
+    setFormData(prev => {
+      const updatedLocations = [...(prev.locations || [])];
+      if (updatedLocations[locationIndex]) {
+        updatedLocations[locationIndex] = {
+          ...updatedLocations[locationIndex],
+          blogPosts: updatedLocations[locationIndex].blogPosts?.filter((_, i) => i !== postIndex) || []
+        };
+      }
+      return { ...prev, locations: updatedLocations };
+    });
+  };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -473,6 +581,17 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
             }`}
           >
             Instagram
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('blog')}
+            className={`pb-2 px-1 ${
+              activeTab === 'blog'
+                ? 'border-b-2 border-blue-500 text-blue-500'
+                : 'text-gray-500'
+            }`}
+          >
+            Blog Posts
           </button>
         </div>
       </div>
@@ -685,6 +804,24 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                       )}
                       {location.notes && (
                         <p className="text-sm mt-1">{location.notes}</p>
+                      )}
+                      
+                      {/* Show attached posts count */}
+                      {(location.blogPosts?.length || location.instagramPosts?.length) && (
+                        <div className="mt-2 pt-2 border-t text-xs text-gray-500">
+                          <div className="flex space-x-4">
+                            {location.blogPosts && location.blogPosts.length > 0 && (
+                              <span className="text-green-600">
+                                📝 {location.blogPosts.length} blog post{location.blogPosts.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {location.instagramPosts && location.instagramPosts.length > 0 && (
+                              <span className="text-blue-600">
+                                📸 {location.instagramPosts.length} Instagram post{location.instagramPosts.length > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1025,6 +1162,225 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Blog Posts Tab */}
+        {activeTab === 'blog' && (
+          <div>
+            {/* Add Blog Post to Specific Location */}
+            {formData.locations && formData.locations.length > 0 && (
+              <div className="mb-6">
+                <h3 className="font-medium mb-2">Add Blog Post to Location</h3>
+                <div className="mb-3">
+                  <label htmlFor="locationSelect" className="block mb-1">
+                    Select Location
+                  </label>
+                  <select
+                    id="locationSelect"
+                    value={selectedLocationForPosts}
+                    onChange={(e) => setSelectedLocationForPosts(parseInt(e.target.value))}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value={-1}>Choose a location...</option>
+                    {formData.locations.map((location, index) => (
+                      <option key={location.id} value={index}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {selectedLocationForPosts >= 0 && (
+                  <div className="border p-4 rounded bg-gray-50">
+                    <h4 className="font-medium mb-3">Add Blog Post to {formData.locations[selectedLocationForPosts]?.name}</h4>
+                    
+                    <div className="mb-3">
+                      <label htmlFor="blogTitle" className="block mb-1">
+                        Blog Post Title
+                      </label>
+                      <input
+                        type="text"
+                        id="blogTitle"
+                        name="title"
+                        value={newBlogPost.title}
+                        onChange={handleBlogPostChange}
+                        className="w-full p-2 border rounded"
+                        placeholder="Enter blog post title"
+                      />
+                    </div>
+                    
+                    <div className="mb-3">
+                      <label htmlFor="blogUrl" className="block mb-1">
+                        Blog Post URL
+                      </label>
+                      <input
+                        type="url"
+                        id="blogUrl"
+                        name="url"
+                        value={newBlogPost.url}
+                        onChange={handleBlogPostChange}
+                        className="w-full p-2 border rounded"
+                        placeholder="https://yourblog.com/post/..."
+                      />
+                    </div>
+                    
+                    <div className="mb-3">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          name="offline"
+                          checked={newBlogPost.offline}
+                          onChange={handleBlogPostChange}
+                          className="mr-2"
+                        />
+                        Save as offline (will be uploaded later)
+                      </label>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => addBlogPostToLocation(selectedLocationForPosts)}
+                        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                        disabled={!newBlogPost.title || !newBlogPost.url}
+                      >
+                        Add Blog Post
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addInstagramPostToLocation(selectedLocationForPosts)}
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        disabled={!newPost.url}
+                      >
+                        Add Instagram Post
+                      </button>
+                    </div>
+                    
+                    {/* Quick Instagram Post Form */}
+                    <div className="mt-4 pt-4 border-t">
+                      <h5 className="font-medium mb-2">Or add Instagram Post:</h5>
+                      <div className="flex space-x-2">
+                        <input
+                          type="url"
+                          name="url"
+                          value={newPost.url}
+                          onChange={handlePostChange}
+                          className="flex-1 p-2 border rounded"
+                          placeholder="https://www.instagram.com/p/..."
+                        />
+                        <label className="flex items-center whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            name="offline"
+                            checked={newPost.offline}
+                            onChange={handlePostChange}
+                            className="mr-1"
+                          />
+                          Offline
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Display Current Location Posts */}
+            {formData.locations && formData.locations.length > 0 && (
+              <div>
+                <h3 className="font-medium mb-2">Location Posts</h3>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {formData.locations.map((location, locationIndex) => (
+                    <div key={location.id} className="border p-4 rounded">
+                      <h4 className="font-medium mb-2">{location.name}</h4>
+                      
+                      {/* Blog Posts for this location */}
+                      {location.blogPosts && location.blogPosts.length > 0 && (
+                        <div className="mb-3">
+                          <h5 className="text-sm font-medium text-green-700 mb-1">Blog Posts:</h5>
+                          <div className="space-y-2">
+                            {location.blogPosts.map((post, postIndex) => (
+                              <div key={post.id} className="flex justify-between items-center bg-green-50 p-2 rounded">
+                                <div>
+                                  <a
+                                    href={post.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-green-600 hover:underline font-medium"
+                                  >
+                                    {post.title}
+                                  </a>
+                                  {post.offline && (
+                                    <span className="text-xs text-amber-600 ml-2">
+                                      (Offline)
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeBlogPostFromLocation(locationIndex, postIndex)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Instagram Posts for this location */}
+                      {location.instagramPosts && location.instagramPosts.length > 0 && (
+                        <div>
+                          <h5 className="text-sm font-medium text-blue-700 mb-1">Instagram Posts:</h5>
+                          <div className="space-y-2">
+                            {location.instagramPosts.map((post, postIndex) => (
+                              <div key={post.id} className="flex justify-between items-center bg-blue-50 p-2 rounded">
+                                <div>
+                                  <a
+                                    href={post.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline"
+                                  >
+                                    {post.url.length > 50 ? `${post.url.substring(0, 50)}...` : post.url}
+                                  </a>
+                                  {post.offline && (
+                                    <span className="text-xs text-amber-600 ml-2">
+                                      (Offline)
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeInstagramPostFromLocation(locationIndex, postIndex)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(!location.blogPosts || location.blogPosts.length === 0) && 
+                       (!location.instagramPosts || location.instagramPosts.length === 0) && (
+                        <p className="text-gray-500 text-sm">No posts attached to this location yet.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {(!formData.locations || formData.locations.length === 0) && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Add locations first to attach blog posts and Instagram posts to them.</p>
+                <p className="text-sm mt-1">Go to the "Locations" tab to add your first location.</p>
               </div>
             )}
           </div>

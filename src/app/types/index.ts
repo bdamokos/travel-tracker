@@ -1,3 +1,11 @@
+// Blog post reference
+export type BlogPost = {
+  id: string;
+  title: string;
+  url: string;
+  offline: boolean;
+};
+
 // Location type for storing geographical coordinates and related information
 export type Location = {
   id: string;
@@ -5,6 +13,8 @@ export type Location = {
   coordinates: [number, number]; // [latitude, longitude]
   arrivalTime?: string;
   notes?: string;
+  instagramPosts?: InstagramPost[];
+  blogPosts?: BlogPost[];
 };
 
 // Transportation type for route segments

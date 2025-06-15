@@ -178,7 +178,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 }}
               >
                 <Popup>
-                  <div className="p-2">
+                  <div className="p-2 max-w-xs">
                     <h4 className="font-bold">{location.name}</h4>
                     {location.arrivalTime && (
                       <p className="text-sm">Arrived at: {location.arrivalTime}</p>
@@ -186,6 +186,68 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                     <p className="text-sm">Date: {new Date(day.date).toLocaleDateString()}</p>
                     {location.notes && (
                       <p className="text-sm mt-1">{location.notes}</p>
+                    )}
+                    
+                    {/* Display Blog Posts */}
+                    {location.blogPosts && location.blogPosts.length > 0 && (
+                      <div className="mt-3 pt-2 border-t">
+                        <h5 className="text-sm font-semibold text-green-700 mb-1">📝 Blog Posts:</h5>
+                        <div className="space-y-1">
+                          {location.blogPosts.map((post, index) => (
+                            <div key={post.id || index}>
+                              <a
+                                href={post.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:text-green-800 text-sm font-medium underline block"
+                                title={post.title}
+                              >
+                                {post.title.length > 30 ? `${post.title.substring(0, 30)}...` : post.title}
+                              </a>
+                              {post.offline && (
+                                <span className="text-xs text-amber-600">(Offline)</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Display Instagram Posts */}
+                    {location.instagramPosts && location.instagramPosts.length > 0 && (
+                      <div className="mt-3 pt-2 border-t">
+                        <h5 className="text-sm font-semibold text-blue-700 mb-1">📸 Instagram:</h5>
+                        <div className="space-y-1">
+                          {location.instagramPosts.map((post, index) => (
+                            <div key={post.id || index}>
+                              <a
+                                href={post.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm underline block"
+                                title={post.url}
+                              >
+                                View Post {location.instagramPosts!.length > 1 ? `#${index + 1}` : ''}
+                              </a>
+                              {post.offline && (
+                                <span className="text-xs text-amber-600">(Offline)</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show post count summary */}
+                    {(location.blogPosts?.length || location.instagramPosts?.length) && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        {location.blogPosts?.length && (
+                          <span className="mr-2">📝 {location.blogPosts.length}</span>
+                        )}
+                        {location.instagramPosts?.length && (
+                          <span>📸 {location.instagramPosts.length}</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </Popup>
