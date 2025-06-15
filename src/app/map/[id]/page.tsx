@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 
 interface TravelData {
@@ -58,8 +59,7 @@ async function getTravelData(id: string): Promise<TravelData | null> {
     }
     
     // Use fetch for client-side requests
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                   (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
     
     const response = await fetch(`${baseUrl}/api/travel-data?id=${id}`, {
       cache: 'no-store' // Always fetch fresh data
@@ -148,7 +148,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
             Use this iframe code to embed the map in your blog:
           </p>
           <code className="block bg-white p-3 rounded border text-xs font-mono break-all">
-            {`<iframe src="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/embed/${travelData.id}" width="100%" height="600" frameborder="0"></iframe>`}
+            {`<iframe src="${getEmbedUrl(travelData.id)}" width="100%" height="600" frameborder="0"></iframe>`}
           </code>
         </div>
       </div>

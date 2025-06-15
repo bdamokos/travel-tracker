@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getClientDomainConfig } from '../../lib/domains';
 
 interface TravelLocation {
   id: string;
@@ -350,8 +351,9 @@ export default function TravelDataForm() {
       
       if (response.ok) {
         const result = await response.json();
-        // Redirect to the generated map page
-        router.push(`/map/${result.id}`);
+        // Redirect to the generated map page on the public domain
+        const domainConfig = getClientDomainConfig();
+        window.open(`${domainConfig.embedDomain}/map/${result.id}`, '_blank');
       } else {
         alert('Error saving map');
       }
@@ -465,7 +467,10 @@ export default function TravelDataForm() {
                     Edit
                   </button>
                   <button
-                    onClick={() => router.push(`/map/${trip.id}`)}
+                    onClick={() => {
+                      const domainConfig = getClientDomainConfig();
+                      window.open(`${domainConfig.embedDomain}/map/${trip.id}`, '_blank');
+                    }}
                     className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600"
                   >
                     View

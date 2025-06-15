@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getMapUrl } from '../../lib/domains';
 import EmbeddableMap from '../../map/[id]/components/EmbeddableMap';
 
 interface TravelData {
@@ -58,8 +59,7 @@ async function getTravelData(id: string): Promise<TravelData | null> {
     }
     
     // Use fetch for client-side requests
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                   (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
     
     const response = await fetch(`${baseUrl}/api/travel-data?id=${id}`, {
       cache: 'no-store'
@@ -169,7 +169,7 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
         <div className="map-container">
           <EmbeddableMap travelData={travelData} />
           <div className="attribution">
-            <a href={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/map/${travelData.id}`} target="_blank" rel="noopener">
+            <a href={getMapUrl(travelData.id)} target="_blank" rel="noopener">
               View full map
             </a>
           </div>

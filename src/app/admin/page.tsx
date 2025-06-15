@@ -1,4 +1,6 @@
 import { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { isAdminDomain } from '../lib/server-domains';
 import TravelDataForm from './components/TravelDataForm';
 
 export const metadata: Metadata = {
@@ -6,7 +8,15 @@ export const metadata: Metadata = {
   description: 'Admin interface for inputting travel journey data',
 };
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  // Check if we're on an admin domain
+  const isAdmin = await isAdminDomain();
+  
+  if (!isAdmin) {
+    // If not on admin domain, redirect to the public maps page
+    redirect('/maps');
+  }
+  
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
