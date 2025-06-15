@@ -911,6 +911,65 @@ export default function TravelDataForm() {
                 placeholder="Flight details, delays, etc."
               />
             </div>
+            
+            {/* From Coordinates */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Coordinates</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  value={currentRoute.fromCoords?.[0] || 0}
+                  onChange={(e) => setCurrentRoute(prev => ({ 
+                    ...prev, 
+                    fromCoords: [parseFloat(e.target.value) || 0, prev.fromCoords?.[1] || 0]
+                  }))}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Latitude"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  value={currentRoute.fromCoords?.[1] || 0}
+                  onChange={(e) => setCurrentRoute(prev => ({ 
+                    ...prev, 
+                    fromCoords: [prev.fromCoords?.[0] || 0, parseFloat(e.target.value) || 0]
+                  }))}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Longitude"
+                />
+              </div>
+            </div>
+            
+            {/* To Coordinates */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Coordinates</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  value={currentRoute.toCoords?.[0] || 0}
+                  onChange={(e) => setCurrentRoute(prev => ({ 
+                    ...prev, 
+                    toCoords: [parseFloat(e.target.value) || 0, prev.toCoords?.[1] || 0]
+                  }))}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Latitude"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  value={currentRoute.toCoords?.[1] || 0}
+                  onChange={(e) => setCurrentRoute(prev => ({ 
+                    ...prev, 
+                    toCoords: [prev.toCoords?.[0] || 0, parseFloat(e.target.value) || 0]
+                  }))}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Longitude"
+                />
+              </div>
+            </div>
+            
             <div className="md:col-span-2 flex gap-2">
               <button
                 type="button"
@@ -967,6 +1026,10 @@ export default function TravelDataForm() {
                     <div className="text-sm text-gray-500">
                       {new Date(route.date).toLocaleDateString()}
                       {route.duration && ` • ${route.duration}`}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      From: [{route.fromCoords[0].toFixed(4)}, {route.fromCoords[1].toFixed(4)}] → 
+                      To: [{route.toCoords[0].toFixed(4)}, {route.toCoords[1].toFixed(4)}]
                     </div>
                     {route.notes && (
                       <p className="text-sm text-gray-600 mt-1">{route.notes}</p>
