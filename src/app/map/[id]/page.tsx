@@ -135,6 +135,54 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
                   {location.notes && (
                     <p className="text-sm text-gray-600">{location.notes}</p>
                   )}
+                  
+                  {/* Display Blog Posts */}
+                  {location.blogPosts && location.blogPosts.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="space-y-2">
+                        {location.blogPosts.map((post, postIndex) => (
+                          <div key={post.id || postIndex}>
+                            <a
+                              href={post.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:text-green-800 text-sm font-medium underline block"
+                              title={post.title}
+                            >
+                              📝 {post.title}
+                            </a>
+                            {post.excerpt && (
+                              <p className="text-xs text-gray-600 mt-1">{post.excerpt}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Display Instagram Posts */}
+                  {location.instagramPosts && location.instagramPosts.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="space-y-2">
+                        {location.instagramPosts.map((post, postIndex) => (
+                          <div key={post.id || postIndex}>
+                            <a
+                              href={post.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm underline block"
+                              title={post.caption || post.url}
+                            >
+                              📸 Instagram Post
+                            </a>
+                            {post.caption && (
+                              <p className="text-xs text-gray-600 mt-1">{post.caption}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
