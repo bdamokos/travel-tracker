@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Journey, JourneyDay, Transportation } from '../types';
+import { Journey, JourneyDay, Transportation, BlogPost } from '../types';
 import { transportationColors } from '../lib/routeUtils';
 
 interface TimelineProps {
@@ -124,6 +124,56 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
                       )}
                       {location.notes && (
                         <div className="text-sm mt-1 text-gray-600">{location.notes}</div>
+                      )}
+                      
+                      {/* Display Blog Posts */}
+                      {location.blogPosts && location.blogPosts.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs font-semibold text-green-700 mb-1">📝 Blog Posts:</div>
+                          <div className="space-y-1">
+                            {location.blogPosts.map((post, index) => (
+                              <div key={post.id || index}>
+                                <a
+                                  href={post.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-green-600 hover:text-green-800 text-xs underline block"
+                                  title={post.title}
+                                >
+                                  {post.title.length > 40 ? `${post.title.substring(0, 40)}...` : post.title}
+                                </a>
+                                {post.offline && (
+                                  <span className="text-xs text-amber-600">(Offline)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Display Instagram Posts */}
+                      {location.instagramPosts && location.instagramPosts.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs font-semibold text-blue-700 mb-1">📸 Instagram:</div>
+                          <div className="space-y-1">
+                            {location.instagramPosts.map((post, index) => (
+                              <div key={post.id || index}>
+                                <a
+                                  href={post.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 text-xs underline block"
+                                  title={post.url}
+                                >
+                                  View Post {location.instagramPosts!.length > 1 ? `#${index + 1}` : ''}
+                                </a>
+                                {post.offline && (
+                                  <span className="text-xs text-amber-600">(Offline)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>

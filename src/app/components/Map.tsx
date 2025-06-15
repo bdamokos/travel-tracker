@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Journey, JourneyDay, Location, Transportation } from '../types';
+import { Journey, JourneyDay, Location, Transportation, BlogPost } from '../types';
 import { generateRoutePoints, getRouteStyle, transportationColors } from '../lib/routeUtils';
 import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
 
