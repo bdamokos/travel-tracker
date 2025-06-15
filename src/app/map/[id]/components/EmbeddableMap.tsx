@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
+import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
 
 interface TravelData {
   id: string;
@@ -53,6 +54,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<any>(null);
+  const [highlightedIcon, setHighlightedIcon] = useState<any>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -71,7 +73,27 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           shadowUrl: '/images/marker-shadow.png',
         });
         
+        // Create highlighted marker icon using divIcon approach
+        const customHighlightedIcon = leaflet.default.divIcon({
+          className: 'custom-highlighted-marker',
+          html: `
+            <div style="
+              width: 25px; 
+              height: 41px; 
+              background-image: url('/images/marker-icon.png'); 
+              background-size: contain; 
+              background-repeat: no-repeat;
+              filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
+              animation: pulse-marker 2s infinite;
+            "></div>
+          `,
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34]
+        });
+        
         setL(leaflet.default);
+        setHighlightedIcon(customHighlightedIcon);
       } catch (error) {
         console.error('Error loading Leaflet:', error);
       }
@@ -81,7 +103,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   }, []);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !L || !isClient) return;
+    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
 
     // Create map
     const map = L.map(containerRef.current, {
@@ -99,6 +121,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     // Add markers for locations
     const markers: any[] = [];
+    
+    // Find the location closest to current date
+    const closestLocation = findClosestLocationToCurrentDate(travelData.locations);
     
     travelData.locations.forEach((location, index) => {
       // Build popup content with posts
@@ -146,7 +171,16 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       
       popupContent += '</div>';
       
-      const marker = L.marker(location.coordinates)
+      // Determine if this location should be highlighted
+      const isHighlighted = closestLocation?.id === location.id;
+      
+      // Create marker with proper icon handling
+      const markerOptions: any = {};
+      if (isHighlighted && highlightedIcon) {
+        markerOptions.icon = highlightedIcon;
+      }
+      
+      const marker = L.marker(location.coordinates, markerOptions)
         .addTo(map)
         .bindPopup(popupContent);
       
@@ -186,7 +220,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient]);
+  }, [travelData, L, isClient, highlightedIcon]);
 
   const getTransportColor = (transportType: string): string => {
     const colors: Record<string, string> = {

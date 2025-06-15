@@ -44,6 +44,27 @@ body {
   justify-content: center;
 }
 
+/* Custom highlighted marker styling */
+.custom-highlighted-marker {
+  z-index: 1000;
+}
+
+.custom-highlighted-marker div {
+  animation: pulse-marker 2s infinite;
+}
+
+@keyframes pulse-marker {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .flex-col-mobile {

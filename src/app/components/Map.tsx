@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location, Transportation } from '../types';
 import { generateRoutePoints, getRouteStyle, transportationColors } from '../lib/routeUtils';
+import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
 
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {
@@ -20,6 +21,27 @@ const fixLeafletIcons = () => {
     iconRetinaUrl: '/images/marker-icon-2x.png',
     iconUrl: '/images/marker-icon.png',
     shadowUrl: '/images/marker-shadow.png',
+  });
+};
+
+// Create highlighted marker icon
+const createHighlightedIcon = () => {
+  return L.divIcon({
+    className: 'custom-highlighted-marker',
+    html: `
+      <div style="
+        width: 25px; 
+        height: 41px; 
+        background-image: url('/images/marker-icon.png'); 
+        background-size: contain; 
+        background-repeat: no-repeat;
+        filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
+        animation: pulse-marker 2s infinite;
+      "></div>
+    `,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
   });
 };
 
@@ -127,29 +149,51 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       />
       
       {/* Render locations */}
-      {days.flatMap(day => 
-        day.locations.map(location => (
-          <Marker 
-            key={location.id} 
-            position={location.coordinates}
-            eventHandlers={{
-              click: () => onLocationClick && onLocationClick(location)
-            }}
-          >
-            <Popup>
-              <div className="p-2">
-                <h4 className="font-bold">{location.name}</h4>
-                {location.arrivalTime && (
-                  <p className="text-sm">Arrived at: {location.arrivalTime}</p>
-                )}
-                {location.notes && (
-                  <p className="text-sm mt-1">{location.notes}</p>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))
-      )}
+      {(() => {
+        // Get all locations with dates for comparison
+        const allLocations = days.flatMap(day => 
+          day.locations.map(location => ({
+            ...location,
+            date: day.date || new Date().toISOString().split('T')[0] // Use day date or fallback
+          }))
+        );
+        
+        // Find the location closest to current date
+        const closestLocation = findClosestLocationToCurrentDate(allLocations);
+        
+        return days.flatMap(day => 
+          day.locations.map(location => {
+            const locationWithDate = {
+              ...location,
+              date: day.date || new Date().toISOString().split('T')[0]
+            };
+            
+            return (
+              <Marker 
+                key={location.id} 
+                position={location.coordinates}
+                icon={closestLocation?.id === location.id ? createHighlightedIcon() : undefined}
+                eventHandlers={{
+                  click: () => onLocationClick && onLocationClick(location)
+                }}
+              >
+                <Popup>
+                  <div className="p-2">
+                    <h4 className="font-bold">{location.name}</h4>
+                    {location.arrivalTime && (
+                      <p className="text-sm">Arrived at: {location.arrivalTime}</p>
+                    )}
+                    <p className="text-sm">Date: {new Date(day.date).toLocaleDateString()}</p>
+                    {location.notes && (
+                      <p className="text-sm mt-1">{location.notes}</p>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })
+        );
+      })()}
       
       {/* Render transportation routes */}
       {days.map(day => {
