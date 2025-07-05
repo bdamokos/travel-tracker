@@ -43,9 +43,12 @@
 #
 # USAGE:
 # ------
-# Deploy only:              ./deploy.sh
-# Deploy and follow logs:   ./deploy.sh --follow-logs
+# Build, push, and deploy:  ./deploy.sh
+# Deploy only:              ./deploy.sh --deploy-only
+#                          ./deploy.sh -d
+# Follow logs:              ./deploy.sh --follow-logs
 #                          ./deploy.sh -f
+# Combined:                 ./deploy.sh -d -f
 #
 # ==============================================================================
 
@@ -71,6 +74,7 @@ KEYCHAIN_ACCOUNT="$PI_USER@$PI_HOST"
 
 # Default flag values
 FOLLOW_LOGS=false
+DEPLOY_ONLY=false
 
 # Parse command line arguments
 parse_args() {
@@ -80,19 +84,27 @@ parse_args() {
                 FOLLOW_LOGS=true
                 shift
                 ;;
+            -d|--deploy-only)
+                DEPLOY_ONLY=true
+                shift
+                ;;
             -h|--help)
                 echo "Usage: $0 [OPTIONS]"
                 echo ""
                 echo "Options:"
                 echo "  -f, --follow-logs    Follow container logs after deployment"
+                echo "  -d, --deploy-only    Skip build and push, deploy only"
                 echo "  -h, --help          Show this help message"
                 echo ""
                 echo "Examples:"
-                echo "  $0                  Deploy and exit"
-                echo "  $0 -f               Deploy and follow logs"
+                echo "  $0                  Build, push, and deploy"
+                echo "  $0 -f               Build, push, deploy, and follow logs"
+                echo "  $0 -d               Deploy only (skip build and push)"
+                echo "  $0 -d -f            Deploy only and follow logs"
                 echo ""
                 echo "Configuration:"
                 echo "  Set PI_HOST, PI_USER, and DEPLOY_PATH in .env file"
+                echo "  Set REGISTRY_HOST, IMAGE_NAME, IMAGE_TAG for build/push"
                 exit 0
                 ;;
             *)
@@ -232,6 +244,27 @@ validate_config
 
 # Get password from keychain or prompt
 get_password
+
+# Build and push Docker image unless deploy-only flag is set
+if [ "$DEPLOY_ONLY" = false ]; then
+    echo "🔨 Building and pushing Docker image..."
+    
+    # Check if build script exists
+    if [ ! -f "build-and-push.sh" ]; then
+        echo "❌ Error: build-and-push.sh not found in deploy directory"
+        exit 1
+    fi
+    
+    # Run build and push script
+    if ! ./build-and-push.sh; then
+        echo "❌ Build and push failed. Aborting deployment."
+        exit 1
+    fi
+    
+    echo "✅ Build and push completed successfully!"
+else
+    echo "⏩ Skipping build and push (deploy-only mode)"
+fi
 
 echo "📋 Deploying Travel Tracker to $PI_USER@$PI_HOST..."
 
