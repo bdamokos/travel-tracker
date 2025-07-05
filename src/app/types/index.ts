@@ -146,6 +146,11 @@ export type CostSummary = {
   averageSpentPerDay: number;
   suggestedDailyBudget: number;
   countryBreakdown: CountryBreakdown[];
+  // New fields for smarter pre-trip expense handling
+  preTripSpent: number;
+  tripSpent: number;
+  averageSpentPerTripDay: number;
+  tripStatus: 'before' | 'during' | 'after';
 };
 
 export type CountryBreakdown = {

@@ -13,12 +13,48 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const endDate = new Date(costData.tripEndDate);
   
   // Calculate total days and remaining days
-  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
   const remainingDays = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
   
-  // Calculate averages
-  const daysElapsed = Math.max(1, totalDays - remainingDays);
-  const averageSpentPerDay = totalSpent / daysElapsed;
+  // Determine trip status
+  let tripStatus: 'before' | 'during' | 'after';
+  if (today < startDate) {
+    tripStatus = 'before';
+  } else if (today <= endDate) {
+    tripStatus = 'during';
+  } else {
+    tripStatus = 'after';
+  }
+  
+  // Separate expenses into pre-trip and trip expenses
+  const preTripExpenses = costData.expenses.filter(expense => new Date(expense.date) < startDate);
+  const tripExpenses = costData.expenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    return expenseDate >= startDate && expenseDate <= endDate;
+  });
+  
+  const preTripSpent = preTripExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const tripSpent = tripExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  
+  // Calculate intelligent averages based on trip status
+  let averageSpentPerDay: number;
+  let averageSpentPerTripDay: number;
+  
+  if (tripStatus === 'before') {
+    // Before trip: no daily average yet, trip hasn't started
+    averageSpentPerDay = 0;
+    averageSpentPerTripDay = 0;
+  } else if (tripStatus === 'during') {
+    // During trip: average based on days elapsed in the trip
+    const daysElapsedInTrip = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+    averageSpentPerDay = daysElapsedInTrip > 0 ? tripSpent / daysElapsedInTrip : 0;
+    averageSpentPerTripDay = averageSpentPerDay;
+  } else {
+    // After trip: average based on total trip duration
+    averageSpentPerDay = totalDays > 0 ? tripSpent / totalDays : 0;
+    averageSpentPerTripDay = averageSpentPerDay;
+  }
+  
   const suggestedDailyBudget = remainingDays > 0 ? remainingBudget / remainingDays : 0;
   
   // Calculate country breakdowns
@@ -32,7 +68,11 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     remainingDays,
     averageSpentPerDay,
     suggestedDailyBudget,
-    countryBreakdown
+    countryBreakdown,
+    preTripSpent,
+    tripSpent,
+    averageSpentPerTripDay,
+    tripStatus
   };
 }
 

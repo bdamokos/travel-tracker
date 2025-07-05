@@ -1111,20 +1111,67 @@ export default function CostTrackingForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800">Average Spent/Day</h4>
-                  <p className="text-xl font-bold text-gray-600">
-                    {formatCurrency(costSummary.averageSpentPerDay, costData.currency)}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-purple-800">Pre-Trip Expenses</h4>
+                  <p className="text-xl font-bold text-purple-600">
+                    {formatCurrency(costSummary.preTripSpent, costData.currency)}
+                  </p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    Insurance, flights, gear, etc.
                   </p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800">Suggested Daily Budget</h4>
-                  <p className="text-xl font-bold text-gray-600">
-                    {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-yellow-800">
+                    {costSummary.tripStatus === 'before' ? 'Trip Spending' : 
+                     costSummary.tripStatus === 'during' ? 'Trip Spending' : 'Trip Total'}
+                  </h4>
+                  <p className="text-xl font-bold text-yellow-600">
+                    {formatCurrency(costSummary.tripSpent, costData.currency)}
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    {costSummary.tripStatus === 'before' ? 'Spending during trip dates' : 
+                     costSummary.tripStatus === 'during' ? 'Spent during trip so far' : 'Total spent during trip'}
+                  </p>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-orange-800">
+                    {costSummary.tripStatus === 'before' ? 'Daily Budget' : 'Average per Trip Day'}
+                  </h4>
+                  <p className="text-xl font-bold text-orange-600">
+                    {costSummary.tripStatus === 'before' ? 
+                      formatCurrency(costSummary.suggestedDailyBudget, costData.currency) :
+                      formatCurrency(costSummary.averageSpentPerTripDay, costData.currency)}
+                  </p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    {costSummary.tripStatus === 'before' ? 'Suggested daily budget for trip' : 
+                     costSummary.tripStatus === 'during' ? 'Based on days elapsed in trip' : 'Based on total trip duration'}
                   </p>
                 </div>
               </div>
+
+              {costSummary.tripStatus !== 'before' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-800">Total Daily Average</h4>
+                    <p className="text-xl font-bold text-gray-600">
+                      {formatCurrency(costSummary.averageSpentPerDay, costData.currency)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Trip spending ÷ {costSummary.tripStatus === 'during' ? 'days elapsed' : 'total trip days'}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-800">Suggested Daily Budget</h4>
+                    <p className="text-xl font-bold text-gray-600">
+                      {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      For remaining {costSummary.remainingDays} days
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Country Breakdown */}
               {costSummary.countryBreakdown.length > 0 && (
