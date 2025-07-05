@@ -1,6 +1,6 @@
 # Travel Tracker
 
-A single-page web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes and Instagram content alongside the map.
+A single-page web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes, Instagram posts, and blog content alongside the map.
 
 ## Features
 
@@ -9,17 +9,15 @@ A single-page web application that visualizes travel journeys on an OpenStreetMa
 - Chronological travel timeline
 - Location markers with popup information
 - Instagram post integration
+- Blog post integration
 - Responsive design for desktop and mobile
-- **Offline-capable editing interface**
-- **Local storage for offline data**
-- **Background synchronization when online**
+- Local data storage with IndexedDB
 
 ## Technologies Used
 
 - Next.js with TypeScript
 - Leaflet.js for map functionality
-- IndexedDB for offline storage
-- Service Workers for offline capabilities
+- IndexedDB for local data storage
 - Tailwind CSS for styling
 
 ## Getting Started
@@ -53,13 +51,9 @@ yarn dev
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-## Offline Capabilities
+## Data Storage
 
-Travel Tracker is designed to work offline with the following capabilities:
-
-- **Service Worker**: Caches app assets and map tiles for offline use
-- **IndexedDB**: Stores journey data locally on your device
-- **Sync Mechanism**: Automatically syncs changes when you're back online
+Travel Tracker stores all journey data locally in your browser using IndexedDB, ensuring your travel data persists between sessions.
 
 ## Usage
 
@@ -68,6 +62,7 @@ Travel Tracker is designed to work offline with the following capabilities:
 3. **Adding Locations**: In the edit form, go to the "Locations" tab to add places you've visited
 4. **Adding Transportation**: Track how you moved between locations
 5. **Adding Instagram Posts**: Link your Instagram posts to specific days in your journey
+6. **Adding Blog Posts**: Link your blog posts to specific locations in your journey
 
 ## Mobile App Installation
 

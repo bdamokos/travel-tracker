@@ -35,3 +35,4 @@ next-env.d.ts
 
 data/*
 deploy/.env
+CLAUDE.md
