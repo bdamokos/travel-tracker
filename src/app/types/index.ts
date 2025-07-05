@@ -91,4 +91,60 @@ export type CachedMapTile = {
   y: number;
   data: string;
   expires: string;
+};
+
+// Cost tracking types
+export type BudgetItem = {
+  id: string;
+  country: string;
+  amount: number;
+  currency: string;
+  notes?: string;
+};
+
+export type Expense = {
+  id: string;
+  date: string;
+  amount: number;
+  currency: string;
+  category: string;
+  country: string;
+  description: string;
+  notes?: string;
+  isGeneralExpense?: boolean; // For expenses not tied to a specific country
+};
+
+export type CostTrackingData = {
+  id: string;
+  tripId: string; // Reference to the travel trip
+  tripTitle: string;
+  tripStartDate: string;
+  tripEndDate: string;
+  overallBudget: number;
+  currency: string;
+  countryBudgets: BudgetItem[];
+  expenses: Expense[];
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type CostSummary = {
+  totalBudget: number;
+  totalSpent: number;
+  remainingBudget: number;
+  totalDays: number;
+  remainingDays: number;
+  averageSpentPerDay: number;
+  suggestedDailyBudget: number;
+  countryBreakdown: CountryBreakdown[];
+};
+
+export type CountryBreakdown = {
+  country: string;
+  budgetAmount: number;
+  spentAmount: number;
+  remainingAmount: number;
+  days: number;
+  averagePerDay: number;
+  expenses: Expense[];
 }; 
