@@ -94,12 +94,20 @@ export type CachedMapTile = {
 };
 
 // Cost tracking types
+export type CountryPeriod = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  notes?: string;
+};
+
 export type BudgetItem = {
   id: string;
   country: string;
   amount: number;
   currency: string;
   notes?: string;
+  periods?: CountryPeriod[];
 };
 
 export type Expense = {
@@ -124,6 +132,7 @@ export type CostTrackingData = {
   currency: string;
   countryBudgets: BudgetItem[];
   expenses: Expense[];
+  customCategories: string[]; // User-defined expense categories
   createdAt: string;
   updatedAt?: string;
 };
@@ -147,4 +156,11 @@ export type CountryBreakdown = {
   days: number;
   averagePerDay: number;
   expenses: Expense[];
+  categoryBreakdown: CategoryBreakdown[];
+};
+
+export type CategoryBreakdown = {
+  category: string;
+  amount: number;
+  count: number;
 }; 

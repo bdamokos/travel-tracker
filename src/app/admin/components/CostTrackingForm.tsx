@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { CostTrackingData, Expense, BudgetItem, CostSummary } from '../../types';
+import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod } from '../../types';
 import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES } from '../../lib/costUtils';
 
 interface ExistingTrip {
@@ -28,7 +27,6 @@ interface ExistingCostEntry {
 }
 
 export default function CostTrackingForm() {
-  const router = useRouter();
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [existingCostEntries, setExistingCostEntries] = useState<ExistingCostEntry[]>([]);
@@ -41,23 +39,24 @@ export default function CostTrackingForm() {
     tripStartDate: '',
     tripEndDate: '',
     overallBudget: 0,
-    currency: 'USD',
+    currency: 'EUR',
     countryBudgets: [],
     expenses: [],
+    customCategories: [...EXPENSE_CATEGORIES],
     createdAt: '',
   });
 
   const [currentBudget, setCurrentBudget] = useState<Partial<BudgetItem>>({
     country: '',
     amount: 0,
-    currency: 'USD',
+    currency: 'EUR',
     notes: ''
   });
 
   const [currentExpense, setCurrentExpense] = useState<Partial<Expense>>({
     date: '',
     amount: 0,
-    currency: 'USD',
+    currency: 'EUR',
     category: '',
     country: '',
     description: '',
@@ -69,6 +68,19 @@ export default function CostTrackingForm() {
   const [editingExpenseIndex, setEditingExpenseIndex] = useState<number | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<ExistingTrip | null>(null);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  
+  // Period management state
+  const [editingPeriodForBudget, setEditingPeriodForBudget] = useState<string | null>(null);
+  const [editingPeriodIndex, setEditingPeriodIndex] = useState<number | null>(null);
+  const [currentPeriod, setCurrentPeriod] = useState<Partial<CountryPeriod>>({
+    startDate: '',
+    endDate: '',
+    notes: ''
+  });
+  
+  // Category management state
+  const [newCategory, setNewCategory] = useState('');
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
 
   // Load existing trips and cost entries
   useEffect(() => {
@@ -171,7 +183,7 @@ export default function CostTrackingForm() {
       id: editingBudgetIndex !== null ? costData.countryBudgets[editingBudgetIndex].id : generateId(),
       country: currentBudget.country,
       amount: currentBudget.amount,
-      currency: currentBudget.currency || 'USD',
+      currency: currentBudget.currency || 'EUR',
       notes: currentBudget.notes || ''
     };
 
@@ -184,17 +196,16 @@ export default function CostTrackingForm() {
       setCostData(prev => ({ ...prev, countryBudgets: [...prev.countryBudgets, budgetItem] }));
     }
 
-    setCurrentBudget({ country: '', amount: 0, currency: 'USD', notes: '' });
+    setCurrentBudget({ country: '', amount: 0, currency: 'EUR', notes: '' });
   };
 
   const addExpense = () => {
     // Validate required fields
-    if (!currentExpense.date || !currentExpense.amount || currentExpense.amount <= 0 || !currentExpense.category || !currentExpense.description) {
+    if (!currentExpense.date || !currentExpense.amount || currentExpense.amount <= 0 || !currentExpense.category) {
       const missing = [];
       if (!currentExpense.date) missing.push('Date');
       if (!currentExpense.amount || currentExpense.amount <= 0) missing.push('Amount (must be greater than 0)');
       if (!currentExpense.category) missing.push('Category');
-      if (!currentExpense.description) missing.push('Description');
       alert(`Please fill in the following required fields: ${missing.join(', ')}`);
       return;
     }
@@ -203,13 +214,35 @@ export default function CostTrackingForm() {
       id: editingExpenseIndex !== null ? costData.expenses[editingExpenseIndex].id : generateId(),
       date: currentExpense.date,
       amount: currentExpense.amount,
-      currency: currentExpense.currency || 'USD',
+      currency: currentExpense.currency || 'EUR',
       category: currentExpense.category,
       country: currentExpense.country || '',
-      description: currentExpense.description,
+      description: currentExpense.description || '',
       notes: currentExpense.notes || '',
       isGeneralExpense: currentExpense.isGeneralExpense || false
     };
+
+    // Auto-create country budget if expense is for a country we don't have a budget for
+    if (!expense.isGeneralExpense && expense.country && editingExpenseIndex === null) {
+      const existingCountryBudget = costData.countryBudgets.find(
+        budget => budget.country === expense.country
+      );
+      
+      if (!existingCountryBudget) {
+        const newCountryBudget: BudgetItem = {
+          id: generateId(),
+          country: expense.country,
+          amount: 0, // Undefined amount as requested
+          currency: costData.currency,
+          notes: 'Auto-created when adding expense'
+        };
+        
+        setCostData(prev => ({ 
+          ...prev, 
+          countryBudgets: [...prev.countryBudgets, newCountryBudget] 
+        }));
+      }
+    }
 
     if (editingExpenseIndex !== null) {
       const updatedExpenses = [...costData.expenses];
@@ -223,7 +256,7 @@ export default function CostTrackingForm() {
     setCurrentExpense({
       date: '',
       amount: 0,
-      currency: 'USD',
+      currency: 'EUR',
       category: '',
       country: '',
       description: '',
@@ -253,6 +286,134 @@ export default function CostTrackingForm() {
   const deleteBudgetItem = (index: number) => {
     const updatedBudgets = costData.countryBudgets.filter((_, i) => i !== index);
     setCostData(prev => ({ ...prev, countryBudgets: updatedBudgets }));
+  };
+
+  // Period management functions
+  const addPeriod = () => {
+    if (!currentPeriod.startDate || !currentPeriod.endDate) {
+      alert('Please provide both start and end dates for the period.');
+      return;
+    }
+
+    if (new Date(currentPeriod.startDate) > new Date(currentPeriod.endDate)) {
+      alert('Start date must be before end date.');
+      return;
+    }
+
+    if (!editingPeriodForBudget) {
+      alert('No country budget selected for adding period.');
+      return;
+    }
+
+    const period: CountryPeriod = {
+      id: editingPeriodIndex !== null ? '' : generateId(), // Will be updated for edit
+      startDate: currentPeriod.startDate,
+      endDate: currentPeriod.endDate,
+      notes: currentPeriod.notes || ''
+    };
+
+    const updatedBudgets = costData.countryBudgets.map(budget => {
+      if (budget.id === editingPeriodForBudget) {
+        const periods = budget.periods || [];
+        
+        if (editingPeriodIndex !== null) {
+          // Edit existing period
+          const updatedPeriods = [...periods];
+          period.id = periods[editingPeriodIndex].id;
+          updatedPeriods[editingPeriodIndex] = period;
+          return { ...budget, periods: updatedPeriods };
+        } else {
+          // Add new period
+          return { ...budget, periods: [...periods, period] };
+        }
+      }
+      return budget;
+    });
+
+    setCostData(prev => ({ ...prev, countryBudgets: updatedBudgets }));
+    setCurrentPeriod({ startDate: '', endDate: '', notes: '' });
+    setEditingPeriodIndex(null);
+  };
+
+  const editPeriod = (budgetId: string, periodIndex: number) => {
+    const budget = costData.countryBudgets.find(b => b.id === budgetId);
+    if (budget && budget.periods && budget.periods[periodIndex]) {
+      const period = budget.periods[periodIndex];
+      setCurrentPeriod(period);
+      setEditingPeriodForBudget(budgetId);
+      setEditingPeriodIndex(periodIndex);
+    }
+  };
+
+  const deletePeriod = (budgetId: string, periodIndex: number) => {
+    const updatedBudgets = costData.countryBudgets.map(budget => {
+      if (budget.id === budgetId && budget.periods) {
+        const updatedPeriods = budget.periods.filter((_, i) => i !== periodIndex);
+        return { ...budget, periods: updatedPeriods };
+      }
+      return budget;
+    });
+
+    setCostData(prev => ({ ...prev, countryBudgets: updatedBudgets }));
+  };
+
+  const cancelPeriodEdit = () => {
+    setCurrentPeriod({ startDate: '', endDate: '', notes: '' });
+    setEditingPeriodForBudget(null);
+    setEditingPeriodIndex(null);
+  };
+
+  // Category management functions
+  const addCategory = () => {
+    if (!newCategory.trim()) {
+      alert('Please enter a category name.');
+      return;
+    }
+
+    if (costData.customCategories.includes(newCategory.trim())) {
+      alert('This category already exists.');
+      return;
+    }
+
+    if (editingCategoryIndex !== null) {
+      // Edit existing category
+      const updatedCategories = [...costData.customCategories];
+      updatedCategories[editingCategoryIndex] = newCategory.trim();
+      setCostData(prev => ({ ...prev, customCategories: updatedCategories }));
+      setEditingCategoryIndex(null);
+    } else {
+      // Add new category
+      setCostData(prev => ({
+        ...prev,
+        customCategories: [...prev.customCategories, newCategory.trim()]
+      }));
+    }
+
+    setNewCategory('');
+  };
+
+  const editCategory = (index: number) => {
+    setNewCategory(costData.customCategories[index]);
+    setEditingCategoryIndex(index);
+  };
+
+  const deleteCategory = (index: number) => {
+    const categoryToDelete = costData.customCategories[index];
+    
+    // Check if the category is used in any expenses
+    const isUsed = costData.expenses.some(expense => expense.category === categoryToDelete);
+    if (isUsed) {
+      alert('Cannot delete this category as it is used in existing expenses.');
+      return;
+    }
+
+    const updatedCategories = costData.customCategories.filter((_, i) => i !== index);
+    setCostData(prev => ({ ...prev, customCategories: updatedCategories }));
+  };
+
+  const cancelCategoryEdit = () => {
+    setNewCategory('');
+    setEditingCategoryIndex(null);
   };
 
   const deleteExpense = (expenseId: string) => {
@@ -285,7 +446,7 @@ export default function CostTrackingForm() {
       });
       
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         alert('Cost tracking data saved successfully!');
         setMode('list');
         await loadExistingCostEntries();
@@ -400,9 +561,10 @@ export default function CostTrackingForm() {
               tripStartDate: '',
               tripEndDate: '',
               overallBudget: 0,
-              currency: 'USD',
+              currency: 'EUR',
               countryBudgets: [],
               expenses: [],
+              customCategories: [...EXPENSE_CATEGORIES],
               createdAt: '',
             });
             setSelectedTrip(null);
@@ -457,8 +619,8 @@ export default function CostTrackingForm() {
                     onChange={(e) => setCostData(prev => ({ ...prev, currency: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
                     <option value="GBP">GBP</option>
                     <option value="CAD">CAD</option>
                     <option value="AUD">AUD</option>
@@ -521,7 +683,7 @@ export default function CostTrackingForm() {
                     <button
                       onClick={() => {
                         setEditingBudgetIndex(null);
-                        setCurrentBudget({ country: '', amount: 0, currency: 'USD', notes: '' });
+                        setCurrentBudget({ country: '', amount: 0, currency: 'EUR', notes: '' });
                       }}
                       className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
                     >
@@ -533,35 +695,214 @@ export default function CostTrackingForm() {
 
               {/* Country Budget List */}
               {costData.countryBudgets.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <h5 className="font-medium">Country Budgets ({costData.countryBudgets.length})</h5>
                   {costData.countryBudgets.map((budget, index) => (
-                    <div key={budget.id} className="flex justify-between items-center bg-white p-3 rounded border">
-                      <div>
-                        <span className="font-medium">{budget.country}</span>
-                        <span className="text-sm text-gray-500 ml-2">
-                          {formatCurrency(budget.amount, budget.currency)}
-                        </span>
-                        {budget.notes && (
-                          <span className="text-xs text-gray-400 ml-2">({budget.notes})</span>
-                        )}
+                    <div key={budget.id} className="bg-white p-4 rounded border">
+                      <div className="flex justify-between items-center mb-3">
+                        <div>
+                          <span className="font-medium">{budget.country}</span>
+                          <span className="text-sm text-gray-500 ml-2">
+                            {formatCurrency(budget.amount, budget.currency)}
+                          </span>
+                          {budget.notes && (
+                            <span className="text-xs text-gray-400 ml-2">({budget.notes})</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => editBudgetItem(index)}
+                            className="text-blue-500 hover:text-blue-700 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteBudgetItem(index)}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => editBudgetItem(index)}
-                          className="text-blue-500 hover:text-blue-700 text-sm"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => deleteBudgetItem(index)}
-                          className="text-red-500 hover:text-red-700 text-sm"
-                        >
-                          Delete
-                        </button>
+                      
+                      {/* Periods for this country */}
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex justify-between items-center mb-2">
+                          <h6 className="text-sm font-medium text-gray-700">Visit Periods</h6>
+                          <button
+                            onClick={() => {
+                              setEditingPeriodForBudget(budget.id);
+                              setCurrentPeriod({ startDate: '', endDate: '', notes: '' });
+                            }}
+                            className="text-xs text-blue-500 hover:text-blue-700"
+                          >
+                            Add Period
+                          </button>
+                        </div>
+                        
+                        {budget.periods && budget.periods.length > 0 ? (
+                          <div className="space-y-2">
+                            {budget.periods.map((period, periodIndex) => (
+                              <div key={period.id} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                                <div>
+                                  <span className="font-medium">
+                                    {formatDate(period.startDate)} - {formatDate(period.endDate)}
+                                  </span>
+                                  {period.notes && (
+                                    <span className="text-gray-500 ml-2">({period.notes})</span>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => editPeriod(budget.id, periodIndex)}
+                                    className="text-blue-500 hover:text-blue-700 text-xs"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => deletePeriod(budget.id, periodIndex)}
+                                    className="text-red-500 hover:text-red-700 text-xs"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="text-xs text-gray-500">
+                              Total days: {budget.periods.reduce((total, period) => {
+                                const start = new Date(period.startDate);
+                                const end = new Date(period.endDate);
+                                return total + Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+                              }, 0)}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-500">
+                            No periods configured. Per-day calculations will be based on expense dates.
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              
+              {/* Period Management Form */}
+              {editingPeriodForBudget && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h6 className="font-medium text-blue-800 mb-3">
+                    {editingPeriodIndex !== null ? 'Edit Period' : 'Add New Period'}
+                  </h6>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <input
+                        type="date"
+                        value={currentPeriod.startDate || ''}
+                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <input
+                        type="date"
+                        value={currentPeriod.endDate || ''}
+                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={currentPeriod.notes || ''}
+                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, notes: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="First visit, return trip, etc."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={addPeriod}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                    >
+                      {editingPeriodIndex !== null ? 'Update' : 'Add'} Period
+                    </button>
+                    <button
+                      onClick={cancelPeriodEdit}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Category Management */}
+          <div>
+            <h3 className="text-xl font-semibold mb-4">Expense Categories</h3>
+            <div className="bg-gray-50 p-4 rounded-md mb-4">
+              <h4 className="font-medium mb-3">Manage Categories</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {editingCategoryIndex !== null ? 'Edit Category' : 'Add New Category'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Local Transport, Souvenirs"
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={addCategory}
+                    className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                  >
+                    {editingCategoryIndex !== null ? 'Update' : 'Add'} Category
+                  </button>
+                  {editingCategoryIndex !== null && (
+                    <button
+                      onClick={cancelCategoryEdit}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Category List */}
+              {costData.customCategories.length > 0 && (
+                <div>
+                  <h5 className="font-medium mb-3">Categories ({costData.customCategories.length})</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {costData.customCategories.map((category, index) => (
+                      <div key={category} className="flex justify-between items-center bg-white p-3 rounded border">
+                        <span className="font-medium text-sm">{category}</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => editCategory(index)}
+                            className="text-blue-500 hover:text-blue-700 text-xs"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteCategory(index)}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -602,7 +943,7 @@ export default function CostTrackingForm() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Category</option>
-                    {EXPENSE_CATEGORIES.map(category => (
+                    {costData.customCategories.map(category => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
@@ -618,7 +959,7 @@ export default function CostTrackingForm() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
                   <input
                     type="text"
                     value={currentExpense.description || ''}
@@ -661,7 +1002,7 @@ export default function CostTrackingForm() {
                       setCurrentExpense({
                         date: '',
                         amount: 0,
-                        currency: 'USD',
+                        currency: 'EUR',
                         category: '',
                         country: '',
                         description: '',
@@ -785,11 +1126,11 @@ export default function CostTrackingForm() {
                             {country.expenses.length} expenses • {country.days} days
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="grid grid-cols-3 gap-4 text-sm mb-3">
                           <div>
                             <span className="text-gray-600">Budget:</span>
                             <span className="font-medium ml-2">
-                              {formatCurrency(country.budgetAmount, costData.currency)}
+                              {country.budgetAmount === 0 ? 'Not set' : formatCurrency(country.budgetAmount, costData.currency)}
                             </span>
                           </div>
                           <div>
@@ -801,10 +1142,25 @@ export default function CostTrackingForm() {
                           <div>
                             <span className="text-gray-600">Avg/Day:</span>
                             <span className="font-medium ml-2">
-                              {formatCurrency(country.averagePerDay, costData.currency)}
+                              {country.country === 'General' ? 'N/A' : formatCurrency(country.averagePerDay, costData.currency)}
                             </span>
                           </div>
                         </div>
+                        
+                        {/* Category Breakdown */}
+                        {country.categoryBreakdown.length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <h6 className="text-sm font-medium text-gray-700 mb-2">Categories:</h6>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {country.categoryBreakdown.map((category) => (
+                                <div key={category.category} className="flex justify-between">
+                                  <span className="text-gray-600">{category.category} ({category.count}):</span>
+                                  <span className="font-medium">{formatCurrency(category.amount, costData.currency)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

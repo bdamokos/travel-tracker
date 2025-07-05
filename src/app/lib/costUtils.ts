@@ -1,4 +1,4 @@
-import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem } from '../types';
+import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod } from '../types';
 
 /**
  * Calculate comprehensive cost summary from cost tracking data
@@ -51,7 +51,8 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       remainingAmount: budget.amount,
       days: 0,
       averagePerDay: 0,
-      expenses: []
+      expenses: [],
+      categoryBreakdown: []
     });
   });
   
@@ -62,12 +63,13 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
         // Create entry for countries without explicit budget
         countryMap.set(expense.country, {
           country: expense.country,
-          budgetAmount: 0,
+          budgetAmount: 0, // Will be undefined amount in budget
           spentAmount: 0,
           remainingAmount: 0,
           days: 0,
           averagePerDay: 0,
-          expenses: []
+          expenses: [],
+          categoryBreakdown: []
         });
       }
       
@@ -78,25 +80,80 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     }
   });
   
-  // Calculate days and averages for each country
+  // Add general expenses as a separate entry
+  const generalExpenses = costData.expenses.filter(expense => expense.isGeneralExpense);
+  if (generalExpenses.length > 0) {
+    const generalSpent = generalExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+    countryMap.set('General', {
+      country: 'General',
+      budgetAmount: 0, // General expenses don't have specific budgets
+      spentAmount: generalSpent,
+      remainingAmount: -generalSpent,
+      days: 0,
+      averagePerDay: 0,
+      expenses: generalExpenses,
+      categoryBreakdown: []
+    });
+  }
+  
+  // Calculate days, averages, and category breakdowns for each country
   const startDate = new Date(costData.tripStartDate);
   const endDate = new Date(costData.tripEndDate);
   
   countryMap.forEach(countryData => {
-    // Calculate days spent in country based on expenses
-    const countryExpenseDates = countryData.expenses.map(e => new Date(e.date));
-    if (countryExpenseDates.length > 0) {
-      const minDate = new Date(Math.min(...countryExpenseDates.map(d => d.getTime())));
-      const maxDate = new Date(Math.max(...countryExpenseDates.map(d => d.getTime())));
-      countryData.days = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 3600 * 24)) + 1;
+    // Calculate days spent in country based on configured periods or expenses
+    const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
+    
+    if (countryBudget?.periods && countryBudget.periods.length > 0) {
+      // Use configured periods to calculate total days
+      countryData.days = countryBudget.periods.reduce((totalDays, period) => {
+        const periodStart = new Date(period.startDate);
+        const periodEnd = new Date(period.endDate);
+        const periodDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24)) + 1;
+        return totalDays + periodDays;
+      }, 0);
     } else {
-      countryData.days = 0;
+      // Fallback to expense-based calculation
+      const countryExpenseDates = countryData.expenses.map(e => new Date(e.date));
+      if (countryExpenseDates.length > 0) {
+        const minDate = new Date(Math.min(...countryExpenseDates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...countryExpenseDates.map(d => d.getTime())));
+        countryData.days = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 3600 * 24)) + 1;
+      } else {
+        countryData.days = 0;
+      }
     }
     
     countryData.averagePerDay = countryData.days > 0 ? countryData.spentAmount / countryData.days : 0;
+    
+    // Calculate category breakdown for this country
+    countryData.categoryBreakdown = calculateCategoryBreakdown(countryData.expenses);
   });
   
   return Array.from(countryMap.values()).sort((a, b) => b.spentAmount - a.spentAmount);
+}
+
+/**
+ * Calculate category breakdown for a set of expenses
+ */
+export function calculateCategoryBreakdown(expenses: Expense[]): CategoryBreakdown[] {
+  const categoryMap = new Map<string, CategoryBreakdown>();
+  
+  expenses.forEach(expense => {
+    if (!categoryMap.has(expense.category)) {
+      categoryMap.set(expense.category, {
+        category: expense.category,
+        amount: 0,
+        count: 0
+      });
+    }
+    
+    const categoryData = categoryMap.get(expense.category)!;
+    categoryData.amount += expense.amount;
+    categoryData.count += 1;
+  });
+  
+  return Array.from(categoryMap.values()).sort((a, b) => b.amount - a.amount);
 }
 
 /**
@@ -163,6 +220,20 @@ export const EXPENSE_CATEGORIES = [
  */
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+/**
+ * Check if an expense falls within country periods
+ */
+export function isExpenseWithinPeriods(expense: Expense, periods: CountryPeriod[]): boolean {
+  if (!periods || periods.length === 0) return true;
+  
+  const expenseDate = new Date(expense.date);
+  return periods.some(period => {
+    const periodStart = new Date(period.startDate);
+    const periodEnd = new Date(period.endDate);
+    return expenseDate >= periodStart && expenseDate <= periodEnd;
+  });
 }
 
 /**

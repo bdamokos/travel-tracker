@@ -84,7 +84,7 @@ export async function GET() {
             tripStartDate: costData.tripStartDate,
             tripEndDate: costData.tripEndDate,
             overallBudget: totalBudget,
-            currency: costData.currency || 'USD',
+            currency: costData.currency || 'EUR',
             totalSpent,
             remainingBudget,
             expenseCount: costData.expenses?.length || 0,

@@ -6,6 +6,14 @@ const nextConfig = {
   images: {
     domains: ['tile.openstreetmap.org'],
   },
+  eslint: {
+    // Show ESLint issues but don't fail the build
+    ignoreDuringBuilds: false,
+  },
+  typescript: {
+    // Only fail build on type errors, not linting issues
+    ignoreBuildErrors: false,
+  },
 };
 
-module.exports = nextConfig; 
+export default nextConfig; 
