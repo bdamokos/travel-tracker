@@ -46,9 +46,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   costData.countryBudgets.forEach(budget => {
     countryMap.set(budget.country, {
       country: budget.country,
-      budgetAmount: budget.amount,
+      budgetAmount: budget.amount || 0,
       spentAmount: 0,
-      remainingAmount: budget.amount,
+      remainingAmount: (budget.amount || 0),
       days: 0,
       averagePerDay: 0,
       expenses: [],

@@ -48,8 +48,7 @@ export default function CostTrackingForm() {
 
   const [currentBudget, setCurrentBudget] = useState<Partial<BudgetItem>>({
     country: '',
-    amount: 0,
-    currency: 'EUR',
+    amount: undefined,
     notes: ''
   });
 
@@ -183,19 +182,16 @@ export default function CostTrackingForm() {
   };
 
   const addBudgetItem = () => {
-    if (!currentBudget.country || !currentBudget.amount || currentBudget.amount <= 0) {
-      const missing = [];
-      if (!currentBudget.country) missing.push('Country');
-      if (!currentBudget.amount || currentBudget.amount <= 0) missing.push('Amount (must be greater than 0)');
-      alert(`Please fill in the following required fields: ${missing.join(', ')}`);
+    if (!currentBudget.country) {
+      alert('Please enter a country name.');
       return;
     }
 
     const budgetItem: BudgetItem = {
       id: editingBudgetIndex !== null ? costData.countryBudgets[editingBudgetIndex].id : generateId(),
       country: currentBudget.country,
-      amount: currentBudget.amount,
-      currency: currentBudget.currency || 'EUR',
+      amount: currentBudget.amount && currentBudget.amount > 0 ? currentBudget.amount : undefined,
+      currency: costData.currency, // Use the main currency from cost data
       notes: currentBudget.notes || ''
     };
 
@@ -208,7 +204,7 @@ export default function CostTrackingForm() {
       setCostData(prev => ({ ...prev, countryBudgets: [...prev.countryBudgets, budgetItem] }));
     }
 
-    setCurrentBudget({ country: '', amount: 0, currency: 'EUR', notes: '' });
+    setCurrentBudget({ country: '', amount: undefined, notes: '' });
   };
 
   const addExpense = () => {
@@ -244,7 +240,7 @@ export default function CostTrackingForm() {
         const newCountryBudget: BudgetItem = {
           id: generateId(),
           country: expense.country,
-          amount: 0, // Undefined amount as requested
+          amount: undefined, // Undefined amount as requested
           currency: costData.currency,
           notes: 'Auto-created when adding expense'
         };
@@ -670,13 +666,13 @@ export default function CostTrackingForm() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount (optional)</label>
                   <input
                     type="number"
                     value={currentBudget.amount || ''}
-                    onChange={(e) => setCurrentBudget(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => setCurrentBudget(prev => ({ ...prev, amount: e.target.value ? parseFloat(e.target.value) : undefined }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="1000"
+                    placeholder="1000 (leave empty for undefined budget)"
                   />
                 </div>
                 <div>
@@ -700,7 +696,7 @@ export default function CostTrackingForm() {
                     <button
                       onClick={() => {
                         setEditingBudgetIndex(null);
-                        setCurrentBudget({ country: '', amount: 0, currency: 'EUR', notes: '' });
+                        setCurrentBudget({ country: '', amount: undefined, notes: '' });
                       }}
                       className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
                     >
@@ -720,7 +716,7 @@ export default function CostTrackingForm() {
                         <div>
                           <span className="font-medium">{budget.country}</span>
                           <span className="text-sm text-gray-500 ml-2">
-                            {formatCurrency(budget.amount, budget.currency)}
+                            {budget.amount ? formatCurrency(budget.amount, budget.currency) : 'Not set'}
                           </span>
                           {budget.notes && (
                             <span className="text-xs text-gray-400 ml-2">({budget.notes})</span>

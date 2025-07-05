@@ -104,7 +104,7 @@ export type CountryPeriod = {
 export type BudgetItem = {
   id: string;
   country: string;
-  amount: number;
+  amount?: number; // Optional amount for undefined budgets
   currency: string;
   notes?: string;
   periods?: CountryPeriod[];
