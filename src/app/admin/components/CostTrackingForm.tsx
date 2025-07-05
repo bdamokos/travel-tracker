@@ -81,6 +81,18 @@ export default function CostTrackingForm() {
   // Category management state
   const [newCategory, setNewCategory] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  
+  // Helper function to get categories with backward compatibility
+  const getCategories = (): string[] => {
+    return costData.customCategories || [...EXPENSE_CATEGORIES];
+  };
+  
+  // Helper function to ensure categories are initialized
+  const ensureCategoriesInitialized = () => {
+    if (!costData.customCategories) {
+      setCostData(prev => ({ ...prev, customCategories: [...EXPENSE_CATEGORIES] }));
+    }
+  };
 
   // Load existing trips and cost entries
   useEffect(() => {
@@ -370,14 +382,17 @@ export default function CostTrackingForm() {
       return;
     }
 
-    if (costData.customCategories.includes(newCategory.trim())) {
+    ensureCategoriesInitialized();
+    const currentCategories = getCategories();
+
+    if (currentCategories.includes(newCategory.trim())) {
       alert('This category already exists.');
       return;
     }
 
     if (editingCategoryIndex !== null) {
       // Edit existing category
-      const updatedCategories = [...costData.customCategories];
+      const updatedCategories = [...currentCategories];
       updatedCategories[editingCategoryIndex] = newCategory.trim();
       setCostData(prev => ({ ...prev, customCategories: updatedCategories }));
       setEditingCategoryIndex(null);
@@ -385,7 +400,7 @@ export default function CostTrackingForm() {
       // Add new category
       setCostData(prev => ({
         ...prev,
-        customCategories: [...prev.customCategories, newCategory.trim()]
+        customCategories: [...currentCategories, newCategory.trim()]
       }));
     }
 
@@ -393,12 +408,14 @@ export default function CostTrackingForm() {
   };
 
   const editCategory = (index: number) => {
-    setNewCategory(costData.customCategories[index]);
+    const currentCategories = getCategories();
+    setNewCategory(currentCategories[index]);
     setEditingCategoryIndex(index);
   };
 
   const deleteCategory = (index: number) => {
-    const categoryToDelete = costData.customCategories[index];
+    const currentCategories = getCategories();
+    const categoryToDelete = currentCategories[index];
     
     // Check if the category is used in any expenses
     const isUsed = costData.expenses.some(expense => expense.category === categoryToDelete);
@@ -407,7 +424,7 @@ export default function CostTrackingForm() {
       return;
     }
 
-    const updatedCategories = costData.customCategories.filter((_, i) => i !== index);
+    const updatedCategories = currentCategories.filter((_, i) => i !== index);
     setCostData(prev => ({ ...prev, customCategories: updatedCategories }));
   };
 
@@ -879,11 +896,11 @@ export default function CostTrackingForm() {
               </div>
 
               {/* Category List */}
-              {costData.customCategories.length > 0 && (
+              {getCategories().length > 0 && (
                 <div>
-                  <h5 className="font-medium mb-3">Categories ({costData.customCategories.length})</h5>
+                  <h5 className="font-medium mb-3">Categories ({getCategories().length})</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {costData.customCategories.map((category, index) => (
+                    {getCategories().map((category, index) => (
                       <div key={category} className="flex justify-between items-center bg-white p-3 rounded border">
                         <span className="font-medium text-sm">{category}</span>
                         <div className="flex gap-2">
@@ -943,7 +960,7 @@ export default function CostTrackingForm() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Category</option>
-                    {costData.customCategories.map(category => (
+                    {getCategories().map(category => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>

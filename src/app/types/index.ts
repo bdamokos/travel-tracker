@@ -132,7 +132,7 @@ export type CostTrackingData = {
   currency: string;
   countryBudgets: BudgetItem[];
   expenses: Expense[];
-  customCategories: string[]; // User-defined expense categories
+  customCategories?: string[]; // User-defined expense categories (optional for backwards compatibility)
   createdAt: string;
   updatedAt?: string;
 };
