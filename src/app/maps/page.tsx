@@ -127,7 +127,7 @@ export default async function PublicMapsPage() {
             <p className="text-gray-600">
              
               <a 
-                href="https://github.com/bdamokos/travel-tracker" 
+                href={process.env.NEXT_PUBLIC_GITHUB_REPO_URL || "https://github.com/bdamokos/travel-tracker"} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800 hover:underline ml-2 font-medium"
