@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getRouteStyle, generateRoutePoints } from '../../lib/routeUtils';
+import { getRouteStyle, generateRoutePoints, calculateGreatCirclePoints, calculateSimpleArc } from '../../lib/routeUtils';
 
 interface RoutePreviewProps {
   from: string;
@@ -24,23 +24,57 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
   const endMarkerRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
 
   // Check if coordinates are valid (not [0, 0])
   const hasValidCoords = fromCoords[0] !== 0 || fromCoords[1] !== 0 || toCoords[0] !== 0 || toCoords[1] !== 0;
 
-  // Generate route data
-  const routePoints = hasValidCoords 
-    ? generateRoutePoints({
-        id: 'preview',
-        type: transportType as any,
-        from: from,
-        to: to,
-        fromCoordinates: fromCoords,
-        toCoordinates: toCoords
-      })
-    : [];
-
   const routeStyle = getRouteStyle(transportType as any);
+
+  // Generate route data asynchronously for land transport, synchronously for air/sea
+  useEffect(() => {
+    if (!hasValidCoords) {
+      setRoutePoints([]);
+      return;
+    }
+
+    const transportation = {
+      id: 'preview',
+      type: transportType as any,
+      from: from,
+      to: to,
+      fromCoordinates: fromCoords,
+      toCoordinates: toCoords
+    };
+
+    // For air and sea routes, use synchronous calculation (no API needed)
+    if (transportType === 'plane' || transportType === 'ferry') {
+      try {
+        let points: [number, number][] = [];
+        if (transportType === 'plane') {
+          points = calculateGreatCirclePoints(fromCoords, toCoords, 50);
+        } else {
+          points = calculateSimpleArc(fromCoords, toCoords, 15, 0.15);
+        }
+        setRoutePoints(points);
+      } catch (error) {
+        console.warn('Failed to generate air/sea route points:', error);
+        setRoutePoints([fromCoords, toCoords]);
+      }
+    } else {
+      // For land routes, use async API call
+      const loadRoute = async () => {
+        try {
+          const points = await generateRoutePoints(transportation);
+          setRoutePoints(points);
+        } catch (error) {
+          console.warn('Failed to generate land route points:', error);
+          setRoutePoints([fromCoords, toCoords]); // Fallback to straight line
+        }
+      };
+      loadRoute();
+    }
+  }, [fromCoords, toCoords, transportType, hasValidCoords, from, to]);
   const center: [number, number] = hasValidCoords
     ? [(fromCoords[0] + toCoords[0]) / 2, (fromCoords[1] + toCoords[1]) / 2]
     : [51.505, -0.09]; // Default to London
