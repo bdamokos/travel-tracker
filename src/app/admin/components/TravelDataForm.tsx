@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClientDomainConfig } from '../../lib/domains';
+import RoutePreviewMap from './RoutePreviewMap';
 
 interface TravelLocation {
   id: string;
@@ -244,17 +245,57 @@ export default function TravelDataForm() {
         notes: currentRoute.notes || ''
       };
 
+      // Auto-create missing locations for route endpoints
+      const updatedLocations = [...travelData.locations];
+      
+      // Check if 'from' location exists
+      const fromExists = updatedLocations.some(loc => 
+        loc.name.toLowerCase().trim() === currentRoute.from!.toLowerCase().trim()
+      );
+      
+      if (!fromExists && currentRoute.fromCoords && (currentRoute.fromCoords[0] !== 0 || currentRoute.fromCoords[1] !== 0)) {
+        const fromLocation: TravelLocation = {
+          id: generateId(),
+          name: currentRoute.from!,
+          coordinates: currentRoute.fromCoords,
+          date: currentRoute.date!,
+          notes: '',
+          instagramPosts: [],
+          blogPosts: []
+        };
+        updatedLocations.push(fromLocation);
+      }
+      
+      // Check if 'to' location exists
+      const toExists = updatedLocations.some(loc => 
+        loc.name.toLowerCase().trim() === currentRoute.to!.toLowerCase().trim()
+      );
+      
+      if (!toExists && currentRoute.toCoords && (currentRoute.toCoords[0] !== 0 || currentRoute.toCoords[1] !== 0)) {
+        const toLocation: TravelLocation = {
+          id: generateId(),
+          name: currentRoute.to!,
+          coordinates: currentRoute.toCoords,
+          date: currentRoute.date!,
+          notes: '',
+          instagramPosts: [],
+          blogPosts: []
+        };
+        updatedLocations.push(toLocation);
+      }
+
       if (editingRouteIndex !== null) {
         // Update existing route
         const updatedRoutes = [...travelData.routes];
         updatedRoutes[editingRouteIndex] = newRoute;
-        setTravelData(prev => ({ ...prev, routes: updatedRoutes }));
+        setTravelData(prev => ({ ...prev, routes: updatedRoutes, locations: updatedLocations }));
         setEditingRouteIndex(null);
       } else {
         // Add new route
         setTravelData(prev => ({
           ...prev,
-          routes: [...prev.routes, newRoute]
+          routes: [...prev.routes, newRoute],
+          locations: updatedLocations
         }));
       }
 
@@ -970,7 +1011,32 @@ export default function TravelDataForm() {
               </div>
             </div>
             
-            <div className="md:col-span-2 flex gap-2">
+            <div className="md:col-span-2">
+              {/* Route Preview Map */}
+              {currentRoute.from && currentRoute.to && (
+                <div className="mb-4">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Route Preview</h5>
+                  <RoutePreviewMap
+                    from={currentRoute.from}
+                    to={currentRoute.to}
+                    fromCoords={currentRoute.fromCoords || [0, 0]}
+                    toCoords={currentRoute.toCoords || [0, 0]}
+                    transportType={currentRoute.transportType || 'plane'}
+                  />
+                  {(currentRoute.fromCoords?.[0] === 0 && currentRoute.fromCoords?.[1] === 0) || 
+                   (currentRoute.toCoords?.[0] === 0 && currentRoute.toCoords?.[1] === 0) ? (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Warning: Use the "Coords" buttons above to geocode locations for accurate route preview
+                    </p>
+                  ) : (
+                    <p className="text-xs text-green-600 mt-1">
+                      Route preview ready! Missing locations will be auto-created when you add this route.
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex gap-2">
               <button
                 type="button"
                 onClick={addRoute}
@@ -999,6 +1065,7 @@ export default function TravelDataForm() {
                   Cancel
                 </button>
               )}
+              </div>
             </div>
           </div>
         </div>
