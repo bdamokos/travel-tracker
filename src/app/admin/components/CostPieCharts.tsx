@@ -106,7 +106,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     if (active && payload && payload.length) {
       const data = payload[0];
       return (
-        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+        <div className="bg-white p-3 border border-gray-300 rounded-sm shadow-lg">
           <p className="font-medium">{data.name}</p>
           <p className="text-blue-600">
             {countryBasis === 'daily' && data.payload.country ? 
@@ -140,7 +140,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
             <select
               value={countryBasis}
               onChange={(e) => setCountryBasis(e.target.value as 'total' | 'daily')}
-              className="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             >
               <option value="total">Total Amount</option>
               <option value="daily">Daily Average</option>
@@ -188,7 +188,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Countries</option>
               {countries.slice(1).map(country => (

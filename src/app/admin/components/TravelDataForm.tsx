@@ -575,7 +575,7 @@ export default function TravelDataForm() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingTrips.map((trip) => (
-              <div key={trip.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div key={trip.id} className="bg-white border rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
                 <h3 className="font-semibold text-lg mb-2">{trip.title}</h3>
                 <p className="text-gray-600 text-sm mb-3">{trip.description}</p>
                 <p className="text-gray-500 text-xs mb-4">
@@ -585,7 +585,7 @@ export default function TravelDataForm() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => loadTripForEditing(trip.id)}
-                    className="flex-1 px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                    className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
                   >
                     Edit
                   </button>
@@ -594,7 +594,7 @@ export default function TravelDataForm() {
                       const domainConfig = getClientDomainConfig();
                       window.open(`${domainConfig.embedDomain}/map/${trip.id}`, '_blank');
                     }}
-                    className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                    className="flex-1 px-3 py-2 bg-green-500 text-white rounded-sm text-sm hover:bg-green-600"
                   >
                     View
                   </button>
@@ -663,7 +663,7 @@ export default function TravelDataForm() {
               type="text"
               value={travelData.title}
               onChange={(e) => setTravelData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               placeholder="My Amazing Trip"
             />
           </div>
@@ -673,7 +673,7 @@ export default function TravelDataForm() {
               type="text"
               value={travelData.description}
               onChange={(e) => setTravelData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               placeholder="A wonderful journey across..."
             />
           </div>
@@ -683,7 +683,7 @@ export default function TravelDataForm() {
               type="date"
               value={travelData.startDate}
               onChange={(e) => setTravelData(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -692,7 +692,7 @@ export default function TravelDataForm() {
               type="date"
               value={travelData.endDate}
               onChange={(e) => setTravelData(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -713,7 +713,7 @@ export default function TravelDataForm() {
                   type="text"
                   value={currentLocation.name || ''}
                   onChange={(e) => setCurrentLocation(prev => ({ ...prev, name: e.target.value }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Paris, France"
                 />
                 <button
@@ -731,7 +731,7 @@ export default function TravelDataForm() {
                 type="date"
                 value={currentLocation.date || ''}
                 onChange={(e) => setCurrentLocation(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="md:col-span-2">
@@ -739,7 +739,7 @@ export default function TravelDataForm() {
               <textarea
                 value={currentLocation.notes || ''}
                 onChange={(e) => setCurrentLocation(prev => ({ ...prev, notes: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 rows={2}
                 placeholder="What you did here..."
               />
@@ -755,7 +755,7 @@ export default function TravelDataForm() {
                     ...prev, 
                     coordinates: [parseFloat(e.target.value) || 0, prev.coordinates?.[1] || 0]
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Latitude"
                 />
                 <input
@@ -766,7 +766,7 @@ export default function TravelDataForm() {
                     ...prev, 
                     coordinates: [prev.coordinates?.[0] || 0, parseFloat(e.target.value) || 0]
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Longitude"
                 />
               </div>
@@ -841,7 +841,7 @@ export default function TravelDataForm() {
 
                   {/* Posts Section */}
                   {selectedLocationForPosts === index && (
-                    <div className="mt-4 p-3 bg-gray-50 rounded">
+                    <div className="mt-4 p-3 bg-gray-50 rounded-sm">
                       <h6 className="font-medium mb-3">Instagram & Blog Posts</h6>
                       
                       {/* Instagram Posts */}
@@ -852,19 +852,19 @@ export default function TravelDataForm() {
                             type="url"
                             value={newInstagramPost.url || ''}
                             onChange={(e) => setNewInstagramPost(prev => ({ ...prev, url: e.target.value }))}
-                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
                             placeholder="Instagram post URL"
                           />
                           <input
                             type="text"
                             value={newInstagramPost.caption || ''}
                             onChange={(e) => setNewInstagramPost(prev => ({ ...prev, caption: e.target.value }))}
-                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
                             placeholder="Caption (optional)"
                           />
                           <button
                             onClick={() => addInstagramPost(index)}
-                            className="px-3 py-1 bg-pink-500 text-white rounded text-sm hover:bg-pink-600"
+                            className="px-3 py-1 bg-pink-500 text-white rounded-sm text-sm hover:bg-pink-600"
                           >
                             Add
                           </button>
@@ -873,7 +873,7 @@ export default function TravelDataForm() {
                         {location.instagramPosts && location.instagramPosts.length > 0 && (
                           <div className="space-y-1">
                             {location.instagramPosts.map((post) => (
-                              <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded text-sm">
+                              <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded-sm text-sm">
                                 <a href={post.url} target="_blank" rel="noopener" className="text-blue-500 hover:underline truncate">
                                   {post.url}
                                 </a>
@@ -901,14 +901,14 @@ export default function TravelDataForm() {
                             type="text"
                             value={newBlogPost.title || ''}
                             onChange={(e) => setNewBlogPost(prev => ({ ...prev, title: e.target.value }))}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="px-2 py-1 border border-gray-300 rounded-sm text-sm"
                             placeholder="Post title"
                           />
                           <input
                             type="url"
                             value={newBlogPost.url || ''}
                             onChange={(e) => setNewBlogPost(prev => ({ ...prev, url: e.target.value }))}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="px-2 py-1 border border-gray-300 rounded-sm text-sm"
                             placeholder="Blog post URL"
                           />
                           <div className="flex gap-1">
@@ -916,12 +916,12 @@ export default function TravelDataForm() {
                               type="text"
                               value={newBlogPost.excerpt || ''}
                               onChange={(e) => setNewBlogPost(prev => ({ ...prev, excerpt: e.target.value }))}
-                              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                              className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
                               placeholder="Excerpt (optional)"
                             />
                             <button
                               onClick={() => addBlogPost(index)}
-                              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                              className="px-3 py-1 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
                             >
                               Add
                             </button>
@@ -931,7 +931,7 @@ export default function TravelDataForm() {
                         {location.blogPosts && location.blogPosts.length > 0 && (
                           <div className="space-y-1">
                             {location.blogPosts.map((post) => (
-                              <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded text-sm">
+                              <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded-sm text-sm">
                                 <div className="flex-1 truncate">
                                   <a href={post.url} target="_blank" rel="noopener" className="text-blue-500 hover:underline font-medium">
                                     {post.title}
@@ -977,7 +977,7 @@ export default function TravelDataForm() {
                   type="text"
                   value={currentRoute.from || ''}
                   onChange={(e) => setCurrentRoute(prev => ({ ...prev, from: e.target.value }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Paris, France"
                 />
                 <button
@@ -996,7 +996,7 @@ export default function TravelDataForm() {
                   type="text"
                   value={currentRoute.to || ''}
                   onChange={(e) => setCurrentRoute(prev => ({ ...prev, to: e.target.value }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="London, UK"
                 />
                 <button
@@ -1013,7 +1013,7 @@ export default function TravelDataForm() {
               <select
                 value={currentRoute.transportType || 'plane'}
                 onChange={(e) => setCurrentRoute(prev => ({ ...prev, transportType: e.target.value as any }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               >
                 <option value="plane">✈️ Plane</option>
                 <option value="train">🚆 Train</option>
@@ -1032,7 +1032,7 @@ export default function TravelDataForm() {
                 type="date"
                 value={currentRoute.date || ''}
                 onChange={(e) => setCurrentRoute(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -1041,7 +1041,7 @@ export default function TravelDataForm() {
                 type="text"
                 value={currentRoute.duration || ''}
                 onChange={(e) => setCurrentRoute(prev => ({ ...prev, duration: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 placeholder="2h 30min"
               />
             </div>
@@ -1050,7 +1050,7 @@ export default function TravelDataForm() {
               <textarea
                 value={currentRoute.notes || ''}
                 onChange={(e) => setCurrentRoute(prev => ({ ...prev, notes: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 rows={2}
                 placeholder="Flight details, delays, etc."
               />
@@ -1068,7 +1068,7 @@ export default function TravelDataForm() {
                     ...prev, 
                     fromCoords: [parseFloat(e.target.value) || 0, prev.fromCoords?.[1] || 0]
                   }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Latitude"
                 />
                 <input
@@ -1079,7 +1079,7 @@ export default function TravelDataForm() {
                     ...prev, 
                     fromCoords: [prev.fromCoords?.[0] || 0, parseFloat(e.target.value) || 0]
                   }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Longitude"
                 />
               </div>
@@ -1097,7 +1097,7 @@ export default function TravelDataForm() {
                     ...prev, 
                     toCoords: [parseFloat(e.target.value) || 0, prev.toCoords?.[1] || 0]
                   }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Latitude"
                 />
                 <input
@@ -1108,7 +1108,7 @@ export default function TravelDataForm() {
                     ...prev, 
                     toCoords: [prev.toCoords?.[0] || 0, parseFloat(e.target.value) || 0]
                   }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   placeholder="Longitude"
                 />
               </div>
@@ -1179,7 +1179,7 @@ export default function TravelDataForm() {
             <h4 className="font-medium mb-2">Added Routes ({travelData.routes.length})</h4>
             <div className="space-y-2">
               {travelData.routes.map((route, index) => (
-                <div key={route.id} className="flex justify-between items-center bg-white p-3 rounded border">
+                <div key={route.id} className="flex justify-between items-center bg-white p-3 rounded-sm border">
                   <div>
                     <span className="font-medium">
                       {route.transportType === 'plane' && '✈️'}
