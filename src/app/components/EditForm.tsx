@@ -525,10 +525,10 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   };
   
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <h2 className="text-xl font-bold">{day ? 'Edit Travel Period' : 'Add New Travel Period'}</h2>
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <h2 className="text-xl font-bold text-gray-900 dark:text-white">{day ? 'Edit Travel Period' : 'Add New Travel Period'}</h2>
       
-      <div className="mt-4 border-b">
+      <div className="mt-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex space-x-4 mb-2">
           <button
             type="button"

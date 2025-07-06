@@ -101,19 +101,19 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
   }
   
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       <div className="container mx-auto px-4 py-6">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">{travelData.title}</h1>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">{travelData.title}</h1>
           {travelData.description && (
-            <p className="text-gray-600 mb-2">{travelData.description}</p>
+            <p className="text-gray-600 dark:text-gray-300 mb-2">{travelData.description}</p>
           )}
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {new Date(travelData.startDate).toLocaleDateString()} - {new Date(travelData.endDate).toLocaleDateString()}
           </p>
         </header>
         
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
           <div style={{ height: '600px' }}>
             <EmbeddableMap travelData={travelData} />
           </div>
@@ -121,24 +121,24 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
         
         {/* Location List */}
         {travelData.locations.length > 0 && (
-          <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Locations Visited</h2>
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Locations Visited</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {travelData.locations
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((location, index) => (
-                <div key={index} className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800">{location.name}</h3>
-                  <p className="text-sm text-gray-500 mb-2">
+                <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-800 dark:text-white">{location.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     {new Date(location.date).toLocaleDateString()}
                   </p>
                   {location.notes && (
-                    <p className="text-sm text-gray-600">{location.notes}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{location.notes}</p>
                   )}
                   
                   {/* Display Blog Posts */}
                   {location.blogPosts && location.blogPosts.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                       <div className="space-y-2">
                         {location.blogPosts.map((post, postIndex) => (
                           <div key={post.id || postIndex}>
@@ -146,13 +146,13 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
                               href={post.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-green-600 hover:text-green-800 text-sm font-medium underline block"
+                              className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm font-medium underline block"
                               title={post.title}
                             >
                               📝 {post.title}
                             </a>
                             {post.excerpt && (
-                              <p className="text-xs text-gray-600 mt-1">{post.excerpt}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.excerpt}</p>
                             )}
                           </div>
                         ))}
@@ -162,7 +162,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
                   
                   {/* Display Instagram Posts */}
                   {location.instagramPosts && location.instagramPosts.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                       <div className="space-y-2">
                         {location.instagramPosts.map((post, postIndex) => (
                           <div key={post.id || postIndex}>
@@ -170,13 +170,13 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
                               href={post.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 text-sm underline block"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm underline block"
                               title={post.caption || post.url}
                             >
                               📸 Instagram Post
                             </a>
                             {post.caption && (
-                              <p className="text-xs text-gray-600 mt-1">{post.caption}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>
                             )}
                           </div>
                         ))}
@@ -190,12 +190,12 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
         )}
         
         {/* Embed Info */}
-        <div className="mt-6 bg-gray-50 rounded-lg p-4">
-          <h3 className="font-medium text-gray-800 mb-2">Embed this map</h3>
-          <p className="text-sm text-gray-600 mb-2">
+        <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <h3 className="font-medium text-gray-800 dark:text-white mb-2">Embed this map</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             Use this iframe code to embed the map in your blog:
           </p>
-          <code className="block bg-white p-3 rounded-sm border text-xs font-mono break-all">
+          <code className="block bg-white dark:bg-gray-700 p-3 rounded-sm border border-gray-200 dark:border-gray-600 text-xs font-mono break-all text-gray-900 dark:text-gray-100">
             {`<iframe src="${getEmbedUrl(travelData.id)}" width="100%" height="600" frameborder="0"></iframe>`}
           </code>
         </div>

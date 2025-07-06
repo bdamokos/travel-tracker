@@ -129,18 +129,18 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     .map(c => c.country)];
 
   return (
-    <div className="space-y-6" data-testid="cost-pie-charts">
-      <h4 className="font-medium text-gray-700 mb-4">Spending Analysis</h4>
+    <div className="space-y-6 text-gray-900 dark:text-gray-100" data-testid="cost-pie-charts">
+      <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-4">Spending Analysis</h4>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Country Spending Chart */}
-        <div className="bg-white p-6 rounded-lg border">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
-            <h5 className="font-medium text-gray-800">Spending by Country</h5>
+            <h5 className="font-medium text-gray-800 dark:text-gray-100">Spending by Country</h5>
             <select
               value={countryBasis}
               onChange={(e) => setCountryBasis(e.target.value as 'total' | 'daily')}
-              className="px-3 py-1 border border-gray-300 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="total">Total Amount</option>
               <option value="daily">Daily Average</option>
@@ -168,12 +168,12 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500">
+            <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
               No spending data available
             </div>
           )}
           
-          <div className="mt-4 text-xs text-gray-600">
+          <div className="mt-4 text-xs text-gray-600 dark:text-gray-300">
             {countryBasis === 'daily' ? 
               'General expenses are averaged over total trip duration' :
               'Shows total spending per country'
@@ -182,13 +182,13 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         </div>
 
         {/* Category Spending Chart */}
-        <div className="bg-white p-6 rounded-lg border">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
-            <h5 className="font-medium text-gray-800">Spending by Category</h5>
+            <h5 className="font-medium text-gray-800 dark:text-gray-100">Spending by Category</h5>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="all">All Countries</option>
               {countries.slice(1).map(country => (
@@ -218,12 +218,12 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500">
+            <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
               No category data available
             </div>
           )}
           
-          <div className="mt-4 text-xs text-gray-600">
+          <div className="mt-4 text-xs text-gray-600 dark:text-gray-300">
             {categoryFilter === 'all' ? 
               'Shows category breakdown across all countries' :
               `Shows category breakdown for ${categoryFilter}`
@@ -233,20 +233,20 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
       </div>
       
       {/* Summary Statistics */}
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h5 className="font-medium text-gray-700 mb-2">Chart Summary</h5>
+      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Chart Summary</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-600">Countries with spending:</span>
+            <span className="text-gray-600 dark:text-gray-300">Countries with spending:</span>
             <span className="font-medium ml-2">{countryData.length}</span>
           </div>
           <div>
-            <span className="text-gray-600">Expense categories:</span>
+            <span className="text-gray-600 dark:text-gray-300">Expense categories:</span>
             <span className="font-medium ml-2">{categoryData.length}</span>
           </div>
           {countryBasis === 'total' && (
             <div>
-              <span className="text-gray-600">Total visualized:</span>
+              <span className="text-gray-600 dark:text-gray-300">Total visualized:</span>
               <span className="font-medium ml-2">
                 {formatCurrency(countryData.reduce((sum, d) => sum + d.value, 0), currency)}
               </span>
@@ -254,7 +254,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
           )}
           {categoryFilter !== 'all' && (
             <div>
-              <span className="text-gray-600">Filtered total:</span>
+              <span className="text-gray-600 dark:text-gray-300">Filtered total:</span>
               <span className="font-medium ml-2">
                 {formatCurrency(categoryData.reduce((sum, d) => sum + d.value, 0), currency)}
               </span>

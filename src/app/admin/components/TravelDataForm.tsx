@@ -473,7 +473,7 @@ export default function TravelDataForm() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Travel Maps</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Travel Maps</h2>
           <div className="flex gap-2">
             <button
               onClick={async () => {
@@ -491,7 +491,7 @@ export default function TravelDataForm() {
                 setMode('create');
                 setHasUnsavedChanges(false); // New form, no changes yet
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
             >
               Create New Trip
             </button>
@@ -500,11 +500,11 @@ export default function TravelDataForm() {
 
         {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">Loading travel maps...</p>
+            <p className="text-gray-500 dark:text-gray-400">Loading travel maps...</p>
           </div>
         ) : existingTrips.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No travel maps found.</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No travel maps found.</p>
             <div className="space-y-3">
               <button
                 onClick={async () => {
@@ -522,7 +522,7 @@ export default function TravelDataForm() {
                   setMode('create');
                   setHasUnsavedChanges(false); // New form, no changes yet
                 }}
-                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
               >
                 Create Your First Travel Map
               </button>
@@ -531,17 +531,17 @@ export default function TravelDataForm() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingTrips.map((trip) => (
-              <div key={trip.id} className="bg-white border rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
-                <h3 className="font-semibold text-lg mb-2">{trip.title}</h3>
-                <p className="text-gray-600 text-sm mb-3">{trip.description}</p>
-                <p className="text-gray-500 text-xs mb-4">
+              <div key={trip.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
+                <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">{trip.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">{trip.description}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
                   {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
                 </p>
                 
                 <div className="flex gap-2">
                   <button
                     onClick={() => loadTripForEditing(trip.id)}
-                    className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
+                    className="flex-1 px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
                   >
                     Edit
                   </button>
@@ -550,7 +550,7 @@ export default function TravelDataForm() {
                       const domainConfig = getClientDomainConfig();
                       window.open(`${domainConfig.embedDomain}/map/${trip.id}`, '_blank');
                     }}
-                    className="flex-1 px-3 py-2 bg-green-500 text-white rounded-sm text-sm hover:bg-green-600"
+                    className="flex-1 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-sm text-sm hover:bg-green-600 dark:hover:bg-green-700"
                   >
                     View
                   </button>
@@ -611,27 +611,27 @@ export default function TravelDataForm() {
 
       {/* Basic Info */}
       <div>
-        <h3 className="text-xl font-semibold mb-4">Journey Information</h3>
+        <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Journey Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="journey-title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <label htmlFor="journey-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
             <input
               id="journey-title"
               type="text"
               value={travelData.title}
               onChange={(e) => setTravelData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               placeholder="My Amazing Trip"
             />
           </div>
           <div>
-            <label htmlFor="journey-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label htmlFor="journey-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
             <input
               id="journey-description"
               type="text"
               value={travelData.description}
               onChange={(e) => setTravelData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               placeholder="A wonderful journey across..."
             />
           </div>
@@ -642,7 +642,7 @@ export default function TravelDataForm() {
               type="date"
               value={travelData.startDate}
               onChange={(e) => setTravelData(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -652,7 +652,7 @@ export default function TravelDataForm() {
               type="date"
               value={travelData.endDate}
               onChange={(e) => setTravelData(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -792,7 +792,7 @@ export default function TravelDataForm() {
                             />
                             <button
                               onClick={() => addBlogPost(index)}
-                              className="px-3 py-1 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
+                              className="px-3 py-1 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
                             >
                               Add
                             </button>
@@ -906,7 +906,7 @@ export default function TravelDataForm() {
         <button
           onClick={generateMap}
           disabled={!travelData.title || travelData.locations.length === 0}
-          className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+          className="px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed font-medium"
         >
           View Travel Map
         </button>

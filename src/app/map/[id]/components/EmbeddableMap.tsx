@@ -114,9 +114,28 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     });
 
     // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    // Use a dark tile layer for dark mode, and a light one for light mode
+    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const tileLayerUrl = isDarkMode
+      ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const attribution = isDarkMode
+      ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    
+    // Add labels layer for dark mode
+    const labelLayerUrl = isDarkMode ? 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png' : null;
+
+    L.tileLayer(tileLayerUrl, {
+      attribution: attribution
     }).addTo(map);
+    
+    // Add labels layer for dark mode (on top of the base layer)
+    if (labelLayerUrl) {
+      L.tileLayer(labelLayerUrl, {
+        attribution: ''
+      }).addTo(map);
+    }
 
     mapRef.current = map;
 
@@ -128,23 +147,28 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     
     travelData.locations.forEach((location, index) => {
       // Build popup content with posts
+      const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const popupStyles = isDarkMode 
+        ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
+        : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
+      
       let popupContent = `
-        <div style="max-width: 250px;">
-          <h4 style="margin: 0 0 8px 0; font-weight: bold;">${location.name}</h4>
-          <p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">
+        <div style="padding: 8px; max-width: 250px; border-radius: 8px; ${popupStyles}">
+          <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 4px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${location.name}</h4>
+          <p style="font-size: 14px; margin-bottom: 4px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">
             ${new Date(location.date).toLocaleDateString()}
           </p>
-          ${location.notes ? `<p style="margin: 0 0 8px 0; font-size: 12px;">${location.notes}</p>` : ''}
+          ${location.notes ? `<p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${location.notes}</p>` : ''}
       `;
       
       // Add Instagram posts
       if (location.instagramPosts && location.instagramPosts.length > 0) {
         popupContent += `
           <div style="margin-bottom: 8px;">
-            <strong style="font-size: 11px; color: #E1306C;">📷 Instagram:</strong>
+            <strong style="font-size: 12px; ${isDarkMode ? 'color: #f472b6;' : 'color: #ec4899;'}">📷 Instagram:</strong>
             ${location.instagramPosts.map(post => `
-              <div style="margin: 2px 0;">
-                <a href="${post.url}" target="_blank" style="font-size: 10px; color: #E1306C; text-decoration: none;">
+              <div style="margin-top: 2px;">
+                <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
                   ${post.caption || 'View Post'}
                 </a>
               </div>
@@ -157,13 +181,13 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       if (location.blogPosts && location.blogPosts.length > 0) {
         popupContent += `
           <div style="margin-bottom: 8px;">
-            <strong style="font-size: 11px; color: #007acc;">📝 Blog:</strong>
+            <strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>
             ${location.blogPosts.map(post => `
-              <div style="margin: 2px 0;">
-                <a href="${post.url}" target="_blank" style="font-size: 10px; color: #007acc; text-decoration: none;">
+              <div style="margin-top: 2px;">
+                <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
                   ${post.title}
                 </a>
-                ${post.excerpt ? `<div style="font-size: 9px; color: #666; margin-top: 1px;">${post.excerpt}</div>` : ''}
+                ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${post.excerpt}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -243,10 +267,10 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   if (!isClient) {
     return (
       <div 
-        className="h-full w-full flex items-center justify-center bg-gray-100"
+        className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-900"
         style={{ minHeight: '400px' }}
       >
-        <div className="text-gray-500">Loading map...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading map...</div>
       </div>
     );
   }

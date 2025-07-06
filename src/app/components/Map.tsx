@@ -128,8 +128,8 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   
   if (!journey) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-100">
-        <p className="text-gray-500">No journey selected</p>
+      <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+        <p className="text-gray-500 dark:text-gray-400">No journey selected</p>
       </div>
     );
   }
@@ -144,8 +144,16 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         ref={mapRef}
       >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={
+          typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }
+        url={
+          typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        }
       />
       
       {/* Render locations */}
@@ -163,10 +171,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         
         return days.flatMap(day => 
           day.locations.map(location => {
-            const locationWithDate = {
-              ...location,
-              date: day.date || new Date().toISOString().split('T')[0]
-            };
             
             return (
               <Marker 
@@ -178,19 +182,19 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 }}
               >
                 <Popup>
-                  <div className="p-2 max-w-xs">
-                    <h4 className="font-bold">{location.name}</h4>
+                  <div className="p-2 max-w-xs bg-white dark:bg-gray-800">
+                    <h4 className="font-bold text-gray-900 dark:text-white">{location.name}</h4>
                     {location.arrivalTime && (
-                      <p className="text-sm">Arrived at: {location.arrivalTime}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">Arrived at: {location.arrivalTime}</p>
                     )}
-                    <p className="text-sm">Date: {new Date(day.date).toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">Date: {new Date(day.date).toLocaleDateString()}</p>
                     {location.notes && (
-                      <p className="text-sm mt-1">{location.notes}</p>
+                      <p className="text-sm mt-1 text-gray-700 dark:text-gray-300">{location.notes}</p>
                     )}
                     
                     {/* Display Blog Posts */}
                     {location.blogPosts && location.blogPosts.length > 0 && (
-                      <div className="mt-3 pt-2 border-t">
+                      <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
                         <h5 className="text-sm font-semibold text-green-700 mb-1">📝 Blog Posts:</h5>
                         <div className="space-y-1">
                           {location.blogPosts.map((post, index) => (
@@ -212,7 +216,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                     
                     {/* Display Instagram Posts */}
                     {location.instagramPosts && location.instagramPosts.length > 0 && (
-                      <div className="mt-3 pt-2 border-t">
+                      <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
                         <h5 className="text-sm font-semibold text-blue-700 mb-1">📸 Instagram:</h5>
                         <div className="space-y-1">
                           {location.instagramPosts.map((post, index) => (
@@ -234,7 +238,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                     
                     {/* Show post count summary */}
                     {(location.blogPosts?.length || location.instagramPosts?.length) && (
-                      <div className="mt-2 text-xs text-gray-500">
+                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                         {location.blogPosts?.length && (
                           <span className="mr-2">📝 {location.blogPosts.length}</span>
                         )}

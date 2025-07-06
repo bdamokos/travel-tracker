@@ -204,27 +204,27 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">YNAB Category Mappings</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">YNAB Category Mappings</h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
             >
               ×
             </button>
           </div>
 
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
             Configure how YNAB categories should be mapped to countries or general expenses. 
             This will speed up future imports by remembering your preferences.
           </p>
 
           {/* File Upload */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold mb-3 text-blue-800">Extract Categories from YNAB File</h3>
-            <p className="text-sm text-blue-700 mb-4">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold mb-3 text-blue-800 dark:text-blue-200">Extract Categories from YNAB File</h3>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
               Upload your YNAB export file (.tsv or .zip) to automatically extract all categories and create mappings.
             </p>
             <div className="flex items-center gap-4">
@@ -233,25 +233,25 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                 accept=".tsv,.zip"
                 onChange={handleFileUpload}
                 disabled={isUploading}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 disabled:opacity-50"
+                className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 disabled:opacity-50 dark:file:bg-blue-700 dark:file:hover:bg-blue-800"
               />
-              {isUploading && <span className="text-sm text-blue-600">Processing...</span>}
+              {isUploading && <span className="text-sm text-blue-600 dark:text-blue-300">Processing...</span>}
             </div>
             {extractedCategories.length > 0 && (
               <div className="mt-3 space-y-3">
-                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-sm text-green-800 font-medium">
+                <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-700 rounded-md">
+                  <p className="text-sm text-green-800 dark:text-green-200 font-medium">
                     ✓ Extracted {extractedCategories.length} categories from your YNAB file
                   </p>
-                  <p className="text-xs text-green-700 mt-1">
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                     Categories: {extractedCategories.slice(0, 5).join(', ')}
                     {extractedCategories.length > 5 && ` and ${extractedCategories.length - 5} more...`}
                   </p>
                 </div>
                 
                 {extractedCategories.filter(cat => !mappings.some(m => m.ynabCategory === cat)).length > 0 && (
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                    <p className="text-sm font-medium text-gray-800 mb-2">Quick Map All Remaining Categories:</p>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md">
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 mb-2">Quick Map All Remaining Categories:</p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleQuickMapAll('none')}
@@ -273,16 +273,16 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                               e.target.value = '';
                             }
                           }}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-sm"
+                          className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-sm dark:bg-gray-700 dark:text-white"
                         >
                           <option value="">All to Country...</option>
                           {availableCountries.map(country => (
-                            <option key={country} value={country}>All to {country}</option>
+                            <option key={country} value={country}>{country}</option>
                           ))}
                         </select>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                       {extractedCategories.filter(cat => !mappings.some(m => m.ynabCategory === cat)).length} categories remaining to map
                     </p>
                   </div>
@@ -292,11 +292,11 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
           </div>
 
           {/* Add New Mapping */}
-          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
             <h3 className="text-lg font-semibold mb-4">Add New Mapping</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   YNAB Category
                 </label>
                 {extractedCategories.length > 0 ? (
@@ -304,7 +304,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     <select
                       value={newMapping.ynabCategory}
                       onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Select from extracted categories</option>
                       {extractedCategories
@@ -317,7 +317,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                       type="text"
                       value={newMapping.ynabCategory}
                       onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="Or type a custom category name"
                     />
                   </div>
@@ -326,14 +326,14 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     type="text"
                     value={newMapping.ynabCategory}
                     onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="e.g., Travel - Transport"
                   />
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Mapping Type
                 </label>
                 <select
@@ -343,7 +343,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     mappingType: e.target.value as 'country' | 'general' | 'none',
                     countryName: e.target.value === 'general' || e.target.value === 'none' ? '' : prev.countryName
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="none">None (Not Travel-Related)</option>
                   <option value="general">General Expenses</option>
@@ -353,14 +353,14 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
 
               {newMapping.mappingType === 'country' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Country
                   </label>
                   <div className="flex gap-2">
                     <select
                       value={newMapping.countryName === '__new__' ? '__new__' : newMapping.countryName}
                       onChange={(e) => setNewMapping(prev => ({ ...prev, countryName: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Select Country</option>
                       {availableCountries.map(country => (
@@ -372,7 +372,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                       <input
                         type="text"
                         placeholder="Enter country name"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         onBlur={(e) => {
                           if (e.target.value.trim()) {
                             setNewMapping(prev => ({ ...prev, countryName: e.target.value.trim() }));
@@ -404,26 +404,26 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
           <div>
             <h3 className="text-lg font-semibold mb-4">Existing Mappings ({mappings.length})</h3>
             {mappings.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">
                 No mappings configured yet. Add mappings above to speed up future imports.
               </p>
             ) : (
               <div className="space-y-3">
                 {mappings.map((mapping, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex items-center space-x-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700">
                     <div className="flex-1">
                       <input
                         type="text"
                         value={mapping.ynabCategory}
                         onChange={(e) => handleUpdateMapping(index, 'ynabCategory', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                     </div>
                     
                     <select
                       value={mapping.mappingType}
                       onChange={(e) => handleUpdateMapping(index, 'mappingType', e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="none">None (Not Travel-Related)</option>
                       <option value="general">General Expenses</option>
@@ -435,7 +435,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                         <select
                           value={mapping.countryName === '__new__' ? '__new__' : (mapping.countryName || '')}
                           onChange={(e) => handleUpdateMapping(index, 'countryName', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         >
                           <option value="">Select Country</option>
                           {availableCountries.map(country => (
@@ -447,7 +447,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                           <input
                             type="text"
                             placeholder="Enter country name"
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                             onBlur={(e) => {
                               if (e.target.value.trim()) {
                                 handleUpdateMapping(index, 'countryName', e.target.value.trim());
@@ -476,10 +476,10 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t dark:border-gray-700">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
             >
               Cancel
             </button>

@@ -681,23 +681,23 @@ export default function CostTrackingForm() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingCostEntries.map((entry) => (
-              <div key={entry.id} className="bg-white border rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
+              <div key={entry.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
                 <h3 className="font-semibold text-lg mb-2">{entry.tripTitle}</h3>
-                <p className="text-gray-500 text-sm mb-3">
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">
                   {formatDate(entry.tripStartDate)} - {formatDate(entry.tripEndDate)}
                 </p>
                 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Budget:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Budget:</span>
                     <span className="font-medium">{formatCurrency(entry.overallBudget, entry.currency)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Spent:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Spent:</span>
                     <span className="font-medium">{formatCurrency(entry.totalSpent, entry.currency)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Remaining:</span>
+                    <span className="text-gray-600 dark:text-gray-300">Remaining:</span>
                     <span className={`font-medium ${entry.remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(entry.remainingBudget, entry.currency)}
                     </span>
@@ -722,7 +722,7 @@ export default function CostTrackingForm() {
 
   // Create/Edit form
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">
           {mode === 'edit' ? 'Edit Cost Tracker' : 'Create New Cost Tracker'}
@@ -758,11 +758,11 @@ export default function CostTrackingForm() {
           <h3 className="text-xl font-semibold mb-4">Select a Trip</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {existingTrips.map((trip) => (
-              <div key={trip.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+              <div key={trip.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
                    onClick={() => handleTripSelection(trip)}>
                 <h4 className="font-semibold">{trip.title}</h4>
-                <p className="text-sm text-gray-500">{trip.description}</p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400">{trip.description}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
                 </p>
               </div>
@@ -776,26 +776,26 @@ export default function CostTrackingForm() {
         <>
           <div>
             <h3 className="text-xl font-semibold mb-4">Budget Setup</h3>
-            <div className="bg-gray-50 p-4 rounded-md mb-4">
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="overall-budget" className="block text-sm font-medium text-gray-700 mb-1">Overall Budget</label>
+                  <label htmlFor="overall-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Overall Budget</label>
                   <input
                     id="overall-budget"
                     type="number"
                     value={costData.overallBudget || ''}
                     onChange={(e) => setCostData(prev => ({ ...prev, overallBudget: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="5000"
                   />
                 </div>
                 <div>
-                  <label htmlFor="currency-select" className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <label htmlFor="currency-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
                   <select
                     id="currency-select"
                     value={costData.currency}
                     onChange={(e) => setCostData(prev => ({ ...prev, currency: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="EUR">EUR</option>
                     <option value="USD">USD</option>
@@ -805,50 +805,50 @@ export default function CostTrackingForm() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Trip</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trip</label>
                   <input
                     type="text"
                     value={costData.tripTitle}
                     disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                   />
                 </div>
               </div>
             </div>
 
             {/* Country Budgets */}
-            <div className="bg-gray-50 p-4 rounded-md">
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md">
               <h4 className="font-medium mb-3">Country Budgets</h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
-                  <label htmlFor="country-input" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <label htmlFor="country-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
                   <input
                     id="country-input"
                     type="text"
                     value={currentBudget.country || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, country: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Argentina"
                   />
                 </div>
                 <div>
-                  <label htmlFor="budget-amount" className="block text-sm font-medium text-gray-700 mb-1">Budget Amount</label>
+                  <label htmlFor="budget-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Budget Amount</label>
                   <input
                     id="budget-amount"
                     type="number"
                     value={currentBudget.amount || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, amount: e.target.value ? parseFloat(e.target.value) : undefined }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="1000 (leave empty for undefined budget)"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                   <input
                     type="text"
                     value={currentBudget.notes || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, notes: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="Optional notes"
                   />
                 </div>
@@ -878,15 +878,15 @@ export default function CostTrackingForm() {
                 <div className="space-y-4">
                   <h5 className="font-medium">Country Budgets ({costData.countryBudgets.length})</h5>
                   {costData.countryBudgets.map((budget, index) => (
-                    <div key={budget.id} className="bg-white p-4 rounded-sm border">
+                    <div key={budget.id} className="bg-white dark:bg-gray-800 p-4 rounded-sm border dark:border-gray-700">
                       <div className="flex justify-between items-center mb-3">
                         <div>
                           <span className="font-medium">{budget.country}</span>
-                          <span className="text-sm text-gray-500 ml-2">
+                          <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
                             {budget.amount ? formatCurrency(budget.amount, budget.currency) : 'Not set'}
                           </span>
                           {budget.notes && (
-                            <span className="text-xs text-gray-400 ml-2">({budget.notes})</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">({budget.notes})</span>
                           )}
                         </div>
                         <div className="flex gap-2">
@@ -906,9 +906,9 @@ export default function CostTrackingForm() {
                       </div>
                       
                       {/* Periods for this country */}
-                      <div className="mt-3 pt-3 border-t">
+                      <div className="mt-3 pt-3 border-t dark:border-gray-700">
                         <div className="flex justify-between items-center mb-2">
-                          <h6 className="text-sm font-medium text-gray-700">Visit Periods</h6>
+                          <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300">Visit Periods</h6>
                           <button
                             onClick={() => {
                               setEditingPeriodForBudget(budget.id);
@@ -923,13 +923,13 @@ export default function CostTrackingForm() {
                         {budget.periods && budget.periods.length > 0 ? (
                           <div className="space-y-2">
                             {budget.periods.map((period, periodIndex) => (
-                              <div key={period.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-sm text-sm">
+                              <div key={period.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-2 rounded-sm text-sm">
                                 <div>
                                   <span className="font-medium">
                                     {formatDate(period.startDate)} - {formatDate(period.endDate)}
                                   </span>
                                   {period.notes && (
-                                    <span className="text-gray-500 ml-2">({period.notes})</span>
+                                    <span className="text-gray-500 dark:text-gray-400 ml-2">({period.notes})</span>
                                   )}
                                 </div>
                                 <div className="flex gap-2">
@@ -948,7 +948,7 @@ export default function CostTrackingForm() {
                                 </div>
                               </div>
                             ))}
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               Total days: {budget.periods.reduce((total, period) => {
                                 const start = new Date(period.startDate);
                                 const end = new Date(period.endDate);
@@ -957,7 +957,7 @@ export default function CostTrackingForm() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
                             No periods configured. Per-day calculations will be based on expense dates.
                           </div>
                         )}
@@ -969,36 +969,36 @@ export default function CostTrackingForm() {
               
               {/* Period Management Form */}
               {editingPeriodForBudget && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h6 className="font-medium text-blue-800 mb-3">
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <h6 className="font-medium text-blue-800 dark:text-blue-200 mb-3">
                     {editingPeriodIndex !== null ? 'Edit Period' : 'Add New Period'}
                   </h6>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
                       <input
                         type="date"
                         value={currentPeriod.startDate || ''}
                         onChange={(e) => setCurrentPeriod(prev => ({ ...prev, startDate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
                       <input
                         type="date"
                         value={currentPeriod.endDate || ''}
                         onChange={(e) => setCurrentPeriod(prev => ({ ...prev, endDate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
                       <input
                         type="text"
                         value={currentPeriod.notes || ''}
                         onChange={(e) => setCurrentPeriod(prev => ({ ...prev, notes: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         placeholder="First visit, return trip, etc."
                       />
                     </div>
@@ -1025,18 +1025,18 @@ export default function CostTrackingForm() {
           {/* Category Management */}
           <div>
             <h3 className="text-xl font-semibold mb-4">Expense Categories</h3>
-            <div className="bg-gray-50 p-4 rounded-md mb-4">
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-4">
               <h4 className="font-medium mb-3">Manage Categories</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {editingCategoryIndex !== null ? 'Edit Category' : 'Add New Category'}
                   </label>
                   <input
                     type="text"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="e.g., Local Transport, Souvenirs"
                   />
                 </div>
@@ -1064,7 +1064,7 @@ export default function CostTrackingForm() {
                   <h5 className="font-medium mb-3">Categories ({getCategories().length})</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {getCategories().map((category, index) => (
-                      <div key={category} className="flex justify-between items-center bg-white p-3 rounded-sm border">
+                      <div key={category} className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-sm border dark:border-gray-700">
                         <span className="font-medium text-sm">{category}</span>
                         <div className="flex gap-2">
                           <button
@@ -1130,28 +1130,28 @@ export default function CostTrackingForm() {
                                   {costData.expenses
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map((expense) => (
-                  <div key={expense.id} className="bg-white p-3 rounded-sm border">
+                  <div key={expense.id} className="bg-white dark:bg-gray-800 p-3 rounded-sm border dark:border-gray-700">
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{expense.description}</span>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
                             {formatCurrency(expense.amount, expense.currency)}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-500 mt-1">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {formatDate(expense.date)} • {expense.category}
                           {expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`}
                           {(expense.expenseType === 'planned' || isPostTripExpense(expense)) && (
                             <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                              expense.expenseType === 'planned' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                              expense.expenseType === 'planned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
                             }`}>
                               {expense.expenseType === 'planned' ? 'Planned' : 'Post-Trip'}
                             </span>
                           )}
                         </div>
                         {expense.notes && (
-                          <div className="text-xs text-gray-400 mt-1">{expense.notes}</div>
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{expense.notes}</div>
                         )}
                       </div>
                       <div className="flex gap-2">
@@ -1191,23 +1191,23 @@ export default function CostTrackingForm() {
               
               {/* Most Important: Money Available */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className={`${costSummary.availableForPlanning >= 0 ? 'bg-green-50' : 'bg-red-50'} p-6 rounded-lg`}>
-                  <h4 className={`font-bold text-lg ${costSummary.availableForPlanning >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                <div className={`${costSummary.availableForPlanning >= 0 ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950'} p-6 rounded-lg`}>
+                  <h4 className={`font-bold text-lg ${costSummary.availableForPlanning >= 0 ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
                     Money Left
                   </h4>
-                  <p className={`text-3xl font-bold ${costSummary.availableForPlanning >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className={`text-3xl font-bold ${costSummary.availableForPlanning >= 0 ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'}`}>
                     {formatCurrency(costSummary.availableForPlanning, costData.currency)}
                   </p>
-                  <p className={`text-sm mt-1 ${costSummary.availableForPlanning >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  <p className={`text-sm mt-1 ${costSummary.availableForPlanning >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                     Available for new expenses
                   </p>
                 </div>
-                <div className="bg-blue-50 p-6 rounded-lg">
-                  <h4 className="font-bold text-lg text-blue-800">Daily Budget</h4>
-                  <p className="text-3xl font-bold text-blue-600">
+                <div className="bg-blue-50 dark:bg-blue-950 p-6 rounded-lg">
+                  <h4 className="font-bold text-lg text-blue-800 dark:text-blue-200">Daily Budget</h4>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">
                     {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
                   </p>
-                  <p className="text-sm text-blue-700 mt-1">
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                     For remaining {costSummary.remainingDays} days
                   </p>
                 </div>
@@ -1215,41 +1215,41 @@ export default function CostTrackingForm() {
 
               {/* Secondary: Current Status */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-red-800">Total Spent</h4>
-                  <p className="text-xl font-bold text-red-600">
+                <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-red-800 dark:text-red-200">Total Spent</h4>
+                  <p className="text-xl font-bold text-red-600 dark:text-red-300">
                     {(() => {
                       const refundDisplay = formatCurrencyWithRefunds(costSummary.totalSpent, costSummary.totalRefunds, costData.currency);
                       return refundDisplay.displayText;
                     })()}
                   </p>
                   {costSummary.totalRefunds > 0 && (
-                    <p className="text-xs text-red-700 mt-1">
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">
                       *Includes {formatCurrency(costSummary.totalRefunds, costData.currency)} refunds
                     </p>
                   )}
                 </div>
                 {costSummary.plannedSpending > 0 && (
-                  <div className="bg-cyan-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-cyan-800">Planned Spending</h4>
-                    <p className="text-xl font-bold text-cyan-600">
+                  <div className="bg-cyan-50 dark:bg-cyan-950 p-4 rounded-lg">
+                    <h4 className="font-medium text-cyan-800 dark:text-cyan-200">Planned Spending</h4>
+                    <p className="text-xl font-bold text-cyan-600 dark:text-cyan-300">
                       {(() => {
                         const refundDisplay = formatCurrencyWithRefunds(costSummary.plannedSpending, costSummary.plannedRefunds, costData.currency);
                         return refundDisplay.displayText;
                       })()}
                     </p>
-                    <p className="text-xs text-cyan-600 mt-1">
+                    <p className="text-xs text-cyan-600 dark:text-cyan-300 mt-1">
                       Future commitments
                     </p>
                   </div>
                 )}
                 {costSummary.tripStatus === 'during' && (
-                  <div className="bg-orange-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-orange-800">Trip Average/Day</h4>
-                    <p className="text-xl font-bold text-orange-600">
+                  <div className="bg-orange-50 dark:bg-orange-950 p-4 rounded-lg">
+                    <h4 className="font-medium text-orange-800 dark:text-orange-200">Trip Average/Day</h4>
+                    <p className="text-xl font-bold text-orange-600 dark:text-orange-300">
                       {formatCurrency(costSummary.averageSpentPerDay, costData.currency)}
                     </p>
-                    <p className="text-xs text-orange-600 mt-1">
+                    <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
                       Trip spending so far
                     </p>
                   </div>
@@ -1258,26 +1258,26 @@ export default function CostTrackingForm() {
 
               {/* Reference Information */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800">Total Budget</h4>
-                  <p className="text-lg font-bold text-gray-600">
+                <div className="bg-gray-50 dark:bg-gray-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Total Budget</h4>
+                  <p className="text-lg font-bold text-gray-600 dark:text-gray-300">
                     {formatCurrency(costSummary.totalBudget, costData.currency)}
                   </p>
                 </div>
                 {costSummary.plannedSpending > 0 && (
-                  <div className="bg-indigo-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-indigo-800">Total Committed</h4>
-                    <p className="text-lg font-bold text-indigo-600">
+                  <div className="bg-indigo-50 dark:bg-indigo-950 p-4 rounded-lg">
+                    <h4 className="font-medium text-indigo-800 dark:text-indigo-200">Total Committed</h4>
+                    <p className="text-lg font-bold text-indigo-600 dark:text-indigo-300">
                       {formatCurrency(costSummary.totalCommittedSpending, costData.currency)}
                     </p>
-                    <p className="text-xs text-indigo-600 mt-1">
+                    <p className="text-xs text-indigo-600 dark:text-indigo-300 mt-1">
                       Spent + planned
                     </p>
                   </div>
                 )}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800">Days Remaining</h4>
-                  <p className="text-lg font-bold text-gray-600">
+                <div className="bg-gray-50 dark:bg-gray-950 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Days Remaining</h4>
+                  <p className="text-lg font-bold text-gray-600 dark:text-gray-300">
                     {costSummary.remainingDays}
                   </p>
                 </div>
@@ -1287,33 +1287,33 @@ export default function CostTrackingForm() {
               {/* Detailed Breakdown (only show if there are specific expense types) */}
               {(costSummary.preTripSpent > 0 || costSummary.tripSpent > 0 || costSummary.postTripSpent > 0) && (
                 <div>
-                  <h4 className="font-medium mb-3 text-gray-700">Expense Breakdown</h4>
+                  <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Expense Breakdown</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     {costSummary.preTripSpent > 0 && (
-                      <div className="bg-purple-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-purple-800">Pre-Trip</h4>
-                        <p className="text-lg font-bold text-purple-600">
+                      <div className="bg-purple-50 dark:bg-purple-950 p-4 rounded-lg">
+                        <h4 className="font-medium text-purple-800 dark:text-purple-200">Pre-Trip</h4>
+                        <p className="text-lg font-bold text-purple-600 dark:text-purple-300">
                           {(() => {
                             const refundDisplay = formatCurrencyWithRefunds(costSummary.preTripSpent, costSummary.preTripRefunds, costData.currency);
                             return refundDisplay.displayText;
                           })()}
                         </p>
-                        <p className="text-xs text-purple-600 mt-1">
+                        <p className="text-xs text-purple-600 dark:text-purple-300 mt-1">
                           Flights, gear, insurance
                         </p>
                       </div>
                     )}
                     
                     {costSummary.tripSpent > 0 && (
-                      <div className="bg-yellow-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-yellow-800">During Trip</h4>
-                        <p className="text-lg font-bold text-yellow-600">
+                      <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded-lg">
+                        <h4 className="font-medium text-yellow-800 dark:text-yellow-200">During Trip</h4>
+                        <p className="text-lg font-bold text-yellow-600 dark:text-yellow-300">
                           {(() => {
                             const refundDisplay = formatCurrencyWithRefunds(costSummary.tripSpent, costSummary.tripRefunds, costData.currency);
                             return refundDisplay.displayText;
                           })()}
                         </p>
-                        <p className="text-xs text-yellow-600 mt-1">
+                        <p className="text-xs text-yellow-600 dark:text-yellow-300 mt-1">
                           {costSummary.tripStatus === 'before' ? 'Planned trip spending' : 
                            costSummary.tripStatus === 'during' ? 'Spent so far' : 'Total trip spending'}
                         </p>
@@ -1321,15 +1321,15 @@ export default function CostTrackingForm() {
                     )}
                     
                     {costSummary.postTripSpent !== 0 && (
-                      <div className="bg-amber-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-amber-800">Post-Trip</h4>
-                        <p className="text-lg font-bold text-amber-600">
+                      <div className="bg-amber-50 dark:bg-amber-950 p-4 rounded-lg">
+                        <h4 className="font-medium text-amber-800 dark:text-amber-200">Post-Trip</h4>
+                        <p className="text-lg font-bold text-amber-600 dark:text-amber-300">
                           {(() => {
                             const refundDisplay = formatCurrencyWithRefunds(costSummary.postTripSpent, costSummary.postTripRefunds, costData.currency);
                             return refundDisplay.displayText;
                           })()}
                         </p>
-                        <p className="text-xs text-amber-600 mt-1">
+                        <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">
                           After trip ended
                         </p>
                       </div>
@@ -1349,22 +1349,22 @@ export default function CostTrackingForm() {
                   <h4 className="font-medium mb-3">Country Breakdown</h4>
                   <div className="space-y-2">
                     {costSummary.countryBreakdown.map((country) => (
-                      <div key={country.country} className="bg-white p-4 rounded-sm border">
+                      <div key={country.country} className="bg-white dark:bg-gray-800 p-4 rounded-sm border dark:border-gray-700">
                         <div className="flex justify-between items-center mb-2">
                           <h5 className="font-medium">{country.country}</h5>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
                             {country.expenses.length} expenses • {country.days} days
                           </span>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm mb-3">
                           <div>
-                            <span className="text-gray-600">Budget:</span>
+                            <span className="text-gray-600 dark:text-gray-300">Budget:</span>
                             <span className="font-medium ml-2">
                               {country.budgetAmount === 0 ? 'Not set' : formatCurrency(country.budgetAmount, costData.currency)}
                             </span>
                           </div>
                           <div>
-                            <span className="text-gray-600">Spent:</span>
+                            <span className="text-gray-600 dark:text-gray-300">Spent:</span>
                             <span className="font-medium ml-2">
                               {(() => {
                                 const netSpent = country.spentAmount - country.refundAmount;
@@ -1373,7 +1373,7 @@ export default function CostTrackingForm() {
                               })()}
                             </span>
                             {country.refundAmount > 0 && (
-                              <div className="text-xs text-gray-600 mt-1">
+                              <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                                 *Includes {formatCurrency(country.refundAmount, costData.currency)} of refunds
                               </div>
                             )}
@@ -1383,7 +1383,7 @@ export default function CostTrackingForm() {
                               const avgDisplay = getCountryAverageDisplay(country, costSummary.tripStatus, costData.currency);
                               return (
                                 <>
-                                  <span className="text-gray-600">{avgDisplay.label}:</span>
+                                  <span className="text-gray-600 dark:text-gray-300">{avgDisplay.label}:</span>
                                   <span className="font-medium ml-2" title={avgDisplay.tooltip}>
                                     {avgDisplay.value}
                                   </span>
@@ -1395,11 +1395,11 @@ export default function CostTrackingForm() {
                         
                         {/* Enhanced Expense Info */}
                         {(country.plannedSpending > 0 || country.postTripSpent > 0) && (
-                          <div className="grid grid-cols-2 gap-4 text-sm mb-3 pt-3 border-t">
+                          <div className="grid grid-cols-2 gap-4 text-sm mb-3 pt-3 border-t dark:border-gray-700">
                             {country.plannedSpending > 0 && (
                               <div>
-                                <span className="text-gray-600">Planned:</span>
-                                <span className="font-medium ml-2 text-cyan-600">
+                                <span className="text-gray-600 dark:text-gray-300">Planned:</span>
+                                <span className="font-medium ml-2 text-cyan-600 dark:text-cyan-300">
                                   {(() => {
                                     const netPlanned = country.plannedSpending - country.plannedRefunds;
                                     const refundDisplay = formatCurrencyWithRefunds(netPlanned, country.plannedRefunds, costData.currency);
@@ -1407,7 +1407,7 @@ export default function CostTrackingForm() {
                                   })()}
                                 </span>
                                 {country.plannedRefunds > 0 && (
-                                  <div className="text-xs text-gray-600 mt-1">
+                                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                                     *Includes {formatCurrency(country.plannedRefunds, costData.currency)} expected refunds
                                   </div>
                                 )}
@@ -1415,8 +1415,8 @@ export default function CostTrackingForm() {
                             )}
                             {country.postTripSpent > 0 && (
                               <div>
-                                <span className="text-gray-600">Post-Trip:</span>
-                                <span className="font-medium ml-2 text-amber-600">
+                                <span className="text-gray-600 dark:text-gray-300">Post-Trip:</span>
+                                <span className="font-medium ml-2 text-amber-600 dark:text-amber-300">
                                   {(() => {
                                     const netPostTrip = country.postTripSpent - country.postTripRefunds;
                                     const refundDisplay = formatCurrencyWithRefunds(netPostTrip, country.postTripRefunds, costData.currency);
@@ -1424,7 +1424,7 @@ export default function CostTrackingForm() {
                                   })()}
                                 </span>
                                 {country.postTripRefunds > 0 && (
-                                  <div className="text-xs text-gray-600 mt-1">
+                                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                                     *Includes {formatCurrency(country.postTripRefunds, costData.currency)} of refunds
                                   </div>
                                 )}
@@ -1435,9 +1435,9 @@ export default function CostTrackingForm() {
                         
                         {/* Available Budget Display */}
                         {country.budgetAmount > 0 && country.availableForPlanning !== (country.budgetAmount - (country.spentAmount - country.refundAmount)) && (
-                          <div className="text-sm mb-3 pt-3 border-t">
-                            <span className="text-gray-600">Available for Planning:</span>
-                            <span className={`font-medium ml-2 ${country.availableForPlanning >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          <div className="text-sm mb-3 pt-3 border-t dark:border-gray-700">
+                            <span className="text-gray-600 dark:text-gray-300">Available for Planning:</span>
+                            <span className={`font-medium ml-2 ${country.availableForPlanning >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
                               {formatCurrency(country.availableForPlanning, costData.currency)}
                             </span>
                           </div>
@@ -1445,12 +1445,12 @@ export default function CostTrackingForm() {
                         
                         {/* Category Breakdown */}
                         {country.categoryBreakdown.length > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <h6 className="text-sm font-medium text-gray-700 mb-2">Categories:</h6>
+                          <div className="mt-3 pt-3 border-t dark:border-gray-700">
+                            <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categories:</h6>
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               {country.categoryBreakdown.map((category) => (
                                 <div key={category.category} className="flex justify-between">
-                                  <span className="text-gray-600">{category.category} ({category.count}):</span>
+                                  <span className="text-gray-600 dark:text-gray-300">{category.category} ({category.count}):</span>
                                   <span className="font-medium">
                                     {(() => {
                                       // Check if this category has any refunds
