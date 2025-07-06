@@ -1,4 +1,6 @@
-# Travel Tracker - Raspberry Pi Deployment
+# Travel Tracker - Example Raspberry Pi Deployment
+
+This document provides a detailed example of how to deploy the Travel Tracker application to a Raspberry Pi using Docker, Docker Compose, and Cloudflare Tunnels. This is a specific example and may need to be adapted to your own environment.
 
 This setup provides two separate interfaces for your Travel Tracker app:
 
@@ -51,33 +53,13 @@ DATA_PATH=~/travel-tracker/data
 
 ### Cloudflare Tunnel Configuration
 
-For your Cloudflare tunnels, configure:
+Set up two Cloudflare tunnels, one for the admin interface and one for the embed interface.
 
-#### Admin Interface (Protected)
-```yaml
-tunnel: your-tunnel-id
-credentials-file: /path/to/credentials.json
+The admin interface should point to the local port 3001 and you should set up Cloudflare Access for it to make sure only authorized users can access it.
 
-ingress:
-  - hostname: admin.yourdomain.com
-    service: http://localhost:3001
-    originRequest:
-      access:
-        required: true
-        teamName: your-team
-```
+The embed interface should point to the local port 3002.
 
-#### Embed Interface (Public)
-```yaml
-tunnel: your-tunnel-id
-credentials-file: /path/to/credentials.json
-
-ingress:
-  - hostname: maps.yourdomain.com
-    service: http://localhost:3002
-    originRequest:
-      httpHostHeader: maps.yourdomain.com
-```
+(The port numbers are set in the .env file)
 
 ## Usage
 
@@ -95,16 +77,9 @@ ingress:
 
 ### Embedding Maps
 
-To embed a map on a third-party site:
+To embed a map on a third-party site use the code snippet found in the admin interface.
 
-```html
-<iframe 
-  src="https://maps.yourdomain.com/embed/[map-id]" 
-  width="800" 
-  height="600" 
-  frameborder="0">
-</iframe>
-```
+
 
 ## Data Persistence
 
@@ -114,42 +89,25 @@ To embed a map on a third-party site:
 
 ## Maintenance
 
-### Update Deployment
+### Update Deployment (for local development)
 ```bash
-# Build new image
-./build-and-push.sh
-
 # Deploy update
 ./deploy.sh
 ```
 
-### View Logs
+### Update Deployment (for production)
+
 ```bash
-# Admin interface logs
-docker logs travel-tracker-admin
+git pull
 
-# Embed interface logs
-docker logs travel-tracker-embed
 
-# Follow logs
-docker logs -f travel-tracker-admin
+./deploy.sh
 ```
 
-### Backup Data
-```bash
-# Backup the data directory
-tar -czf travel-tracker-backup-$(date +%Y%m%d).tar.gz ~/travel-tracker/data
-```
 
-### Stop Services
-```bash
-docker-compose -f docker-compose.prod.yml down
-```
 
-### Restart Services
-```bash
-docker-compose -f docker-compose.prod.yml restart
-```
+
+
 
 ## Security Considerations
 
@@ -158,34 +116,6 @@ docker-compose -f docker-compose.prod.yml restart
 3. **Data Directory**: Stored in your home directory (`~/travel-tracker/data`)
 4. **Registry Access**: Keep your Docker registry on a private network
 
-## Troubleshooting
-
-### Container Won't Start
-```bash
-# Check container logs
-docker logs travel-tracker-admin
-docker logs travel-tracker-embed
-
-# Check if ports are in use
-sudo netstat -tulpn | grep :3001
-sudo netstat -tulpn | grep :3002
-```
-
-### Data Not Persisting
-```bash
-# Check data directory permissions
-ls -la ~/travel-tracker/
-# No sudo needed since it's in your home directory
-```
-
-### Registry Connection Issues
-```bash
-# Test registry connection
-curl http://YOUR_PI_IP:5000/v2/_catalog
-
-# Check if image exists in registry
-curl http://YOUR_PI_IP:5000/v2/travel-tracker/tags/list
-```
 
 ## Architecture
 

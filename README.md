@@ -1,6 +1,8 @@
 # Travel Tracker
 
-A single-page web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes, Instagram posts, and blog content alongside the map.
+A web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes, Instagram posts, and blog content alongside the map.
+
+Furthermore, it includes a private cost tracking feature that allows users to track their expenses and budgets.
 
 ## Features
 
@@ -29,29 +31,29 @@ A single-page web application that visualizes travel journeys on an OpenStreetMa
 - Node.js 18.x or later
 - npm or yarn
 
-### Installation
+### Installation (for local development)
 
 1. Clone the repository:
 ```bash
-git clone ....
+git clone https://github.com/bdamokos/travel-tracker.git
 cd travel-tracker
 ```
 
 2. Install dependencies:
 ```bash
 npm install
-# or
-yarn install
 ```
 
 3. Run the development server:
 ```bash
 npm run dev
-# or
-yarn dev
 ```
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+
+### Installation (for production)
+
+See the [deploy](./deploy) directory for example instructions on how to deploy the application.
 
 ## Data Storage
 
@@ -74,26 +76,14 @@ Travel Tracker stores all journey data on the server using API endpoints, ensuri
 10. **YNAB Integration**: Upload YNAB export files to automatically import your financial data
 11. **Analytics**: View spending breakdowns by country, category, and time period
 
-## Mobile App Installation
+## Issues
+This application is written with my specific needs in mind - feel free to fork it and make it your own and contribute back.
 
-Travel Tracker is a Progressive Web App (PWA) that can be installed on your mobile device:
+Potential expected issues:
+- YNAB export formats may differ based on individual YNAB account settings
+- Your currency and default currency may need to be manually changed in the code
 
-### iOS:
-1. Open the website in Safari
-2. Tap the Share button
-3. Select "Add to Home Screen"
 
-### Android:
-1. Open the website in Chrome
-2. Tap the menu button
-3. Select "Add to Home Screen" or "Install App"
 
-## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgments
-
-- OpenStreetMap for map data
-- Leaflet.js for map rendering capabilities
-- Next.js team for the React framework 
