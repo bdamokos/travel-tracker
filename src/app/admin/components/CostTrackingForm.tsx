@@ -90,6 +90,10 @@ export default function CostTrackingForm() {
   const [showYnabImport, setShowYnabImport] = useState(false);
   const [showYnabMappings, setShowYnabMappings] = useState(false);
   
+  // Country autocomplete state
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [filteredCountries, setFilteredCountries] = useState<string[]>([]);
+  
   // Helper function to get categories with backward compatibility
   const getCategories = (): string[] => {
     return costData.customCategories || [...EXPENSE_CATEGORIES];
@@ -108,6 +112,51 @@ export default function CostTrackingForm() {
     const expenseDate = new Date(expense.date);
     const tripEndDate = new Date(costData.tripEndDate);
     return expenseDate > tripEndDate && expense.expenseType === 'actual';
+  };
+
+  // Helper function to get all existing countries
+  const getExistingCountries = (): string[] => {
+    const countries = new Set<string>();
+    
+    // Add countries from country budgets
+    costData.countryBudgets.forEach(budget => {
+      if (budget.country && budget.country !== 'General') {
+        countries.add(budget.country);
+      }
+    });
+    
+    // Add countries from existing expenses
+    costData.expenses.forEach(expense => {
+      if (expense.country && expense.country !== 'General' && !expense.isGeneralExpense) {
+        countries.add(expense.country);
+      }
+    });
+    
+    return Array.from(countries).sort();
+  };
+
+  // Handle country input change and filtering
+  const handleCountryInputChange = (value: string) => {
+    setCurrentExpense(prev => ({ ...prev, country: value }));
+    
+    if (value.trim()) {
+      const existing = getExistingCountries();
+      const filtered = existing.filter(country => 
+        country.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredCountries(filtered);
+      setShowCountryDropdown(filtered.length > 0);
+    } else {
+      setFilteredCountries([]);
+      setShowCountryDropdown(false);
+    }
+  };
+
+  // Handle country selection from dropdown
+  const selectCountry = (country: string) => {
+    setCurrentExpense(prev => ({ ...prev, country }));
+    setShowCountryDropdown(false);
+    setFilteredCountries([]);
   };
 
   // Load existing trips and cost entries
@@ -331,6 +380,10 @@ export default function CostTrackingForm() {
       isGeneralExpense: false,
       expenseType: 'actual'
     });
+    
+    // Close country dropdown
+    setShowCountryDropdown(false);
+    setFilteredCountries([]);
   };
 
   const editBudgetItem = (index: number) => {
@@ -1159,15 +1212,40 @@ export default function CostTrackingForm() {
                     <option value="planned">Planned Expense</option>
                   </select>
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                   <input
                     type="text"
                     value={currentExpense.country || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, country: e.target.value }))}
+                    onChange={(e) => handleCountryInputChange(e.target.value)}
+                    onFocus={() => {
+                      const existing = getExistingCountries();
+                      if (existing.length > 0) {
+                        setFilteredCountries(existing);
+                        setShowCountryDropdown(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay hiding dropdown to allow clicking on options
+                      setTimeout(() => setShowCountryDropdown(false), 150);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Argentina"
+                    autoComplete="off"
                   />
+                  {showCountryDropdown && filteredCountries.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {filteredCountries.map((country) => (
+                        <div
+                          key={country}
+                          onClick={() => selectCountry(country)}
+                          className="px-3 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-800 border-b border-gray-100 last:border-b-0"
+                        >
+                          {country}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
@@ -1221,6 +1299,10 @@ export default function CostTrackingForm() {
                         isGeneralExpense: false,
                         expenseType: 'actual'
                       });
+                      
+                      // Close country dropdown
+                      setShowCountryDropdown(false);
+                      setFilteredCountries([]);
                     }}
                     className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
                   >
