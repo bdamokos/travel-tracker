@@ -11,8 +11,8 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_APP_MODE=admin
-      - NEXT_PUBLIC_ADMIN_DOMAIN=https://tt-admin.bdamokos.org
-      - NEXT_PUBLIC_EMBED_DOMAIN=https://travel-tracker.bdamokos.org
+      - NEXT_PUBLIC_ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
     restart: unless-stopped
     networks:
       - travel-network
@@ -33,8 +33,8 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_APP_MODE=embed
-      - NEXT_PUBLIC_ADMIN_DOMAIN=https://tt-admin.bdamokos.org
-      - NEXT_PUBLIC_EMBED_DOMAIN=https://travel-tracker.bdamokos.org
+      - NEXT_PUBLIC_ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
     restart: unless-stopped
     networks:
       - travel-network
