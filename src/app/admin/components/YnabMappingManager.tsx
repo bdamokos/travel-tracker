@@ -3,6 +3,68 @@
 import { useState, useEffect } from 'react';
 import { YnabCategoryMapping, CostTrackingData } from '@/app/types';
 import { extractCategoriesFromYnabFile } from '@/app/lib/ynabUtils';
+import JSZip from 'jszip';
+
+// Security constants
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+const MAX_EXTRACTED_SIZE = 5 * 1024 * 1024; // 5MB limit for extracted content
+
+async function extractYnabTsvFromZip(zipFile: File): Promise<string> {
+  // Security check: file size
+  if (zipFile.size > MAX_FILE_SIZE) {
+    throw new Error('Zip file too large. Maximum size is 10MB.');
+  }
+
+  const arrayBuffer = await zipFile.arrayBuffer();
+  const zip = new JSZip();
+  const zipContents = await zip.loadAsync(arrayBuffer);
+
+  // Look for TSV files in the zip
+  const tsvFiles = Object.keys(zipContents.files).filter(filename => {
+    // Security check: prevent directory traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return false;
+    }
+    return filename.toLowerCase().endsWith('.tsv');
+  });
+
+  if (tsvFiles.length === 0) {
+    throw new Error('No TSV files found in the zip archive');
+  }
+
+  // Try to find the register file first (usually contains "register" in the name)
+  let targetFile = tsvFiles.find(name => 
+    name.toLowerCase().includes('register') || 
+    name.toLowerCase().includes('transaction')
+  );
+
+  // If no register file found, use the first TSV file
+  if (!targetFile) {
+    targetFile = tsvFiles[0];
+  }
+
+  // Extract and validate the content
+  const fileContent = await zipContents.files[targetFile].async('string');
+  
+  // Security check: extracted content size
+  if (fileContent.length > MAX_EXTRACTED_SIZE) {
+    throw new Error('Extracted file too large. Maximum size is 5MB.');
+  }
+
+  // Basic validation: should look like a TSV file
+  const lines = fileContent.split('\n');
+  if (lines.length < 2) {
+    throw new Error('Invalid TSV file: too few lines');
+  }
+
+  // Check if it has tab-separated headers
+  const headers = lines[0].split('\t');
+  if (headers.length < 3) {
+    throw new Error('Invalid TSV file: insufficient columns');
+  }
+
+  return fileContent;
+}
 
 interface YnabMappingManagerProps {
   costData: CostTrackingData;
@@ -33,16 +95,26 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.tsv')) {
-      alert('Please upload a .tsv file');
+    const isZipFile = file.name.toLowerCase().endsWith('.zip');
+    const isTsvFile = file.name.toLowerCase().endsWith('.tsv');
+    
+    if (!isZipFile && !isTsvFile) {
+      alert('Please upload a .tsv or .zip file');
       return;
     }
 
     setIsUploading(true);
     
     try {
-      const fileContent = await file.text();
-      const categoryList = extractCategoriesFromYnabFile(fileContent);
+      // Extract TSV content based on file type
+      let tsvContent: string;
+      if (isZipFile) {
+        tsvContent = await extractYnabTsvFromZip(file);
+      } else {
+        tsvContent = await file.text();
+      }
+      
+      const categoryList = extractCategoriesFromYnabFile(tsvContent);
       setExtractedCategories(categoryList);
 
       // Create mappings for categories that don't already exist
@@ -153,12 +225,12 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="text-lg font-semibold mb-3 text-blue-800">Extract Categories from YNAB File</h3>
             <p className="text-sm text-blue-700 mb-4">
-              Upload your YNAB export file (.tsv) to automatically extract all categories and create mappings.
+              Upload your YNAB export file (.tsv or .zip) to automatically extract all categories and create mappings.
             </p>
             <div className="flex items-center gap-4">
               <input
                 type="file"
-                accept=".tsv"
+                accept=".tsv,.zip"
                 onChange={handleFileUpload}
                 disabled={isUploading}
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 disabled:opacity-50"

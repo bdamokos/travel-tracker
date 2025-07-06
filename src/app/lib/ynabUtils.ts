@@ -10,8 +10,8 @@ export interface YnabParseResult {
 
 // Helper function to create hash for transaction deduplication
 export function createTransactionHash(transaction: YnabTransaction): string {
-  const key = `${transaction.Date}_${transaction.Payee}_${transaction.Outflow}_${transaction.Category}`;
-  return createHash('md5').update(key).digest('hex');
+  const hashString = `${transaction.Date}|${transaction.Payee}|${transaction.Category}|${transaction.Outflow}|${transaction.Inflow}`;
+  return createHash('sha256').update(hashString).digest('hex');
 }
 
 export function parseYnabFile(fileContent: string): YnabParseResult {
@@ -117,4 +117,6 @@ export function extractCategoriesFromYnabFile(fileContent: string): string[] {
   }
 
   return Array.from(categories).sort();
-} 
+}
+
+ 
