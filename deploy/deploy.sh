@@ -261,6 +261,7 @@ if [ "$DEPLOY_ONLY" = false ]; then
         exit 1
     fi
     
+    
     echo "✅ Build and push completed successfully!"
 else
     echo "⏩ Skipping build and push (deploy-only mode)"
@@ -327,6 +328,11 @@ run_ssh "
     echo \"  Embed Interface: http://\$(hostname -I | awk '{print \$1}'):\${EMBED_PORT:-3002}\"
     echo \"\"
     echo \"💾 Data is persisted at: \$DATA_PATH\"
+
+    # Clean up dangling images on remote machine
+    echo "🧹 Cleaning up dangling Docker images on remote machine..."
+    docker image prune -f
+    echo "✅ Docker cleanup completed"
 "
 
 echo ""
