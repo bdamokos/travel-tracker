@@ -64,6 +64,8 @@ export default function TravelDataForm() {
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [travelData, setTravelData] = useState<TravelData>({
     title: '',
     description: '',
@@ -128,6 +130,41 @@ export default function TravelDataForm() {
     };
   }, []);
 
+  // Auto-save effect for edit mode (debounced)
+  useEffect(() => {
+    // Only auto-save if we're in edit mode or create mode with sufficient data
+    const canAutoSave = (mode === 'edit' && travelData.id) || 
+                       (mode === 'create' && travelData.title && travelData.locations.length > 0);
+    
+    if (canAutoSave && hasUnsavedChanges) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          setAutoSaving(true);
+          const success = await autoSaveTravelData();
+          if (success) {
+            setHasUnsavedChanges(false); // Mark as saved
+          }
+          setAutoSaving(false);
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+          setAutoSaving(false);
+        }
+      }, 2000); // Auto-save after 2 seconds of inactivity
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [travelData.title, travelData.description, travelData.startDate, travelData.endDate, 
+      travelData.locations, travelData.routes, mode, hasUnsavedChanges]);
+
+  // Track when user makes changes (but not on initial load)
+  useEffect(() => {
+    if ((mode === 'edit' && travelData.id) || (mode === 'create' && travelData.title)) {
+      // Set flag that we have unsaved changes
+      setHasUnsavedChanges(true);
+    }
+  }, [travelData.title, travelData.description, travelData.startDate, travelData.endDate, 
+      travelData.locations, travelData.routes, mode]);
+
   const loadExistingTrips = async () => {
     try {
       const response = await fetch('/api/travel-data/list');
@@ -186,6 +223,7 @@ export default function TravelDataForm() {
         const tripData = migrateOldFormat(rawTripData);
         setTravelData(tripData);
         setMode('edit');
+        setHasUnsavedChanges(false); // Just loaded, no changes yet
       }
     } catch (error) {
       console.error('Error loading trip:', error);
@@ -377,6 +415,43 @@ export default function TravelDataForm() {
     }));
   };
 
+  // Silent auto-save function (no alerts, no redirects)
+  const autoSaveTravelData = async () => {
+    // Validation (silent)
+    if (!travelData.title || travelData.locations.length === 0) {
+      return false; // Invalid data, don't save
+    }
+
+    try {
+      const method = mode === 'edit' ? 'PUT' : 'POST';
+      const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(travelData),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        // For new entries, update the travel data with the returned ID
+        if (mode === 'create' && result.id) {
+          setTravelData(prev => ({ ...prev, id: result.id }));
+          setMode('edit'); // Switch to edit mode after first save
+        }
+        return true;
+      } else {
+        console.warn('Auto-save failed:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.warn('Auto-save error:', error);
+      return false;
+    }
+  };
+
   const generateMap = async () => {
     try {
       const method = mode === 'edit' ? 'PUT' : 'POST';
@@ -392,6 +467,7 @@ export default function TravelDataForm() {
       
       if (response.ok) {
         const result = await response.json();
+        setHasUnsavedChanges(false); // Mark as saved
         // Redirect to the generated map page on the public domain
         const domainConfig = getClientDomainConfig();
         window.open(`${domainConfig.embedDomain}/map/${result.id}`, '_blank');
@@ -455,7 +531,10 @@ export default function TravelDataForm() {
               {loading ? 'Loading...' : 'Refresh'}
             </button>
             <button
-              onClick={() => setMode('create')}
+              onClick={() => {
+                setMode('create');
+                setHasUnsavedChanges(false); // New form, no changes yet
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Create New Trip
@@ -483,7 +562,10 @@ export default function TravelDataForm() {
                 {loading ? 'Loading...' : 'Try Refreshing'}
               </button>
               <button
-                onClick={() => setMode('create')}
+                onClick={() => {
+                  setMode('create');
+                  setHasUnsavedChanges(false); // New form, no changes yet
+                }}
                 className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 Create Your First Travel Map
@@ -529,9 +611,29 @@ export default function TravelDataForm() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">
-          {mode === 'edit' ? 'Edit Travel Map' : 'Create New Travel Map'}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">
+            {mode === 'edit' ? 'Edit Travel Map' : 'Create New Travel Map'}
+          </h2>
+          {autoSaving && (
+            <div className="flex items-center gap-2 text-blue-600">
+              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm">Auto-saving...</span>
+            </div>
+          )}
+          {!autoSaving && hasUnsavedChanges && (
+            <div className="flex items-center gap-2 text-amber-600">
+              <div className="w-2 h-2 bg-amber-600 rounded-full"></div>
+              <span className="text-sm">Unsaved changes</span>
+            </div>
+          )}
+          {!autoSaving && !hasUnsavedChanges && (mode === 'edit' || (mode === 'create' && travelData.id)) && (
+            <div className="flex items-center gap-2 text-green-600">
+              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+              <span className="text-sm">Saved</span>
+            </div>
+          )}
+        </div>
         <button
           onClick={() => {
             setMode('list');
@@ -543,6 +645,7 @@ export default function TravelDataForm() {
               locations: [],
               routes: []
             });
+            setHasUnsavedChanges(false); // Reset state
           }}
           className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
         >
@@ -1130,7 +1233,7 @@ export default function TravelDataForm() {
           disabled={!travelData.title || travelData.locations.length === 0}
           className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
         >
-          {mode === 'edit' ? 'Update Travel Map' : 'Generate Travel Map'}
+          View Travel Map
         </button>
       </div>
     </div>
