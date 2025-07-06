@@ -27,23 +27,28 @@ COPY . .
 RUN --mount=type=cache,target=/app/.next/cache \
     bun run build
 
-# Production image, copy all the files and run next
-FROM base AS runner
+# Production image - optimized Alpine
+FROM oven/bun:1.2.18-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Create user and group
 RUN addgroup -g 1001 -S nodejs && adduser -u 1001 -S nextjs
 
-# Copy the built application
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+# Copy only the standalone output (much smaller than node_modules)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Create data directory for persistent storage
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+
+# Remove unnecessary packages to reduce image size
+RUN apk del --no-cache \
+    && rm -rf /var/cache/apk/* \
+    && rm -rf /tmp/*
 
 USER nextjs
 
@@ -52,4 +57,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "./node_modules/.bin/next", "start"] 
+CMD ["bun", "server.js"] 
