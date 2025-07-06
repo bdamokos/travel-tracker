@@ -255,13 +255,13 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleQuickMapAll('none')}
-                        className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                        className="px-3 py-1 bg-gray-500 text-white rounded-sm text-sm hover:bg-gray-600"
                       >
                         All as None
                       </button>
                       <button
                         onClick={() => handleQuickMapAll('general')}
-                        className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                        className="px-3 py-1 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
                       >
                         All as General
                       </button>
@@ -273,7 +273,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                               e.target.value = '';
                             }
                           }}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded"
+                          className="px-3 py-1 text-sm border border-gray-300 rounded-sm"
                         >
                           <option value="">All to Country...</option>
                           {availableCountries.map(country => (
@@ -304,7 +304,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     <select
                       value={newMapping.ynabCategory}
                       onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select from extracted categories</option>
                       {extractedCategories
@@ -317,7 +317,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                       type="text"
                       value={newMapping.ynabCategory}
                       onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                       placeholder="Or type a custom category name"
                     />
                   </div>
@@ -326,7 +326,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     type="text"
                     value={newMapping.ynabCategory}
                     onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Travel - Transport"
                   />
                 )}
@@ -343,7 +343,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     mappingType: e.target.value as 'country' | 'general' | 'none',
                     countryName: e.target.value === 'general' || e.target.value === 'none' ? '' : prev.countryName
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="none">None (Not Travel-Related)</option>
                   <option value="general">General Expenses</option>
@@ -360,7 +360,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     <select
                       value={newMapping.countryName === '__new__' ? '__new__' : newMapping.countryName}
                       onChange={(e) => setNewMapping(prev => ({ ...prev, countryName: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Country</option>
                       {availableCountries.map(country => (
@@ -372,7 +372,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                       <input
                         type="text"
                         placeholder="Enter country name"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                         onBlur={(e) => {
                           if (e.target.value.trim()) {
                             setNewMapping(prev => ({ ...prev, countryName: e.target.value.trim() }));
@@ -416,14 +416,14 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                         type="text"
                         value={mapping.ynabCategory}
                         onChange={(e) => handleUpdateMapping(index, 'ynabCategory', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     
                     <select
                       value={mapping.mappingType}
                       onChange={(e) => handleUpdateMapping(index, 'mappingType', e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="none">None (Not Travel-Related)</option>
                       <option value="general">General Expenses</option>
@@ -435,7 +435,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                         <select
                           value={mapping.countryName === '__new__' ? '__new__' : (mapping.countryName || '')}
                           onChange={(e) => handleUpdateMapping(index, 'countryName', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select Country</option>
                           {availableCountries.map(country => (
@@ -447,7 +447,7 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                           <input
                             type="text"
                             placeholder="Enter country name"
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                             onBlur={(e) => {
                               if (e.target.value.trim()) {
                                 handleUpdateMapping(index, 'countryName', e.target.value.trim());

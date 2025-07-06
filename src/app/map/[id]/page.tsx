@@ -195,7 +195,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
           <p className="text-sm text-gray-600 mb-2">
             Use this iframe code to embed the map in your blog:
           </p>
-          <code className="block bg-white p-3 rounded border text-xs font-mono break-all">
+          <code className="block bg-white p-3 rounded-sm border text-xs font-mono break-all">
             {`<iframe src="${getEmbedUrl(travelData.id)}" width="100%" height="600" frameborder="0"></iframe>`}
           </code>
         </div>

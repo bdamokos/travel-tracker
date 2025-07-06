@@ -731,7 +731,7 @@ export default function CostTrackingForm() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingCostEntries.map((entry) => (
-              <div key={entry.id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div key={entry.id} className="bg-white border rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
                 <h3 className="font-semibold text-lg mb-2">{entry.tripTitle}</h3>
                 <p className="text-gray-500 text-sm mb-3">
                   {formatDate(entry.tripStartDate)} - {formatDate(entry.tripEndDate)}
@@ -757,7 +757,7 @@ export default function CostTrackingForm() {
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => loadCostEntryForEditing(entry.id)}
-                    className="flex-1 px-3 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                    className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
                   >
                     Edit
                   </button>
@@ -834,7 +834,7 @@ export default function CostTrackingForm() {
                     type="number"
                     value={costData.overallBudget || ''}
                     onChange={(e) => setCostData(prev => ({ ...prev, overallBudget: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="5000"
                   />
                 </div>
@@ -843,7 +843,7 @@ export default function CostTrackingForm() {
                   <select
                     value={costData.currency}
                     onChange={(e) => setCostData(prev => ({ ...prev, currency: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="EUR">EUR</option>
                     <option value="USD">USD</option>
@@ -874,7 +874,7 @@ export default function CostTrackingForm() {
                     type="text"
                     value={currentBudget.country || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, country: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="Argentina"
                   />
                 </div>
@@ -884,7 +884,7 @@ export default function CostTrackingForm() {
                     type="number"
                     value={currentBudget.amount || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, amount: e.target.value ? parseFloat(e.target.value) : undefined }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="1000 (leave empty for undefined budget)"
                   />
                 </div>
@@ -894,7 +894,7 @@ export default function CostTrackingForm() {
                     type="text"
                     value={currentBudget.notes || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, notes: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="Optional notes"
                   />
                 </div>
@@ -924,7 +924,7 @@ export default function CostTrackingForm() {
                 <div className="space-y-4">
                   <h5 className="font-medium">Country Budgets ({costData.countryBudgets.length})</h5>
                   {costData.countryBudgets.map((budget, index) => (
-                    <div key={budget.id} className="bg-white p-4 rounded border">
+                    <div key={budget.id} className="bg-white p-4 rounded-sm border">
                       <div className="flex justify-between items-center mb-3">
                         <div>
                           <span className="font-medium">{budget.country}</span>
@@ -969,7 +969,7 @@ export default function CostTrackingForm() {
                         {budget.periods && budget.periods.length > 0 ? (
                           <div className="space-y-2">
                             {budget.periods.map((period, periodIndex) => (
-                              <div key={period.id} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                              <div key={period.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-sm text-sm">
                                 <div>
                                   <span className="font-medium">
                                     {formatDate(period.startDate)} - {formatDate(period.endDate)}
@@ -1026,7 +1026,7 @@ export default function CostTrackingForm() {
                         type="date"
                         value={currentPeriod.startDate || ''}
                         onChange={(e) => setCurrentPeriod(prev => ({ ...prev, startDate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
@@ -1035,7 +1035,7 @@ export default function CostTrackingForm() {
                         type="date"
                         value={currentPeriod.endDate || ''}
                         onChange={(e) => setCurrentPeriod(prev => ({ ...prev, endDate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
@@ -1044,7 +1044,7 @@ export default function CostTrackingForm() {
                         type="text"
                         value={currentPeriod.notes || ''}
                         onChange={(e) => setCurrentPeriod(prev => ({ ...prev, notes: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                         placeholder="First visit, return trip, etc."
                       />
                     </div>
@@ -1082,7 +1082,7 @@ export default function CostTrackingForm() {
                     type="text"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Local Transport, Souvenirs"
                   />
                 </div>
@@ -1110,7 +1110,7 @@ export default function CostTrackingForm() {
                   <h5 className="font-medium mb-3">Categories ({getCategories().length})</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {getCategories().map((category, index) => (
-                      <div key={category} className="flex justify-between items-center bg-white p-3 rounded border">
+                      <div key={category} className="flex justify-between items-center bg-white p-3 rounded-sm border">
                         <span className="font-medium text-sm">{category}</span>
                         <div className="flex gap-2">
                           <button
@@ -1166,7 +1166,7 @@ export default function CostTrackingForm() {
                     type="date"
                     value={currentExpense.date || ''}
                     onChange={(e) => setCurrentExpense(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -1182,7 +1182,7 @@ export default function CostTrackingForm() {
                       ...prev, 
                       amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 
                     }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="50 (or -50 for refund)"
                   />
                 </div>
@@ -1191,7 +1191,7 @@ export default function CostTrackingForm() {
                   <select
                     value={currentExpense.category || ''}
                     onChange={(e) => setCurrentExpense(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Category</option>
                     {getCategories().map(category => (
@@ -1207,7 +1207,7 @@ export default function CostTrackingForm() {
                   <select
                     value={currentExpense.expenseType || 'actual'}
                     onChange={(e) => setCurrentExpense(prev => ({ ...prev, expenseType: e.target.value as ExpenseType }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="actual">Actual Expense</option>
                     <option value="planned">Planned Expense</option>
@@ -1230,7 +1230,7 @@ export default function CostTrackingForm() {
                       // Delay hiding dropdown to allow for mousedown events
                       setTimeout(() => setShowCountryDropdown(false), 200);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="Argentina"
                     autoComplete="off"
                   />
@@ -1257,7 +1257,7 @@ export default function CostTrackingForm() {
                     type="text"
                     value={currentExpense.description || ''}
                     onChange={(e) => setCurrentExpense(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="Dinner at restaurant"
                   />
                 </div>
@@ -1267,7 +1267,7 @@ export default function CostTrackingForm() {
                     type="text"
                     value={currentExpense.notes || ''}
                     onChange={(e) => setCurrentExpense(prev => ({ ...prev, notes: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     placeholder="Optional notes"
                   />
                 </div>
@@ -1324,7 +1324,7 @@ export default function CostTrackingForm() {
                                   {costData.expenses
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map((expense) => (
-                  <div key={expense.id} className="bg-white p-3 rounded border">
+                  <div key={expense.id} className="bg-white p-3 rounded-sm border">
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2">
@@ -1543,7 +1543,7 @@ export default function CostTrackingForm() {
                   <h4 className="font-medium mb-3">Country Breakdown</h4>
                   <div className="space-y-2">
                     {costSummary.countryBreakdown.map((country) => (
-                      <div key={country.country} className="bg-white p-4 rounded border">
+                      <div key={country.country} className="bg-white p-4 rounded-sm border">
                         <div className="flex justify-between items-center mb-2">
                           <h5 className="font-medium">{country.country}</h5>
                           <span className="text-sm text-gray-500">

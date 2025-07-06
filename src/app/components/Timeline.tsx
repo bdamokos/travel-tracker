@@ -34,7 +34,7 @@ const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect
         <div className="text-center">
           <p className="text-gray-500 mb-4">No travel periods added to this journey yet</p>
           <button 
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-500 text-white rounded-sm hover:bg-blue-600"
             onClick={onAddDay}
           >
             Add First Period
@@ -111,7 +111,7 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
               <div className="space-y-2">
                 {day.locations.map(location => (
                   <div key={location.id} className="flex items-start">
-                    <div className="flex-shrink-0 mt-1">
+                    <div className="shrink-0 mt-1">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-red-500">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -190,7 +190,7 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
               <h4 className="text-sm font-semibold text-gray-500 mb-2">Instagram Posts</h4>
               <div className="space-y-2">
                 {day.instagramPosts.map(post => (
-                  <div key={post.id} className="border border-gray-200 rounded p-2">
+                  <div key={post.id} className="border border-gray-200 rounded-sm p-2">
                     <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-sm hover:underline">
                       View Instagram Post
                     </a>
@@ -249,7 +249,7 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation 
   
   return (
     <div className="flex items-start">
-      <div className="flex-shrink-0 mt-1 text-xl" style={{ color: transportationColors[type] }}>
+      <div className="shrink-0 mt-1 text-xl" style={{ color: transportationColors[type] }}>
         {getTransportIcon(type)}
       </div>
       <div className="ml-2">

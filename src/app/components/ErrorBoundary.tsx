@@ -75,7 +75,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                   <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
                     Show error details
                   </summary>
-                  <div className="mt-2 p-3 bg-gray-100 rounded text-xs font-mono text-red-600 overflow-auto max-h-32">
+                  <div className="mt-2 p-3 bg-gray-100 rounded-sm text-xs font-mono text-red-600 overflow-auto max-h-32">
                     <div className="font-bold">{error.name}: {error.message}</div>
                     {error.stack && (
                       <pre className="mt-2 whitespace-pre-wrap">{error.stack}</pre>

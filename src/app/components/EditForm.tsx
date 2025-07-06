@@ -602,7 +602,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded-sm"
                 placeholder="Enter a title for this period"
                 required
               />
@@ -619,7 +619,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-sm"
                   required
                 />
               </div>
@@ -634,7 +634,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   name="endDate"
                   value={formData.endDate || ''}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-sm"
                   min={formData.date} // Cannot be before start date
                 />
                 <p className="text-xs text-gray-500 mt-1">For multi-day periods</p>
@@ -650,7 +650,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 name="customNotes"
                 value={formData.customNotes}
                 onChange={handleChange}
-                className="w-full p-2 border rounded h-32"
+                className="w-full p-2 border rounded-sm h-32"
                 placeholder="Any notes about this period..."
               />
             </div>
@@ -674,12 +674,12 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     name="name"
                     value={newLocation.name}
                     onChange={handleLocationChange}
-                    className="flex-1 p-2 border rounded"
+                    className="flex-1 p-2 border rounded-sm"
                     placeholder="Enter location name"
                   />
                   <button
                     type="button"
-                    className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
+                    className="bg-blue-500 text-white px-3 py-2 rounded-sm hover:bg-blue-600"
                     onClick={handleLocationNameSearch}
                     disabled={geocodeStatus === 'loading'}
                   >
@@ -688,7 +688,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   {isGeolocationAvailable && (
                     <button
                       type="button"
-                      className="bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300"
+                      className="bg-gray-200 text-gray-800 px-3 py-2 rounded-sm hover:bg-gray-300"
                       onClick={() => getCurrentLocation('location')}
                       disabled={geoLocationStatus === 'loading'}
                     >
@@ -714,7 +714,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="locationLat"
                     value={newLocation.coordinates?.[0] || 0}
                     onChange={(e) => handleLocationCoordinatesChange(e, 0)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                     step="0.000001"
                   />
                 </div>
@@ -727,7 +727,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="locationLng"
                     value={newLocation.coordinates?.[1] || 0}
                     onChange={(e) => handleLocationCoordinatesChange(e, 1)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                     step="0.000001"
                   />
                 </div>
@@ -743,7 +743,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   name="arrivalTime"
                   value={newLocation.arrivalTime || ''}
                   onChange={handleLocationChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-sm"
                 />
               </div>
               
@@ -756,7 +756,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   name="notes"
                   value={newLocation.notes || ''}
                   onChange={handleLocationChange}
-                  className="w-full p-2 border rounded h-20"
+                  className="w-full p-2 border rounded-sm h-20"
                   placeholder="Any notes about this location..."
                 />
               </div>
@@ -764,7 +764,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
               <button
                 type="button"
                 onClick={addLocation}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
               >
                 Add Location
               </button>
@@ -775,7 +775,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 <h3 className="font-medium mb-2">Added Locations</h3>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {formData.locations.map((location, index) => (
-                    <div key={location.id || index} className="border p-3 rounded">
+                    <div key={location.id || index} className="border p-3 rounded-sm">
                       <div className="flex justify-between">
                         <h4 className="font-medium">{location.name}</h4>
                         <button
@@ -838,7 +838,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   name="type"
                   value={newTransportation.type}
                   onChange={handleTransportationChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-sm"
                 >
                   <option value="walk">Walking</option>
                   <option value="bike">Biking</option>
@@ -862,12 +862,12 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     name="from"
                     value={newTransportation.from}
                     onChange={handleTransportationChange}
-                    className="flex-1 p-2 border rounded"
+                    className="flex-1 p-2 border rounded-sm"
                     placeholder="Starting location"
                   />
                   <button
                     type="button"
-                    className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
+                    className="bg-blue-500 text-white px-3 py-2 rounded-sm hover:bg-blue-600"
                     onClick={() => handleTransportLocationSearch('from')}
                     disabled={geocodeStatus === 'loading'}
                   >
@@ -876,7 +876,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   {isGeolocationAvailable && (
                     <button
                       type="button"
-                      className="bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300"
+                      className="bg-gray-200 text-gray-800 px-3 py-2 rounded-sm hover:bg-gray-300"
                       onClick={() => getCurrentLocation('transportFrom')}
                       disabled={geoLocationStatus === 'loading'}
                     >
@@ -896,7 +896,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="fromLat"
                     value={newTransportation.fromCoordinates?.[0] || 0}
                     onChange={(e) => handleTransportationCoordinatesChange(e, 'fromCoordinates', 0)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                     step="0.000001"
                   />
                 </div>
@@ -909,7 +909,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="fromLng"
                     value={newTransportation.fromCoordinates?.[1] || 0}
                     onChange={(e) => handleTransportationCoordinatesChange(e, 'fromCoordinates', 1)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                     step="0.000001"
                   />
                 </div>
@@ -926,12 +926,12 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     name="to"
                     value={newTransportation.to}
                     onChange={handleTransportationChange}
-                    className="flex-1 p-2 border rounded"
+                    className="flex-1 p-2 border rounded-sm"
                     placeholder="Destination"
                   />
                   <button
                     type="button"
-                    className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
+                    className="bg-blue-500 text-white px-3 py-2 rounded-sm hover:bg-blue-600"
                     onClick={() => handleTransportLocationSearch('to')}
                     disabled={geocodeStatus === 'loading'}
                   >
@@ -940,7 +940,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   {isGeolocationAvailable && (
                     <button
                       type="button"
-                      className="bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300"
+                      className="bg-gray-200 text-gray-800 px-3 py-2 rounded-sm hover:bg-gray-300"
                       onClick={() => getCurrentLocation('transportTo')}
                       disabled={geoLocationStatus === 'loading'}
                     >
@@ -960,7 +960,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="toLat"
                     value={newTransportation.toCoordinates?.[0] || 0}
                     onChange={(e) => handleTransportationCoordinatesChange(e, 'toCoordinates', 0)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                     step="0.000001"
                   />
                 </div>
@@ -973,7 +973,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="toLng"
                     value={newTransportation.toCoordinates?.[1] || 0}
                     onChange={(e) => handleTransportationCoordinatesChange(e, 'toCoordinates', 1)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                     step="0.000001"
                   />
                 </div>
@@ -982,7 +982,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
               <button
                 type="button"
                 onClick={calculateRouteInfo}
-                className="mb-3 bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+                className="mb-3 bg-gray-200 text-gray-800 px-4 py-2 rounded-sm hover:bg-gray-300"
                 disabled={
                   isCalculatingRoute || 
                   !newTransportation.fromCoordinates || 
@@ -993,7 +993,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
               </button>
               
               {newTransportation.distance && (
-                <div className="p-3 mb-3 bg-blue-50 rounded text-blue-800">
+                <div className="p-3 mb-3 bg-blue-50 rounded-sm text-blue-800">
                   <p>Distance: {newTransportation.distance} km</p>
                   <p>Estimated travel time: {formatTravelTime(estimateTravelTime(
                     newTransportation.distance,
@@ -1013,7 +1013,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     name="departureTime"
                     value={newTransportation.departureTime || ''}
                     onChange={handleTransportationChange}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                   />
                 </div>
                 <div>
@@ -1026,7 +1026,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     name="arrivalTime"
                     value={newTransportation.arrivalTime || ''}
                     onChange={handleTransportationChange}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                   />
                 </div>
               </div>
@@ -1034,7 +1034,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
               <button
                 type="button"
                 onClick={addTransportation}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
               >
                 Add Transportation
               </button>
@@ -1043,7 +1043,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
             {formData.transportation && (
               <div>
                 <h3 className="font-medium mb-2">Added Transportation</h3>
-                <div className="border p-3 rounded">
+                <div className="border p-3 rounded-sm">
                   <div className="flex justify-between">
                     <h4 className="font-medium capitalize">
                       {formData.transportation.type} 
@@ -1096,7 +1096,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   name="url"
                   value={newPost.url}
                   onChange={handlePostChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded-sm"
                   placeholder="https://www.instagram.com/p/..."
                 />
               </div>
@@ -1106,7 +1106,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
               <button
                 type="button"
                 onClick={addInstagramPost}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
               >
                 Add Instagram Post
               </button>
@@ -1117,7 +1117,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 <h3 className="font-medium mb-2">Added Instagram Posts</h3>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {formData.instagramPosts.map((post, index) => (
-                    <div key={post.id || index} className="border p-3 rounded">
+                    <div key={post.id || index} className="border p-3 rounded-sm">
                       <div className="flex justify-between">
                         <a
                           href={post.url}
@@ -1159,7 +1159,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     id="locationSelect"
                     value={selectedLocationForPosts}
                     onChange={(e) => setSelectedLocationForPosts(parseInt(e.target.value))}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded-sm"
                   >
                     <option value={-1}>Choose a location...</option>
                     {formData.locations.map((location, index) => (
@@ -1171,7 +1171,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 </div>
                 
                 {selectedLocationForPosts >= 0 && (
-                  <div className="border p-4 rounded bg-gray-50">
+                  <div className="border p-4 rounded-sm bg-gray-50">
                     <h4 className="font-medium mb-3">Add Blog Post to {formData.locations[selectedLocationForPosts]?.name}</h4>
                     
                     <div className="mb-3">
@@ -1184,7 +1184,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                         name="title"
                         value={newBlogPost.title}
                         onChange={handleBlogPostChange}
-                        className="w-full p-2 border rounded"
+                        className="w-full p-2 border rounded-sm"
                         placeholder="Enter blog post title"
                       />
                     </div>
@@ -1199,7 +1199,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                         name="url"
                         value={newBlogPost.url}
                         onChange={handleBlogPostChange}
-                        className="w-full p-2 border rounded"
+                        className="w-full p-2 border rounded-sm"
                         placeholder="https://yourblog.com/post/..."
                       />
                     </div>
@@ -1210,7 +1210,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                       <button
                         type="button"
                         onClick={() => addBlogPostToLocation(selectedLocationForPosts)}
-                        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                        className="bg-green-500 text-white px-4 py-2 rounded-sm hover:bg-green-600"
                         disabled={!newBlogPost.title || !newBlogPost.url}
                       >
                         Add Blog Post
@@ -1218,7 +1218,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                       <button
                         type="button"
                         onClick={() => addInstagramPostToLocation(selectedLocationForPosts)}
-                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
                         disabled={!newPost.url}
                       >
                         Add Instagram Post
@@ -1234,7 +1234,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                           name="url"
                           value={newPost.url}
                           onChange={handlePostChange}
-                          className="flex-1 p-2 border rounded"
+                          className="flex-1 p-2 border rounded-sm"
                           placeholder="https://www.instagram.com/p/..."
                         />
 
@@ -1251,7 +1251,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 <h3 className="font-medium mb-2">Location Posts</h3>
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {formData.locations.map((location, locationIndex) => (
-                    <div key={location.id} className="border p-4 rounded">
+                    <div key={location.id} className="border p-4 rounded-sm">
                       <h4 className="font-medium mb-2">{location.name}</h4>
                       
                       {/* Blog Posts for this location */}
@@ -1260,7 +1260,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                           <h5 className="text-sm font-medium text-green-700 mb-1">Blog Posts:</h5>
                           <div className="space-y-2">
                             {location.blogPosts.map((post, postIndex) => (
-                              <div key={post.id} className="flex justify-between items-center bg-green-50 p-2 rounded">
+                              <div key={post.id} className="flex justify-between items-center bg-green-50 p-2 rounded-sm">
                                 <div>
                                   <a
                                     href={post.url}
@@ -1290,7 +1290,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                           <h5 className="text-sm font-medium text-blue-700 mb-1">Instagram Posts:</h5>
                           <div className="space-y-2">
                             {location.instagramPosts.map((post, postIndex) => (
-                              <div key={post.id} className="flex justify-between items-center bg-blue-50 p-2 rounded">
+                              <div key={post.id} className="flex justify-between items-center bg-blue-50 p-2 rounded-sm">
                                 <div>
                                   <a
                                     href={post.url}
@@ -1337,13 +1337,13 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border rounded"
+            className="px-4 py-2 border rounded-sm"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-500 text-white rounded-sm hover:bg-blue-600"
           >
             Save
           </button>
