@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  travel-tracker-admin:
+    image: ${REGISTRY_HOST}:5010/travel-tracker:latest
+    container_name: travel-tracker-admin
+    ports:
+      - "${ADMIN_PORT:-3001}:3000"
+    volumes:
+      - travel-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_MODE=admin
+      - NEXT_PUBLIC_ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
+    restart: unless-stopped
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+  travel-tracker-embed:
+    image: ${REGISTRY_HOST}:5010/travel-tracker:latest
+    container_name: travel-tracker-embed
+    ports:
+      - "${EMBED_PORT:-3002}:3000"
+    volumes:
+      - travel-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_MODE=embed
+      - NEXT_PUBLIC_ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
+    restart: unless-stopped
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  travel-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH}
+
+networks:
+  travel-network:
+    driver: bridge 

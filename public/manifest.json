@@ -1,0 +1,47 @@
+{
+  "name": "Travel Tracker",
+  "short_name": "TravelTracker",
+  "description": "A tool to visualize and track your travel journeys with interactive maps, timelines, and offline capabilities.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot2.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add New Day",
+      "short_name": "Add Day",
+      "description": "Add a new day to your journey",
+      "url": "/?action=add-day"
+    }
+  ],
+  "categories": ["travel", "maps", "productivity"],
+  "orientation": "any",
+  "lang": "en-US"
+} 
