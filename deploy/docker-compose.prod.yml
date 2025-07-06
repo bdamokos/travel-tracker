@@ -13,6 +13,8 @@ services:
       - NEXT_PUBLIC_APP_MODE=admin
       - NEXT_PUBLIC_ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - EMBED_DOMAIN=${EMBED_DOMAIN}
     restart: unless-stopped
     networks:
       - travel-network
@@ -35,6 +37,8 @@ services:
       - NEXT_PUBLIC_APP_MODE=embed
       - NEXT_PUBLIC_ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - EMBED_DOMAIN=${EMBED_DOMAIN}
     restart: unless-stopped
     networks:
       - travel-network
