@@ -5,6 +5,7 @@ import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, Ynab
 import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES, getCountryAverageDisplay, formatCurrencyWithRefunds } from '../../lib/costUtils';
 import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
+import CostPieCharts from './CostPieCharts';
 
 interface ExistingTrip {
   id: string;
@@ -1529,6 +1530,11 @@ export default function CostTrackingForm() {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Pie Charts Analysis */}
+              {costSummary.countryBreakdown.some(c => c.spentAmount > 0) && (
+                <CostPieCharts costSummary={costSummary} currency={costData.currency} />
               )}
 
               {/* Country Breakdown */}
