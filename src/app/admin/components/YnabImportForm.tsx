@@ -254,14 +254,14 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
           {currentStep === 1 && (
             <div className="space-y-4">
               <p className="text-gray-600 mb-4">
-                Upload your YNAB export file (.tsv format). This should contain your transactions with the standard YNAB headers.
+                Upload your YNAB export file (.tsv format) or YNAB export zip file (.zip format). The system will automatically extract the transaction register from zip files.
               </p>
               
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".tsv"
+                  accept=".tsv,.zip"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -270,11 +270,11 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                   disabled={isLoading}
                   className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50"
                 >
-                  {isLoading ? 'Uploading...' : 'Choose TSV File'}
+                  {isLoading ? 'Uploading...' : 'Choose TSV or ZIP File'}
                 </button>
-                <p className="text-gray-500 mt-2">
-                  Select your YNAB export file to continue
-                </p>
+                                  <p className="text-gray-500 mt-2">
+                    Select your YNAB export file (.tsv or .zip) to continue
+                  </p>
               </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile, writeFile, unlink } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { 
   CostTrackingData, 
@@ -11,6 +11,7 @@ import {
   ExpenseType
 } from '@/app/types';
 import { createTransactionHash } from '@/app/lib/ynabUtils';
+import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -130,11 +131,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await writeFile(costTrackingFilePath, JSON.stringify(costData, null, 2));
 
     // Clean up temporary file
-    try {
-      await unlink(tempFilePath);
-    } catch (error) {
-      console.warn('Could not delete temporary file:', error);
-    }
+    await cleanupTempFile(tempFileId);
+    
+    // Clean up old temp files (older than 2 hours)
+    await cleanupOldTempFiles(2);
 
     return NextResponse.json({
       success: true,
