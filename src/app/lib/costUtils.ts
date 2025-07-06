@@ -1,16 +1,100 @@
-import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod } from '../types';
+import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '../types';
+
+/**
+ * Helper function to determine if an expense is post-trip based on dates
+ */
+function isPostTripExpense(expense: Expense, tripEndDate: Date): boolean {
+  if (expense.expenseType !== 'actual') return false;
+  const expenseDate = new Date(expense.date);
+  return expenseDate > tripEndDate;
+}
+
+/**
+ * Helper function to filter expenses by type and calculate totals (with automatic post-trip detection)
+ */
+function calculateExpenseTotals(expenses: Expense[], expenseType: ExpenseType | 'post-trip', tripEndDate?: Date): { outflows: number, refunds: number, net: number } {
+  let filteredExpenses: Expense[];
+  
+  if (expenseType === 'post-trip') {
+    // For post-trip, filter actual expenses that are after trip end date
+    filteredExpenses = expenses.filter(e => 
+      (e.expenseType || 'actual') === 'actual' && 
+      tripEndDate && 
+      isPostTripExpense(e, tripEndDate)
+    );
+  } else {
+    // For actual and planned, filter by expenseType but exclude post-trip actuals
+    filteredExpenses = expenses.filter(e => {
+      const eType = e.expenseType || 'actual';
+      if (eType === expenseType) {
+        // If it's an actual expense, make sure it's not post-trip
+        if (eType === 'actual' && tripEndDate && isPostTripExpense(e, tripEndDate)) {
+          return false;
+        }
+        return true;
+      }
+      return false;
+    });
+  }
+  
+  const outflows = filteredExpenses.filter(e => e.amount > 0).reduce((sum, e) => sum + e.amount, 0);
+  const refunds = Math.abs(filteredExpenses.filter(e => e.amount < 0).reduce((sum, e) => sum + e.amount, 0));
+  const net = outflows - refunds;
+  return { outflows, refunds, net };
+}
+
+/**
+ * Helper function to filter expenses by date range and type (excludes post-trip from actual)
+ */
+function getExpensesByDateAndType(expenses: Expense[], startDate: Date, endDate: Date, expenseType?: ExpenseType, tripEndDate?: Date): Expense[] {
+  return expenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    const eType = expense.expenseType || 'actual';
+    
+    // Date range check
+    const inDateRange = expenseDate >= startDate && expenseDate <= endDate;
+    if (!inDateRange) return false;
+    
+    // Type check
+    if (expenseType && eType !== expenseType) return false;
+    
+    // Exclude post-trip expenses from actual expenses
+    if (eType === 'actual' && tripEndDate && isPostTripExpense(expense, tripEndDate)) {
+      return false;
+    }
+    
+    return true;
+  });
+}
+
+/**
+ * Helper function to get expenses before a date (excludes post-trip from actual)
+ */
+function getExpensesBeforeDate(expenses: Expense[], date: Date, expenseType?: ExpenseType, tripEndDate?: Date): Expense[] {
+  return expenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    const eType = expense.expenseType || 'actual';
+    
+    // Date check
+    if (expenseDate >= date) return false;
+    
+    // Type check
+    if (expenseType && eType !== expenseType) return false;
+    
+    // Exclude post-trip expenses from actual expenses
+    if (eType === 'actual' && tripEndDate && isPostTripExpense(expense, tripEndDate)) {
+      return false;
+    }
+    
+    return true;
+  });
+}
 
 /**
  * Calculate comprehensive cost summary from cost tracking data
  */
 export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const totalBudget = costData.overallBudget;
-  
-  // Separate positive and negative amounts
-  const totalOutflows = costData.expenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
-  const totalRefunds = Math.abs(costData.expenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
-  const totalSpent = totalOutflows - totalRefunds;
-  const remainingBudget = totalBudget - totalSpent;
   
   const today = new Date();
   const startDate = new Date(costData.tripStartDate);
@@ -30,22 +114,38 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     tripStatus = 'after';
   }
   
-  // Separate expenses into pre-trip and trip expenses
-  const preTripExpenses = costData.expenses.filter(expense => new Date(expense.date) < startDate);
-  const tripExpenses = costData.expenses.filter(expense => {
-    const expenseDate = new Date(expense.date);
-    return expenseDate >= startDate && expenseDate <= endDate;
-  });
+  // Calculate totals by expense type (with automatic post-trip detection)
+  const actualTotals = calculateExpenseTotals(costData.expenses, 'actual', endDate);
+  const plannedTotals = calculateExpenseTotals(costData.expenses, 'planned', endDate);
+  const postTripTotals = calculateExpenseTotals(costData.expenses, 'post-trip', endDate);
   
-  // Calculate pre-trip totals
-  const preTripOutflows = preTripExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
-  const preTripRefunds = Math.abs(preTripExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
-  const preTripSpent = preTripOutflows - preTripRefunds;
+  // Calculate date-based breakdowns for actual expenses only (excluding post-trip)
+  const preTripActualExpenses = getExpensesBeforeDate(costData.expenses, startDate, 'actual', endDate);
+  const tripActualExpenses = getExpensesByDateAndType(costData.expenses, startDate, endDate, 'actual', endDate);
   
-  // Calculate trip totals
-  const tripOutflows = tripExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
-  const tripRefunds = Math.abs(tripExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
-  const tripSpent = tripOutflows - tripRefunds;
+  const preTripActualTotals = calculateExpenseTotals(preTripActualExpenses, 'actual', endDate);
+  const tripActualTotals = calculateExpenseTotals(tripActualExpenses, 'actual', endDate);
+  
+  // Total spent = actual expenses only (for backward compatibility)
+  const totalSpent = actualTotals.net;
+  const totalRefunds = actualTotals.refunds;
+  
+  // Calculate committed spending (actual + planned) for budget planning
+  const totalCommittedSpending = actualTotals.net + plannedTotals.net;
+  const availableForPlanning = totalBudget - totalCommittedSpending;
+  
+  // Remaining budget calculation: budget - actual - planned (but not post-trip)
+  const remainingBudget = totalBudget - totalCommittedSpending;
+  
+  // Extract individual components for summary
+  const preTripSpent = preTripActualTotals.net;
+  const preTripRefunds = preTripActualTotals.refunds;
+  const tripSpent = tripActualTotals.net;
+  const tripRefunds = tripActualTotals.refunds;
+  const postTripSpent = postTripTotals.net;
+  const postTripRefunds = postTripTotals.refunds;
+  const plannedSpending = plannedTotals.net;
+  const plannedRefunds = plannedTotals.refunds;
   
   // Calculate intelligent averages based on trip status
   let averageSpentPerDay: number;
@@ -66,7 +166,8 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     averageSpentPerTripDay = averageSpentPerDay;
   }
   
-  const suggestedDailyBudget = remainingDays > 0 ? remainingBudget / remainingDays : 0;
+  // Suggested daily budget should account for planned expenses
+  const suggestedDailyBudget = remainingDays > 0 ? availableForPlanning / remainingDays : 0;
   
   // Calculate country breakdowns
   const countryBreakdown = calculateCountryBreakdowns(costData);
@@ -86,7 +187,14 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     tripSpent,
     tripRefunds,
     averageSpentPerTripDay,
-    tripStatus
+    tripStatus,
+    // New fields for enhanced expense tracking
+    postTripSpent,
+    postTripRefunds,
+    plannedSpending,
+    plannedRefunds,
+    totalCommittedSpending,
+    availableForPlanning
   };
 }
 
@@ -123,7 +231,13 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       tripSpent: 0,
       suggestedDailyBudget: 0,
       expenses: [],
-      categoryBreakdown: []
+      categoryBreakdown: [],
+      // New fields for enhanced expense tracking
+      postTripSpent: 0,
+      postTripRefunds: 0,
+      plannedSpending: 0,
+      plannedRefunds: 0,
+      availableForPlanning: budget.amount || 0
     });
   });
   
@@ -144,17 +258,50 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
           tripSpent: 0,
           suggestedDailyBudget: 0,
           expenses: [],
-          categoryBreakdown: []
+          categoryBreakdown: [],
+          // New fields for enhanced expense tracking
+          postTripSpent: 0,
+          postTripRefunds: 0,
+          plannedSpending: 0,
+          plannedRefunds: 0,
+          availableForPlanning: 0
         });
       }
       
       const countryData = countryMap.get(expense.country)!;
-      if (expense.amount > 0) {
-        countryData.spentAmount += expense.amount;
-      } else {
-        countryData.refundAmount += Math.abs(expense.amount);
+      const expenseType = expense.expenseType || 'actual';
+      
+      // Handle different expense types (with automatic post-trip detection)
+      const isPostTrip = isPostTripExpense(expense, endDate);
+      
+      if (expenseType === 'actual' && isPostTrip) {
+        // Post-trip expense
+        if (expense.amount > 0) {
+          countryData.postTripSpent += expense.amount;
+        } else {
+          countryData.postTripRefunds += Math.abs(expense.amount);
+        }
+      } else if (expenseType === 'actual') {
+        // Regular actual expense (not post-trip)
+        if (expense.amount > 0) {
+          countryData.spentAmount += expense.amount;
+        } else {
+          countryData.refundAmount += Math.abs(expense.amount);
+        }
+      } else if (expenseType === 'planned') {
+        if (expense.amount > 0) {
+          countryData.plannedSpending += expense.amount;
+        } else {
+          countryData.plannedRefunds += Math.abs(expense.amount);
+        }
       }
-      countryData.remainingAmount = countryData.budgetAmount - (countryData.spentAmount - countryData.refundAmount);
+      
+      // Update remaining calculations
+      const netActual = countryData.spentAmount - countryData.refundAmount;
+      const netPlanned = countryData.plannedSpending - countryData.plannedRefunds;
+      countryData.remainingAmount = countryData.budgetAmount - netActual - netPlanned;
+      countryData.availableForPlanning = countryData.budgetAmount - netActual - netPlanned;
+      
       countryData.expenses.push(expense);
     }
   });
@@ -162,13 +309,17 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   // Add general expenses as a separate entry
   const generalExpenses = costData.expenses.filter(expense => expense.isGeneralExpense);
   if (generalExpenses.length > 0) {
-    const generalOutflows = generalExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
-    const generalRefunds = Math.abs(generalExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
-    const generalSpent = generalOutflows - generalRefunds;
+    // Calculate totals by expense type for general expenses (with automatic post-trip detection)
+    const generalActualTotals = calculateExpenseTotals(generalExpenses, 'actual', endDate);
+    const generalPlannedTotals = calculateExpenseTotals(generalExpenses, 'planned', endDate);
+    const generalPostTripTotals = calculateExpenseTotals(generalExpenses, 'post-trip', endDate);
     
-    // Calculate pre-trip vs trip spending for general expenses
-    const generalPreTrip = generalExpenses.filter(e => new Date(e.date) < startDate).reduce((sum, e) => sum + e.amount, 0);
-    const generalTrip = generalExpenses.filter(e => {
+    // Calculate pre-trip vs trip spending for general actual expenses only (exclude post-trip)
+    const generalActualExpenses = generalExpenses.filter(e => 
+      (e.expenseType || 'actual') === 'actual' && !isPostTripExpense(e, endDate)
+    );
+    const generalPreTrip = generalActualExpenses.filter(e => new Date(e.date) < startDate).reduce((sum, e) => sum + e.amount, 0);
+    const generalTrip = generalActualExpenses.filter(e => {
       const date = new Date(e.date);
       return date >= startDate && date <= endDate;
     }).reduce((sum, e) => sum + e.amount, 0);
@@ -176,34 +327,45 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     countryMap.set('General', {
       country: 'General',
       budgetAmount: 0, // General expenses don't have specific budgets
-      spentAmount: generalOutflows,
-      refundAmount: generalRefunds,
-      remainingAmount: -generalSpent,
+      spentAmount: generalActualTotals.outflows,
+      refundAmount: generalActualTotals.refunds,
+      remainingAmount: -generalActualTotals.net,
       days: 0,
       averagePerDay: 0,
       preTripSpent: generalPreTrip,
       tripSpent: generalTrip,
       suggestedDailyBudget: 0,
       expenses: generalExpenses,
-      categoryBreakdown: []
+      categoryBreakdown: [],
+      // New fields for enhanced expense tracking
+      postTripSpent: generalPostTripTotals.net,
+      postTripRefunds: generalPostTripTotals.refunds,
+      plannedSpending: generalPlannedTotals.net,
+      plannedRefunds: generalPlannedTotals.refunds,
+      availableForPlanning: -(generalActualTotals.net + generalPlannedTotals.net)
     });
   }
   
   // Calculate days, averages, and category breakdowns for each country
   countryMap.forEach(countryData => {
-    // Calculate pre-trip vs trip spending for this country
-    const preTripExpenses = countryData.expenses.filter(e => new Date(e.date) < startDate);
-    const tripExpenses = countryData.expenses.filter(e => {
+    // Calculate pre-trip vs trip spending for this country (actual expenses only, exclude post-trip)
+    const actualExpenses = countryData.expenses.filter(e => 
+      (e.expenseType || 'actual') === 'actual' && !isPostTripExpense(e, endDate)
+    );
+    const preTripActualExpenses = actualExpenses.filter(e => new Date(e.date) < startDate);
+    const tripActualExpenses = actualExpenses.filter(e => {
       const date = new Date(e.date);
       return date >= startDate && date <= endDate;
     });
     
-    countryData.preTripSpent = preTripExpenses.reduce((sum, e) => sum + e.amount, 0);
-    countryData.tripSpent = tripExpenses.reduce((sum, e) => sum + e.amount, 0);
+    countryData.preTripSpent = preTripActualExpenses.reduce((sum, e) => sum + e.amount, 0);
+    countryData.tripSpent = tripActualExpenses.reduce((sum, e) => sum + e.amount, 0);
     
-    // Update spentAmount to be net (for display consistency)
-    const netSpent = countryData.spentAmount - countryData.refundAmount;
-    countryData.remainingAmount = countryData.budgetAmount - netSpent;
+    // Update remaining calculations to include planned expenses
+    const netActual = countryData.spentAmount - countryData.refundAmount;
+    const netPlanned = countryData.plannedSpending - countryData.plannedRefunds;
+    countryData.remainingAmount = countryData.budgetAmount - netActual - netPlanned;
+    countryData.availableForPlanning = countryData.budgetAmount - netActual - netPlanned;
     // Calculate days spent in country based on configured periods or expenses
     const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
     
@@ -229,9 +391,11 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     
     // Calculate suggested daily budget for remaining days (if country has budget)
     if (countryData.budgetAmount > 0 && countryBudget?.periods) {
-      const remainingBudget = countryData.budgetAmount - (countryData.preTripSpent + countryData.tripSpent);
+      // Account for actual spending and planned spending
+      const totalCommitted = netActual + netPlanned;
+      const availableBudget = countryData.budgetAmount - totalCommitted;
       const remainingDays = calculateRemainingDaysInCountry(countryBudget.periods, today, endDate);
-      countryData.suggestedDailyBudget = remainingDays > 0 ? remainingBudget / remainingDays : 0;
+      countryData.suggestedDailyBudget = remainingDays > 0 ? availableBudget / remainingDays : 0;
     }
 
     // Calculate averagePerDay using updated logic

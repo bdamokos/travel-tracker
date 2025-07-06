@@ -7,7 +7,8 @@ import {
   ProcessedYnabTransaction, 
   YnabTransaction,
   Expense,
-  BudgetItem 
+  BudgetItem,
+  ExpenseType
 } from '@/app/types';
 import { createTransactionHash } from '@/app/lib/ynabUtils';
 
@@ -97,7 +98,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         country: mapping.mappingType === 'general' ? 'General' : (mapping.countryName || 'General'),
         description: originalTxn.Payee,
         notes: originalTxn.Memo,
-        isGeneralExpense: mapping.mappingType === 'general'
+        isGeneralExpense: mapping.mappingType === 'general',
+        expenseType: 'actual' as ExpenseType // YNAB imports are always actual expenses
       };
 
       // Auto-create country budget if it doesn't exist

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, YnabCategoryMapping } from '../../types';
+import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, YnabCategoryMapping, ExpenseType } from '../../types';
 import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES, getCountryAverageDisplay, formatCurrencyWithRefunds } from '../../lib/costUtils';
 import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
@@ -64,7 +64,8 @@ export default function CostTrackingForm() {
     country: '',
     description: '',
     notes: '',
-    isGeneralExpense: false
+    isGeneralExpense: false,
+    expenseType: 'actual'
   });
 
   const [editingBudgetIndex, setEditingBudgetIndex] = useState<number | null>(null);
@@ -99,6 +100,14 @@ export default function CostTrackingForm() {
     if (!costData.customCategories) {
       setCostData(prev => ({ ...prev, customCategories: [...EXPENSE_CATEGORIES] }));
     }
+  };
+
+  // Helper function to determine if an expense is post-trip
+  const isPostTripExpense = (expense: Expense): boolean => {
+    if (!costData.tripEndDate) return false;
+    const expenseDate = new Date(expense.date);
+    const tripEndDate = new Date(costData.tripEndDate);
+    return expenseDate > tripEndDate && expense.expenseType === 'actual';
   };
 
   // Load existing trips and cost entries
@@ -195,7 +204,17 @@ export default function CostTrackingForm() {
       const response = await fetch(`/api/cost-tracking?id=${costId}`);
       if (response.ok) {
         const data = await response.json();
-        setCostData(data);
+        
+        // Migration: Ensure all expenses have expenseType field (for backward compatibility)
+        const migratedData = {
+          ...data,
+          expenses: data.expenses.map((expense: Expense) => ({
+            ...expense,
+            expenseType: expense.expenseType || 'actual'
+          }))
+        };
+        
+        setCostData(migratedData);
         setHasUnsavedChanges(false); // Reset flag when entering edit mode
         setMode('edit');
       } else {
@@ -266,7 +285,8 @@ export default function CostTrackingForm() {
       country: currentExpense.country || '',
       description: currentExpense.description || '',
       notes: currentExpense.notes || '',
-      isGeneralExpense: currentExpense.isGeneralExpense || false
+      isGeneralExpense: currentExpense.isGeneralExpense || false,
+      expenseType: currentExpense.expenseType || 'actual'
     };
 
     // Auto-create country budget if expense is for a country we don't have a budget for
@@ -308,7 +328,8 @@ export default function CostTrackingForm() {
       country: '',
       description: '',
       notes: '',
-      isGeneralExpense: false
+      isGeneralExpense: false,
+      expenseType: 'actual'
     });
   };
 
@@ -471,6 +492,21 @@ export default function CostTrackingForm() {
   const deleteExpense = (expenseId: string) => {
     const updatedExpenses = costData.expenses.filter(expense => expense.id !== expenseId);
     setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+  };
+
+  const convertPlannedToActual = (expenseId: string) => {
+    const updatedExpenses = costData.expenses.map(expense => {
+      if (expense.id === expenseId && expense.expenseType === 'planned') {
+        return {
+          ...expense,
+          expenseType: 'actual' as ExpenseType,
+          originalPlannedId: expense.id // Keep reference to original planned expense
+        };
+      }
+      return expense;
+    });
+    setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+    setHasUnsavedChanges(true);
   };
 
   const handleYnabImportComplete = async () => {
@@ -1110,6 +1146,20 @@ export default function CostTrackingForm() {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expense Type
+                    <span className="text-xs text-gray-500 block">Actual or planned future expense</span>
+                  </label>
+                  <select
+                    value={currentExpense.expenseType || 'actual'}
+                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, expenseType: e.target.value as ExpenseType }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="actual">Actual Expense</option>
+                    <option value="planned">Planned Expense</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                   <input
                     type="text"
@@ -1168,7 +1218,8 @@ export default function CostTrackingForm() {
                         country: '',
                         description: '',
                         notes: '',
-                        isGeneralExpense: false
+                        isGeneralExpense: false,
+                        expenseType: 'actual'
                       });
                     }}
                     className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
@@ -1199,6 +1250,13 @@ export default function CostTrackingForm() {
                         <div className="text-sm text-gray-500 mt-1">
                           {formatDate(expense.date)} • {expense.category}
                           {expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`}
+                          {(expense.expenseType === 'planned' || isPostTripExpense(expense)) && (
+                            <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                              expense.expenseType === 'planned' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {expense.expenseType === 'planned' ? 'Planned' : 'Post-Trip'}
+                            </span>
+                          )}
                         </div>
                         {expense.notes && (
                           <div className="text-xs text-gray-400 mt-1">{expense.notes}</div>
@@ -1211,6 +1269,14 @@ export default function CostTrackingForm() {
                         >
                           Edit
                         </button>
+                        {expense.expenseType === 'planned' && (
+                          <button
+                            onClick={() => convertPlannedToActual(expense.id)}
+                            className="text-green-500 hover:text-green-700 text-sm"
+                          >
+                            Mark Actual
+                          </button>
+                        )}
                         <button
                           onClick={() => deleteExpense(expense.id)}
                           className="text-red-500 hover:text-red-700 text-sm"
@@ -1345,6 +1411,71 @@ export default function CostTrackingForm() {
                 </div>
               )}
 
+              {/* Enhanced Expense Tracking */}
+              {(costSummary.plannedSpending > 0 || costSummary.postTripSpent > 0 || costSummary.availableForPlanning !== costSummary.remainingBudget) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-cyan-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-cyan-800">Planned Expenses</h4>
+                    <p className="text-xl font-bold text-cyan-600">
+                      {(() => {
+                        const refundDisplay = formatCurrencyWithRefunds(costSummary.plannedSpending, costSummary.plannedRefunds, costData.currency);
+                        return refundDisplay.displayText;
+                      })()}
+                    </p>
+                    <p className="text-xs text-cyan-600 mt-1">
+                      Future committed spending
+                    </p>
+                    {costSummary.plannedRefunds > 0 && (
+                      <p className="text-xs text-cyan-700 mt-1">
+                        *Includes {formatCurrency(costSummary.plannedRefunds, costData.currency)} expected refunds
+                      </p>
+                    )}
+                  </div>
+                  
+                  {costSummary.postTripSpent !== 0 && (
+                    <div className="bg-amber-50 p-4 rounded-lg">
+                      <h4 className="font-medium text-amber-800">Post-Trip Expenses</h4>
+                      <p className="text-xl font-bold text-amber-600">
+                        {(() => {
+                          const refundDisplay = formatCurrencyWithRefunds(costSummary.postTripSpent, costSummary.postTripRefunds, costData.currency);
+                          return refundDisplay.displayText;
+                        })()}
+                      </p>
+                      <p className="text-xs text-amber-600 mt-1">
+                        Expenses after trip ended
+                      </p>
+                      {costSummary.postTripRefunds > 0 && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          *Includes {formatCurrency(costSummary.postTripRefunds, costData.currency)} of refunds
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="bg-indigo-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-indigo-800">Total Committed</h4>
+                    <p className="text-xl font-bold text-indigo-600">
+                      {formatCurrency(costSummary.totalCommittedSpending, costData.currency)}
+                    </p>
+                    <p className="text-xs text-indigo-600 mt-1">
+                      Actual + planned spending
+                    </p>
+                  </div>
+                  
+                  <div className={`${costSummary.availableForPlanning >= 0 ? 'bg-emerald-50' : 'bg-red-50'} p-4 rounded-lg`}>
+                    <h4 className={`font-medium ${costSummary.availableForPlanning >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                      Available for Planning
+                    </h4>
+                    <p className={`text-xl font-bold ${costSummary.availableForPlanning >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {formatCurrency(costSummary.availableForPlanning, costData.currency)}
+                    </p>
+                    <p className={`text-xs mt-1 ${costSummary.availableForPlanning >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      Budget remaining for new plans
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Country Breakdown */}
               {costSummary.countryBreakdown.length > 0 && (
                 <div>
@@ -1394,6 +1525,56 @@ export default function CostTrackingForm() {
                             })()}
                           </div>
                         </div>
+                        
+                        {/* Enhanced Expense Info */}
+                        {(country.plannedSpending > 0 || country.postTripSpent > 0) && (
+                          <div className="grid grid-cols-2 gap-4 text-sm mb-3 pt-3 border-t">
+                            {country.plannedSpending > 0 && (
+                              <div>
+                                <span className="text-gray-600">Planned:</span>
+                                <span className="font-medium ml-2 text-cyan-600">
+                                  {(() => {
+                                    const netPlanned = country.plannedSpending - country.plannedRefunds;
+                                    const refundDisplay = formatCurrencyWithRefunds(netPlanned, country.plannedRefunds, costData.currency);
+                                    return refundDisplay.displayText;
+                                  })()}
+                                </span>
+                                {country.plannedRefunds > 0 && (
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    *Includes {formatCurrency(country.plannedRefunds, costData.currency)} expected refunds
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {country.postTripSpent > 0 && (
+                              <div>
+                                <span className="text-gray-600">Post-Trip:</span>
+                                <span className="font-medium ml-2 text-amber-600">
+                                  {(() => {
+                                    const netPostTrip = country.postTripSpent - country.postTripRefunds;
+                                    const refundDisplay = formatCurrencyWithRefunds(netPostTrip, country.postTripRefunds, costData.currency);
+                                    return refundDisplay.displayText;
+                                  })()}
+                                </span>
+                                {country.postTripRefunds > 0 && (
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    *Includes {formatCurrency(country.postTripRefunds, costData.currency)} of refunds
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Available Budget Display */}
+                        {country.budgetAmount > 0 && country.availableForPlanning !== (country.budgetAmount - (country.spentAmount - country.refundAmount)) && (
+                          <div className="text-sm mb-3 pt-3 border-t">
+                            <span className="text-gray-600">Available for Planning:</span>
+                            <span className={`font-medium ml-2 ${country.availableForPlanning >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {formatCurrency(country.availableForPlanning, costData.currency)}
+                            </span>
+                          </div>
+                        )}
                         
                         {/* Category Breakdown */}
                         {country.categoryBreakdown.length > 0 && (

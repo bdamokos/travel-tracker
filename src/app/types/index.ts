@@ -78,6 +78,8 @@ export type BudgetItem = {
   periods?: CountryPeriod[];
 };
 
+export type ExpenseType = 'actual' | 'planned';
+
 export type Expense = {
   id: string;
   date: string;
@@ -88,6 +90,8 @@ export type Expense = {
   description: string;
   notes?: string;
   isGeneralExpense?: boolean; // For expenses not tied to a specific country
+  expenseType: ExpenseType; // Type of expense for different budget calculations
+  originalPlannedId?: string; // For linking actual expenses to original planned expenses
 };
 
 export type CostTrackingData = {
@@ -123,6 +127,13 @@ export type CostSummary = {
   tripRefunds: number; // New field for trip refunds
   averageSpentPerTripDay: number;
   tripStatus: 'before' | 'during' | 'after';
+  // New fields for post-trip and planned expenses
+  postTripSpent: number;
+  postTripRefunds: number;
+  plannedSpending: number;
+  plannedRefunds: number; // For negative planned amounts (expected refunds)
+  totalCommittedSpending: number; // actual + planned (excluding post-trip)
+  availableForPlanning: number; // budget - actual - planned
 };
 
 export type CountryBreakdown = {
@@ -139,6 +150,12 @@ export type CountryBreakdown = {
   suggestedDailyBudget: number; // For remaining days if budget exists
   expenses: Expense[];
   categoryBreakdown: CategoryBreakdown[];
+  // New fields for post-trip and planned expenses
+  postTripSpent: number;
+  postTripRefunds: number;
+  plannedSpending: number;
+  plannedRefunds: number;
+  availableForPlanning: number; // country budget - actual - planned
 };
 
 export type CategoryBreakdown = {
@@ -182,4 +199,5 @@ export type ProcessedYnabTransaction = {
   mappedCountry: string; // empty string for general expenses
   isGeneralExpense: boolean;
   hash: string; // unique identifier to prevent duplicates
+  expenseType?: ExpenseType; // Optional expense type, defaults to 'actual'
 };
