@@ -74,11 +74,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         continue; // Skip 'none' mappings
       }
 
+      // Calculate amount - handle both outflows and inflows
+      let amount = 0;
+      const outflowStr = originalTxn.Outflow.replace('€', '').replace(',', '.');
+      const inflowStr = originalTxn.Inflow.replace('€', '').replace(',', '.');
+      
+      if (outflowStr && parseFloat(outflowStr) > 0) {
+        // Positive amount for outflows (expenses)
+        amount = parseFloat(outflowStr);
+      } else if (inflowStr && parseFloat(inflowStr) > 0) {
+        // Negative amount for inflows (refunds)
+        amount = -parseFloat(inflowStr);
+      }
+
       // Convert to our expense format
       const expense: Expense = {
         id: `ynab-${transactionHash}`,
         date: originalTxn.Date,
-        amount: parseFloat(originalTxn.Outflow.replace('€', '').replace(',', '.')),
+        amount: amount,
         currency: costData.currency,
         category: expenseCategory,
         country: mapping.mappingType === 'general' ? 'General' : (mapping.countryName || 'General'),
@@ -185,9 +198,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
       if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
 
+      // Calculate amount - handle both outflows and inflows
+      let amount = 0;
+      const outflowStr = transaction.Outflow.replace('€', '').replace(',', '.');
+      const inflowStr = transaction.Inflow.replace('€', '').replace(',', '.');
+      
+      if (outflowStr && parseFloat(outflowStr) > 0) {
+        // Positive amount for outflows (expenses)
+        amount = parseFloat(outflowStr);
+      } else if (inflowStr && parseFloat(inflowStr) > 0) {
+        // Negative amount for inflows (refunds)
+        amount = -parseFloat(inflowStr);
+      }
+
       const processedTxn: ProcessedYnabTransaction = {
         originalTransaction: transaction,
-        amount: parseFloat(transaction.Outflow.replace('€', '').replace(',', '.')),
+        amount: amount,
         date: transaction.Date,
         description: transaction.Payee,
         memo: transaction.Memo,

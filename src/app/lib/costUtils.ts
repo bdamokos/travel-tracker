@@ -5,7 +5,11 @@ import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, C
  */
 export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const totalBudget = costData.overallBudget;
-  const totalSpent = costData.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  
+  // Separate positive and negative amounts
+  const totalOutflows = costData.expenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
+  const totalRefunds = Math.abs(costData.expenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
+  const totalSpent = totalOutflows - totalRefunds;
   const remainingBudget = totalBudget - totalSpent;
   
   const today = new Date();
@@ -33,8 +37,15 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     return expenseDate >= startDate && expenseDate <= endDate;
   });
   
-  const preTripSpent = preTripExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const tripSpent = tripExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // Calculate pre-trip totals
+  const preTripOutflows = preTripExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
+  const preTripRefunds = Math.abs(preTripExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
+  const preTripSpent = preTripOutflows - preTripRefunds;
+  
+  // Calculate trip totals
+  const tripOutflows = tripExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
+  const tripRefunds = Math.abs(tripExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
+  const tripSpent = tripOutflows - tripRefunds;
   
   // Calculate intelligent averages based on trip status
   let averageSpentPerDay: number;
@@ -63,6 +74,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   return {
     totalBudget,
     totalSpent,
+    totalRefunds,
     remainingBudget,
     totalDays,
     remainingDays,
@@ -70,7 +82,9 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     suggestedDailyBudget,
     countryBreakdown,
     preTripSpent,
+    preTripRefunds,
     tripSpent,
+    tripRefunds,
     averageSpentPerTripDay,
     tripStatus
   };
@@ -101,6 +115,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       country: budget.country,
       budgetAmount: budget.amount || 0,
       spentAmount: 0,
+      refundAmount: 0,
       remainingAmount: (budget.amount || 0),
       days: 0,
       averagePerDay: 0,
@@ -118,6 +133,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
           country: expense.country,
           budgetAmount: 0, // Will be undefined amount in budget
           spentAmount: 0,
+          refundAmount: 0,
           remainingAmount: 0,
           days: 0,
           averagePerDay: 0,
@@ -127,8 +143,12 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       }
       
       const countryData = countryMap.get(expense.country)!;
-      countryData.spentAmount += expense.amount;
-      countryData.remainingAmount = countryData.budgetAmount - countryData.spentAmount;
+      if (expense.amount > 0) {
+        countryData.spentAmount += expense.amount;
+      } else {
+        countryData.refundAmount += Math.abs(expense.amount);
+      }
+      countryData.remainingAmount = countryData.budgetAmount - (countryData.spentAmount - countryData.refundAmount);
       countryData.expenses.push(expense);
     }
   });
@@ -136,11 +156,15 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   // Add general expenses as a separate entry
   const generalExpenses = costData.expenses.filter(expense => expense.isGeneralExpense);
   if (generalExpenses.length > 0) {
-    const generalSpent = generalExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const generalOutflows = generalExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
+    const generalRefunds = Math.abs(generalExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
+    const generalSpent = generalOutflows - generalRefunds;
+    
     countryMap.set('General', {
       country: 'General',
       budgetAmount: 0, // General expenses don't have specific budgets
-      spentAmount: generalSpent,
+      spentAmount: generalOutflows,
+      refundAmount: generalRefunds,
       remainingAmount: -generalSpent,
       days: 0,
       averagePerDay: 0,
@@ -151,6 +175,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   
   // Calculate days, averages, and category breakdowns for each country
   countryMap.forEach(countryData => {
+    // Update spentAmount to be net (for display consistency)
+    const netSpent = countryData.spentAmount - countryData.refundAmount;
+    countryData.remainingAmount = countryData.budgetAmount - netSpent;
     // Calculate days spent in country based on configured periods or expenses
     const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
     
@@ -212,10 +239,13 @@ function calculateCountryDailyAverage(
     const expenseDate = new Date(expense.date);
     return expenseDate >= tripStartDate && expenseDate <= tripEndDate;
   });
-  const tripSpent = tripExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // Calculate net spending (outflows minus refunds)
+  const tripOutflows = tripExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
+  const tripRefunds = Math.abs(tripExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
+  const tripSpent = tripOutflows - tripRefunds;
 
-  // If no trip expenses, return 0
-  if (tripSpent === 0) {
+  // If no net trip spending, return 0
+  if (tripSpent <= 0) {
     return 0;
   }
 
@@ -456,4 +486,37 @@ export function formatDate(dateString: string): string {
  */
 export function calculatePercentage(value: number, total: number): number {
   return total > 0 ? (value / total) * 100 : 0;
+}
+
+/**
+ * Format currency amount with refund footnote if applicable
+ */
+export function formatCurrencyWithRefunds(
+  netAmount: number, 
+  refundAmount: number, 
+  currency: string = 'EUR'
+): { displayText: string; hasRefunds: boolean; footnote?: string } {
+  const hasRefunds = refundAmount > 0;
+  const displayText = formatCurrency(netAmount, currency) + (hasRefunds ? '*' : '');
+  const footnote = hasRefunds ? `*Total includes ${formatCurrency(refundAmount, currency)} of refunds` : undefined;
+  
+  return {
+    displayText,
+    hasRefunds,
+    footnote
+  };
+}
+
+/**
+ * Check if a breakdown has any refunds
+ */
+export function hasAnyRefunds(costData: CostTrackingData): boolean {
+  return costData.expenses.some(expense => expense.amount < 0);
+}
+
+/**
+ * Get total refunds for expenses list
+ */
+export function getTotalRefunds(expenses: Expense[]): number {
+  return Math.abs(expenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
 } 

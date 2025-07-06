@@ -109,6 +109,7 @@ export type CostTrackingData = {
 export type CostSummary = {
   totalBudget: number;
   totalSpent: number;
+  totalRefunds: number; // New field for total refunds
   remainingBudget: number;
   totalDays: number;
   remainingDays: number;
@@ -117,7 +118,9 @@ export type CostSummary = {
   countryBreakdown: CountryBreakdown[];
   // New fields for smarter pre-trip expense handling
   preTripSpent: number;
+  preTripRefunds: number; // New field for pre-trip refunds
   tripSpent: number;
+  tripRefunds: number; // New field for trip refunds
   averageSpentPerTripDay: number;
   tripStatus: 'before' | 'during' | 'after';
 };
@@ -126,6 +129,7 @@ export type CountryBreakdown = {
   country: string;
   budgetAmount: number;
   spentAmount: number;
+  refundAmount: number; // New field for refunds in this country
   remainingAmount: number;
   days: number;
   averagePerDay: number;
