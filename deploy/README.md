@@ -12,6 +12,7 @@ This setup provides two separate interfaces for your Travel Tracker app:
 - Docker and Docker Compose installed on your Raspberry Pi
 - Local Docker registry running on your Pi
 - Cloudflare tunnels configured
+- **Bun** as the package manager (https://bun.sh/)
 
 ## Quick Start
 
@@ -104,10 +105,15 @@ git pull
 ./deploy.sh
 ```
 
+---
 
+## Bun & Docker
 
+- The Dockerfile now uses Bun as the package manager and runtime.
+- All dependency management and builds are done with Bun (`bun install`, `bun run build`).
+- You no longer need `package-lock.json` or `yarn.lock` files; Bun uses `bun.lockb`.
 
-
+---
 
 ## Security Considerations
 
