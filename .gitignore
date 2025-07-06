@@ -35,4 +35,7 @@ next-env.d.ts
 
 data/*
 deploy/.env
+#AI stuff
 CLAUDE.md
+.cursorrules
+GEMINI.md
