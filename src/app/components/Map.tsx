@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location, Transportation, BlogPost } from '../types';
-import { generateRoutePoints, getRouteStyle, transportationColors } from '../lib/routeUtils';
+import { generateRoutePointsSync, getRouteStyle, transportationColors } from '../lib/routeUtils';
 import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
 
 // Fix Leaflet icon issues with Next.js
@@ -255,7 +255,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       {days.map(day => {
         if (!day.transportation) return null;
         
-        const routePoints = generateRoutePoints(day.transportation);
+        const routePoints = generateRoutePointsSync(day.transportation);
         const routeStyle = getRouteStyle(day.transportation.type);
         
         return (

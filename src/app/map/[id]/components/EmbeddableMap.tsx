@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
+import { generateRoutePointsSync, getRouteStyle } from '../../../lib/routeUtils';
 
 interface TravelData {
   id: string;
@@ -189,11 +190,28 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     // Add routes if any
     travelData.routes.forEach((route) => {
-      const routeLine = L.polyline([route.fromCoords, route.toCoords], {
-        color: getTransportColor(route.transportType),
-        weight: 3,
-        opacity: 0.7,
-      }).addTo(map);
+      // Create transportation object for route generation
+      const transportation = {
+        id: route.id || 'route',
+        type: route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other',
+        from: route.from,
+        to: route.to,
+        fromCoordinates: route.fromCoords,
+        toCoordinates: route.toCoords
+      };
+      
+      // Generate route points using the same logic as preview and main map
+      const routePoints = generateRoutePointsSync(transportation);
+      const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
+      
+      if (routePoints.length > 0) {
+        L.polyline(routePoints, {
+          color: routeStyle.color,
+          weight: routeStyle.weight,
+          opacity: routeStyle.opacity,
+          dashArray: routeStyle.dashArray
+        }).addTo(map);
+      }
     });
 
     // Fit map to show all locations
@@ -221,21 +239,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }
     };
   }, [travelData, L, isClient, highlightedIcon]);
-
-  const getTransportColor = (transportType: string): string => {
-    const colors: Record<string, string> = {
-      plane: '#ff6b6b',
-      train: '#4ecdc4',
-      car: '#45b7d1',
-      bus: '#96ceb4',
-      boat: '#ffeaa7',
-      ferry: '#74b9ff',
-      metro: '#fd79a8',
-      bike: '#00b894',
-      walk: '#dda0dd',
-    };
-    return colors[transportType] || '#95a5a6';
-  };
 
   if (!isClient) {
     return (
