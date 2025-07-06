@@ -23,13 +23,14 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - Leaflet.js for map functionality
 - Server-side data storage with API endpoints
 - Tailwind CSS for styling
+- **Bun** as the package manager (fast, modern alternative to npm/yarn)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18.x or later
-- npm or yarn
+- Bun (https://bun.sh/) - install with `curl -fsSL https://bun.sh/install | bash`
+- Node.js 18.x or later (Bun includes its own Node.js runtime)
 
 ### Installation (for local development)
 
@@ -41,12 +42,12 @@ cd travel-tracker
 
 2. Install dependencies:
 ```bash
-npm install
+bun install
 ```
 
 3. Run the development server:
 ```bash
-npm run dev
+bun run dev
 ```
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
@@ -82,6 +83,10 @@ This application is written with my specific needs in mind - feel free to fork i
 Potential expected issues:
 - YNAB export formats may differ based on individual YNAB account settings
 - Your currency and default currency may need to be manually changed in the code
+
+---
+
+**Note:** This project uses [Bun](https://bun.sh/) for dependency management and scripts. Bun is much faster than npm/yarn and fully compatible with Next.js projects. Npm should still work.
 
 
 
