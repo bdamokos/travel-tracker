@@ -82,6 +82,19 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 export function calculateCountryBreakdowns(costData: CostTrackingData): CountryBreakdown[] {
   const countryMap = new Map<string, CountryBreakdown>();
   
+  // Calculate trip status for consistent logic
+  const today = new Date();
+  const startDate = new Date(costData.tripStartDate);
+  const endDate = new Date(costData.tripEndDate);
+  let tripStatus: 'before' | 'during' | 'after';
+  if (today < startDate) {
+    tripStatus = 'before';
+  } else if (today <= endDate) {
+    tripStatus = 'during';
+  } else {
+    tripStatus = 'after';
+  }
+  
   // Initialize with country budgets
   costData.countryBudgets.forEach(budget => {
     countryMap.set(budget.country, {
@@ -137,9 +150,6 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   }
   
   // Calculate days, averages, and category breakdowns for each country
-  const startDate = new Date(costData.tripStartDate);
-  const endDate = new Date(costData.tripEndDate);
-  
   countryMap.forEach(countryData => {
     // Calculate days spent in country based on configured periods or expenses
     const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
@@ -164,13 +174,155 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       }
     }
     
-    countryData.averagePerDay = countryData.days > 0 ? countryData.spentAmount / countryData.days : 0;
+    // Calculate averagePerDay using robust trip status logic
+    countryData.averagePerDay = calculateCountryDailyAverage(
+      countryData,
+      countryBudget,
+      startDate,
+      endDate,
+      today,
+      tripStatus
+    );
     
     // Calculate category breakdown for this country
     countryData.categoryBreakdown = calculateCategoryBreakdown(countryData.expenses);
   });
   
   return Array.from(countryMap.values()).sort((a, b) => b.spentAmount - a.spentAmount);
+}
+
+/**
+ * Calculate daily average for a country considering all edge cases
+ */
+function calculateCountryDailyAverage(
+  countryData: CountryBreakdown,
+  countryBudget: BudgetItem | undefined,
+  tripStartDate: Date,
+  tripEndDate: Date,
+  today: Date,
+  tripStatus: 'before' | 'during' | 'after'
+): number {
+  // General expenses don't have daily averages
+  if (countryData.country === 'General') {
+    return 0;
+  }
+
+  // Filter expenses to only include those during the trip period
+  const tripExpenses = countryData.expenses.filter(expense => {
+    const expenseDate = new Date(expense.date);
+    return expenseDate >= tripStartDate && expenseDate <= tripEndDate;
+  });
+  const tripSpent = tripExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+  // If no trip expenses, return 0
+  if (tripSpent === 0) {
+    return 0;
+  }
+
+  // Before trip: no daily average yet
+  if (tripStatus === 'before') {
+    return 0;
+  }
+
+  // After trip: use total country days
+  if (tripStatus === 'after') {
+    return countryData.days > 0 ? tripSpent / countryData.days : 0;
+  }
+
+  // During trip: complex logic for different scenarios
+  if (countryBudget?.periods && countryBudget.periods.length > 0) {
+    // CASE 1: Country has configured periods
+    return calculateDailyAverageWithPeriods(
+      countryBudget.periods,
+      tripSpent,
+      today
+    );
+  } else {
+    // CASE 2: No configured periods - use trip duration or expense dates
+    return calculateDailyAverageWithoutPeriods(
+      tripExpenses,
+      tripSpent,
+      today,
+      tripStartDate,
+      tripEndDate,
+      countryData.days
+    );
+  }
+}
+
+/**
+ * Calculate daily average for countries with configured periods
+ */
+function calculateDailyAverageWithPeriods(
+  periods: CountryPeriod[],
+  tripSpent: number,
+  today: Date
+): number {
+  let totalElapsedDays = 0;
+
+  for (const period of periods) {
+    const periodStart = new Date(period.startDate);
+    const periodEnd = new Date(period.endDate);
+    
+    // Skip periods that haven't started yet
+    if (today < periodStart) {
+      continue;
+    }
+    
+    // For periods that have started, calculate elapsed days
+    const effectiveEnd = today < periodEnd ? today : periodEnd;
+    const elapsedDays = Math.ceil((effectiveEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24)) + 1;
+    totalElapsedDays += Math.max(0, elapsedDays);
+  }
+
+  // If no periods have started yet, return 0
+  if (totalElapsedDays === 0) {
+    return 0;
+  }
+
+  return tripSpent / totalElapsedDays;
+}
+
+/**
+ * Calculate daily average for countries without configured periods
+ */
+function calculateDailyAverageWithoutPeriods(
+  tripExpenses: Expense[],
+  tripSpent: number,
+  today: Date,
+  tripStartDate: Date,
+  tripEndDate: Date,
+  totalCountryDays: number
+): number {
+  if (tripExpenses.length === 0) {
+    return 0;
+  }
+
+  // Get the date range of expenses
+  const expenseDates = tripExpenses.map(e => new Date(e.date));
+  const minExpenseDate = new Date(Math.min(...expenseDates.map(d => d.getTime())));
+  const maxExpenseDate = new Date(Math.max(...expenseDates.map(d => d.getTime())));
+
+  // Determine the period to use for calculation
+  let startDateForCalc: Date;
+  let endDateForCalc: Date;
+
+  if (totalCountryDays > 0) {
+    // CASE 2A: We have configured country days (likely equals trip duration)
+    // Use trip start/end dates but cap the end date at today
+    startDateForCalc = tripStartDate;
+    endDateForCalc = today < tripEndDate ? today : tripEndDate;
+  } else {
+    // CASE 2B: Fall back to expense date range
+    // Use expense dates but cap the end date at today
+    startDateForCalc = minExpenseDate;
+    endDateForCalc = today < maxExpenseDate ? today : maxExpenseDate;
+  }
+
+  // Calculate elapsed days
+  const elapsedDays = Math.ceil((endDateForCalc.getTime() - startDateForCalc.getTime()) / (1000 * 3600 * 24)) + 1;
+  
+  return elapsedDays > 0 ? tripSpent / elapsedDays : 0;
 }
 
 /**
@@ -259,7 +411,7 @@ export const EXPENSE_CATEGORIES = [
  * Generate unique ID for new items
  */
 export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 /**
