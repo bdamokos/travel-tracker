@@ -6,6 +6,7 @@ import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_C
 import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
 import CostPieCharts from './CostPieCharts';
+import ExpenseForm from './ExpenseForm';
 
 interface ExistingTrip {
   id: string;
@@ -91,9 +92,9 @@ export default function CostTrackingForm() {
   const [showYnabImport, setShowYnabImport] = useState(false);
   const [showYnabMappings, setShowYnabMappings] = useState(false);
   
-  // Country autocomplete state
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
-  const [filteredCountries, setFilteredCountries] = useState<string[]>([]);
+  // Country autocomplete state (keeping for other parts of the form)
+  // const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  // const [filteredCountries, setFilteredCountries] = useState<string[]>([]);
   
   // Helper function to get categories with backward compatibility
   const getCategories = (): string[] => {
@@ -136,29 +137,9 @@ export default function CostTrackingForm() {
     return Array.from(countries).sort();
   };
 
-  // Handle country input change and filtering
-  const handleCountryInputChange = (value: string) => {
-    setCurrentExpense(prev => ({ ...prev, country: value }));
-    
-    if (value.trim()) {
-      const existing = getExistingCountries();
-      const filtered = existing.filter(country => 
-        country.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredCountries(filtered);
-      setShowCountryDropdown(filtered.length > 0);
-    } else {
-      setFilteredCountries([]);
-      setShowCountryDropdown(false);
-    }
-  };
-
-  // Handle country selection from dropdown
-  const selectCountry = (country: string) => {
-    setCurrentExpense(prev => ({ ...prev, country }));
-    setShowCountryDropdown(false);
-    setFilteredCountries([]);
-  };
+  // Note: These functions were used by the old expense form, now handled by ExpenseForm
+  // const handleCountryInputChange = (value: string) => { ... };
+  // const selectCountry = (country: string) => { ... };
 
   // Load existing trips and cost entries
   useEffect(() => {
@@ -223,6 +204,8 @@ export default function CostTrackingForm() {
       if (response.ok) {
         const trips = await response.json();
         setExistingTrips(trips);
+      } else {
+        setExistingTrips([]); // Ensure it's always an array
       }
     } catch (error) {
       console.error('Error loading trips:', error);
@@ -315,30 +298,11 @@ export default function CostTrackingForm() {
     setCurrentBudget({ country: '', amount: undefined, notes: '' });
   };
 
-  const addExpense = () => {
-    // Validate required fields
-    if (!currentExpense.date || !currentExpense.amount || currentExpense.amount === 0 || !currentExpense.category) {
-      const missing = [];
-      if (!currentExpense.date) missing.push('Date');
-      if (!currentExpense.amount || currentExpense.amount === 0) missing.push('Amount (cannot be zero, use negative for refunds)');
-      if (!currentExpense.category) missing.push('Category');
-      alert(`Please fill in the following required fields: ${missing.join(', ')}`);
-      return;
-    }
+  // Note: Replaced by handleExpenseAdded for React 19 Actions
+  // const addExpense = () => { ... };
 
-    const expense: Expense = {
-      id: editingExpenseIndex !== null ? costData.expenses[editingExpenseIndex].id : generateId(),
-      date: currentExpense.date,
-      amount: currentExpense.amount,
-      currency: currentExpense.currency || 'EUR',
-      category: currentExpense.category,
-      country: currentExpense.country || '',
-      description: currentExpense.description || '',
-      notes: currentExpense.notes || '',
-      isGeneralExpense: currentExpense.isGeneralExpense || false,
-      expenseType: currentExpense.expenseType || 'actual'
-    };
-
+  // Handler for the new ExpenseForm component using React 19 Actions
+  const handleExpenseAdded = (expense: Expense) => {
     // Auto-create country budget if expense is for a country we don't have a budget for
     if (!expense.isGeneralExpense && expense.country && editingExpenseIndex === null) {
       const existingCountryBudget = costData.countryBudgets.find(
@@ -370,21 +334,7 @@ export default function CostTrackingForm() {
       setCostData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
     }
 
-    setCurrentExpense({
-      date: '',
-      amount: 0,
-      currency: 'EUR',
-      category: '',
-      country: '',
-      description: '',
-      notes: '',
-      isGeneralExpense: false,
-      expenseType: 'actual'
-    });
-    
-    // Close country dropdown
-    setShowCountryDropdown(false);
-    setFilteredCountries([]);
+    // Note: Country dropdown now handled in ExpenseForm
   };
 
   const editBudgetItem = (index: number) => {
@@ -829,8 +779,9 @@ export default function CostTrackingForm() {
             <div className="bg-gray-50 p-4 rounded-md mb-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Overall Budget</label>
+                  <label htmlFor="overall-budget" className="block text-sm font-medium text-gray-700 mb-1">Overall Budget</label>
                   <input
+                    id="overall-budget"
                     type="number"
                     value={costData.overallBudget || ''}
                     onChange={(e) => setCostData(prev => ({ ...prev, overallBudget: parseFloat(e.target.value) || 0 }))}
@@ -839,8 +790,9 @@ export default function CostTrackingForm() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                  <label htmlFor="currency-select" className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
                   <select
+                    id="currency-select"
                     value={costData.currency}
                     onChange={(e) => setCostData(prev => ({ ...prev, currency: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
@@ -869,8 +821,9 @@ export default function CostTrackingForm() {
               <h4 className="font-medium mb-3">Country Budgets</h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <label htmlFor="country-input" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                   <input
+                    id="country-input"
                     type="text"
                     value={currentBudget.country || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, country: e.target.value }))}
@@ -879,8 +832,9 @@ export default function CostTrackingForm() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount (optional)</label>
+                  <label htmlFor="budget-amount" className="block text-sm font-medium text-gray-700 mb-1">Budget Amount</label>
                   <input
+                    id="budget-amount"
                     type="number"
                     value={currentBudget.amount || ''}
                     onChange={(e) => setCurrentBudget(prev => ({ ...prev, amount: e.target.value ? parseFloat(e.target.value) : undefined }))}
@@ -1155,166 +1109,18 @@ export default function CostTrackingForm() {
                 </div>
               )}
             </div>
-            <div className="bg-gray-50 p-4 rounded-md mb-4">
-              <h4 className="font-medium mb-3">
-                {editingExpenseIndex !== null ? 'Edit Expense' : 'Add New Expense'}
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input
-                    type="date"
-                    value={currentExpense.date || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Amount
-                    <span className="text-xs text-gray-500 block">Positive for expenses, negative for refunds</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={currentExpense.amount || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ 
-                      ...prev, 
-                      amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    placeholder="50 (or -50 for refund)"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select
-                    value={currentExpense.category || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Category</option>
-                    {getCategories().map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Expense Type
-                    <span className="text-xs text-gray-500 block">Actual or planned future expense</span>
-                  </label>
-                  <select
-                    value={currentExpense.expenseType || 'actual'}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, expenseType: e.target.value as ExpenseType }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="actual">Actual Expense</option>
-                    <option value="planned">Planned Expense</option>
-                  </select>
-                </div>
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                  <input
-                    type="text"
-                    value={currentExpense.country || ''}
-                    onChange={(e) => handleCountryInputChange(e.target.value)}
-                    onFocus={() => {
-                      const existing = getExistingCountries();
-                      if (existing.length > 0) {
-                        setFilteredCountries(existing);
-                        setShowCountryDropdown(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      // Delay hiding dropdown to allow for mousedown events
-                      setTimeout(() => setShowCountryDropdown(false), 200);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    placeholder="Argentina"
-                    autoComplete="off"
-                  />
-                  {showCountryDropdown && filteredCountries.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCountries.map((country) => (
-                        <div
-                          key={country}
-                          onMouseDown={(e) => {
-                            e.preventDefault(); // Prevent input from losing focus
-                            selectCountry(country);
-                          }}
-                          className="px-3 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-800 border-b border-gray-100 last:border-b-0"
-                        >
-                          {country}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
-                  <input
-                    type="text"
-                    value={currentExpense.description || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    placeholder="Dinner at restaurant"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <input
-                    type="text"
-                    value={currentExpense.notes || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, notes: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    placeholder="Optional notes"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-4 mt-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={currentExpense.isGeneralExpense || false}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, isGeneralExpense: e.target.checked }))}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">General expense (not tied to specific country)</span>
-                </label>
-                <button
-                  onClick={addExpense}
-                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-                >
-                  {editingExpenseIndex !== null ? 'Update' : 'Add'} Expense
-                </button>
-                {editingExpenseIndex !== null && (
-                  <button
-                    onClick={() => {
-                      setEditingExpenseIndex(null);
-                      setCurrentExpense({
-                        date: '',
-                        amount: 0,
-                        currency: 'EUR',
-                        category: '',
-                        country: '',
-                        description: '',
-                        notes: '',
-                        isGeneralExpense: false,
-                        expenseType: 'actual'
-                      });
-                      
-                      // Close country dropdown
-                      setShowCountryDropdown(false);
-                      setFilteredCountries([]);
-                    }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
+            
+            {/* React 19 Actions-powered Expense Form */}
+            <ExpenseForm
+              currentExpense={currentExpense}
+              setCurrentExpense={setCurrentExpense}
+              onExpenseAdded={handleExpenseAdded}
+              editingExpenseIndex={editingExpenseIndex}
+              setEditingExpenseIndex={setEditingExpenseIndex}
+              currency={costData.currency}
+              categories={getCategories()}
+              countryOptions={getExistingCountries()}
+            />
 
             {/* Expense List */}
             {costData.expenses.length > 0 && (

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClientDomainConfig } from '../../lib/domains';
 import RoutePreviewMap from './RoutePreviewMap';
+import LocationForm from './LocationForm';
+import RouteForm from './RouteForm';
 
 interface TravelLocation {
   id: string;
@@ -232,121 +234,75 @@ export default function TravelDataForm() {
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 
-  const addLocation = () => {
-    if (currentLocation.name && currentLocation.date) {
-      const newLocation: TravelLocation = {
-        id: generateId(),
-        name: currentLocation.name,
-        coordinates: currentLocation.coordinates || [0, 0],
-        date: currentLocation.date,
-        notes: currentLocation.notes || '',
-        instagramPosts: currentLocation.instagramPosts || [],
-        blogPosts: currentLocation.blogPosts || []
-      };
-
-      if (editingLocationIndex !== null) {
-        // Update existing location
-        const updatedLocations = [...travelData.locations];
-        updatedLocations[editingLocationIndex] = newLocation;
-        setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-        setEditingLocationIndex(null);
-      } else {
-        // Add new location
-        setTravelData(prev => ({
-          ...prev,
-          locations: [...prev.locations, newLocation]
-        }));
-      }
-
-      setCurrentLocation({
-        name: '',
-        coordinates: [0, 0],
-        date: '',
-        notes: '',
-        instagramPosts: [],
-        blogPosts: []
-      });
+  const handleLocationAdded = (newLocation: TravelLocation) => {
+    if (editingLocationIndex !== null) {
+      // Update existing location
+      const updatedLocations = [...travelData.locations];
+      updatedLocations[editingLocationIndex] = newLocation;
+      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
+      setEditingLocationIndex(null);
+    } else {
+      // Add new location
+      setTravelData(prev => ({
+        ...prev,
+        locations: [...prev.locations, newLocation]
+      }));
     }
   };
 
-  const addRoute = () => {
-    if (currentRoute.from && currentRoute.to && currentRoute.date) {
-      const newRoute: TravelRoute = {
+  const handleRouteAdded = (newRoute: TravelRoute) => {
+    // Auto-create missing locations for route endpoints
+    const updatedLocations = [...travelData.locations];
+    
+    // Check if 'from' location exists
+    const fromExists = updatedLocations.some(loc => 
+      loc.name.toLowerCase().trim() === newRoute.from.toLowerCase().trim()
+    );
+    
+    if (!fromExists && newRoute.fromCoords && (newRoute.fromCoords[0] !== 0 || newRoute.fromCoords[1] !== 0)) {
+      const fromLocation: TravelLocation = {
         id: generateId(),
-        from: currentRoute.from!,
-        to: currentRoute.to!,
-        fromCoords: currentRoute.fromCoords || [0, 0],
-        toCoords: currentRoute.toCoords || [0, 0],
-        transportType: currentRoute.transportType || 'plane',
-        date: currentRoute.date!,
-        duration: currentRoute.duration || '',
-        notes: currentRoute.notes || ''
+        name: newRoute.from,
+        coordinates: newRoute.fromCoords,
+        date: newRoute.date,
+        notes: '',
+        instagramPosts: [],
+        blogPosts: []
       };
+      updatedLocations.push(fromLocation);
+    }
+    
+    // Check if 'to' location exists
+    const toExists = updatedLocations.some(loc => 
+      loc.name.toLowerCase().trim() === newRoute.to.toLowerCase().trim()
+    );
+    
+    if (!toExists && newRoute.toCoords && (newRoute.toCoords[0] !== 0 || newRoute.toCoords[1] !== 0)) {
+      const toLocation: TravelLocation = {
+        id: generateId(),
+        name: newRoute.to,
+        coordinates: newRoute.toCoords,
+        date: newRoute.date,
+        notes: '',
+        instagramPosts: [],
+        blogPosts: []
+      };
+      updatedLocations.push(toLocation);
+    }
 
-      // Auto-create missing locations for route endpoints
-      const updatedLocations = [...travelData.locations];
-      
-      // Check if 'from' location exists
-      const fromExists = updatedLocations.some(loc => 
-        loc.name.toLowerCase().trim() === currentRoute.from!.toLowerCase().trim()
-      );
-      
-      if (!fromExists && currentRoute.fromCoords && (currentRoute.fromCoords[0] !== 0 || currentRoute.fromCoords[1] !== 0)) {
-        const fromLocation: TravelLocation = {
-          id: generateId(),
-          name: currentRoute.from!,
-          coordinates: currentRoute.fromCoords,
-          date: currentRoute.date!,
-          notes: '',
-          instagramPosts: [],
-          blogPosts: []
-        };
-        updatedLocations.push(fromLocation);
-      }
-      
-      // Check if 'to' location exists
-      const toExists = updatedLocations.some(loc => 
-        loc.name.toLowerCase().trim() === currentRoute.to!.toLowerCase().trim()
-      );
-      
-      if (!toExists && currentRoute.toCoords && (currentRoute.toCoords[0] !== 0 || currentRoute.toCoords[1] !== 0)) {
-        const toLocation: TravelLocation = {
-          id: generateId(),
-          name: currentRoute.to!,
-          coordinates: currentRoute.toCoords,
-          date: currentRoute.date!,
-          notes: '',
-          instagramPosts: [],
-          blogPosts: []
-        };
-        updatedLocations.push(toLocation);
-      }
-
-      if (editingRouteIndex !== null) {
-        // Update existing route
-        const updatedRoutes = [...travelData.routes];
-        updatedRoutes[editingRouteIndex] = newRoute;
-        setTravelData(prev => ({ ...prev, routes: updatedRoutes, locations: updatedLocations }));
-        setEditingRouteIndex(null);
-      } else {
-        // Add new route
-        setTravelData(prev => ({
-          ...prev,
-          routes: [...prev.routes, newRoute],
-          locations: updatedLocations
-        }));
-      }
-
-      setCurrentRoute({
-        from: '',
-        to: '',
-        fromCoords: [0, 0],
-        toCoords: [0, 0],
-        transportType: 'plane',
-        date: '',
-        duration: '',
-        notes: ''
-      });
+    if (editingRouteIndex !== null) {
+      // Update existing route
+      const updatedRoutes = [...travelData.routes];
+      updatedRoutes[editingRouteIndex] = newRoute;
+      setTravelData(prev => ({ ...prev, routes: updatedRoutes, locations: updatedLocations }));
+      setEditingRouteIndex(null);
+    } else {
+      // Add new route
+      setTravelData(prev => ({
+        ...prev,
+        routes: [...prev.routes, newRoute],
+        locations: updatedLocations
+      }));
     }
   };
 
@@ -658,8 +614,9 @@ export default function TravelDataForm() {
         <h3 className="text-xl font-semibold mb-4">Journey Information</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <label htmlFor="journey-title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
             <input
+              id="journey-title"
               type="text"
               value={travelData.title}
               onChange={(e) => setTravelData(prev => ({ ...prev, title: e.target.value }))}
@@ -668,8 +625,9 @@ export default function TravelDataForm() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label htmlFor="journey-description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <input
+              id="journey-description"
               type="text"
               value={travelData.description}
               onChange={(e) => setTravelData(prev => ({ ...prev, description: e.target.value }))}
@@ -678,8 +636,9 @@ export default function TravelDataForm() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <label htmlFor="journey-start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
             <input
+              id="journey-start-date"
               type="date"
               value={travelData.startDate}
               onChange={(e) => setTravelData(prev => ({ ...prev, startDate: e.target.value }))}
@@ -687,8 +646,9 @@ export default function TravelDataForm() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <label htmlFor="journey-end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
             <input
+              id="journey-end-date"
               type="date"
               value={travelData.endDate}
               onChange={(e) => setTravelData(prev => ({ ...prev, endDate: e.target.value }))}
@@ -701,106 +661,17 @@ export default function TravelDataForm() {
       {/* Locations */}
       <div>
         <h3 className="text-xl font-semibold mb-4">Locations</h3>
-        <div className="bg-gray-50 p-4 rounded-md mb-4">
-          <h4 className="font-medium mb-3">
-            {editingLocationIndex !== null ? 'Edit Location' : 'Add Location'}
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location Name</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={currentLocation.name || ''}
-                  onChange={(e) => setCurrentLocation(prev => ({ ...prev, name: e.target.value }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Paris, France"
-                />
-                <button
-                  type="button"
-                  onClick={handleLocationGeocode}
-                  className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-                >
-                  Get Coords
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input
-                type="date"
-                value={currentLocation.date || ''}
-                onChange={(e) => setCurrentLocation(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-              <textarea
-                value={currentLocation.notes || ''}
-                onChange={(e) => setCurrentLocation(prev => ({ ...prev, notes: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                rows={2}
-                placeholder="What you did here..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Coordinates</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  step="any"
-                  value={currentLocation.coordinates?.[0] || 0}
-                  onChange={(e) => setCurrentLocation(prev => ({ 
-                    ...prev, 
-                    coordinates: [parseFloat(e.target.value) || 0, prev.coordinates?.[1] || 0]
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Latitude"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  value={currentLocation.coordinates?.[1] || 0}
-                  onChange={(e) => setCurrentLocation(prev => ({ 
-                    ...prev, 
-                    coordinates: [prev.coordinates?.[0] || 0, parseFloat(e.target.value) || 0]
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Longitude"
-                />
-              </div>
-            </div>
-            <div className="flex items-end gap-2">
-              <button
-                type="button"
-                onClick={addLocation}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-              >
-                {editingLocationIndex !== null ? 'Update Location' : 'Add Location'}
-              </button>
-              {editingLocationIndex !== null && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingLocationIndex(null);
-                    setCurrentLocation({
-                      name: '',
-                      coordinates: [0, 0],
-                      date: '',
-                      notes: '',
-                      instagramPosts: [],
-                      blogPosts: []
-                    });
-                  }}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <LocationForm
+          currentLocation={currentLocation}
+          setCurrentLocation={setCurrentLocation}
+          onLocationAdded={handleLocationAdded}
+          editingLocationIndex={editingLocationIndex}
+          setEditingLocationIndex={setEditingLocationIndex}
+          onGeocode={async (locationName: string) => {
+            const coords = await geocodeLocation(locationName);
+            setCurrentLocation(prev => ({ ...prev, coordinates: coords }));
+          }}
+        />
         
         {/* Location List */}
         {travelData.locations.length > 0 && (
@@ -965,213 +836,17 @@ export default function TravelDataForm() {
       {/* Routes */}
       <div>
         <h3 className="text-xl font-semibold mb-4">Routes</h3>
-        <div className="bg-gray-50 p-4 rounded-md mb-4">
-          <h4 className="font-medium mb-3">
-            {editingRouteIndex !== null ? 'Edit Route' : 'Add Route'}
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={currentRoute.from || ''}
-                  onChange={(e) => setCurrentRoute(prev => ({ ...prev, from: e.target.value }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Paris, France"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRouteGeocode('from')}
-                  className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-                >
-                  Coords
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={currentRoute.to || ''}
-                  onChange={(e) => setCurrentRoute(prev => ({ ...prev, to: e.target.value }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="London, UK"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRouteGeocode('to')}
-                  className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-                >
-                  Coords
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Transportation</label>
-              <select
-                value={currentRoute.transportType || 'plane'}
-                onChange={(e) => setCurrentRoute(prev => ({ ...prev, transportType: e.target.value as any }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="plane">✈️ Plane</option>
-                <option value="train">🚆 Train</option>
-                <option value="car">🚗 Car</option>
-                <option value="bus">🚌 Bus</option>
-                <option value="ferry">⛴️ Ferry</option>
-                <option value="boat">🛥️ Boat</option>
-                <option value="metro">🚇 Metro/Subway</option>
-                <option value="bike">🚴 Bike</option>
-                <option value="walk">🚶 Walk</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input
-                type="date"
-                value={currentRoute.date || ''}
-                onChange={(e) => setCurrentRoute(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (optional)</label>
-              <input
-                type="text"
-                value={currentRoute.duration || ''}
-                onChange={(e) => setCurrentRoute(prev => ({ ...prev, duration: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                placeholder="2h 30min"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-              <textarea
-                value={currentRoute.notes || ''}
-                onChange={(e) => setCurrentRoute(prev => ({ ...prev, notes: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                rows={2}
-                placeholder="Flight details, delays, etc."
-              />
-            </div>
-            
-            {/* From Coordinates */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Coordinates</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  step="any"
-                  value={currentRoute.fromCoords?.[0] || 0}
-                  onChange={(e) => setCurrentRoute(prev => ({ 
-                    ...prev, 
-                    fromCoords: [parseFloat(e.target.value) || 0, prev.fromCoords?.[1] || 0]
-                  }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Latitude"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  value={currentRoute.fromCoords?.[1] || 0}
-                  onChange={(e) => setCurrentRoute(prev => ({ 
-                    ...prev, 
-                    fromCoords: [prev.fromCoords?.[0] || 0, parseFloat(e.target.value) || 0]
-                  }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Longitude"
-                />
-              </div>
-            </div>
-            
-            {/* To Coordinates */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Coordinates</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  step="any"
-                  value={currentRoute.toCoords?.[0] || 0}
-                  onChange={(e) => setCurrentRoute(prev => ({ 
-                    ...prev, 
-                    toCoords: [parseFloat(e.target.value) || 0, prev.toCoords?.[1] || 0]
-                  }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Latitude"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  value={currentRoute.toCoords?.[1] || 0}
-                  onChange={(e) => setCurrentRoute(prev => ({ 
-                    ...prev, 
-                    toCoords: [prev.toCoords?.[0] || 0, parseFloat(e.target.value) || 0]
-                  }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  placeholder="Longitude"
-                />
-              </div>
-            </div>
-            
-            <div className="md:col-span-2">
-              {/* Route Preview Map */}
-              {currentRoute.from && currentRoute.to && (
-                <div className="mb-4">
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Route Preview</h5>
-                  <RoutePreviewMap
-                    from={currentRoute.from}
-                    to={currentRoute.to}
-                    fromCoords={currentRoute.fromCoords || [0, 0]}
-                    toCoords={currentRoute.toCoords || [0, 0]}
-                    transportType={currentRoute.transportType || 'plane'}
-                  />
-                  {(currentRoute.fromCoords?.[0] === 0 && currentRoute.fromCoords?.[1] === 0) || 
-                   (currentRoute.toCoords?.[0] === 0 && currentRoute.toCoords?.[1] === 0) ? (
-                    <p className="text-xs text-amber-600 mt-1">
-                      Warning: Use the "Coords" buttons above to geocode locations for accurate route preview
-                    </p>
-                  ) : (
-                    <p className="text-xs text-green-600 mt-1">
-                      Route preview ready! Missing locations will be auto-created when you add this route.
-                    </p>
-                  )}
-                </div>
-              )}
-              
-              <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={addRoute}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-              >
-                {editingRouteIndex !== null ? 'Update Route' : 'Add Route'}
-              </button>
-              {editingRouteIndex !== null && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingRouteIndex(null);
-                    setCurrentRoute({
-                      from: '',
-                      to: '',
-                      fromCoords: [0, 0],
-                      toCoords: [0, 0],
-                      transportType: 'plane',
-                      date: '',
-                      duration: '',
-                      notes: ''
-                    });
-                  }}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <RouteForm
+          currentRoute={currentRoute}
+          setCurrentRoute={setCurrentRoute}
+          onRouteAdded={handleRouteAdded}
+          editingRouteIndex={editingRouteIndex}
+          setEditingRouteIndex={setEditingRouteIndex}
+          locationOptions={travelData.locations.map(loc => ({
+            name: loc.name,
+            coordinates: loc.coordinates
+          }))}
+        />
 
         {/* Route List */}
         {travelData.routes.length > 0 && (

@@ -129,7 +129,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     .map(c => c.country)];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="cost-pie-charts">
       <h4 className="font-medium text-gray-700 mb-4">Spending Analysis</h4>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
