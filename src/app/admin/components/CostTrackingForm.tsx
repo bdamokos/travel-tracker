@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, YnabCategoryMapping } from '../../types';
-import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES } from '../../lib/costUtils';
+import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES, getCountryAverageDisplay, formatCurrencyWithRefunds } from '../../lib/costUtils';
 import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
 
@@ -33,6 +33,8 @@ export default function CostTrackingForm() {
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [existingCostEntries, setExistingCostEntries] = useState<ExistingCostEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [costData, setCostData] = useState<CostTrackingData>({
     id: '',
@@ -126,6 +128,36 @@ export default function CostTrackingForm() {
     }
   }, [costData]);
 
+  // Auto-save effect for edit mode (debounced)
+  useEffect(() => {
+    // Only auto-save if we're in edit mode and have made changes
+    if (mode === 'edit' && costData.id && costData.tripId && costData.overallBudget > 0 && hasUnsavedChanges) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          setAutoSaving(true);
+          const success = await autoSaveCostData();
+          if (success) {
+            setHasUnsavedChanges(false); // Mark as saved
+          }
+          setAutoSaving(false);
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+          setAutoSaving(false);
+        }
+      }, 2000); // Auto-save after 2 seconds of inactivity
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [costData.overallBudget, costData.countryBudgets, costData.expenses, mode, hasUnsavedChanges]);
+
+  // Track when user makes changes (but not on initial load)
+  useEffect(() => {
+    if (mode === 'edit' && costData.id) {
+      // Set flag that we have unsaved changes
+      setHasUnsavedChanges(true);
+    }
+  }, [costData.overallBudget, costData.countryBudgets, costData.expenses]); // Track actual data changes
+
   const loadExistingTrips = async () => {
     try {
       const response = await fetch('/api/travel-data/list');
@@ -164,6 +196,7 @@ export default function CostTrackingForm() {
       if (response.ok) {
         const data = await response.json();
         setCostData(data);
+        setHasUnsavedChanges(false); // Reset flag when entering edit mode
         setMode('edit');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -215,10 +248,10 @@ export default function CostTrackingForm() {
 
   const addExpense = () => {
     // Validate required fields
-    if (!currentExpense.date || !currentExpense.amount || currentExpense.amount <= 0 || !currentExpense.category) {
+    if (!currentExpense.date || !currentExpense.amount || currentExpense.amount === 0 || !currentExpense.category) {
       const missing = [];
       if (!currentExpense.date) missing.push('Date');
-      if (!currentExpense.amount || currentExpense.amount <= 0) missing.push('Amount (must be greater than 0)');
+      if (!currentExpense.amount || currentExpense.amount === 0) missing.push('Amount (cannot be zero, use negative for refunds)');
       if (!currentExpense.category) missing.push('Category');
       alert(`Please fill in the following required fields: ${missing.join(', ')}`);
       return;
@@ -500,6 +533,29 @@ export default function CostTrackingForm() {
     }
   };
 
+  // Silent auto-save function (no alerts, no redirects)
+  const autoSaveCostData = async () => {
+    // Validation (silent)
+    if (!costData.tripId || !costData.overallBudget || costData.overallBudget <= 0) {
+      return false; // Invalid data, don't save
+    }
+
+    const method = mode === 'edit' ? 'PUT' : 'POST';
+    const url = mode === 'edit' ? `/api/cost-tracking?id=${costData.id}` : '/api/cost-tracking';
+    
+    const dataToSave = mode === 'edit' ? costData : { ...costData, id: undefined };
+    
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dataToSave),
+    });
+    
+    return response.ok; // Return success status
+  };
+
   const saveCostData = async () => {
     try {
       // Validation
@@ -526,6 +582,7 @@ export default function CostTrackingForm() {
       
       if (response.ok) {
         await response.json();
+        setHasUnsavedChanges(false); // Mark as saved
         alert('Cost tracking data saved successfully!');
         setMode('list');
         await loadExistingCostEntries();
@@ -1023,13 +1080,20 @@ export default function CostTrackingForm() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount
+                    <span className="text-xs text-gray-500 block">Positive for expenses, negative for refunds</span>
+                  </label>
                   <input
                     type="number"
+                    step="0.01"
                     value={currentExpense.amount || ''}
-                    onChange={(e) => setCurrentExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => setCurrentExpense(prev => ({ 
+                      ...prev, 
+                      amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 
+                    }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="50"
+                    placeholder="50 (or -50 for refund)"
                   />
                 </div>
                 <div>
@@ -1176,8 +1240,16 @@ export default function CostTrackingForm() {
                 <div className="bg-red-50 p-4 rounded-lg">
                   <h4 className="font-medium text-red-800">Total Spent</h4>
                   <p className="text-2xl font-bold text-red-600">
-                    {formatCurrency(costSummary.totalSpent, costData.currency)}
+                    {(() => {
+                      const refundDisplay = formatCurrencyWithRefunds(costSummary.totalSpent, costSummary.totalRefunds, costData.currency);
+                      return refundDisplay.displayText;
+                    })()}
                   </p>
+                  {costSummary.totalRefunds > 0 && (
+                    <p className="text-xs text-red-700 mt-1">
+                      *Total includes {formatCurrency(costSummary.totalRefunds, costData.currency)} of refunds
+                    </p>
+                  )}
                 </div>
                 <div className={`${costSummary.remainingBudget >= 0 ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg`}>
                   <h4 className={`font-medium ${costSummary.remainingBudget >= 0 ? 'text-green-800' : 'text-red-800'}`}>
@@ -1199,11 +1271,19 @@ export default function CostTrackingForm() {
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h4 className="font-medium text-purple-800">Pre-Trip Expenses</h4>
                   <p className="text-xl font-bold text-purple-600">
-                    {formatCurrency(costSummary.preTripSpent, costData.currency)}
+                    {(() => {
+                      const refundDisplay = formatCurrencyWithRefunds(costSummary.preTripSpent, costSummary.preTripRefunds, costData.currency);
+                      return refundDisplay.displayText;
+                    })()}
                   </p>
                   <p className="text-xs text-purple-600 mt-1">
                     Insurance, flights, gear, etc.
                   </p>
+                  {costSummary.preTripRefunds > 0 && (
+                    <p className="text-xs text-purple-700 mt-1">
+                      *Includes {formatCurrency(costSummary.preTripRefunds, costData.currency)} of refunds
+                    </p>
+                  )}
                 </div>
                 <div className="bg-yellow-50 p-4 rounded-lg">
                   <h4 className="font-medium text-yellow-800">
@@ -1211,12 +1291,20 @@ export default function CostTrackingForm() {
                      costSummary.tripStatus === 'during' ? 'Trip Spending' : 'Trip Total'}
                   </h4>
                   <p className="text-xl font-bold text-yellow-600">
-                    {formatCurrency(costSummary.tripSpent, costData.currency)}
+                    {(() => {
+                      const refundDisplay = formatCurrencyWithRefunds(costSummary.tripSpent, costSummary.tripRefunds, costData.currency);
+                      return refundDisplay.displayText;
+                    })()}
                   </p>
                   <p className="text-xs text-yellow-600 mt-1">
                     {costSummary.tripStatus === 'before' ? 'Spending during trip dates' : 
                      costSummary.tripStatus === 'during' ? 'Spent during trip so far' : 'Total spent during trip'}
                   </p>
+                  {costSummary.tripRefunds > 0 && (
+                    <p className="text-xs text-yellow-700 mt-1">
+                      *Includes {formatCurrency(costSummary.tripRefunds, costData.currency)} of refunds
+                    </p>
+                  )}
                 </div>
                 <div className="bg-orange-50 p-4 rounded-lg">
                   <h4 className="font-medium text-orange-800">
@@ -1280,14 +1368,30 @@ export default function CostTrackingForm() {
                           <div>
                             <span className="text-gray-600">Spent:</span>
                             <span className="font-medium ml-2">
-                              {formatCurrency(country.spentAmount, costData.currency)}
+                              {(() => {
+                                const netSpent = country.spentAmount - country.refundAmount;
+                                const refundDisplay = formatCurrencyWithRefunds(netSpent, country.refundAmount, costData.currency);
+                                return refundDisplay.displayText;
+                              })()}
                             </span>
+                            {country.refundAmount > 0 && (
+                              <div className="text-xs text-gray-600 mt-1">
+                                *Includes {formatCurrency(country.refundAmount, costData.currency)} of refunds
+                              </div>
+                            )}
                           </div>
                           <div>
-                            <span className="text-gray-600">Avg/Day:</span>
-                            <span className="font-medium ml-2">
-                              {country.country === 'General' ? 'N/A' : formatCurrency(country.averagePerDay, costData.currency)}
-                            </span>
+                            {(() => {
+                              const avgDisplay = getCountryAverageDisplay(country, costSummary.tripStatus, costData.currency);
+                              return (
+                                <>
+                                  <span className="text-gray-600">{avgDisplay.label}:</span>
+                                  <span className="font-medium ml-2" title={avgDisplay.tooltip}>
+                                    {avgDisplay.value}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                         
@@ -1299,7 +1403,20 @@ export default function CostTrackingForm() {
                               {country.categoryBreakdown.map((category) => (
                                 <div key={category.category} className="flex justify-between">
                                   <span className="text-gray-600">{category.category} ({category.count}):</span>
-                                  <span className="font-medium">{formatCurrency(category.amount, costData.currency)}</span>
+                                  <span className="font-medium">
+                                    {(() => {
+                                      // Check if this category has any refunds
+                                      const categoryExpenses = country.expenses.filter(e => e.category === category.category);
+                                      const hasRefunds = categoryExpenses.some(e => e.amount < 0);
+                                      
+                                      // category.amount is already the net amount (outflows - refunds)
+                                      if (hasRefunds) {
+                                        return `${formatCurrency(category.amount, costData.currency)}*`;
+                                      } else {
+                                        return formatCurrency(category.amount, costData.currency);
+                                      }
+                                    })()}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -1314,7 +1431,12 @@ export default function CostTrackingForm() {
           )}
 
           {/* Save Button */}
-          <div className="flex justify-end">
+          <div className="flex justify-end items-center gap-4">
+            {autoSaving && (
+              <span className="text-sm text-gray-600">
+                💾 Auto-saving...
+              </span>
+            )}
             <button
               onClick={saveCostData}
               disabled={!costData.tripId || !costData.overallBudget || costData.overallBudget <= 0}

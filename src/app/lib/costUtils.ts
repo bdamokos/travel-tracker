@@ -119,6 +119,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       remainingAmount: (budget.amount || 0),
       days: 0,
       averagePerDay: 0,
+      preTripSpent: 0,
+      tripSpent: 0,
+      suggestedDailyBudget: 0,
       expenses: [],
       categoryBreakdown: []
     });
@@ -137,6 +140,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
           remainingAmount: 0,
           days: 0,
           averagePerDay: 0,
+          preTripSpent: 0,
+          tripSpent: 0,
+          suggestedDailyBudget: 0,
           expenses: [],
           categoryBreakdown: []
         });
@@ -160,6 +166,13 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     const generalRefunds = Math.abs(generalExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
     const generalSpent = generalOutflows - generalRefunds;
     
+    // Calculate pre-trip vs trip spending for general expenses
+    const generalPreTrip = generalExpenses.filter(e => new Date(e.date) < startDate).reduce((sum, e) => sum + e.amount, 0);
+    const generalTrip = generalExpenses.filter(e => {
+      const date = new Date(e.date);
+      return date >= startDate && date <= endDate;
+    }).reduce((sum, e) => sum + e.amount, 0);
+    
     countryMap.set('General', {
       country: 'General',
       budgetAmount: 0, // General expenses don't have specific budgets
@@ -168,6 +181,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       remainingAmount: -generalSpent,
       days: 0,
       averagePerDay: 0,
+      preTripSpent: generalPreTrip,
+      tripSpent: generalTrip,
+      suggestedDailyBudget: 0,
       expenses: generalExpenses,
       categoryBreakdown: []
     });
@@ -175,6 +191,16 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   
   // Calculate days, averages, and category breakdowns for each country
   countryMap.forEach(countryData => {
+    // Calculate pre-trip vs trip spending for this country
+    const preTripExpenses = countryData.expenses.filter(e => new Date(e.date) < startDate);
+    const tripExpenses = countryData.expenses.filter(e => {
+      const date = new Date(e.date);
+      return date >= startDate && date <= endDate;
+    });
+    
+    countryData.preTripSpent = preTripExpenses.reduce((sum, e) => sum + e.amount, 0);
+    countryData.tripSpent = tripExpenses.reduce((sum, e) => sum + e.amount, 0);
+    
     // Update spentAmount to be net (for display consistency)
     const netSpent = countryData.spentAmount - countryData.refundAmount;
     countryData.remainingAmount = countryData.budgetAmount - netSpent;
@@ -201,7 +227,14 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       }
     }
     
-    // Calculate averagePerDay using robust trip status logic
+    // Calculate suggested daily budget for remaining days (if country has budget)
+    if (countryData.budgetAmount > 0 && countryBudget?.periods) {
+      const remainingBudget = countryData.budgetAmount - (countryData.preTripSpent + countryData.tripSpent);
+      const remainingDays = calculateRemainingDaysInCountry(countryBudget.periods, today, endDate);
+      countryData.suggestedDailyBudget = remainingDays > 0 ? remainingBudget / remainingDays : 0;
+    }
+
+    // Calculate averagePerDay using updated logic
     countryData.averagePerDay = calculateCountryDailyAverage(
       countryData,
       countryBudget,
@@ -216,6 +249,30 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   });
   
   return Array.from(countryMap.values()).sort((a, b) => b.spentAmount - a.spentAmount);
+}
+
+/**
+ * Calculate remaining days in country periods
+ */
+function calculateRemainingDaysInCountry(
+  periods: CountryPeriod[],
+  today: Date,
+  tripEndDate: Date
+): number {
+  let remainingDays = 0;
+  
+  for (const period of periods) {
+    const periodStart = new Date(period.startDate);
+    const periodEnd = new Date(Math.min(new Date(period.endDate).getTime(), tripEndDate.getTime()));
+    
+    if (today < periodEnd) {
+      const startFrom = today > periodStart ? today : periodStart;
+      const daysInPeriod = Math.ceil((periodEnd.getTime() - startFrom.getTime()) / (1000 * 3600 * 24)) + 1;
+      remainingDays += Math.max(0, daysInPeriod);
+    }
+  }
+  
+  return remainingDays;
 }
 
 /**
@@ -234,44 +291,36 @@ function calculateCountryDailyAverage(
     return 0;
   }
 
-  // Filter expenses to only include those during the trip period
-  const tripExpenses = countryData.expenses.filter(expense => {
-    const expenseDate = new Date(expense.date);
-    return expenseDate >= tripStartDate && expenseDate <= tripEndDate;
-  });
-  // Calculate net spending (outflows minus refunds)
-  const tripOutflows = tripExpenses.filter(e => e.amount > 0).reduce((sum, expense) => sum + expense.amount, 0);
-  const tripRefunds = Math.abs(tripExpenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
-  const tripSpent = tripOutflows - tripRefunds;
-
-  // If no net trip spending, return 0
-  if (tripSpent <= 0) {
-    return 0;
-  }
-
-  // Before trip: no daily average yet
+  // NEW LOGIC: Show meaningful averages based on what makes sense for each trip status
+  
   if (tripStatus === 'before') {
-    return 0;
+    // Before trip: If we have pre-trip expenses, show them (useful for preparation costs)
+    // But don't divide by days since that doesn't make sense pre-trip
+    return 0; // Could show suggested daily budget if we have one
   }
 
-  // After trip: use total country days
   if (tripStatus === 'after') {
-    return countryData.days > 0 ? tripSpent / countryData.days : 0;
+    // After trip: Show historical daily average based on actual trip spending
+    const tripSpent = countryData.tripSpent;
+    return countryData.days > 0 && tripSpent > 0 ? tripSpent / countryData.days : 0;
   }
 
-  // During trip: complex logic for different scenarios
+  // During trip: Show current daily average based on elapsed time
   if (countryBudget?.periods && countryBudget.periods.length > 0) {
     // CASE 1: Country has configured periods
     return calculateDailyAverageWithPeriods(
       countryBudget.periods,
-      tripSpent,
+      countryData.tripSpent,
       today
     );
   } else {
     // CASE 2: No configured periods - use trip duration or expense dates
     return calculateDailyAverageWithoutPeriods(
-      tripExpenses,
-      tripSpent,
+      countryData.expenses.filter(e => {
+        const date = new Date(e.date);
+        return date >= tripStartDate && date <= tripEndDate;
+      }),
+      countryData.tripSpent,
       today,
       tripStartDate,
       tripEndDate,
@@ -519,4 +568,52 @@ export function hasAnyRefunds(costData: CostTrackingData): boolean {
  */
 export function getTotalRefunds(expenses: Expense[]): number {
   return Math.abs(expenses.filter(e => e.amount < 0).reduce((sum, expense) => sum + expense.amount, 0));
+}
+
+/**
+ * Get display information for country average/day field
+ */
+export function getCountryAverageDisplay(
+  countryData: CountryBreakdown,
+  tripStatus: 'before' | 'during' | 'after',
+  currency: string = 'EUR'
+): { 
+  label: string; 
+  value: string; 
+  tooltip?: string 
+} {
+  if (countryData.country === 'General') {
+    return { label: 'Avg/Day', value: 'N/A' };
+  }
+
+  if (tripStatus === 'before') {
+    if (countryData.preTripSpent > 0 && countryData.suggestedDailyBudget > 0) {
+      return {
+        label: 'Pre-trip + Suggested/Day',
+        value: `${formatCurrency(countryData.preTripSpent, currency)} + ${formatCurrency(countryData.suggestedDailyBudget, currency)}`,
+        tooltip: `Pre-trip expenses: ${formatCurrency(countryData.preTripSpent, currency)}, Suggested daily budget: ${formatCurrency(countryData.suggestedDailyBudget, currency)}`
+      };
+    } else if (countryData.preTripSpent > 0) {
+      return {
+        label: 'Pre-trip',
+        value: formatCurrency(countryData.preTripSpent, currency),
+        tooltip: 'Total pre-trip expenses for this destination'
+      };
+    } else if (countryData.suggestedDailyBudget > 0) {
+      return {
+        label: 'Suggested/Day',
+        value: formatCurrency(countryData.suggestedDailyBudget, currency),
+        tooltip: 'Suggested daily budget based on remaining budget and days'
+      };
+    } else {
+      return { label: 'Avg/Day', value: '€0' };
+    }
+  }
+
+  // During or after trip: show actual daily average
+  return {
+    label: 'Avg/Day',
+    value: formatCurrency(countryData.averagePerDay, currency),
+    tooltip: tripStatus === 'during' ? 'Daily average based on spending so far' : 'Historical daily average for the trip'
+  };
 } 

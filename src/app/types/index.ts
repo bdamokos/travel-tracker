@@ -133,6 +133,10 @@ export type CountryBreakdown = {
   remainingAmount: number;
   days: number;
   averagePerDay: number;
+  // New fields for better breakdown
+  preTripSpent: number;
+  tripSpent: number;
+  suggestedDailyBudget: number; // For remaining days if budget exists
   expenses: Expense[];
   categoryBreakdown: CategoryBreakdown[];
 };
