@@ -74,14 +74,14 @@ export default function ExpenseForm({
   }
 
   return (
-    <div className="bg-gray-50 p-4 rounded-lg" data-testid="expense-form">
+    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg" data-testid="expense-form">
       <h4 className="font-medium mb-3">
         {editingExpenseIndex !== null ? 'Edit Expense' : 'Add New Expense'}
       </h4>
       
       <form action={submitExpenseAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="expense-date" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Date *
           </label>
           <input
@@ -90,12 +90,12 @@ export default function ExpenseForm({
             type="date"
             defaultValue={currentExpense.date || ''}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
 
         <div>
-          <label htmlFor="expense-amount" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Amount * (use negative for refunds)
           </label>
           <input
@@ -105,19 +105,19 @@ export default function ExpenseForm({
             step="0.01"
             defaultValue={currentExpense.amount || ''}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
 
         <div>
-          <label htmlFor="expense-currency" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Currency
           </label>
           <select
             id="expense-currency"
             name="currency"
             defaultValue={currentExpense.currency || currency}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="EUR">EUR</option>
             <option value="USD">USD</option>
@@ -126,7 +126,7 @@ export default function ExpenseForm({
         </div>
 
         <div>
-          <label htmlFor="expense-category" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Category *
           </label>
           <select
@@ -134,7 +134,7 @@ export default function ExpenseForm({
             name="category"
             defaultValue={currentExpense.category || ''}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="">Select Category</option>
             {categories.map(cat => (
@@ -144,14 +144,14 @@ export default function ExpenseForm({
         </div>
 
         <div>
-          <label htmlFor="expense-country" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-country" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Country
           </label>
           <select
             id="expense-country"
             name="country"
             defaultValue={currentExpense.country || ''}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="">General/Multiple Countries</option>
             {countryOptions.map(country => (
@@ -161,14 +161,14 @@ export default function ExpenseForm({
         </div>
 
         <div>
-          <label htmlFor="expense-type" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Expense Type
           </label>
           <select
             id="expense-type"
             name="expenseType"
             defaultValue={currentExpense.expenseType || 'actual'}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="actual">Actual</option>
             <option value="planned">Planned</option>
@@ -176,7 +176,7 @@ export default function ExpenseForm({
         </div>
 
         <div className="md:col-span-2">
-          <label htmlFor="expense-description" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Description
           </label>
           <input
@@ -185,12 +185,12 @@ export default function ExpenseForm({
             type="text"
             defaultValue={currentExpense.description || ''}
             placeholder="e.g., Lunch at restaurant"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
 
         <div className="md:col-span-2">
-          <label htmlFor="expense-notes" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="expense-notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Notes
           </label>
           <textarea
@@ -198,7 +198,7 @@ export default function ExpenseForm({
             name="notes"
             defaultValue={currentExpense.notes || ''}
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
 
@@ -210,7 +210,7 @@ export default function ExpenseForm({
               defaultChecked={currentExpense.isGeneralExpense || false}
               className="mr-2"
             />
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               This is a general expense (not tied to a specific country)
             </span>
           </label>

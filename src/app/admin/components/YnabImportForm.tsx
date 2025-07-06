@@ -214,13 +214,13 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">{getStepTitle()}</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{getStepTitle()}</h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
             >
               ×
             </button>
@@ -231,13 +231,13 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
             {[1, 2, 3].map((step) => (
               <div key={step} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step <= currentStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                  step <= currentStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
                 }`}>
                   {step}
                 </div>
                 {step < 3 && (
                   <div className={`w-16 h-1 mx-2 ${
-                    step < currentStep ? 'bg-blue-500' : 'bg-gray-200'
+                    step < currentStep ? 'bg-blue-500' : 'bg-gray-200 dark:bg-gray-700'
                   }`} />
                 )}
               </div>
@@ -253,11 +253,11 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
           {/* Step 1: Upload */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 Upload your YNAB export file (.tsv format) or YNAB export zip file (.zip format). The system will automatically extract the transaction register from zip files.
               </p>
               
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -272,7 +272,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                 >
                   {isLoading ? 'Uploading...' : 'Choose TSV or ZIP File'}
                 </button>
-                                  <p className="text-gray-500 mt-2">
+                                  <p className="text-gray-500 dark:text-gray-400 mt-2">
                     Select your YNAB export file (.tsv or .zip) to continue
                   </p>
               </div>
@@ -282,17 +282,17 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
           {/* Step 2: Category Mapping */}
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <h3 className="font-semibold text-blue-800 mb-2">Review and Adjust Category Mappings</h3>
-                <p className="text-sm text-blue-700 mb-2">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Review and Adjust Category Mappings</h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
                   Found {categoryMappings.length} categories in your YNAB file. 
                   Configure how each category should be mapped to countries or general expenses.
                 </p>
                 <div className="flex gap-4 text-sm">
-                  <span className="text-blue-700">
+                  <span className="text-blue-700 dark:text-blue-300">
                     ✓ {categoryMappings.filter(m => m.mappingType !== 'general' || m.mappingType === 'general').length} mapped
                   </span>
-                  <span className="text-orange-700">
+                  <span className="text-orange-700 dark:text-orange-300">
                     ⚠ {categoryMappings.filter(m => m.mappingType === 'country' && !m.countryName).length} need country selection
                   </span>
                 </div>
@@ -306,18 +306,18 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                   
                   return (
                     <div key={mapping.ynabCategory} className={`flex items-center space-x-4 p-3 rounded-lg border ${
-                      isComplete ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                      isComplete ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-700' : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-700'
                     }`}>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-800">{mapping.ynabCategory}</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{mapping.ynabCategory}</span>
                           {isExisting && (
-                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-sm">
+                            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-sm">
                               Previously mapped
                             </span>
                           )}
                           {!isComplete && (
-                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-sm">
+                            <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-sm">
                               Needs country
                             </span>
                           )}
@@ -327,7 +327,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                     <select
                       value={mapping.mappingType}
                       onChange={(e) => handleCategoryMappingChange(index, 'mappingType', e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md"
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
                     >
                       <option value="none">None (Not Travel-Related)</option>
                       <option value="general">General Expenses</option>
@@ -339,7 +339,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                         <select
                           value={mapping.countryName || ''}
                           onChange={(e) => handleCategoryMappingChange(index, 'countryName', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 rounded-md"
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
                         >
                           <option value="">Select Country</option>
                           {availableCountries.map(country => (
@@ -351,7 +351,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                           <input
                             type="text"
                             placeholder="Enter country name"
-                            className="px-3 py-2 border border-gray-300 rounded-md"
+                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
                             onBlur={(e) => {
                               if (e.target.value.trim()) {
                                 handleCategoryMappingChange(index, 'countryName', e.target.value.trim());
@@ -372,8 +372,8 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
               </div>
               
               {/* Quick Actions */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-800 mb-3">Quick Actions</h4>
+              <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <h4 className="font-medium text-gray-800 dark:text-gray-100 mb-3">Quick Actions</h4>
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => {
@@ -410,7 +410,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs text-gray-600 dark:text-gray-300 mt-2">
                   Use these buttons to quickly apply mappings to multiple categories at once.
                 </p>
               </div>
@@ -418,7 +418,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
               <div className="flex justify-between pt-4">
                 <button
                   onClick={() => setCurrentStep(1)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
                 >
                   Back
                 </button>
@@ -436,7 +436,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
           {/* Step 3: Transaction Selection */}
           {currentStep === 3 && (
             <div className="space-y-4">
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
                 Select which transactions to import and assign categories. 
                 Only new transactions (not previously imported) are shown.
               </p>
@@ -457,7 +457,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                 >
                   {selectedTransactions.length === processedTransactions.length ? 'Deselect All' : 'Select All'}
                 </button>
-                <span className="text-gray-500 text-sm ml-4">
+                <span className="text-gray-500 dark:text-gray-400 text-sm ml-4">
                   {selectedTransactions.length} of {processedTransactions.length} selected
                 </span>
               </div>
@@ -469,7 +469,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                   
                   return (
                     <div key={txn.hash} className={`p-3 rounded-lg border ${
-                      isSelected ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'
+                      isSelected ? 'border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-700' : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700'
                     }`}>
                       <div className="flex items-center space-x-4">
                         <input
@@ -482,13 +482,13 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-medium text-gray-800">{txn.description}</p>
-                              <p className="text-sm text-gray-600">{txn.date}</p>
-                              {txn.memo && <p className="text-sm text-gray-500">{txn.memo}</p>}
+                              <p className="font-medium text-gray-800 dark:text-gray-100">{txn.description}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">{txn.date}</p>
+                              {txn.memo && <p className="text-sm text-gray-500 dark:text-gray-400">{txn.memo}</p>}
                             </div>
                             <div className="text-right">
-                              <p className="font-medium text-gray-800">€{txn.amount.toFixed(2)}</p>
-                              <p className="text-sm text-gray-600">
+                              <p className="font-medium text-gray-800 dark:text-gray-100">€{txn.amount.toFixed(2)}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">
                                 {txn.isGeneralExpense ? 'General' : txn.mappedCountry}
                               </p>
                             </div>
@@ -499,7 +499,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                           <select
                             value={selection?.expenseCategory || availableCategories[0]}
                             onChange={(e) => handleCategoryChange(txn.hash, e.target.value)}
-                            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm dark:bg-gray-700 dark:text-white"
                           >
                             {availableCategories.map(category => (
                               <option key={category} value={category}>{category}</option>
@@ -515,7 +515,7 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
               <div className="flex justify-between pt-4">
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
                 >
                   Back
                 </button>

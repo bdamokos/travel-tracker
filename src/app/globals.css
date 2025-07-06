@@ -22,6 +22,18 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 255, 255, 255;
   --background-end-rgb: 255, 255, 255;
+  --foreground: 0, 0, 0;
+  --background: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+    --foreground: 255, 255, 255;
+    --background: 0, 0, 0;
+  }
 }
 
 body {
@@ -134,4 +146,41 @@ body {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+/* Dark mode Leaflet popup styling */
+@media (prefers-color-scheme: dark) {
+  .leaflet-popup-content-wrapper {
+    background: #374151 !important;
+    color: #f9fafb !important;
+    border: 1px solid #4b5563 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .leaflet-popup-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.4 !important;
+  }
+  
+  .leaflet-popup-tip {
+    background: #374151 !important;
+    border: 1px solid #4b5563 !important;
+  }
+  
+  .leaflet-container a {
+    color: #60a5fa !important;
+  }
+}
+
+/* General Leaflet popup optimization for both light and dark modes */
+.leaflet-popup-content-wrapper {
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.4 !important;
 } 

@@ -22,19 +22,19 @@ const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect
   
   if (!journey) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-100">
-        <p className="text-gray-500">No journey selected</p>
+      <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+        <p className="text-gray-500 dark:text-gray-400">No journey selected</p>
       </div>
     );
   }
   
   if (journey.days.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-white">
+      <div className="h-full flex items-center justify-center bg-white dark:bg-gray-800">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">No travel periods added to this journey yet</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">No travel periods added to this journey yet</p>
           <button 
-            className="px-4 py-2 bg-blue-500 text-white rounded-sm hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-sm hover:bg-blue-600 dark:hover:bg-blue-700"
             onClick={onAddDay}
           >
             Add First Period
@@ -45,8 +45,8 @@ const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect
   }
   
   return (
-    <div className="h-full overflow-y-auto bg-white p-4">
-      <h2 className="text-xl font-bold mb-4">{journey.title}</h2>
+    <div className="h-full overflow-y-auto bg-white dark:bg-gray-800 p-4">
+      <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{journey.title}</h2>
       
       <div className="space-y-4">
         {journey.days.map(day => (
@@ -76,20 +76,20 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
   return (
     <div 
       className={`border rounded-lg overflow-hidden transition-all ${
-        isSelected ? 'border-blue-500 shadow-md' : 'border-gray-200'
+        isSelected ? 'border-blue-500 shadow-md' : 'border-gray-200 dark:border-gray-700'
       }`}
     >
       <div 
         className={`p-4 cursor-pointer flex justify-between items-center ${
-          isSelected ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
+          isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
         }`}
         onClick={onClick}
       >
         <div>
-          <h3 className="font-bold">{day.title}</h3>
-          <p className="text-sm text-gray-500">{formattedDate}</p>
+          <h3 className="font-bold text-gray-900 dark:text-white">{day.title}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{formattedDate}</p>
         </div>
-        <div className="text-gray-400">
+        <div className="text-gray-400 dark:text-gray-500">
           {isExpanded ? (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
@@ -103,11 +103,11 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
       </div>
       
       {isExpanded && (
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           {/* Locations */}
           {day.locations.length > 0 && (
             <div className="mb-3">
-              <h4 className="text-sm font-semibold text-gray-500 mb-2">Locations</h4>
+              <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Locations</h4>
               <div className="space-y-2">
                 {day.locations.map(location => (
                   <div key={location.id} className="flex items-start">
@@ -118,12 +118,12 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
                       </svg>
                     </div>
                     <div className="ml-2">
-                      <div className="font-medium">{location.name}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{location.name}</div>
                       {location.arrivalTime && (
-                        <div className="text-xs text-gray-500">Arrived: {location.arrivalTime}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Arrived: {location.arrivalTime}</div>
                       )}
                       {location.notes && (
-                        <div className="text-sm mt-1 text-gray-600">{location.notes}</div>
+                        <div className="text-sm mt-1 text-gray-600 dark:text-gray-300">{location.notes}</div>
                       )}
                       
                       {/* Display Blog Posts */}
@@ -179,7 +179,7 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
           {/* Transportation */}
           {day.transportation && (
             <div className="mb-3">
-              <h4 className="text-sm font-semibold text-gray-500 mb-2">Transportation</h4>
+              <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Transportation</h4>
               <TransportationItem transportation={day.transportation} />
             </div>
           )}
@@ -187,11 +187,11 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
           {/* Instagram Posts */}
           {day.instagramPosts && day.instagramPosts.length > 0 && (
             <div className="mb-3">
-              <h4 className="text-sm font-semibold text-gray-500 mb-2">Instagram Posts</h4>
+              <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Instagram Posts</h4>
               <div className="space-y-2">
                 {day.instagramPosts.map(post => (
-                  <div key={post.id} className="border border-gray-200 rounded-sm p-2">
-                    <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-sm hover:underline">
+                  <div key={post.id} className="border border-gray-200 dark:border-gray-700 rounded-sm p-2">
+                    <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 dark:text-blue-400 text-sm hover:underline">
                       View Instagram Post
                     </a>
                   </div>
@@ -203,14 +203,14 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
           {/* Notes */}
           {day.customNotes && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-500 mb-2">Notes</h4>
-              <p className="text-sm">{day.customNotes}</p>
+              <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Notes</h4>
+              <p className="text-sm text-gray-900 dark:text-white">{day.customNotes}</p>
             </div>
           )}
           
           {/* Edit Actions */}
-          <div className="mt-4 text-xs text-gray-400 flex justify-end">
-            <button className="text-blue-500 hover:underline">Edit</button>
+          <div className="mt-4 text-xs text-gray-400 dark:text-gray-500 flex justify-end">
+            <button className="text-blue-500 dark:text-blue-400 hover:underline">Edit</button>
           </div>
         </div>
       )}
@@ -253,10 +253,10 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation 
         {getTransportIcon(type)}
       </div>
       <div className="ml-2">
-        <div className="font-medium capitalize">
+        <div className="font-medium capitalize text-gray-900 dark:text-white">
           {type} from {from} to {to}
         </div>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-500 dark:text-gray-400">
           {departureTime && arrivalTime ? (
             <>Departed: {departureTime} - Arrived: {arrivalTime}</>
           ) : departureTime ? (
