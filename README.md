@@ -10,6 +10,8 @@ A single-page web application that visualizes travel journeys on an OpenStreetMa
 - Location markers with popup information
 - Instagram post integration
 - Blog post integration
+- Comprehensive travel expense tracking and budget management
+- YNAB (You Need A Budget) integration for importing financial data
 - Responsive design for desktop and mobile
 - Server-side data storage
 
@@ -17,7 +19,7 @@ A single-page web application that visualizes travel journeys on an OpenStreetMa
 
 - Next.js with TypeScript
 - Leaflet.js for map functionality
-- File-based data storage
+- Server-side data storage with API endpoints
 - Tailwind CSS for styling
 
 ## Getting Started
@@ -53,16 +55,24 @@ yarn dev
 
 ## Data Storage
 
-Travel Tracker stores all journey data on the server using file-based storage, ensuring your travel data is safely stored and accessible across devices.
+Travel Tracker stores all journey data on the server using API endpoints, ensuring your travel data is safely stored and accessible across devices.
 
 ## Usage
 
+### Journey Management
 1. **Creating a Journey**: Click "Create New Journey" to start tracking your travels
 2. **Adding Days**: Click "Add New Day" to add a new day to your journey
 3. **Adding Locations**: In the edit form, go to the "Locations" tab to add places you've visited
 4. **Adding Transportation**: Track how you moved between locations
 5. **Adding Instagram Posts**: Link your Instagram posts to specific days in your journey
 6. **Adding Blog Posts**: Link your blog posts to specific locations in your journey
+
+### Cost Tracking
+7. **Creating a Cost Tracker**: Navigate to the "Cost Tracking" tab in the admin interface
+8. **Setting Budget**: Define your overall trip budget and optional country-specific budgets
+9. **Adding Expenses**: Record individual expenses with categories, amounts, and locations
+10. **YNAB Integration**: Upload YNAB export files to automatically import your financial data
+11. **Analytics**: View spending breakdowns by country, category, and time period
 
 ## Mobile App Installation
 
