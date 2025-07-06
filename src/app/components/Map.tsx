@@ -204,9 +204,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                               >
                                 {post.title.length > 30 ? `${post.title.substring(0, 30)}...` : post.title}
                               </a>
-                              {post.offline && (
-                                <span className="text-xs text-amber-600">(Offline)</span>
-                              )}
                             </div>
                           ))}
                         </div>
@@ -229,9 +226,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                               >
                                 View Post {location.instagramPosts!.length > 1 ? `#${index + 1}` : ''}
                               </a>
-                              {post.offline && (
-                                <span className="text-xs text-amber-600">(Offline)</span>
-                              )}
                             </div>
                           ))}
                         </div>

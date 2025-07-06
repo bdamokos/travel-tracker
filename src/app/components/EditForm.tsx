@@ -49,13 +49,11 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   
   const [newPost, setNewPost] = useState<Partial<InstagramPost>>({
     url: '',
-    offline: false,
   });
   
   const [newBlogPost, setNewBlogPost] = useState<Partial<BlogPost>>({
     title: '',
     url: '',
-    offline: false,
   });
   
   const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<number>(-1);
@@ -409,14 +407,12 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       instagramPosts: [...(prev.instagramPosts || []), {
         id: `temp-${Date.now()}`,
         url: newPost.url!,  // Use non-null assertion since we've checked above
-        offline: newPost.offline || false,
       }]
     }));
     
     // Reset the form
     setNewPost({
       url: '',
-      offline: false,
     });
   };
   
@@ -454,7 +450,6 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
             {
               id: `temp-${Date.now()}`,
               url: newPost.url!,
-              offline: newPost.offline || false,
             }
           ]
         };
@@ -465,7 +460,6 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     // Reset the form
     setNewPost({
       url: '',
-      offline: false,
     });
     setSelectedLocationForPosts(-1);
   };
@@ -484,7 +478,6 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
               id: `temp-${Date.now()}`,
               title: newBlogPost.title!,
               url: newBlogPost.url!,
-              offline: newBlogPost.offline || false,
             }
           ]
         };
@@ -496,7 +489,6 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     setNewBlogPost({
       title: '',
       url: '',
-      offline: false,
     });
     setSelectedLocationForPosts(-1);
   };
@@ -1109,18 +1101,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 />
               </div>
               
-              <div className="mb-3">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="offline"
-                    checked={newPost.offline}
-                    onChange={handlePostChange}
-                    className="mr-2"
-                  />
-                  Save as offline (will be uploaded later)
-                </label>
-              </div>
+
               
               <button
                 type="button"
@@ -1154,11 +1135,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                           Remove
                         </button>
                       </div>
-                      {post.offline && (
-                        <p className="text-sm text-amber-600 mt-1">
-                          Will be uploaded when online
-                        </p>
-                      )}
+
                     </div>
                   ))}
                 </div>
@@ -1227,18 +1204,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                       />
                     </div>
                     
-                    <div className="mb-3">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          name="offline"
-                          checked={newBlogPost.offline}
-                          onChange={handleBlogPostChange}
-                          className="mr-2"
-                        />
-                        Save as offline (will be uploaded later)
-                      </label>
-                    </div>
+
                     
                     <div className="flex space-x-2">
                       <button
@@ -1271,16 +1237,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                           className="flex-1 p-2 border rounded"
                           placeholder="https://www.instagram.com/p/..."
                         />
-                        <label className="flex items-center whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            name="offline"
-                            checked={newPost.offline}
-                            onChange={handlePostChange}
-                            className="mr-1"
-                          />
-                          Offline
-                        </label>
+
                       </div>
                     </div>
                   </div>
@@ -1313,11 +1270,6 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                                   >
                                     {post.title}
                                   </a>
-                                  {post.offline && (
-                                    <span className="text-xs text-amber-600 ml-2">
-                                      (Offline)
-                                    </span>
-                                  )}
                                 </div>
                                 <button
                                   type="button"
@@ -1348,11 +1300,6 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                                   >
                                     {post.url.length > 50 ? `${post.url.substring(0, 50)}...` : post.url}
                                   </a>
-                                  {post.offline && (
-                                    <span className="text-xs text-amber-600 ml-2">
-                                      (Offline)
-                                    </span>
-                                  )}
                                 </div>
                                 <button
                                   type="button"

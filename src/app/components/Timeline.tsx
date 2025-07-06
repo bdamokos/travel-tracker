@@ -142,9 +142,6 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
                                 >
                                   {post.title.length > 40 ? `${post.title.substring(0, 40)}...` : post.title}
                                 </a>
-                                {post.offline && (
-                                  <span className="text-xs text-amber-600">(Offline)</span>
-                                )}
                               </div>
                             ))}
                           </div>
@@ -167,9 +164,6 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
                                 >
                                   View Post {location.instagramPosts!.length > 1 ? `#${index + 1}` : ''}
                                 </a>
-                                {post.offline && (
-                                  <span className="text-xs text-amber-600">(Offline)</span>
-                                )}
                               </div>
                             ))}
                           </div>
@@ -197,13 +191,9 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
               <div className="space-y-2">
                 {day.instagramPosts.map(post => (
                   <div key={post.id} className="border border-gray-200 rounded p-2">
-                    {post.offline ? (
-                      <div className="text-sm text-gray-500">Offline Instagram Post (will be synced later)</div>
-                    ) : (
-                      <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-sm hover:underline">
-                        View Instagram Post
-                      </a>
-                    )}
+                    <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-sm hover:underline">
+                      View Instagram Post
+                    </a>
                   </div>
                 ))}
               </div>
@@ -218,11 +208,8 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
             </div>
           )}
           
-          {/* Edit Status */}
-          <div className="mt-4 text-xs text-gray-400 flex justify-between">
-            <span>
-              Status: {day.editStatus === 'synced' ? 'Synced' : day.editStatus === 'draft' ? 'Draft' : 'Modified'}
-            </span>
+          {/* Edit Actions */}
+          <div className="mt-4 text-xs text-gray-400 flex justify-end">
             <button className="text-blue-500 hover:underline">Edit</button>
           </div>
         </div>

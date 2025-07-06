@@ -11,13 +11,13 @@ A single-page web application that visualizes travel journeys on an OpenStreetMa
 - Instagram post integration
 - Blog post integration
 - Responsive design for desktop and mobile
-- Local data storage with IndexedDB
+- Server-side data storage
 
 ## Technologies Used
 
 - Next.js with TypeScript
 - Leaflet.js for map functionality
-- IndexedDB for local data storage
+- File-based data storage
 - Tailwind CSS for styling
 
 ## Getting Started
@@ -53,7 +53,7 @@ yarn dev
 
 ## Data Storage
 
-Travel Tracker stores all journey data locally in your browser using IndexedDB, ensuring your travel data persists between sessions.
+Travel Tracker stores all journey data on the server using file-based storage, ensuring your travel data is safely stored and accessible across devices.
 
 ## Usage
 

@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Travel Tracker - Map your journey',
-  description: 'A tool to visualize and track your travel journeys with interactive maps, timelines, and offline capabilities.',
+      description: 'A tool to visualize and track your travel journeys with interactive maps and timelines.',
   manifest: '/manifest.json',
 };
 
