@@ -8,8 +8,8 @@ export function getDomainConfig(): DomainConfig {
   const isProduction = process.env.NODE_ENV === 'production';
   
   return {
-    adminDomain: process.env.NEXT_PUBLIC_ADMIN_DOMAIN || (isProduction ? 'https://tt-admin.bdamokos.org' : 'http://localhost:3000'),
-    embedDomain: process.env.NEXT_PUBLIC_EMBED_DOMAIN || (isProduction ? 'https://travel-tracker.bdamokos.org' : 'http://localhost:3000'),
+    adminDomain: process.env.NEXT_PUBLIC_ADMIN_DOMAIN || (isProduction ? (process.env.ADMIN_DOMAIN || '') : 'http://localhost:3000'),
+    embedDomain: process.env.NEXT_PUBLIC_EMBED_DOMAIN || (isProduction ? (process.env.EMBED_DOMAIN || '') : 'http://localhost:3000'),
     isProduction,
   };
 }
@@ -39,8 +39,8 @@ export function getClientDomainConfig(): DomainConfig {
   const currentHost = window.location.host;
   
   return {
-    adminDomain: process.env.NEXT_PUBLIC_ADMIN_DOMAIN || (isProduction ? 'https://tt-admin.bdamokos.org' : `${window.location.protocol}//${currentHost}`),
-    embedDomain: process.env.NEXT_PUBLIC_EMBED_DOMAIN || (isProduction ? 'https://travel-tracker.bdamokos.org' : `${window.location.protocol}//${currentHost}`),
+    adminDomain: process.env.NEXT_PUBLIC_ADMIN_DOMAIN || (isProduction ? (process.env.ADMIN_DOMAIN || '') : `${window.location.protocol}//${currentHost}`),
+    embedDomain: process.env.NEXT_PUBLIC_EMBED_DOMAIN || (isProduction ? (process.env.EMBED_DOMAIN || '') : `${window.location.protocol}//${currentHost}`),
     isProduction,
   };
 }
