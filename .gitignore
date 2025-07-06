@@ -39,3 +39,8 @@ deploy/.env
 CLAUDE.md
 .cursorrules
 GEMINI.md
+
+# Sync scripts
+sync-github.sh
+GITHUB_SYNC_WORKFLOW.md
+.last_github_sync
