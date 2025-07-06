@@ -101,6 +101,7 @@ export type CostTrackingData = {
   countryBudgets: BudgetItem[];
   expenses: Expense[];
   customCategories?: string[]; // User-defined expense categories (optional for backwards compatibility)
+  ynabImportData?: YnabImportData; // YNAB import configuration and history
   createdAt: string;
   updatedAt?: string;
 };
@@ -136,4 +137,41 @@ export type CategoryBreakdown = {
   category: string;
   amount: number;
   count: number;
-}; 
+};
+
+// YNAB Import types
+export type YnabTransaction = {
+  Account: string;
+  Flag: string;
+  Date: string;
+  Payee: string;
+  'Category Group/Category': string;
+  'Category Group': string;
+  Category: string;
+  Memo: string;
+  Outflow: string;
+  Inflow: string;
+  Cleared: string;
+};
+
+export type YnabCategoryMapping = {
+  ynabCategory: string;
+  mappingType: 'country' | 'general' | 'none';
+  countryName?: string; // if mappingType === 'country'
+};
+
+export type YnabImportData = {
+  mappings: YnabCategoryMapping[];
+  importedTransactionHashes: string[]; // to prevent duplicates
+};
+
+export type ProcessedYnabTransaction = {
+  originalTransaction: YnabTransaction;
+  amount: number;
+  date: string;
+  description: string;
+  memo: string;
+  mappedCountry: string; // empty string for general expenses
+  isGeneralExpense: boolean;
+  hash: string; // unique identifier to prevent duplicates
+};

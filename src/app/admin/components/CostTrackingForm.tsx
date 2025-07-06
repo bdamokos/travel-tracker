@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod } from '../../types';
+import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, YnabCategoryMapping } from '../../types';
 import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES } from '../../lib/costUtils';
+import YnabImportForm from './YnabImportForm';
+import YnabMappingManager from './YnabMappingManager';
 
 interface ExistingTrip {
   id: string;
@@ -80,6 +82,10 @@ export default function CostTrackingForm() {
   // Category management state
   const [newCategory, setNewCategory] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  
+  // YNAB Import state
+  const [showYnabImport, setShowYnabImport] = useState(false);
+  const [showYnabMappings, setShowYnabMappings] = useState(false);
   
   // Helper function to get categories with backward compatibility
   const getCategories = (): string[] => {
@@ -432,6 +438,66 @@ export default function CostTrackingForm() {
   const deleteExpense = (expenseId: string) => {
     const updatedExpenses = costData.expenses.filter(expense => expense.id !== expenseId);
     setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+  };
+
+  const handleYnabImportComplete = async () => {
+    // Reload the cost data to show imported transactions
+    if (costData.id) {
+      await loadCostEntryForEditing(costData.id);
+    }
+    setShowYnabImport(false);
+  };
+
+  const handleYnabMappingsSave = async (mappings: YnabCategoryMapping[]) => {
+    try {
+      // Create new country budgets for any new countries in mappings
+      const newCountries = mappings
+        .filter(m => m.mappingType === 'country' && m.countryName)
+        .map(m => m.countryName!)
+        .filter(country => !costData.countryBudgets.some(b => b.country === country));
+
+      const newBudgets = newCountries.map(country => ({
+        id: `budget-${country}-${Date.now()}`,
+        country: country,
+        amount: undefined,
+        currency: costData.currency,
+        notes: 'Auto-created from YNAB mapping'
+      }));
+
+      // Update cost data with new mappings and budgets
+      const updatedCostData = {
+        ...costData,
+        countryBudgets: [...costData.countryBudgets, ...newBudgets],
+        ynabImportData: {
+          ...costData.ynabImportData,
+          mappings: mappings,
+          importedTransactionHashes: costData.ynabImportData?.importedTransactionHashes || []
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      const response = await fetch(`/api/cost-tracking?id=${costData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedCostData),
+      });
+      
+      if (response.ok) {
+        setCostData(updatedCostData);
+        const message = newCountries.length > 0 
+          ? `YNAB mappings saved successfully! Created ${newCountries.length} new country budget(s): ${newCountries.join(', ')}`
+          : 'YNAB mappings saved successfully!';
+        alert(message);
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`Error saving mappings: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error saving YNAB mappings:', error);
+      alert('Error saving YNAB mappings');
+    }
   };
 
   const saveCostData = async () => {
@@ -923,7 +989,25 @@ export default function CostTrackingForm() {
 
           {/* Expense Tracking */}
           <div>
-            <h3 className="text-xl font-semibold mb-4">Expense Tracking</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Expense Tracking</h3>
+              {mode === 'edit' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowYnabMappings(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                  >
+                    Manage YNAB Mappings
+                  </button>
+                  <button
+                    onClick={() => setShowYnabImport(true)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
+                  >
+                    Import from YNAB
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="bg-gray-50 p-4 rounded-md mb-4">
               <h4 className="font-medium mb-3">
                 {editingExpenseIndex !== null ? 'Edit Expense' : 'Add New Expense'}
@@ -1240,6 +1324,24 @@ export default function CostTrackingForm() {
             </button>
           </div>
         </>
+      )}
+      
+      {/* YNAB Import Modal */}
+      {showYnabImport && (
+        <YnabImportForm
+          costData={costData}
+          onImportComplete={handleYnabImportComplete}
+          onClose={() => setShowYnabImport(false)}
+        />
+      )}
+      
+      {/* YNAB Mapping Manager Modal */}
+      {showYnabMappings && (
+        <YnabMappingManager
+          costData={costData}
+          onSave={handleYnabMappingsSave}
+          onClose={() => setShowYnabMappings(false)}
+        />
       )}
     </div>
   );
