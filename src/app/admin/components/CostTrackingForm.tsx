@@ -1226,8 +1226,8 @@ export default function CostTrackingForm() {
                       }
                     }}
                     onBlur={() => {
-                      // Delay hiding dropdown to allow clicking on options
-                      setTimeout(() => setShowCountryDropdown(false), 150);
+                      // Delay hiding dropdown to allow for mousedown events
+                      setTimeout(() => setShowCountryDropdown(false), 200);
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Argentina"
@@ -1238,7 +1238,10 @@ export default function CostTrackingForm() {
                       {filteredCountries.map((country) => (
                         <div
                           key={country}
-                          onClick={() => selectCountry(country)}
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Prevent input from losing focus
+                            selectCountry(country);
+                          }}
                           className="px-3 py-2 cursor-pointer hover:bg-blue-50 hover:text-blue-800 border-b border-gray-100 last:border-b-0"
                         >
                           {country}
