@@ -119,6 +119,25 @@ export default async function PublicMapsPage() {
           )}
         </div>
       </div>
+      
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-12">
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-6xl mx-auto text-center">
+            <p className="text-gray-600">
+             
+              <a 
+                href="https://github.com/bdamokos/travel-tracker" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline ml-2 font-medium"
+              >
+                View source code on GitHub
+              </a>
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 } 
