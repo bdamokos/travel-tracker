@@ -1381,16 +1381,36 @@ export default function CostTrackingForm() {
           {costSummary && (
             <div>
               <h3 className="text-xl font-semibold mb-4">Cost Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-blue-800">Total Budget</h4>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(costSummary.totalBudget, costData.currency)}
+              
+              {/* Most Important: Money Available */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className={`${costSummary.availableForPlanning >= 0 ? 'bg-green-50' : 'bg-red-50'} p-6 rounded-lg`}>
+                  <h4 className={`font-bold text-lg ${costSummary.availableForPlanning >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                    Money Left
+                  </h4>
+                  <p className={`text-3xl font-bold ${costSummary.availableForPlanning >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(costSummary.availableForPlanning, costData.currency)}
+                  </p>
+                  <p className={`text-sm mt-1 ${costSummary.availableForPlanning >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    Available for new expenses
                   </p>
                 </div>
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <h4 className="font-bold text-lg text-blue-800">Daily Budget</h4>
+                  <p className="text-3xl font-bold text-blue-600">
+                    {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
+                  </p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    For remaining {costSummary.remainingDays} days
+                  </p>
+                </div>
+              </div>
+
+              {/* Secondary: Current Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <div className="bg-red-50 p-4 rounded-lg">
                   <h4 className="font-medium text-red-800">Total Spent</h4>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-xl font-bold text-red-600">
                     {(() => {
                       const refundDisplay = formatCurrencyWithRefunds(costSummary.totalSpent, costSummary.totalRefunds, costData.currency);
                       return refundDisplay.displayText;
@@ -1398,109 +1418,13 @@ export default function CostTrackingForm() {
                   </p>
                   {costSummary.totalRefunds > 0 && (
                     <p className="text-xs text-red-700 mt-1">
-                      *Total includes {formatCurrency(costSummary.totalRefunds, costData.currency)} of refunds
+                      *Includes {formatCurrency(costSummary.totalRefunds, costData.currency)} refunds
                     </p>
                   )}
                 </div>
-                <div className={`${costSummary.remainingBudget >= 0 ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg`}>
-                  <h4 className={`font-medium ${costSummary.remainingBudget >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                    Remaining Budget
-                  </h4>
-                  <p className={`text-2xl font-bold ${costSummary.remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(costSummary.remainingBudget, costData.currency)}
-                  </p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800">Remaining Days</h4>
-                  <p className="text-2xl font-bold text-gray-600">
-                    {costSummary.remainingDays}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-purple-800">Pre-Trip Expenses</h4>
-                  <p className="text-xl font-bold text-purple-600">
-                    {(() => {
-                      const refundDisplay = formatCurrencyWithRefunds(costSummary.preTripSpent, costSummary.preTripRefunds, costData.currency);
-                      return refundDisplay.displayText;
-                    })()}
-                  </p>
-                  <p className="text-xs text-purple-600 mt-1">
-                    Insurance, flights, gear, etc.
-                  </p>
-                  {costSummary.preTripRefunds > 0 && (
-                    <p className="text-xs text-purple-700 mt-1">
-                      *Includes {formatCurrency(costSummary.preTripRefunds, costData.currency)} of refunds
-                    </p>
-                  )}
-                </div>
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-yellow-800">
-                    {costSummary.tripStatus === 'before' ? 'Trip Spending' : 
-                     costSummary.tripStatus === 'during' ? 'Trip Spending' : 'Trip Total'}
-                  </h4>
-                  <p className="text-xl font-bold text-yellow-600">
-                    {(() => {
-                      const refundDisplay = formatCurrencyWithRefunds(costSummary.tripSpent, costSummary.tripRefunds, costData.currency);
-                      return refundDisplay.displayText;
-                    })()}
-                  </p>
-                  <p className="text-xs text-yellow-600 mt-1">
-                    {costSummary.tripStatus === 'before' ? 'Spending during trip dates' : 
-                     costSummary.tripStatus === 'during' ? 'Spent during trip so far' : 'Total spent during trip'}
-                  </p>
-                  {costSummary.tripRefunds > 0 && (
-                    <p className="text-xs text-yellow-700 mt-1">
-                      *Includes {formatCurrency(costSummary.tripRefunds, costData.currency)} of refunds
-                    </p>
-                  )}
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-orange-800">
-                    {costSummary.tripStatus === 'before' ? 'Daily Budget' : 'Average per Trip Day'}
-                  </h4>
-                  <p className="text-xl font-bold text-orange-600">
-                    {costSummary.tripStatus === 'before' ? 
-                      formatCurrency(costSummary.suggestedDailyBudget, costData.currency) :
-                      formatCurrency(costSummary.averageSpentPerTripDay, costData.currency)}
-                  </p>
-                  <p className="text-xs text-orange-600 mt-1">
-                    {costSummary.tripStatus === 'before' ? 'Suggested daily budget for trip' : 
-                     costSummary.tripStatus === 'during' ? 'Based on days elapsed in trip' : 'Based on total trip duration'}
-                  </p>
-                </div>
-              </div>
-
-              {costSummary.tripStatus !== 'before' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-800">Total Daily Average</h4>
-                    <p className="text-xl font-bold text-gray-600">
-                      {formatCurrency(costSummary.averageSpentPerDay, costData.currency)}
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Trip spending ÷ {costSummary.tripStatus === 'during' ? 'days elapsed' : 'total trip days'}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-800">Suggested Daily Budget</h4>
-                    <p className="text-xl font-bold text-gray-600">
-                      {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      For remaining {costSummary.remainingDays} days
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Enhanced Expense Tracking */}
-              {(costSummary.plannedSpending > 0 || costSummary.postTripSpent > 0 || costSummary.availableForPlanning !== costSummary.remainingBudget) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {costSummary.plannedSpending > 0 && (
                   <div className="bg-cyan-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-cyan-800">Planned Expenses</h4>
+                    <h4 className="font-medium text-cyan-800">Planned Spending</h4>
                     <p className="text-xl font-bold text-cyan-600">
                       {(() => {
                         const refundDisplay = formatCurrencyWithRefunds(costSummary.plannedSpending, costSummary.plannedRefunds, costData.currency);
@@ -1508,55 +1432,101 @@ export default function CostTrackingForm() {
                       })()}
                     </p>
                     <p className="text-xs text-cyan-600 mt-1">
-                      Future committed spending
+                      Future commitments
                     </p>
-                    {costSummary.plannedRefunds > 0 && (
-                      <p className="text-xs text-cyan-700 mt-1">
-                        *Includes {formatCurrency(costSummary.plannedRefunds, costData.currency)} expected refunds
-                      </p>
-                    )}
                   </div>
-                  
-                  {costSummary.postTripSpent !== 0 && (
-                    <div className="bg-amber-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-amber-800">Post-Trip Expenses</h4>
-                      <p className="text-xl font-bold text-amber-600">
-                        {(() => {
-                          const refundDisplay = formatCurrencyWithRefunds(costSummary.postTripSpent, costSummary.postTripRefunds, costData.currency);
-                          return refundDisplay.displayText;
-                        })()}
-                      </p>
-                      <p className="text-xs text-amber-600 mt-1">
-                        Expenses after trip ended
-                      </p>
-                      {costSummary.postTripRefunds > 0 && (
-                        <p className="text-xs text-amber-700 mt-1">
-                          *Includes {formatCurrency(costSummary.postTripRefunds, costData.currency)} of refunds
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  
+                )}
+                {costSummary.tripStatus === 'during' && (
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-orange-800">Trip Average/Day</h4>
+                    <p className="text-xl font-bold text-orange-600">
+                      {formatCurrency(costSummary.averageSpentPerDay, costData.currency)}
+                    </p>
+                    <p className="text-xs text-orange-600 mt-1">
+                      Trip spending so far
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Reference Information */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-800">Total Budget</h4>
+                  <p className="text-lg font-bold text-gray-600">
+                    {formatCurrency(costSummary.totalBudget, costData.currency)}
+                  </p>
+                </div>
+                {costSummary.plannedSpending > 0 && (
                   <div className="bg-indigo-50 p-4 rounded-lg">
                     <h4 className="font-medium text-indigo-800">Total Committed</h4>
-                    <p className="text-xl font-bold text-indigo-600">
+                    <p className="text-lg font-bold text-indigo-600">
                       {formatCurrency(costSummary.totalCommittedSpending, costData.currency)}
                     </p>
                     <p className="text-xs text-indigo-600 mt-1">
-                      Actual + planned spending
+                      Spent + planned
                     </p>
                   </div>
-                  
-                  <div className={`${costSummary.availableForPlanning >= 0 ? 'bg-emerald-50' : 'bg-red-50'} p-4 rounded-lg`}>
-                    <h4 className={`font-medium ${costSummary.availableForPlanning >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                      Available for Planning
-                    </h4>
-                    <p className={`text-xl font-bold ${costSummary.availableForPlanning >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {formatCurrency(costSummary.availableForPlanning, costData.currency)}
-                    </p>
-                    <p className={`text-xs mt-1 ${costSummary.availableForPlanning >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      Budget remaining for new plans
-                    </p>
+                )}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-800">Days Remaining</h4>
+                  <p className="text-lg font-bold text-gray-600">
+                    {costSummary.remainingDays}
+                  </p>
+                </div>
+              </div>
+
+
+              {/* Detailed Breakdown (only show if there are specific expense types) */}
+              {(costSummary.preTripSpent > 0 || costSummary.tripSpent > 0 || costSummary.postTripSpent > 0) && (
+                <div>
+                  <h4 className="font-medium mb-3 text-gray-700">Expense Breakdown</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    {costSummary.preTripSpent > 0 && (
+                      <div className="bg-purple-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-purple-800">Pre-Trip</h4>
+                        <p className="text-lg font-bold text-purple-600">
+                          {(() => {
+                            const refundDisplay = formatCurrencyWithRefunds(costSummary.preTripSpent, costSummary.preTripRefunds, costData.currency);
+                            return refundDisplay.displayText;
+                          })()}
+                        </p>
+                        <p className="text-xs text-purple-600 mt-1">
+                          Flights, gear, insurance
+                        </p>
+                      </div>
+                    )}
+                    
+                    {costSummary.tripSpent > 0 && (
+                      <div className="bg-yellow-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-yellow-800">During Trip</h4>
+                        <p className="text-lg font-bold text-yellow-600">
+                          {(() => {
+                            const refundDisplay = formatCurrencyWithRefunds(costSummary.tripSpent, costSummary.tripRefunds, costData.currency);
+                            return refundDisplay.displayText;
+                          })()}
+                        </p>
+                        <p className="text-xs text-yellow-600 mt-1">
+                          {costSummary.tripStatus === 'before' ? 'Planned trip spending' : 
+                           costSummary.tripStatus === 'during' ? 'Spent so far' : 'Total trip spending'}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {costSummary.postTripSpent !== 0 && (
+                      <div className="bg-amber-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-amber-800">Post-Trip</h4>
+                        <p className="text-lg font-bold text-amber-600">
+                          {(() => {
+                            const refundDisplay = formatCurrencyWithRefunds(costSummary.postTripSpent, costSummary.postTripRefunds, costData.currency);
+                            return refundDisplay.displayText;
+                          })()}
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          After trip ended
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
