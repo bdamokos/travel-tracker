@@ -1,5 +1,7 @@
 # Travel Tracker
 
+![Travel Tracker](./public/screenshots/embeddable_map.png)
+
 A web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes, Instagram posts, and blog content alongside the map.
 
 Furthermore, it includes a private cost tracking feature that allows users to track their expenses and budgets.
@@ -16,6 +18,9 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - YNAB (You Need A Budget) integration for importing financial data
 - Responsive design for desktop and mobile
 - Server-side data storage
+
+![Travel Tracker Screenshot](./public/screenshots/admin-screenshot.png)
+![Travel Tracker Screenshot](./public/screenshots/cost_tracker.png)
 
 ## Technologies Used
 
