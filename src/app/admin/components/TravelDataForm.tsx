@@ -8,6 +8,9 @@ import LocationForm from './LocationForm';
 import RouteForm from './RouteForm';
 import AccommodationDisplay from '../../components/AccommodationDisplay';
 import LinkedExpensesDisplay from './LinkedExpensesDisplay';
+import DeleteWarningDialog from './DeleteWarningDialog';
+import ReassignmentDialog from './ReassignmentDialog';
+import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '../../lib/costLinkCleanup';
 
 interface TravelRoute {
   id: string;
@@ -97,6 +100,26 @@ export default function TravelDataForm() {
     url: '',
     excerpt: ''
   });
+
+  // Safe deletion state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    itemType: 'location' | 'route';
+    itemIndex: number;
+    itemId: string;
+    itemName: string;
+    linkedExpenses: LinkedExpense[];
+  } | null>(null);
+  
+  const [reassignDialog, setReassignDialog] = useState<{
+    isOpen: boolean;
+    itemType: 'location' | 'route';
+    fromItemId: string;
+    fromItemName: string;
+    linkedExpenses: LinkedExpense[];
+    availableItems: Array<{ id: string; name: string; }>;
+    onComplete: () => void;
+  } | null>(null);
 
   // Load existing trips
   useEffect(() => {
@@ -217,7 +240,7 @@ export default function TravelDataForm() {
     }
   };
 
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
 
   const handleLocationAdded = (newLocation: Location) => {
     if (editingLocationIndex !== null) {
@@ -348,18 +371,54 @@ export default function TravelDataForm() {
     setEditingRouteIndex(index);
   };
 
-  const deleteLocation = (index: number) => {
-    setTravelData(prev => ({
-      ...prev,
-      locations: prev.locations.filter((_, i) => i !== index)
-    }));
+  const deleteLocation = async (index: number) => {
+    const location = travelData.locations[index];
+    
+    // Check for linked expenses
+    const linkedExpenses = await getLinkedExpenses('location', location.id);
+    
+    if (linkedExpenses.length > 0) {
+      // Show safe deletion dialog
+      setDeleteDialog({
+        isOpen: true,
+        itemType: 'location',
+        itemIndex: index,
+        itemId: location.id,
+        itemName: location.name,
+        linkedExpenses
+      });
+    } else {
+      // No linked expenses, safe to delete directly
+      setTravelData(prev => ({
+        ...prev,
+        locations: prev.locations.filter((_, i) => i !== index)
+      }));
+    }
   };
 
-  const deleteRoute = (index: number) => {
-    setTravelData(prev => ({
-      ...prev,
-      routes: prev.routes.filter((_, i) => i !== index)
-    }));
+  const deleteRoute = async (index: number) => {
+    const route = travelData.routes[index];
+    
+    // Check for linked expenses
+    const linkedExpenses = await getLinkedExpenses('route', route.id);
+    
+    if (linkedExpenses.length > 0) {
+      // Show safe deletion dialog
+      setDeleteDialog({
+        isOpen: true,
+        itemType: 'route',
+        itemIndex: index,
+        itemId: route.id,
+        itemName: `${route.from} → ${route.to}`,
+        linkedExpenses
+      });
+    } else {
+      // No linked expenses, safe to delete directly
+      setTravelData(prev => ({
+        ...prev,
+        routes: prev.routes.filter((_, i) => i !== index)
+      }));
+    }
   };
 
   // Silent auto-save function (no alerts, no redirects)
@@ -953,6 +1012,99 @@ export default function TravelDataForm() {
           View Travel Map
         </button>
       </div>
+      
+      {/* Safe Deletion Dialogs */}
+      {deleteDialog && (
+        <DeleteWarningDialog
+          isOpen={deleteDialog.isOpen}
+          itemType={deleteDialog.itemType}
+          itemName={deleteDialog.itemName}
+          linkedExpenses={deleteDialog.linkedExpenses}
+          onChoice={async (choice) => {
+            if (choice === 'cancel') {
+              setDeleteDialog(null);
+            } else if (choice === 'remove') {
+              // Remove links and delete item
+              await cleanupExpenseLinks(deleteDialog.itemType, deleteDialog.itemId);
+              
+              if (deleteDialog.itemType === 'location') {
+                setTravelData(prev => ({
+                  ...prev,
+                  locations: prev.locations.filter((_, i) => i !== deleteDialog.itemIndex)
+                }));
+              } else {
+                setTravelData(prev => ({
+                  ...prev,
+                  routes: prev.routes.filter((_, i) => i !== deleteDialog.itemIndex)
+                }));
+              }
+              
+              setDeleteDialog(null);
+            } else if (choice === 'reassign') {
+              // Show reassignment dialog
+              const availableItems = deleteDialog.itemType === 'location' 
+                ? travelData.locations
+                    .filter(loc => loc.id !== deleteDialog.itemId)
+                    .map(loc => ({ id: loc.id, name: loc.name }))
+                : travelData.routes
+                    .filter(route => route.id !== deleteDialog.itemId)
+                    .map(route => ({ id: route.id, name: `${route.from} → ${route.to}` }));
+              
+              setReassignDialog({
+                isOpen: true,
+                itemType: deleteDialog.itemType,
+                fromItemId: deleteDialog.itemId,
+                fromItemName: deleteDialog.itemName,
+                linkedExpenses: deleteDialog.linkedExpenses,
+                availableItems,
+                onComplete: () => {
+                  // Delete the item after reassignment
+                  if (deleteDialog.itemType === 'location') {
+                    setTravelData(prev => ({
+                      ...prev,
+                      locations: prev.locations.filter((_, i) => i !== deleteDialog.itemIndex)
+                    }));
+                  } else {
+                    setTravelData(prev => ({
+                      ...prev,
+                      routes: prev.routes.filter((_, i) => i !== deleteDialog.itemIndex)
+                    }));
+                  }
+                  
+                  setDeleteDialog(null);
+                }
+              });
+            }
+          }}
+        />
+      )}
+      
+      {reassignDialog && (
+        <ReassignmentDialog
+          isOpen={reassignDialog.isOpen}
+          itemType={reassignDialog.itemType}
+          fromItemName={reassignDialog.fromItemName}
+          linkedExpenses={reassignDialog.linkedExpenses}
+          availableItems={reassignDialog.availableItems}
+          onReassign={async (toItemId, toItemName) => {
+            // Reassign the expense links
+            await reassignExpenseLinks(
+              reassignDialog.itemType,
+              reassignDialog.fromItemId,
+              reassignDialog.itemType,
+              toItemId,
+              toItemName
+            );
+            
+            setReassignDialog(null);
+            reassignDialog.onComplete();
+          }}
+          onCancel={() => {
+            setReassignDialog(null);
+            setDeleteDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 } 
