@@ -1,7 +1,8 @@
 'use client';
 
-import { Expense, ExpenseType } from '../../types';
+import { Expense, ExpenseType, TravelReference } from '../../types';
 import { generateId } from '../../lib/costUtils';
+import TravelItemSelector from './TravelItemSelector';
 
 interface ExpenseFormProps {
   currentExpense: Partial<Expense>;
@@ -40,7 +41,8 @@ export default function ExpenseForm({
       description: data.description as string || '',
       notes: data.notes as string || '',
       isGeneralExpense: data.isGeneralExpense === 'on',
-      expenseType: (data.expenseType as ExpenseType) || 'actual'
+      expenseType: (data.expenseType as ExpenseType) || 'actual',
+      travelReference: currentExpense.travelReference
     };
 
     // Validate required fields
@@ -65,7 +67,8 @@ export default function ExpenseForm({
       description: '',
       notes: '',
       isGeneralExpense: false,
-      expenseType: 'actual'
+      expenseType: 'actual',
+      travelReference: undefined
     });
     
     if (editingExpenseIndex !== null) {
@@ -216,6 +219,18 @@ export default function ExpenseForm({
           </label>
         </div>
 
+        <div className="md:col-span-2">
+          <TravelItemSelector
+            currentReference={currentExpense.travelReference}
+            onReferenceChange={(reference) => {
+              setCurrentExpense({
+                ...currentExpense,
+                travelReference: reference
+              });
+            }}
+          />
+        </div>
+
         <div className="md:col-span-2 flex gap-2">
           <button
             type="submit"
@@ -238,7 +253,8 @@ export default function ExpenseForm({
                   description: '',
                   notes: '',
                   isGeneralExpense: false,
-                  expenseType: 'actual'
+                  expenseType: 'actual',
+                  travelReference: undefined
                 });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"

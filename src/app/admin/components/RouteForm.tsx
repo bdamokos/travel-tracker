@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { CostTrackingLink } from '../../types';
+import CostTrackingLinksManager from './CostTrackingLinksManager';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -16,6 +18,9 @@ interface TravelRoute {
   date: string;
   duration?: string;
   notes?: string;
+  // Private fields (admin only)
+  privateNotes?: string;
+  costTrackingLinks?: CostTrackingLink[];
 }
 
 interface RouteFormProps {
@@ -76,7 +81,10 @@ export default function RouteForm({
       toCoords,
       date: data.date as string,
       notes: data.notes as string || '',
-      duration: data.duration as string || ''
+      duration: data.duration as string || '',
+      // Private fields
+      privateNotes: data.privateNotes as string || '',
+      costTrackingLinks: currentRoute.costTrackingLinks || []
     };
 
     // Validate required fields
@@ -106,7 +114,9 @@ export default function RouteForm({
       toCoords: [0, 0],
       date: '',
       notes: '',
-      duration: ''
+      duration: '',
+      privateNotes: '',
+      costTrackingLinks: []
     });
     
     if (editingRouteIndex !== null) {
@@ -226,7 +236,7 @@ export default function RouteForm({
 
         <div className="md:col-span-2">
           <label htmlFor="route-notes" className="block text-sm font-medium text-gray-700 mb-1">
-            Notes (optional)
+            Public Notes (optional)
           </label>
           <textarea
             id="route-notes"
@@ -235,6 +245,32 @@ export default function RouteForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={2}
             placeholder="Flight number, booking details, etc..."
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label htmlFor="route-private-notes" className="block text-sm font-medium text-gray-700 mb-1">
+            Private Notes (admin only)
+            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded ml-2">Private</span>
+          </label>
+          <textarea
+            id="route-private-notes"
+            name="privateNotes"
+            defaultValue={currentRoute.privateNotes || ''}
+            onChange={(e) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, privateNotes: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={2}
+            placeholder="Travel company details, station info, personal reminders..."
+          />
+        </div>
+
+        {/* Cost Tracking Links */}
+        <div className="md:col-span-2">
+          <CostTrackingLinksManager
+            currentLinks={currentRoute.costTrackingLinks || []}
+            onLinksChange={(links) => 
+              setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, costTrackingLinks: links }))
+            }
           />
         </div>
 
@@ -259,7 +295,9 @@ export default function RouteForm({
                   toCoords: [0, 0],
                   date: '',
                   notes: '',
-                  duration: ''
+                  duration: '',
+                  privateNotes: '',
+                  costTrackingLinks: []
                 });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"

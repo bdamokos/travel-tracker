@@ -3,35 +3,11 @@
 import { useState, useEffect } from 'react';
 import { getMapUrl } from '../../lib/domains';
 import { calculateSmartDurations, formatDuration } from '../../lib/durationUtils';
+import { Location, InstagramPost, BlogPost } from '../../types';
 import LocationForm from './LocationForm';
 import RouteForm from './RouteForm';
-
-interface TravelLocation {
-  id: string;
-  name: string;
-  coordinates: [number, number];
-  date: string;
-  endDate?: string;
-  duration?: number;
-  arrivalTime?: string;
-  departureTime?: string;
-  notes?: string;
-  instagramPosts?: InstagramPost[];
-  blogPosts?: BlogPost[];
-}
-
-interface InstagramPost {
-  id: string;
-  url: string;
-  caption?: string;
-}
-
-interface BlogPost {
-  id: string;
-  title: string;
-  url: string;
-  excerpt?: string;
-}
+import AccommodationDisplay from '../../components/AccommodationDisplay';
+import LinkedExpensesDisplay from './LinkedExpensesDisplay';
 
 interface TravelRoute {
   id: string;
@@ -43,6 +19,8 @@ interface TravelRoute {
   date: string;
   duration?: string;
   notes?: string;
+  privateNotes?: string;
+  costTrackingLinks?: any[];
 }
 
 interface TravelData {
@@ -51,7 +29,7 @@ interface TravelData {
   description: string;
   startDate: string;
   endDate: string;
-  locations: TravelLocation[];
+  locations: Location[];
   routes: TravelRoute[];
 }
 
@@ -79,13 +57,16 @@ export default function TravelDataForm() {
     routes: []
   });
   
-  const [currentLocation, setCurrentLocation] = useState<Partial<TravelLocation>>({
+  const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
     coordinates: [0, 0],
     date: '',
     notes: '',
     instagramPosts: [],
-    blogPosts: []
+    blogPosts: [],
+    accommodationData: '',
+    isAccommodationPublic: false,
+    costTrackingLinks: []
   });
   
   const [currentRoute, setCurrentRoute] = useState<Partial<TravelRoute>>({
@@ -96,7 +77,9 @@ export default function TravelDataForm() {
     transportType: 'plane',
     date: '',
     duration: '',
-    notes: ''
+    notes: '',
+    privateNotes: '',
+    costTrackingLinks: []
   });
 
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
@@ -236,7 +219,7 @@ export default function TravelDataForm() {
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 
-  const handleLocationAdded = (newLocation: TravelLocation) => {
+  const handleLocationAdded = (newLocation: Location) => {
     if (editingLocationIndex !== null) {
       // Update existing location
       const updatedLocations = [...travelData.locations];
@@ -262,14 +245,17 @@ export default function TravelDataForm() {
     );
     
     if (!fromExists && newRoute.fromCoords && (newRoute.fromCoords[0] !== 0 || newRoute.fromCoords[1] !== 0)) {
-      const fromLocation: TravelLocation = {
+      const fromLocation: Location = {
         id: generateId(),
         name: newRoute.from,
         coordinates: newRoute.fromCoords,
         date: newRoute.date,
         notes: '',
         instagramPosts: [],
-        blogPosts: []
+        blogPosts: [],
+        accommodationData: '',
+        isAccommodationPublic: false,
+        costTrackingLinks: []
       };
       updatedLocations.push(fromLocation);
     }
@@ -280,14 +266,17 @@ export default function TravelDataForm() {
     );
     
     if (!toExists && newRoute.toCoords && (newRoute.toCoords[0] !== 0 || newRoute.toCoords[1] !== 0)) {
-      const toLocation: TravelLocation = {
+      const toLocation: Location = {
         id: generateId(),
         name: newRoute.to,
         coordinates: newRoute.toCoords,
         date: newRoute.date,
         notes: '',
         instagramPosts: [],
-        blogPosts: []
+        blogPosts: [],
+        accommodationData: '',
+        isAccommodationPublic: false,
+        costTrackingLinks: []
       };
       updatedLocations.push(toLocation);
     }
@@ -686,11 +675,11 @@ export default function TravelDataForm() {
               {travelData.locations
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((location, index) => (
-                <div key={location.id} className="bg-white border rounded-lg p-4">
+                <div key={location.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h5 className="font-medium">{location.name}</h5>
-                      <div className="text-sm text-gray-500">
+                      <h5 className="font-medium text-gray-900 dark:text-white">{location.name}</h5>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
                         <p>{new Date(location.date).toLocaleDateString()}</p>
                         {location.endDate && (
                           <p>to {new Date(location.endDate).toLocaleDateString()}</p>
@@ -700,8 +689,27 @@ export default function TravelDataForm() {
                         )}
                       </div>
                       {location.notes && (
-                        <p className="text-sm text-gray-600 mt-1">{location.notes}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{location.notes}</p>
                       )}
+                      
+                      {/* Accommodation Display */}
+                      {location.accommodationData && (
+                        <div className="mt-3">
+                          <AccommodationDisplay
+                            accommodationData={location.accommodationData}
+                            isAccommodationPublic={location.isAccommodationPublic}
+                            privacyOptions={{ isAdminView: true }}
+                            className="text-sm"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Linked Expenses Display */}
+                      <LinkedExpensesDisplay
+                        itemId={location.id}
+                        itemType="location"
+                        itemName={location.name}
+                      />
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -875,9 +883,9 @@ export default function TravelDataForm() {
               {travelData.routes
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((route, index) => (
-                <div key={route.id} className="flex justify-between items-center bg-white p-3 rounded-sm border">
+                <div key={route.id} className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-sm border dark:border-gray-700">
                   <div>
-                    <span className="font-medium">
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {route.transportType === 'plane' && '✈️'}
                       {route.transportType === 'train' && '🚆'}
                       {route.transportType === 'car' && '🚗'}
@@ -889,17 +897,30 @@ export default function TravelDataForm() {
                       {route.transportType === 'walk' && '🚶'}
                       {' '}{route.from} → {route.to}
                     </span>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {new Date(route.date).toLocaleDateString()}
                       {route.duration && ` • ${route.duration}`}
                     </div>
-                    <div className="text-xs text-gray-400 mt-1">
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       From: [{route.fromCoords[0].toFixed(4)}, {route.fromCoords[1].toFixed(4)}] → 
                       To: [{route.toCoords[0].toFixed(4)}, {route.toCoords[1].toFixed(4)}]
                     </div>
                     {route.notes && (
-                      <p className="text-sm text-gray-600 mt-1">{route.notes}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1"><strong>Public:</strong> {route.notes}</p>
                     )}
+                    {route.privateNotes && (
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                        <strong>Private:</strong> {route.privateNotes}
+                        <span className="text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded ml-2">Admin Only</span>
+                      </p>
+                    )}
+                    
+                    {/* Linked Expenses Display */}
+                    <LinkedExpensesDisplay
+                      itemId={route.id}
+                      itemType="route"
+                      itemName={`${route.from} → ${route.to}`}
+                    />
                   </div>
                   <div className="flex gap-2">
                     <button

@@ -2,42 +2,18 @@
 
 import React from 'react';
 import { formatDuration } from '../../lib/durationUtils';
+import { Location } from '../../types';
+import AccommodationInput from './AccommodationInput';
+import CostTrackingLinksManager from './CostTrackingLinksManager';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
-interface InstagramPost {
-  id: string;
-  url: string;
-  caption?: string;
-}
-
-interface BlogPost {
-  id: string;
-  title: string;
-  url: string;
-  excerpt?: string;
-}
-
-interface TravelLocation {
-  id: string;
-  name: string;
-  coordinates: [number, number];
-  date: string;
-  endDate?: string;
-  duration?: number;
-  arrivalTime?: string;
-  departureTime?: string;
-  notes?: string;
-  instagramPosts?: InstagramPost[];
-  blogPosts?: BlogPost[];
-}
-
 interface LocationFormProps {
-  currentLocation: Partial<TravelLocation>;
-  setCurrentLocation: React.Dispatch<React.SetStateAction<Partial<TravelLocation>>>;
-  onLocationAdded: (location: TravelLocation) => void;
+  currentLocation: Partial<Location>;
+  setCurrentLocation: React.Dispatch<React.SetStateAction<Partial<Location>>>;
+  onLocationAdded: (location: Location) => void;
   editingLocationIndex: number | null;
   setEditingLocationIndex: (index: number | null) => void;
   onGeocode?: (locationName: string) => Promise<void>;
@@ -61,7 +37,7 @@ export default function LocationForm({
     const lng = parseFloat(data.longitude as string) || 0;
     
     // Create location object
-    const location: TravelLocation = {
+    const location: Location = {
       id: editingLocationIndex !== null ? currentLocation.id! : generateId(),
       name: data.name as string,
       coordinates: [lat, lng],
@@ -72,7 +48,11 @@ export default function LocationForm({
       departureTime: currentLocation.departureTime,
       notes: data.notes as string || '',
       instagramPosts: currentLocation.instagramPosts || [],
-      blogPosts: currentLocation.blogPosts || []
+      blogPosts: currentLocation.blogPosts || [],
+      // New accommodation and cost tracking fields
+      accommodationData: currentLocation.accommodationData,
+      isAccommodationPublic: currentLocation.isAccommodationPublic || false,
+      costTrackingLinks: currentLocation.costTrackingLinks || []
     };
 
     // Validate required fields
@@ -93,7 +73,10 @@ export default function LocationForm({
       date: '',
       notes: '',
       instagramPosts: [],
-      blogPosts: []
+      blogPosts: [],
+      accommodationData: '',
+      isAccommodationPublic: false,
+      costTrackingLinks: []
     });
     
     if (editingLocationIndex !== null) {
@@ -124,7 +107,7 @@ export default function LocationForm({
               name="name"
               type="text"
               defaultValue={currentLocation.name || ''}
-              onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, name: e.target.value }))}
               required
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Paris, France"
@@ -148,7 +131,7 @@ export default function LocationForm({
             name="date"
             type="date"
             defaultValue={currentLocation.date || ''}
-            onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ ...prev, date: e.target.value }))}
+            onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: e.target.value }))}
             required
             data-testid="location-date"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -166,7 +149,7 @@ export default function LocationForm({
             defaultValue={currentLocation.endDate || ''}
             onChange={(e) => {
               const endDate = e.target.value;
-              setCurrentLocation((prev: Partial<TravelLocation>) => {
+              setCurrentLocation((prev: Partial<Location>) => {
                 const duration = endDate && prev.date ? 
                   Math.ceil((new Date(endDate).getTime() - new Date(prev.date).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
                   undefined;
@@ -190,7 +173,7 @@ export default function LocationForm({
             id="location-notes"
             name="notes"
             defaultValue={currentLocation.notes || ''}
-            onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ ...prev, notes: e.target.value }))}
+            onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, notes: e.target.value }))}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={2}
             placeholder="What you did here..."
@@ -208,7 +191,7 @@ export default function LocationForm({
               type="number"
               step="any"
               defaultValue={currentLocation.coordinates?.[0] || ''}
-              onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ 
+              onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ 
                 ...prev, 
                 coordinates: [parseFloat(e.target.value) || 0, prev.coordinates?.[1] || 0]
               }))}
@@ -221,7 +204,7 @@ export default function LocationForm({
               type="number"
               step="any"
               defaultValue={currentLocation.coordinates?.[1] || ''}
-              onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ 
+              onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ 
                 ...prev, 
                 coordinates: [prev.coordinates?.[0] || 0, parseFloat(e.target.value) || 0]
               }))}
@@ -229,6 +212,30 @@ export default function LocationForm({
               placeholder="Longitude"
             />
           </div>
+        </div>
+
+        {/* Accommodation Input */}
+        <div className="md:col-span-2">
+          <AccommodationInput
+            accommodationData={currentLocation.accommodationData || ''}
+            isAccommodationPublic={currentLocation.isAccommodationPublic || false}
+            onAccommodationDataChange={(data) => 
+              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, accommodationData: data }))
+            }
+            onPrivacyChange={(isPublic) => 
+              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, isAccommodationPublic: isPublic }))
+            }
+          />
+        </div>
+
+        {/* Cost Tracking Links */}
+        <div className="md:col-span-2">
+          <CostTrackingLinksManager
+            currentLinks={currentLocation.costTrackingLinks || []}
+            onLinksChange={(links) => 
+              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, costTrackingLinks: links }))
+            }
+          />
         </div>
 
         <div className="flex items-end gap-2">
@@ -250,7 +257,10 @@ export default function LocationForm({
                   date: '',
                   notes: '',
                   instagramPosts: [],
-                  blogPosts: []
+                  blogPosts: [],
+                  accommodationData: '',
+                  isAccommodationPublic: false,
+                  costTrackingLinks: []
                 });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"

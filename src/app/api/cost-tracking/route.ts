@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
+import { updateCostData, getLegacyCostData } from '../../lib/unifiedDataService';
 
 // Helper function to generate unique ID
 function generateId(): string {
@@ -100,12 +101,18 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const filePath = join(process.cwd(), 'data', `cost-${id}.json`);
-    const fileContent = await readFile(filePath, 'utf-8');
-    let costData = JSON.parse(fileContent);
+    // Clean the ID to handle both cost-prefixed and clean IDs
+    const cleanId = id.replace(/^(cost-)+/, '');
     
-    // Fix empty ID if needed
-    costData = await fixEmptyId(filePath, costData);
+    // Use unified data service for automatic migration
+    const costData = await getLegacyCostData(cleanId);
+    
+    if (!costData) {
+      return NextResponse.json(
+        { error: 'Cost tracking data not found' },
+        { status: 404 }
+      );
+    }
     
     return NextResponse.json(costData);
   } catch (error) {
@@ -129,23 +136,25 @@ export async function PUT(request: NextRequest) {
       );
     }
     
+    // Clean the ID to handle both cost-prefixed and clean IDs
+    const cleanId = id.replace(/^(cost-)+/, '');
+    
     const updatedData = await request.json();
     
-    // Ensure the ID is preserved
-    const dataWithId = {
-      ...updatedData,
-      id,
-      updatedAt: new Date().toISOString()
-    };
+    // Use unified data service to update cost data
+    const unifiedData = await updateCostData(cleanId, updatedData);
     
-    // Save the updated data
-    const filePath = join(process.cwd(), 'data', `cost-${id}.json`);
-    await writeFile(filePath, JSON.stringify(dataWithId, null, 2));
+    // Extract legacy format for response
+    const legacyData = {
+      id: cleanId,
+      ...updatedData,
+      updatedAt: unifiedData.updatedAt
+    };
     
     return NextResponse.json({ 
       success: true, 
-      id,
-      data: dataWithId
+      id: cleanId,
+      data: legacyData
     });
   } catch (error) {
     console.error('Error updating cost tracking data:', error);

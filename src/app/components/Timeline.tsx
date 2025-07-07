@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Journey, JourneyDay, Transportation, BlogPost } from '../types';
+import { Journey, JourneyDay, Transportation, BlogPost, Location, InstagramPost } from '../types';
 import { transportationColors } from '../lib/routeUtils';
+import AccommodationDisplay from './AccommodationDisplay';
 
 interface TimelineProps {
   journey: Journey | null;
   selectedDayId?: string;
   onDaySelect: (dayId: string) => void;
   onAddDay: () => void;
+  isAdminView?: boolean; // For privacy filtering
 }
 
-const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect, onAddDay }) => {
+const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect, onAddDay, isAdminView = false }) => {
   const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
   
   const toggleDay = (dayId: string) => {
@@ -56,6 +58,7 @@ const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect
             isExpanded={expandedDayId === day.id || selectedDayId === day.id}
             isSelected={selectedDayId === day.id}
             onClick={() => toggleDay(day.id)}
+            isAdminView={isAdminView}
           />
         ))}
       </div>
@@ -68,9 +71,10 @@ interface DayCardProps {
   isExpanded: boolean;
   isSelected: boolean;
   onClick: () => void;
+  isAdminView: boolean;
 }
 
-const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick }) => {
+const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick, isAdminView }) => {
   const formattedDate = format(new Date(day.date), 'MMM d, yyyy');
   
   return (
@@ -169,6 +173,14 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick 
                           </div>
                         </div>
                       )}
+                      
+                      {/* Accommodation Display */}
+                      <AccommodationDisplay
+                        accommodationData={location.accommodationData}
+                        isAccommodationPublic={location.isAccommodationPublic}
+                        privacyOptions={{ isAdminView }}
+                        className="mt-2"
+                      />
                     </div>
                   </div>
                 ))}

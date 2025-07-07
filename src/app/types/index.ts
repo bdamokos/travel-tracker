@@ -3,6 +3,21 @@ export type BlogPost = {
   id: string;
   title: string;
   url: string;
+  excerpt?: string;
+};
+
+// Cost tracking integration
+export type CostTrackingLink = {
+  expenseId: string;
+  description?: string;
+};
+
+// Travel reference for linking expenses to travel items
+export type TravelReference = {
+  type: 'location' | 'accommodation' | 'route';
+  locationId?: string;
+  routeId?: string;
+  description?: string;
 };
 
 // Location type for storing geographical coordinates and related information
@@ -18,6 +33,11 @@ export type Location = {
   notes?: string;
   instagramPosts?: InstagramPost[];
   blogPosts?: BlogPost[];
+  // Accommodation data (YAML frontmatter or free text)
+  accommodationData?: string;
+  isAccommodationPublic?: boolean; // Default false (private)
+  // Cost tracking integration
+  costTrackingLinks?: CostTrackingLink[];
 };
 
 // Transportation type for route segments
@@ -31,12 +51,16 @@ export interface Transportation {
   distance?: number; // Distance in kilometers
   fromCoordinates?: [number, number]; // [latitude, longitude]
   toCoordinates?: [number, number]; // [latitude, longitude]
+  // Private fields (admin only)
+  privateNotes?: string; // Travel company, station info, reminders
+  costTrackingLinks?: CostTrackingLink[];
 }
 
 // Instagram post reference
 export type InstagramPost = {
   id: string;
   url: string;
+  caption?: string;
 };
 
 // Single travel period (could be a day, part of a day, or multiple days)
@@ -96,6 +120,8 @@ export type Expense = {
   isGeneralExpense?: boolean; // For expenses not tied to a specific country
   expenseType: ExpenseType; // Type of expense for different budget calculations
   originalPlannedId?: string; // For linking actual expenses to original planned expenses
+  // Travel integration (private)
+  travelReference?: TravelReference;
 };
 
 export type CostTrackingData = {
