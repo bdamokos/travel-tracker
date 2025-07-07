@@ -16,7 +16,8 @@ import {
   isLegacyCostFormat,
   migrateToLatestSchema,
   extractLegacyTravelData,
-  extractLegacyCostData
+  extractLegacyCostData,
+  CURRENT_SCHEMA_VERSION
 } from './dataMigration';
 
 const DATA_DIR = join(process.cwd(), 'data');
@@ -120,8 +121,10 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
       // Save the merged/migrated data
       await saveUnifiedTripData(finalData);
       
-      // Clean up legacy files after successful migration
-      await cleanupLegacyFiles(finalData.id, travelData, costData);
+      // Clean up legacy files only if we actually found legacy data to migrate
+      if (travelData || costData) {
+        await cleanupLegacyFiles(finalData.id, travelData, costData);
+      }
       
       return migrateToLatestSchema(finalData);
     }
@@ -256,7 +259,7 @@ export async function updateTravelData(tripId: string, travelUpdates: any): Prom
   const existing = await loadUnifiedTripData(tripId);
   
   const defaultData: UnifiedTripData = {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
     title: travelUpdates.title || '',
     description: travelUpdates.description || '',
@@ -293,7 +296,7 @@ export async function updateCostData(tripId: string, costUpdates: any): Promise<
   const existing = await loadUnifiedTripData(tripId);
   
   const defaultData: UnifiedTripData = {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
     title: costUpdates.tripTitle || '',
     description: '',
