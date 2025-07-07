@@ -84,7 +84,7 @@ export function migrateLegacyTravelData(
   costData?: LegacyCostData
 ): UnifiedTripData {
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     id: travelData.id,
     title: travelData.title,
     description: travelData.description,
@@ -117,7 +117,7 @@ export function migrateLegacyCostData(costData: LegacyCostData): UnifiedTripData
   const cleanTripId = costData.tripId.replace(/^(cost-)+/, '');
   
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     id: cleanTripId, // Use clean tripId as the unified ID
     title: costData.tripTitle,
     description: '',
@@ -161,13 +161,30 @@ export function isLegacyCostFormat(data: any): data is LegacyCostData {
 }
 
 /**
+ * Current schema version - increment when introducing breaking changes
+ */
+export const CURRENT_SCHEMA_VERSION = 1;
+
+/**
  * Future migration handler for schema version updates
  */
 export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
-  // For now, we only have version 1
-  // Future versions can add migration logic here
-  if (data.schemaVersion < 1) {
+  if (!data.schemaVersion || data.schemaVersion < 1) {
     throw new Error('Invalid schema version');
+  }
+  
+  // Handle future migrations here:
+  // if (data.schemaVersion < 2) {
+  //   data = migrateFromV1ToV2(data);
+  // }
+  // if (data.schemaVersion < 3) {
+  //   data = migrateFromV2ToV3(data);
+  // }
+  
+  // Ensure current version
+  if (data.schemaVersion < CURRENT_SCHEMA_VERSION) {
+    data.schemaVersion = CURRENT_SCHEMA_VERSION;
+    data.updatedAt = new Date().toISOString();
   }
   
   return data;
