@@ -678,7 +678,9 @@ export default function TravelDataForm() {
           <div>
             <h4 className="font-medium mb-2">Added Locations ({travelData.locations.length})</h4>
             <div className="space-y-4">
-              {travelData.locations.map((location, index) => (
+              {travelData.locations
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .map((location, index) => (
                 <div key={location.id} className="bg-white border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div>
