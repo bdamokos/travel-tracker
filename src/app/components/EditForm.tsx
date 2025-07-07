@@ -350,6 +350,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
         id: `temp-${Date.now()}`,
         name: newLocation.name!,  // Use non-null assertion since we've checked above
         coordinates: newLocation.coordinates || [0, 0] as [number, number],
+        date: prev.date || new Date().toISOString().split('T')[0], // Use the day's date
         arrivalTime: newLocation.arrivalTime,
         notes: newLocation.notes,
         instagramPosts: newLocation.instagramPosts || [],

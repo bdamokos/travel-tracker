@@ -25,6 +25,7 @@ interface RouteFormProps {
   editingRouteIndex: number | null;
   setEditingRouteIndex: (index: number | null) => void;
   locationOptions: Array<{ name: string; coordinates: [number, number] }>;
+  onGeocode?: (locationName: string) => Promise<[number, number]>;
 }
 
 export default function RouteForm({
@@ -33,16 +34,37 @@ export default function RouteForm({
   onRouteAdded,
   editingRouteIndex,
   setEditingRouteIndex,
-  locationOptions
+  locationOptions,
+  onGeocode
 }: RouteFormProps) {
 
   // React 19 Action for adding/updating routes
   async function submitRouteAction(formData: FormData) {
     const data = Object.fromEntries(formData);
     
-    // Find location coordinates based on selected names
+    // Find location coordinates based on selected names or geocode new ones
     const fromLocation = locationOptions.find(loc => loc.name === data.from);
     const toLocation = locationOptions.find(loc => loc.name === data.to);
+    
+    let fromCoords: [number, number] = fromLocation?.coordinates || [0, 0];
+    let toCoords: [number, number] = toLocation?.coordinates || [0, 0];
+    
+    // Geocode new locations if needed
+    if (!fromLocation && onGeocode) {
+      try {
+        fromCoords = await onGeocode(data.from as string);
+      } catch (error) {
+        console.warn('Failed to geocode from location:', error);
+      }
+    }
+    
+    if (!toLocation && onGeocode) {
+      try {
+        toCoords = await onGeocode(data.to as string);
+      } catch (error) {
+        console.warn('Failed to geocode to location:', error);
+      }
+    }
     
     // Create route object
     const route: TravelRoute = {
@@ -50,8 +72,8 @@ export default function RouteForm({
       transportType: data.type as TravelRoute['transportType'],
       from: data.from as string,
       to: data.to as string,
-      fromCoords: fromLocation?.coordinates || [0, 0],
-      toCoords: toLocation?.coordinates || [0, 0],
+      fromCoords,
+      toCoords,
       date: data.date as string,
       notes: data.notes as string || '',
       duration: data.duration as string || ''
@@ -147,38 +169,44 @@ export default function RouteForm({
           <label htmlFor="route-from" className="block text-sm font-medium text-gray-700 mb-1">
             From Location *
           </label>
-          <select
+          <input
             id="route-from"
             name="from"
+            type="text"
+            list="from-locations"
             defaultValue={currentRoute.from || ''}
             onChange={(e) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, from: e.target.value }))}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select From Location</option>
+            placeholder="Enter location name (new locations will be created)"
+          />
+          <datalist id="from-locations">
             {locationOptions.map(location => (
-              <option key={location.name} value={location.name}>{location.name}</option>
+              <option key={location.name} value={location.name} />
             ))}
-          </select>
+          </datalist>
         </div>
 
         <div>
           <label htmlFor="route-to" className="block text-sm font-medium text-gray-700 mb-1">
             To Location *
           </label>
-          <select
+          <input
             id="route-to"
             name="to"
+            type="text"
+            list="to-locations"
             defaultValue={currentRoute.to || ''}
             onChange={(e) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, to: e.target.value }))}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select To Location</option>
+            placeholder="Enter location name (new locations will be created)"
+          />
+          <datalist id="to-locations">
             {locationOptions.map(location => (
-              <option key={location.name} value={location.name}>{location.name}</option>
+              <option key={location.name} value={location.name} />
             ))}
-          </select>
+          </datalist>
         </div>
 
         <div>
