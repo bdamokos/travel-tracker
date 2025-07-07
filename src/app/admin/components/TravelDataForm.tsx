@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { getMapUrl } from '../../lib/domains';
-import RoutePreviewMap from './RoutePreviewMap';
+import { calculateSmartDurations, formatDuration } from '../../lib/durationUtils';
 import LocationForm from './LocationForm';
 import RouteForm from './RouteForm';
 
@@ -12,6 +11,10 @@ interface TravelLocation {
   name: string;
   coordinates: [number, number];
   date: string;
+  endDate?: string;
+  duration?: number;
+  arrivalTime?: string;
+  departureTime?: string;
   notes?: string;
   instagramPosts?: InstagramPost[];
   blogPosts?: BlogPost[];
@@ -62,7 +65,6 @@ interface ExistingTrip {
 }
 
 export default function TravelDataForm() {
-  const router = useRouter();
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -649,7 +651,21 @@ export default function TravelDataForm() {
 
       {/* Locations */}
       <div>
-        <h3 className="text-xl font-semibold mb-4">Locations</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold">Locations</h3>
+          {travelData.locations.length > 0 && travelData.routes.length > 0 && (
+            <button
+              onClick={() => {
+                const updatedLocations = calculateSmartDurations(travelData.locations, travelData.routes);
+                setTravelData(prev => ({ ...prev, locations: updatedLocations }));
+                setHasUnsavedChanges(true);
+              }}
+              className="px-3 py-1 bg-purple-500 dark:bg-purple-600 text-white rounded-sm text-sm hover:bg-purple-600 dark:hover:bg-purple-700"
+            >
+              🤖 Calculate Durations
+            </button>
+          )}
+        </div>
         <LocationForm
           currentLocation={currentLocation}
           setCurrentLocation={setCurrentLocation}
@@ -674,7 +690,15 @@ export default function TravelDataForm() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h5 className="font-medium">{location.name}</h5>
-                      <p className="text-sm text-gray-500">{new Date(location.date).toLocaleDateString()}</p>
+                      <div className="text-sm text-gray-500">
+                        <p>{new Date(location.date).toLocaleDateString()}</p>
+                        {location.endDate && (
+                          <p>to {new Date(location.endDate).toLocaleDateString()}</p>
+                        )}
+                        {location.duration && (
+                          <p className="text-blue-600">({formatDuration(location.duration, location.date, location.endDate)})</p>
+                        )}
+                      </div>
                       {location.notes && (
                         <p className="text-sm text-gray-600 mt-1">{location.notes}</p>
                       )}
@@ -837,6 +861,10 @@ export default function TravelDataForm() {
             name: loc.name,
             coordinates: loc.coordinates
           }))}
+          onGeocode={async (locationName: string) => {
+            const coords = await geocodeLocation(locationName);
+            return coords;
+          }}
         />
 
         {/* Route List */}

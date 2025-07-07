@@ -11,6 +11,10 @@ export type Location = {
   name: string;
   coordinates: [number, number]; // [latitude, longitude]
   arrivalTime?: string;
+  departureTime?: string; // When leaving this location
+  date: string; // Primary date (arrival date)
+  endDate?: string; // Optional end date for multi-day stays
+  duration?: number; // Duration in days (calculated or manual)
   notes?: string;
   instagramPosts?: InstagramPost[];
   blogPosts?: BlogPost[];

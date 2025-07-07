@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { formatDuration } from '../../lib/durationUtils';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -24,6 +25,10 @@ interface TravelLocation {
   name: string;
   coordinates: [number, number];
   date: string;
+  endDate?: string;
+  duration?: number;
+  arrivalTime?: string;
+  departureTime?: string;
   notes?: string;
   instagramPosts?: InstagramPost[];
   blogPosts?: BlogPost[];
@@ -61,6 +66,10 @@ export default function LocationForm({
       name: data.name as string,
       coordinates: [lat, lng],
       date: data.date as string,
+      endDate: data.endDate as string || currentLocation.endDate,
+      duration: currentLocation.duration,
+      arrivalTime: currentLocation.arrivalTime,
+      departureTime: currentLocation.departureTime,
       notes: data.notes as string || '',
       instagramPosts: currentLocation.instagramPosts || [],
       blogPosts: currentLocation.blogPosts || []
@@ -132,17 +141,45 @@ export default function LocationForm({
 
         <div>
           <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 mb-1">
-            Date *
+            Arrival Date *
           </label>
           <input
             id="location-date"
             name="date"
             type="date"
             defaultValue={currentLocation.date || ''}
+            onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ ...prev, date: e.target.value }))}
             required
             data-testid="location-date"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        <div>
+          <label htmlFor="location-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+            Departure Date (optional)
+          </label>
+          <input
+            id="location-end-date"
+            name="endDate"
+            type="date"
+            defaultValue={currentLocation.endDate || ''}
+            onChange={(e) => {
+              const endDate = e.target.value;
+              setCurrentLocation((prev: Partial<TravelLocation>) => {
+                const duration = endDate && prev.date ? 
+                  Math.ceil((new Date(endDate).getTime() - new Date(prev.date).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
+                  undefined;
+                return { ...prev, endDate, duration };
+              });
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {currentLocation.duration && currentLocation.date && currentLocation.endDate && (
+            <p className="text-xs text-gray-500 mt-1">
+              Duration: {formatDuration(currentLocation.duration, currentLocation.date, currentLocation.endDate)}
+            </p>
+          )}
         </div>
 
         <div className="md:col-span-2">
@@ -153,6 +190,7 @@ export default function LocationForm({
             id="location-notes"
             name="notes"
             defaultValue={currentLocation.notes || ''}
+            onChange={(e) => setCurrentLocation((prev: Partial<TravelLocation>) => ({ ...prev, notes: e.target.value }))}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={2}
             placeholder="What you did here..."
