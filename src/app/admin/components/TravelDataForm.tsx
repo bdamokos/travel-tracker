@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClientDomainConfig } from '../../lib/domains';
+import { getMapUrl } from '../../lib/domains';
 import RoutePreviewMap from './RoutePreviewMap';
 import LocationForm from './LocationForm';
 import RouteForm from './RouteForm';
@@ -413,6 +413,8 @@ export default function TravelDataForm() {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
       
+      console.log('Saving travel data:', { method, url, data: travelData });
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -423,16 +425,21 @@ export default function TravelDataForm() {
       
       if (response.ok) {
         const result = await response.json();
+        console.log('Save successful, result:', result);
         setHasUnsavedChanges(false); // Mark as saved
-        // Redirect to the generated map page on the public domain
-        const domainConfig = getClientDomainConfig();
-        window.open(`${domainConfig.embedDomain}/map/${result.id}`, '_blank');
+        
+        // Use the proper helper function and open the map
+        const mapUrl = getMapUrl(result.id);
+        console.log('Opening map URL:', mapUrl);
+        window.open(mapUrl, '_blank');
       } else {
-        alert('Error saving map');
+        const errorText = await response.text();
+        console.error('Save failed:', response.status, errorText);
+        alert(`Error saving map: ${response.status} ${errorText}`);
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error saving map');
+      alert(`Error saving map: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -449,24 +456,6 @@ export default function TravelDataForm() {
     return [0, 0] as [number, number];
   };
 
-  const handleLocationGeocode = async () => {
-    if (currentLocation.name) {
-      const coords = await geocodeLocation(currentLocation.name);
-      setCurrentLocation(prev => ({ ...prev, coordinates: coords }));
-    }
-  };
-
-  const handleRouteGeocode = async (field: 'from' | 'to') => {
-    const locationName = field === 'from' ? currentRoute.from : currentRoute.to;
-    if (locationName) {
-      const coords = await geocodeLocation(locationName);
-      if (field === 'from') {
-        setCurrentRoute(prev => ({ ...prev, fromCoords: coords }));
-      } else {
-        setCurrentRoute(prev => ({ ...prev, toCoords: coords }));
-      }
-    }
-  };
 
   // List view
   if (mode === 'list') {
@@ -547,8 +536,8 @@ export default function TravelDataForm() {
                   </button>
                   <button
                     onClick={() => {
-                      const domainConfig = getClientDomainConfig();
-                      window.open(`${domainConfig.embedDomain}/map/${trip.id}`, '_blank');
+                      const mapUrl = getMapUrl(trip.id);
+                      window.open(mapUrl, '_blank');
                     }}
                     className="flex-1 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-sm text-sm hover:bg-green-600 dark:hover:bg-green-700"
                   >
@@ -855,7 +844,9 @@ export default function TravelDataForm() {
           <div>
             <h4 className="font-medium mb-2">Added Routes ({travelData.routes.length})</h4>
             <div className="space-y-2">
-              {travelData.routes.map((route, index) => (
+              {travelData.routes
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .map((route, index) => (
                 <div key={route.id} className="flex justify-between items-center bg-white p-3 rounded-sm border">
                   <div>
                     <span className="font-medium">
