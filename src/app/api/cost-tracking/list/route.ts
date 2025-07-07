@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { listAllTrips, getLegacyCostData } from '../../../lib/unifiedDataService';
 
 // Helper function to generate unique ID
 function generateId(): string {
@@ -48,61 +49,50 @@ async function fixEmptyId(filePath: string, costData: any): Promise<any> {
 
 export async function GET() {
   try {
-    const dataDir = join(process.cwd(), 'data');
+    const trips = await listAllTrips();
     
-    // Get all JSON files in the data directory
-    let files: string[] = [];
-    try {
-      files = await readdir(dataDir);
-    } catch (error) {
-      // Data directory might not exist yet
-      return NextResponse.json([]);
-    }
-    
-    const costFiles = files.filter(file => file.startsWith('cost-') && file.endsWith('.json'));
-    
+    // Get cost entries with actual data
     const costEntries = await Promise.all(
-      costFiles.map(async (file) => {
-        try {
-          const filePath = join(dataDir, file);
-          const fileContent = await readFile(filePath, 'utf-8');
-          let costData = JSON.parse(fileContent);
-          
-          // Fix empty ID if needed
-          costData = await fixEmptyId(filePath, costData);
-          
-          // Calculate basic totals for listing
-          const totalBudget = costData.overallBudget || 0;
-          const totalSpent = costData.expenses?.reduce((sum: number, expense: any) => sum + expense.amount, 0) || 0;
-          const remainingBudget = totalBudget - totalSpent;
-          
-          // Return metadata for listing
-          return {
-            id: costData.id,
-            tripId: costData.tripId,
-            tripTitle: costData.tripTitle || 'Untitled Trip',
-            tripStartDate: costData.tripStartDate,
-            tripEndDate: costData.tripEndDate,
-            overallBudget: totalBudget,
-            currency: costData.currency || 'EUR',
-            totalSpent,
-            remainingBudget,
-            expenseCount: costData.expenses?.length || 0,
-            countryBudgetCount: costData.countryBudgets?.length || 0,
-            createdAt: costData.createdAt,
-            updatedAt: costData.updatedAt || costData.createdAt
-          };
-        } catch (error) {
-          console.error(`Error reading cost file ${file}:`, error);
-          return null;
-        }
-      })
+      trips
+        .filter(trip => trip.hasCost)
+        .map(async (trip) => {
+          try {
+            // Load the actual cost data using the unified service
+            const costData = await getLegacyCostData(trip.id);
+            
+            if (costData) {
+              // Calculate totals
+              const totalSpent = costData.expenses?.reduce((sum: number, expense: any) => sum + expense.amount, 0) || 0;
+              const remainingBudget = (costData.overallBudget || 0) - totalSpent;
+              
+              return {
+                id: costData.id,
+                tripId: costData.tripId,
+                tripTitle: costData.tripTitle,
+                tripStartDate: costData.tripStartDate,
+                tripEndDate: costData.tripEndDate,
+                overallBudget: costData.overallBudget || 0,
+                currency: costData.currency || 'EUR',
+                totalSpent,
+                remainingBudget,
+                expenseCount: costData.expenses?.length || 0,
+                countryBudgetCount: costData.countryBudgets?.length || 0,
+                createdAt: costData.createdAt,
+                updatedAt: costData.updatedAt || costData.createdAt
+              };
+            } else {
+              // Return null if no cost data found
+              return null;
+            }
+          } catch (error) {
+            console.error(`Error loading cost data for trip ${trip.id}:`, error);
+            return null;
+          }
+        })
     );
     
-    // Filter out any null results and sort by creation date (newest first)
-    const validCostEntries = costEntries
-      .filter(entry => entry !== null)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Filter out null entries
+    const validCostEntries = costEntries.filter(entry => entry !== null);
     
     return NextResponse.json(validCostEntries);
   } catch (error) {

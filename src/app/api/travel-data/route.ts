@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
+import { filterTravelDataForServer } from '../../lib/serverPrivacyUtils';
+import { updateTravelData, getLegacyTravelData } from '../../lib/unifiedDataService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,11 +59,21 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const filePath = join(process.cwd(), 'data', `travel-${id}.json`);
-    const fileContent = await readFile(filePath, 'utf-8');
-    const travelData = JSON.parse(fileContent);
+    // Use unified data service for automatic migration
+    const travelData = await getLegacyTravelData(id);
     
-    return NextResponse.json(travelData);
+    if (!travelData) {
+      return NextResponse.json(
+        { error: 'Travel data not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Apply server-side privacy filtering based on domain
+    const host = request.headers.get('host');
+    const filteredData = filterTravelDataForServer(travelData, host);
+    
+    return NextResponse.json(filteredData);
   } catch (error) {
     console.error('Error loading travel data:', error);
     return NextResponse.json(
@@ -85,16 +97,11 @@ export async function PUT(request: NextRequest) {
     
     const updatedData = await request.json();
     
-    // Ensure the ID is preserved
-    const dataWithId = {
+    // Use unified data service to update travel data
+    await updateTravelData(id, {
       ...updatedData,
-      id,
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Save the updated data
-    const filePath = join(process.cwd(), 'data', `travel-${id}.json`);
-    await writeFile(filePath, JSON.stringify(dataWithId, null, 2));
+      id
+    });
     
     return NextResponse.json({ 
       success: true, 

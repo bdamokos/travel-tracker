@@ -7,6 +7,7 @@ import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
 import CostPieCharts from './CostPieCharts';
 import ExpenseForm from './ExpenseForm';
+import TravelLinkDisplay from './TravelLinkDisplay';
 
 interface ExistingTrip {
   id: string;
@@ -67,7 +68,8 @@ export default function CostTrackingForm() {
     description: '',
     notes: '',
     isGeneralExpense: false,
-    expenseType: 'actual'
+    expenseType: 'actual',
+    travelReference: undefined
   });
 
   const [editingBudgetIndex, setEditingBudgetIndex] = useState<number | null>(null);
@@ -353,6 +355,15 @@ export default function CostTrackingForm() {
     const expense = costData.expenses[index];
     setCurrentExpense(expense);
     setEditingExpenseIndex(index);
+  };
+
+  const removeTravelLink = (expenseId: string) => {
+    const updatedExpenses = costData.expenses.map(expense => 
+      expense.id === expenseId 
+        ? { ...expense, travelReference: undefined }
+        : expense
+    );
+    setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
   };
 
   const deleteBudgetItem = (index: number) => {
@@ -1152,6 +1163,15 @@ export default function CostTrackingForm() {
                         </div>
                         {expense.notes && (
                           <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{expense.notes}</div>
+                        )}
+                        {expense.travelReference && (
+                          <div className="mt-2">
+                            <TravelLinkDisplay 
+                              travelReference={expense.travelReference} 
+                              showRemoveButton={true}
+                              onRemove={() => removeTravelLink(expense.id)}
+                            />
+                          </div>
                         )}
                       </div>
                       <div className="flex gap-2">

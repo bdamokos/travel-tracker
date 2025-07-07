@@ -687,7 +687,33 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
  * Format date for display
  */
 export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  // Handle different date formats
+  let date: Date;
+  
+  // Check if it's in dd/mm/yyyy format (from YNAB imports)
+  if (dateString.includes('/') && dateString.split('/').length === 3) {
+    const parts = dateString.split('/');
+    if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+      // Assume dd/mm/yyyy format
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+      const year = parseInt(parts[2], 10);
+      date = new Date(year, month, day);
+    } else {
+      // Try to parse as-is
+      date = new Date(dateString);
+    }
+  } else {
+    // Try to parse as-is (ISO format, etc.)
+    date = new Date(dateString);
+  }
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return 'Invalid Date';
+  }
+  
+  return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
