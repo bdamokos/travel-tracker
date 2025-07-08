@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@types/jszip": "^3.4.0",
-    "date-fns": "^2.30.0",
+    "date-fns": "^4.1.0",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "next": "^15.3.5",
