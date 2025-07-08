@@ -166,8 +166,8 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     averageSpentPerTripDay = averageSpentPerDay;
   }
   
-  // Suggested daily budget should account for planned expenses
-  const suggestedDailyBudget = remainingDays > 0 ? availableForPlanning / remainingDays : 0;
+  // Suggested daily budget should use total journey days, not remaining days from today
+  const suggestedDailyBudget = totalDays > 0 ? availableForPlanning / totalDays : 0;
   
   // Calculate country breakdowns
   const countryBreakdown = calculateCountryBreakdowns(costData);

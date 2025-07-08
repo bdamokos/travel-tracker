@@ -196,9 +196,16 @@ export default function TravelDataForm() {
       name: location.name,
       coordinates: location.coordinates,
       date: location.date,
+      endDate: location.endDate,
+      duration: location.duration,
+      arrivalTime: location.arrivalTime,
+      departureTime: location.departureTime,
       notes: location.notes || '',
       instagramPosts: location.instagramPosts || [],
-      blogPosts: location.blogPosts || []
+      blogPosts: location.blogPosts || [],
+      accommodationData: location.accommodationData,
+      isAccommodationPublic: location.isAccommodationPublic || false,
+      costTrackingLinks: location.costTrackingLinks || []
     })) || [];
 
     // Migrate routes to new format if they don't have IDs
@@ -210,8 +217,10 @@ export default function TravelDataForm() {
       toCoords: route.toCoords,
       transportType: route.transportType,
       date: route.date,
-      duration: route.duration || '',
-      notes: route.notes || ''
+      duration: route.duration,
+      notes: route.notes || '',
+      privateNotes: route.privateNotes,
+      costTrackingLinks: route.costTrackingLinks || []
     })) || [];
 
     return {

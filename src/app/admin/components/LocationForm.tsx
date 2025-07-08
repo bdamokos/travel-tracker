@@ -36,14 +36,21 @@ export default function LocationForm({
     const lat = parseFloat(data.latitude as string) || 0;
     const lng = parseFloat(data.longitude as string) || 0;
     
+    // Handle end date and calculate duration
+    const startDate = data.date as string;
+    const endDate = data.endDate as string || undefined;
+    const duration = endDate && startDate ? 
+      Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
+      undefined;
+    
     // Create location object
     const location: Location = {
       id: editingLocationIndex !== null ? currentLocation.id! : generateId(),
       name: data.name as string,
       coordinates: [lat, lng],
-      date: data.date as string,
-      endDate: data.endDate as string || currentLocation.endDate,
-      duration: currentLocation.duration,
+      date: startDate,
+      endDate: endDate,
+      duration: duration,
       arrivalTime: currentLocation.arrivalTime,
       departureTime: currentLocation.departureTime,
       notes: data.notes as string || '',
@@ -96,7 +103,11 @@ export default function LocationForm({
         {editingLocationIndex !== null ? 'Edit Location' : 'Add Location'}
       </h4>
       
-      <form action={submitLocationAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form 
+        key={editingLocationIndex !== null ? `edit-${currentLocation.id}` : 'new'} 
+        action={submitLocationAction} 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
         <div>
           <label htmlFor="location-name" className="block text-sm font-medium text-gray-700 mb-1">
             Location Name *

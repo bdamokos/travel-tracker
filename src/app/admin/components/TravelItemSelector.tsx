@@ -125,7 +125,7 @@ export default function TravelItemSelector({
 
     const reference: TravelReference = {
       type: type === 'accommodation' ? 'location' : selectedTravelItem.type,
-      description: desc || undefined
+      description: desc || selectedTravelItem.name
     };
 
     if (selectedTravelItem.type === 'location') {
