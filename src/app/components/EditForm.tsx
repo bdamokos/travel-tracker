@@ -229,7 +229,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       // Estimate travel time
       const travelTimeMinutes = estimateTravelTime(
         distance,
-        newTransportation.type as any
+        newTransportation.type as Transportation['type']
       );
       
       // Set default times if none are set
@@ -997,7 +997,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   <p>Distance: {newTransportation.distance} km</p>
                   <p>Estimated travel time: {formatTravelTime(estimateTravelTime(
                     newTransportation.distance,
-                    newTransportation.type as any
+                    newTransportation.type as Transportation['type']
                   ))}</p>
                 </div>
               )}
@@ -1327,7 +1327,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
             {(!formData.locations || formData.locations.length === 0) && (
               <div className="text-center py-8 text-gray-500">
                 <p>Add locations first to attach blog posts and Instagram posts to them.</p>
-                <p className="text-sm mt-1">Go to the "Locations" tab to add your first location.</p>
+                <p className="text-sm mt-1">Go to the &quot;Locations&quot; tab to add your first location.</p>
               </div>
             )}
           </div>

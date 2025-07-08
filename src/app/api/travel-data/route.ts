@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { updateTravelData, loadUnifiedTripData } from '../../lib/unifiedDataService';
 import { filterTravelDataForServer } from '../../lib/serverPrivacyUtils';
-import { updateTravelData, getLegacyTravelData } from '../../lib/unifiedDataService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,15 +43,27 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Use unified data service for automatic migration
-    const travelData = await getLegacyTravelData(id);
+    // Use unified data service
+    const unifiedData = await loadUnifiedTripData(id);
     
-    if (!travelData) {
+    if (!unifiedData) {
       return NextResponse.json(
         { error: 'Travel data not found' },
         { status: 404 }
       );
     }
+    
+    // Return the travel data portion for backward compatibility
+    const travelData = {
+      id: unifiedData.id,
+      title: unifiedData.title,
+      description: unifiedData.description,
+      startDate: unifiedData.startDate,
+      endDate: unifiedData.endDate,
+      locations: unifiedData.travelData?.locations || [],
+      routes: unifiedData.travelData?.routes || [],
+      days: unifiedData.travelData?.days
+    };
     
     // Apply server-side privacy filtering based on domain
     const host = request.headers.get('host');

@@ -102,7 +102,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   const categoryData = getCategoryData();
 
   // Custom tooltip for better formatting
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[]; label?: string }) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: ChartData }[]; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0];
       return (

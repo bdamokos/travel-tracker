@@ -1,6 +1,8 @@
 // Geocoding service for Travel Tracker
 // Provides location search, reverse geocoding, and route calculations
 
+import { Transportation } from '../types';
+
 /**
  * Convert a location name to coordinates using OpenStreetMap Nominatim
  * @param locationName The name of the location to search for
@@ -110,7 +112,7 @@ export function calculateDistance(
  */
 export function estimateTravelTime(
   distance: number, 
-  transportType: 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other'
+  transportType: Transportation['type']
 ): number {
   // Define average speeds for different transportation types (km/h)
   const speeds: Record<string, number> = {
@@ -119,8 +121,10 @@ export function estimateTravelTime(
     car: 80,
     bus: 60,
     train: 100,
+    metro: 35,  // Metro/subway average speed
     plane: 800,
     ferry: 40,
+    boat: 30,   // General boat speed
     other: 50
   };
   

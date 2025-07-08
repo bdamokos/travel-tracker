@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { CostTrackingLink } from '../../types';
+import { CostTrackingLink, Transportation } from '../../types';
+import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 
 function generateId(): string {
@@ -14,7 +15,7 @@ interface TravelRoute {
   to: string;
   fromCoords: [number, number];
   toCoords: [number, number];
-  transportType: 'plane' | 'train' | 'car' | 'bus' | 'boat' | 'walk' | 'ferry' | 'metro' | 'bike';
+  transportType: Transportation['type'];
   date: string;
   duration?: string;
   notes?: string;
@@ -124,17 +125,10 @@ export default function RouteForm({
     }
   }
 
-  const transportationTypes: { value: TravelRoute['transportType']; label: string }[] = [
-    { value: 'plane', label: 'Flight' },
-    { value: 'train', label: 'Train' },
-    { value: 'bus', label: 'Bus' },
-    { value: 'car', label: 'Car' },
-    { value: 'ferry', label: 'Ferry' },
-    { value: 'bike', label: 'Bike' },
-    { value: 'walk', label: 'Walking' },
-    { value: 'boat', label: 'Boat' },
-    { value: 'metro', label: 'Metro' }
-  ];
+  const transportOptions = transportationTypes.map(type => ({
+    value: type,
+    label: transportationLabels[type]
+  }));
 
   return (
     <div className="bg-gray-50 p-4 rounded-md mb-4">
@@ -158,7 +152,7 @@ export default function RouteForm({
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {transportationTypes.map(type => (
+            {transportOptions.map(type => (
               <option key={type.value} value={type.value}>{type.label}</option>
             ))}
           </select>

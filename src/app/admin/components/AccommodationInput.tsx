@@ -162,7 +162,7 @@ export default function AccommodationInput({
       {/* Template Help */}
       {!accommodationData && (
         <div className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-          💡 <strong>Tip:</strong> Click "Template" to use structured format, or just type freely for places like "staying at friend's house"
+          💡 <strong>Tip:</strong> Click &quot;Template&quot; to use structured format, or just type freely for places like &quot;staying at friend&apos;s house&quot;
         </div>
       )}
     </div>

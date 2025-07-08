@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Map, Marker } from 'leaflet';
 import { getRouteStyle, generateRoutePoints, calculateGreatCirclePoints, calculateSimpleArc } from '../../lib/routeUtils';
+import { Transportation } from '../../types';
 
 interface RoutePreviewProps {
   from: string;
   to: string;
   fromCoords: [number, number];
   toCoords: [number, number];
-  transportType: 'plane' | 'train' | 'car' | 'bus' | 'boat' | 'walk' | 'ferry' | 'metro' | 'bike';
+  transportType: Transportation['type'];
 }
 
 const RoutePreviewMap: React.FC<RoutePreviewProps> = ({ 
@@ -19,9 +21,9 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
   transportType 
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const startMarkerRef = useRef<any>(null);
-  const endMarkerRef = useRef<any>(null);
+  const mapRef = useRef<Map | null>(null);
+  const startMarkerRef = useRef<Marker | null>(null);
+  const endMarkerRef = useRef<Marker | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
@@ -29,7 +31,7 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
   // Check if coordinates are valid (not [0, 0])
   const hasValidCoords = fromCoords[0] !== 0 || fromCoords[1] !== 0 || toCoords[0] !== 0 || toCoords[1] !== 0;
 
-  const routeStyle = getRouteStyle(transportType as any);
+  const routeStyle = getRouteStyle(transportType);
 
   // Generate route data asynchronously for land transport, synchronously for air/sea
   useEffect(() => {
@@ -40,7 +42,7 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
 
     const transportation = {
       id: 'preview',
-      type: transportType as any,
+      type: transportType,
       from: from,
       to: to,
       fromCoordinates: fromCoords,
@@ -48,7 +50,7 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
     };
 
     // For air and sea routes, use synchronous calculation (no API needed)
-    if (transportType === 'plane' || transportType === 'ferry') {
+    if (transportType === 'plane' || transportType === 'ferry' || transportType === 'boat') {
       try {
         let points: [number, number][] = [];
         if (transportType === 'plane') {
@@ -75,12 +77,12 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
       loadRoute();
     }
   }, [fromCoords, toCoords, transportType, hasValidCoords, from, to]);
-  const center: [number, number] = hasValidCoords
-    ? [(fromCoords[0] + toCoords[0]) / 2, (fromCoords[1] + toCoords[1]) / 2]
-    : [51.505, -0.09]; // Default to London
 
   // Initialize map only when coordinates change, not text fields
   useEffect(() => {
+    const center: [number, number] = hasValidCoords
+      ? [(fromCoords[0] + toCoords[0]) / 2, (fromCoords[1] + toCoords[1]) / 2]
+      : [51.505, -0.09]; // Default to London
     if (!hasValidCoords || !mapContainerRef.current) return;
 
     let mounted = true;
@@ -251,7 +253,7 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
       startMarkerRef.current = null;
       endMarkerRef.current = null;
     };
-  }, [fromCoords, toCoords, transportType, hasValidCoords]); // Removed 'from' and 'to' to prevent recreation on text changes
+  }, [fromCoords, toCoords, transportType, hasValidCoords, from, to, routePoints, routeStyle.color, routeStyle.dashArray, routeStyle.opacity, routeStyle.weight]);
 
   // Update popup content when location names change (without recreating map)
   useEffect(() => {

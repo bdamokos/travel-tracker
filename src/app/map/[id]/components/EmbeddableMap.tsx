@@ -50,11 +50,11 @@ interface EmbeddableMapProps {
 }
 
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
-  const [L, setL] = useState<any>(null);
-  const [highlightedIcon, setHighlightedIcon] = useState<any>(null);
+  const [L, setL] = useState<typeof import('leaflet') | null>(null);
+  const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -65,7 +65,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const leaflet = await import('leaflet');
         
         // Fix Leaflet icon issues with Next.js
-        delete (leaflet.default.Icon.Default.prototype as any)._getIconUrl;
+        delete (leaflet.default.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
         
         leaflet.default.Icon.Default.mergeOptions({
           iconRetinaUrl: '/images/marker-icon-2x.png',
@@ -139,7 +139,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     mapRef.current = map;
 
     // Add markers for locations
-    const markers: any[] = [];
+    const markers: L.Marker[] = [];
     
     // Find the location closest to current date
     const closestLocation = findClosestLocationToCurrentDate(travelData.locations);
@@ -199,7 +199,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const isHighlighted = closestLocation?.id === location.id;
       
       // Create marker with proper icon handling
-      const markerOptions: any = {};
+      const markerOptions: L.MarkerOptions = {};
       if (isHighlighted && highlightedIcon) {
         markerOptions.icon = highlightedIcon;
       }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listAllTrips, getLegacyCostData } from '../../../lib/unifiedDataService';
+import { Expense } from '../../../types';
 
 
 export async function GET() {
@@ -17,7 +18,7 @@ export async function GET() {
             
             if (costData) {
               // Calculate totals
-              const totalSpent = costData.expenses?.reduce((sum: number, expense: any) => sum + expense.amount, 0) || 0;
+              const totalSpent = costData.expenses?.reduce((sum: number, expense: Expense) => sum + expense.amount, 0) || 0;
               const remainingBudget = (costData.overallBudget || 0) - totalSpent;
               
               return {

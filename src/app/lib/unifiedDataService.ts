@@ -19,6 +19,7 @@ import {
   extractLegacyCostData,
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
+import { Location, Transportation, BudgetItem, Expense, YnabImportData, JourneyPeriod } from '../types';
 
 const DATA_DIR = join(process.cwd(), 'data');
 
@@ -159,7 +160,7 @@ export async function listAllTrips(): Promise<Array<{
 }>> {
   try {
     const files = await readdir(DATA_DIR);
-    const trips = new Map<string, any>();
+    const trips = new Map<string, { id: string; title: string; startDate: string; endDate: string; createdAt: string; hasTravel: boolean; hasCost: boolean; isUnified: boolean; }>();
     
     // Process unified files
     const unifiedFiles = files.filter(f => f.startsWith('trip-') && f.endsWith('.json'));
@@ -210,7 +211,10 @@ export async function listAllTrips(): Promise<Array<{
       if (isLegacyCostFormat(data)) {
         const tripId = data.tripId;
         if (trips.has(tripId)) {
-          trips.get(tripId).hasCost = true;
+          const trip = trips.get(tripId);
+          if (trip) {
+            trip.hasCost = true;
+          }
         } else {
           // Standalone cost tracker
           trips.set(tripId, {
@@ -255,16 +259,16 @@ export async function getLegacyCostData(tripId: string) {
 /**
  * Updates travel data in unified format
  */
-export async function updateTravelData(tripId: string, travelUpdates: any): Promise<UnifiedTripData> {
+export async function updateTravelData(tripId: string, travelUpdates: Record<string, unknown>): Promise<UnifiedTripData> {
   const existing = await loadUnifiedTripData(tripId);
   
   const defaultData: UnifiedTripData = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
-    title: travelUpdates.title || '',
-    description: travelUpdates.description || '',
-    startDate: travelUpdates.startDate || '',
-    endDate: travelUpdates.endDate || '',
+    title: (travelUpdates.title as string) || '',
+    description: (travelUpdates.description as string) || '',
+    startDate: (travelUpdates.startDate as string) || '',
+    endDate: (travelUpdates.endDate as string) || '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -273,15 +277,15 @@ export async function updateTravelData(tripId: string, travelUpdates: any): Prom
   
   const updated: UnifiedTripData = {
     ...baseData,
-    title: travelUpdates.title || baseData.title,
-    description: travelUpdates.description || baseData.description,
-    startDate: travelUpdates.startDate || baseData.startDate,
-    endDate: travelUpdates.endDate || baseData.endDate,
+    title: (travelUpdates.title as string) || baseData.title,
+    description: (travelUpdates.description as string) || baseData.description,
+    startDate: (travelUpdates.startDate as string) || baseData.startDate,
+    endDate: (travelUpdates.endDate as string) || baseData.endDate,
     updatedAt: new Date().toISOString(),
     travelData: {
-      locations: travelUpdates.locations || baseData.travelData?.locations || [],
-      routes: travelUpdates.routes || baseData.travelData?.routes || [],
-      days: travelUpdates.days || baseData.travelData?.days
+      locations: (travelUpdates.locations as Location[]) || baseData.travelData?.locations || [],
+      routes: (travelUpdates.routes as Transportation[]) || baseData.travelData?.routes || [],
+      days: (travelUpdates.days as JourneyPeriod[]) || baseData.travelData?.days
     }
   };
   
@@ -292,16 +296,16 @@ export async function updateTravelData(tripId: string, travelUpdates: any): Prom
 /**
  * Updates cost data in unified format
  */
-export async function updateCostData(tripId: string, costUpdates: any): Promise<UnifiedTripData> {
+export async function updateCostData(tripId: string, costUpdates: Record<string, unknown>): Promise<UnifiedTripData> {
   const existing = await loadUnifiedTripData(tripId);
   
   const defaultData: UnifiedTripData = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
-    title: costUpdates.tripTitle || '',
+    title: (costUpdates.tripTitle as string) || '',
     description: '',
-    startDate: costUpdates.tripStartDate || '',
-    endDate: costUpdates.tripEndDate || '',
+    startDate: (costUpdates.tripStartDate as string) || '',
+    endDate: (costUpdates.tripEndDate as string) || '',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -310,16 +314,16 @@ export async function updateCostData(tripId: string, costUpdates: any): Promise<
   
   const updated: UnifiedTripData = {
     ...baseData,
-    title: costUpdates.tripTitle || baseData.title,
-    startDate: costUpdates.tripStartDate || baseData.startDate,
-    endDate: costUpdates.tripEndDate || baseData.endDate,
+    title: (costUpdates.tripTitle as string) || baseData.title,
+    startDate: (costUpdates.tripStartDate as string) || baseData.startDate,
+    endDate: (costUpdates.tripEndDate as string) || baseData.endDate,
     updatedAt: new Date().toISOString(),
     costData: {
-      overallBudget: costUpdates.overallBudget ?? baseData.costData?.overallBudget ?? 0,
-      currency: costUpdates.currency || baseData.costData?.currency || 'EUR',
-      countryBudgets: costUpdates.countryBudgets || baseData.costData?.countryBudgets || [],
-      expenses: costUpdates.expenses || baseData.costData?.expenses || [],
-      ynabImportData: costUpdates.ynabImportData || baseData.costData?.ynabImportData
+      overallBudget: (costUpdates.overallBudget as number) ?? baseData.costData?.overallBudget ?? 0,
+      currency: (costUpdates.currency as string) || baseData.costData?.currency || 'EUR',
+      countryBudgets: (costUpdates.countryBudgets as BudgetItem[]) || baseData.costData?.countryBudgets || [],
+      expenses: (costUpdates.expenses as Expense[]) || baseData.costData?.expenses || [],
+      ynabImportData: (costUpdates.ynabImportData as YnabImportData) || baseData.costData?.ynabImportData
     }
   };
   
@@ -330,7 +334,7 @@ export async function updateCostData(tripId: string, costUpdates: any): Promise<
 /**
  * Cleans up legacy files after successful migration
  */
-async function cleanupLegacyFiles(tripId: string, travelData: any, costData: any): Promise<void> {
+async function cleanupLegacyFiles(tripId: string, travelData: unknown, costData: unknown): Promise<void> {
   try {
     const promises = [];
     
@@ -346,7 +350,7 @@ async function cleanupLegacyFiles(tripId: string, travelData: any, costData: any
     
     // Remove legacy cost file if it was migrated
     if (costData) {
-      const costFilePath = join(DATA_DIR, `cost-${costData.id}.json`);
+      const costFilePath = join(DATA_DIR, `cost-${(costData as { id: string }).id}.json`);
       promises.push(
         unlink(costFilePath).catch(() => {
           // File might not exist, ignore error

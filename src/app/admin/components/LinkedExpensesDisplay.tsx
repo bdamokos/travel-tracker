@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../lib/costUtils';
+import { TravelReference } from '../../types';
 
 interface LinkedExpense {
   id: string;
@@ -10,9 +11,7 @@ interface LinkedExpense {
   currency: string;
   date: string;
   category: string;
-  travelReference: {
-    description?: string;
-  };
+  travelReference: TravelReference;
 }
 
 interface LinkedExpensesDisplayProps {
@@ -46,7 +45,7 @@ export default function LinkedExpensesDisplay({
             const costData = await detailResponse.json();
             
             if (costData.expenses) {
-              costData.expenses.forEach((expense: any) => {
+              costData.expenses.forEach((expense: LinkedExpense) => {
                 if (expense.travelReference) {
                   const ref = expense.travelReference;
                   const matchesLocation = itemType === 'location' && ref.locationId === itemId;

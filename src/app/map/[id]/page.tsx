@@ -60,7 +60,17 @@ async function getTravelData(id: string): Promise<TravelData | null> {
         startDate: unifiedData.startDate,
         endDate: unifiedData.endDate,
         locations: unifiedData.travelData.locations || [],
-        routes: unifiedData.travelData.routes || [],
+        routes: (unifiedData.travelData.routes || []).map(route => ({
+          id: route.id,
+          from: route.from,
+          to: route.to,
+          fromCoords: route.fromCoordinates || [0, 0],
+          toCoords: route.toCoordinates || [0, 0],
+          transportType: route.type,
+          date: route.departureTime || '',
+          duration: undefined, // Transportation interface doesn't have duration
+          notes: route.privateNotes
+        })),
         createdAt: unifiedData.createdAt
       };
     }
