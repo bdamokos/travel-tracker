@@ -37,7 +37,7 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
       if (isUnifiedFormat(parsed)) {
         unifiedData = parsed;
       }
-    } catch (error) {
+    } catch {
       // Unified file doesn't exist, continue to try legacy files
     }
     
@@ -50,7 +50,7 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
       if (isLegacyTravelFormat(parsed)) {
         travelData = parsed;
       }
-    } catch (error) {
+    } catch {
       // Travel file doesn't exist
     }
     
@@ -69,7 +69,7 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
           break;
         }
       }
-    } catch (error) {
+    } catch {
       // No cost files or error reading them
     }
     

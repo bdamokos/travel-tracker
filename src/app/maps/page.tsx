@@ -72,7 +72,7 @@ export default async function PublicMapsPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
                 <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 mb-4">No Travel Maps Yet</h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Travel maps will appear here once they're created. Check back soon!
+                  Travel maps will appear here once they&apos;re created. Check back soon!
                 </p>
               </div>
             </div>

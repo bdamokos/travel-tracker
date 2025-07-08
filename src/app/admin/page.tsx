@@ -21,7 +21,7 @@ export default function AdminPage() {
         } else {
           router.push('/maps');
         }
-      } catch (error) {
+      } catch {
         // If we can't check, assume we're on the correct domain for dev
         setIsAuthorized(true);
       } finally {

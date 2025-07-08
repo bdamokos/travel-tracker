@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { LinkedExpense } from '../../lib/costLinkCleanup';
-import { Location } from '../../types';
 import { formatCurrency } from '../../lib/costUtils';
 
 interface ReassignmentDialogProps {
@@ -15,13 +14,6 @@ interface ReassignmentDialogProps {
   onCancel: () => void;
 }
 
-interface TravelRoute {
-  id: string;
-  from: string;
-  to: string;
-  transportType: string;
-  date: string;
-}
 
 export default function ReassignmentDialog({
   isOpen,
@@ -139,7 +131,7 @@ export default function ReassignmentDialog({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <span className="text-sm text-green-800 dark:text-green-200">
-                  Ready to move {linkedExpenses.length} expense{linkedExpenses.length !== 1 ? 's' : ''} to "{selectedItem.name}"
+                  Ready to move {linkedExpenses.length} expense{linkedExpenses.length !== 1 ? 's' : ''} to &quot;{selectedItem.name}&quot;
                 </span>
               </div>
             </div>

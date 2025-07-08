@@ -1,51 +1,6 @@
 import { NextResponse } from 'next/server';
-import { readdir, readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
 import { listAllTrips, getLegacyCostData } from '../../../lib/unifiedDataService';
 
-// Helper function to generate unique ID
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-// Helper function to extract ID from filename
-function extractIdFromFilename(filename: string): string {
-  return filename.replace('cost-', '').replace('.json', '');
-}
-
-// Helper function to fix cost tracking file with empty ID
-async function fixEmptyId(filePath: string, costData: any): Promise<any> {
-  if (!costData.id || costData.id.trim() === '') {
-    console.log(`Fixing empty ID for file: ${filePath}`);
-    
-    // Try to use the ID from the filename first
-    const filename = filePath.split('/').pop() || '';
-    let newId = extractIdFromFilename(filename);
-    
-    // If filename doesn't have a proper ID, generate a new one
-    if (!newId || newId === '' || newId === 'undefined') {
-      newId = generateId();
-      console.log(`Generated new ID: ${newId}`);
-    } else {
-      console.log(`Using ID from filename: ${newId}`);
-    }
-    
-    // Update the data with the new ID
-    const updatedData = {
-      ...costData,
-      id: newId,
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Save the fixed data back to the file
-    await writeFile(filePath, JSON.stringify(updatedData, null, 2));
-    console.log(`Fixed and saved cost tracking file with ID: ${newId}`);
-    
-    return updatedData;
-  }
-  
-  return costData;
-}
 
 export async function GET() {
   try {

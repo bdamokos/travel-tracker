@@ -172,7 +172,7 @@ export function parseAccommodationData(accommodationData: string): ParsedAccommo
         data: parsed,
         rawText: accommodationData
       };
-    } catch (error) {
+    } catch {
       // Failed to parse, treat as plain text
       return {
         isStructured: false,

@@ -19,7 +19,7 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - Responsive design for desktop and mobile
 - Server-side data storage
 
-![Travel Tracker Screenshot](./public/screenshots/admin-screenshot.png)
+![Travel Tracker Screenshot](./public/screenshots/admin_overview.png)
 ![Travel Tracker Screenshot](./public/screenshots/cost_tracker.png)
 
 ## Technologies Used
