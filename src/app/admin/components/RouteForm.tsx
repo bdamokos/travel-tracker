@@ -142,7 +142,11 @@ export default function RouteForm({
         {editingRouteIndex !== null ? 'Edit Route' : 'Add Route'}
       </h4>
       
-      <form action={submitRouteAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form 
+        key={editingRouteIndex !== null ? `edit-${currentRoute.id}` : 'new'} 
+        action={submitRouteAction} 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
         <div>
           <label htmlFor="route-type" className="block text-sm font-medium text-gray-700 mb-1">
             Transportation Type *

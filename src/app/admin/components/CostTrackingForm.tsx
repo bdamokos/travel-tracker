@@ -1152,7 +1152,14 @@ export default function CostTrackingForm() {
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {formatDate(expense.date)} • {expense.category}
-                          {expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`}
+                          {expense.travelReference && expense.travelReference.description ? (
+                            <span className="text-blue-600 dark:text-blue-400">
+                              {' • '}
+                              {expense.travelReference.type === 'location' ? '📍' : '🚗'} {expense.travelReference.description}
+                            </span>
+                          ) : (
+                            expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`
+                          )}
                           {(expense.expenseType === 'planned' || isPostTripExpense(expense)) && (
                             <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
                               expense.expenseType === 'planned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
@@ -1228,7 +1235,7 @@ export default function CostTrackingForm() {
                     {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
                   </p>
                   <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    For remaining {costSummary.remainingDays} days
+                    For {costSummary.totalDays} journey days
                   </p>
                 </div>
               </div>

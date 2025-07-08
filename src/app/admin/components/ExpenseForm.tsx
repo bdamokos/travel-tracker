@@ -82,7 +82,11 @@ export default function ExpenseForm({
         {editingExpenseIndex !== null ? 'Edit Expense' : 'Add New Expense'}
       </h4>
       
-      <form action={submitExpenseAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form 
+        key={editingExpenseIndex !== null ? `edit-${currentExpense.id}` : 'new'} 
+        action={submitExpenseAction} 
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
         <div>
           <label htmlFor="expense-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Date *
