@@ -1156,7 +1156,8 @@ export default function CostTrackingForm() {
                           {expense.travelReference && expense.travelReference.description ? (
                             <span className="text-blue-600 dark:text-blue-400">
                               {' • '}
-                              {expense.travelReference.type === 'location' ? '📍' : '🚗'} {expense.travelReference.description}
+                              {expense.travelReference.type === 'location' ? '📍' : 
+               expense.travelReference.type === 'accommodation' ? '🏨' : '🚗'} {expense.travelReference.description}
                             </span>
                           ) : (
                             expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`

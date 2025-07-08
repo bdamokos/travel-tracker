@@ -16,8 +16,21 @@ export type CostTrackingLink = {
 export type TravelReference = {
   type: 'location' | 'accommodation' | 'route';
   locationId?: string;
+  accommodationId?: string;
   routeId?: string;
   description?: string;
+};
+
+// Independent accommodation entity
+export type Accommodation = {
+  id: string;
+  name: string;
+  locationId: string; // Reference to the location
+  accommodationData?: string; // YAML frontmatter or free text
+  isAccommodationPublic?: boolean; // Default false (private)
+  costTrackingLinks?: CostTrackingLink[];
+  createdAt: string;
+  updatedAt?: string;
 };
 
 // Location type for storing geographical coordinates and related information
@@ -33,10 +46,12 @@ export type Location = {
   notes?: string;
   instagramPosts?: InstagramPost[];
   blogPosts?: BlogPost[];
-  // Accommodation data (YAML frontmatter or free text)
+  // References to accommodations (not embedded data)
+  accommodationIds?: string[];
+  // Backward compatibility - will be migrated to separate accommodations
   accommodationData?: string;
-  isAccommodationPublic?: boolean; // Default false (private)
-  // Cost tracking integration
+  isAccommodationPublic?: boolean;
+  // Cost tracking integration (for location-level expenses)
   costTrackingLinks?: CostTrackingLink[];
 };
 

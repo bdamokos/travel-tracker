@@ -3,7 +3,7 @@
 import React from 'react';
 import { formatDuration } from '../../lib/durationUtils';
 import { Location } from '../../types';
-import AccommodationInput from './AccommodationInput';
+import LocationAccommodationsManager from './LocationAccommodationsManager';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 
 function generateId(): string {
@@ -56,7 +56,9 @@ export default function LocationForm({
       notes: data.notes as string || '',
       instagramPosts: currentLocation.instagramPosts || [],
       blogPosts: currentLocation.blogPosts || [],
-      // New accommodation and cost tracking fields
+      // Multiple accommodations support
+      accommodationIds: currentLocation.accommodationIds || [],
+      // Backward compatibility
       accommodationData: currentLocation.accommodationData,
       isAccommodationPublic: currentLocation.isAccommodationPublic || false,
       costTrackingLinks: currentLocation.costTrackingLinks || []
@@ -81,6 +83,7 @@ export default function LocationForm({
       notes: '',
       instagramPosts: [],
       blogPosts: [],
+      accommodationIds: [],
       accommodationData: '',
       isAccommodationPublic: false,
       costTrackingLinks: []
@@ -225,16 +228,14 @@ export default function LocationForm({
           </div>
         </div>
 
-        {/* Accommodation Input */}
+        {/* Location Accommodations Manager */}
         <div className="md:col-span-2">
-          <AccommodationInput
-            accommodationData={currentLocation.accommodationData || ''}
-            isAccommodationPublic={currentLocation.isAccommodationPublic || false}
-            onAccommodationDataChange={(data) => 
-              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, accommodationData: data }))
-            }
-            onPrivacyChange={(isPublic) => 
-              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, isAccommodationPublic: isPublic }))
+          <LocationAccommodationsManager
+            locationId={currentLocation.id || 'temp-location'}
+            locationName={currentLocation.name || 'New Location'}
+            accommodationIds={currentLocation.accommodationIds || []}
+            onAccommodationIdsChange={(ids) => 
+              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, accommodationIds: ids }))
             }
           />
         </div>
@@ -269,6 +270,7 @@ export default function LocationForm({
                   notes: '',
                   instagramPosts: [],
                   blogPosts: [],
+                  accommodationIds: [],
                   accommodationData: '',
                   isAccommodationPublic: false,
                   costTrackingLinks: []

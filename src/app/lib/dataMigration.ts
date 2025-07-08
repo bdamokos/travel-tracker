@@ -5,7 +5,7 @@
  * while maintaining backwards compatibility and future-proofing
  */
 
-import { Journey, CostTrackingData, Location, Transportation } from '../types';
+import { Journey, CostTrackingData, Location, Transportation, Accommodation } from '../types';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -143,40 +143,107 @@ export function migrateLegacyCostData(costData: LegacyCostData): UnifiedTripData
  * Checks if data is already in unified format
  */
 export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
-  return data !== null && typeof data === 'object' && 'schemaVersion' in data && typeof (data as any).schemaVersion === 'number' && (data as any).schemaVersion >= 1;
+  return data !== null && typeof data === 'object' && 'schemaVersion' in data && typeof (data as UnifiedTripData).schemaVersion === 'number' && (data as UnifiedTripData).schemaVersion >= 1;
 }
 
 /**
  * Checks if data is legacy travel format
  */
 export function isLegacyTravelFormat(data: unknown): data is LegacyTravelData {
-  return data !== null && typeof data === 'object' && 'locations' in data && Array.isArray((data as any).locations) && !('schemaVersion' in data);
+  return data !== null && typeof data === 'object' && 'locations' in data && Array.isArray((data as LegacyTravelData).locations) && !('schemaVersion' in data);
 }
 
 /**
  * Checks if data is legacy cost format
  */
 export function isLegacyCostFormat(data: unknown): data is LegacyCostData {
-  return data !== null && typeof data === 'object' && 'tripId' in data && 'expenses' in data && Array.isArray((data as any).expenses) && !('schemaVersion' in data);
+  return data !== null && typeof data === 'object' && 'tripId' in data && 'expenses' in data && Array.isArray((data as LegacyCostData).expenses) && !('schemaVersion' in data);
 }
 
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
- * Future migration handler for schema version updates
+ * Migrates from version 1 to version 2 - extracts accommodations from locations
+ */
+export function migrateFromV1ToV2(data: UnifiedTripData): UnifiedTripData {
+  const extractedAccommodations: Accommodation[] = [];
+  
+  if (data.travelData?.locations) {
+    data.travelData.locations = data.travelData.locations.map(location => {
+      // If location has accommodation data, extract it
+      if (location.accommodationData) {
+        const accommodation: Accommodation = {
+          id: `acc-${location.id}-${Date.now()}`,
+          name: 'Accommodation', // Default name for legacy accommodations
+          locationId: location.id,
+          accommodationData: location.accommodationData,
+          isAccommodationPublic: location.isAccommodationPublic || false,
+          costTrackingLinks: location.costTrackingLinks || [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        extractedAccommodations.push(accommodation);
+        
+        // Update location to reference the accommodation
+        return {
+          ...location,
+          accommodationIds: [accommodation.id],
+          // Keep legacy fields for backward compatibility
+          costTrackingLinks: [] // Move to accommodation
+        };
+      }
+      
+      return location;
+    });
+  }
+  
+  // Save extracted accommodations to file
+  if (extractedAccommodations.length > 0) {
+    saveExtractedAccommodations(extractedAccommodations);
+  }
+  
+  return {
+    ...data,
+    schemaVersion: 2,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Saves extracted accommodations to the accommodations file
+ */
+async function saveExtractedAccommodations(accommodations: Accommodation[]) {
+  try {
+    const response = await fetch('/admin/api/accommodations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accommodations })
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to save extracted accommodations');
+    }
+  } catch (error) {
+    console.error('Error saving extracted accommodations:', error);
+  }
+}
+
+/**
+ * Migration handler for schema version updates
  */
 export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   if (!data.schemaVersion || data.schemaVersion < 1) {
     throw new Error('Invalid schema version');
   }
   
-  // Handle future migrations here:
-  // if (data.schemaVersion < 2) {
-  //   data = migrateFromV1ToV2(data);
-  // }
+  // Handle migrations:
+  if (data.schemaVersion < 2) {
+    data = migrateFromV1ToV2(data);
+  }
   // if (data.schemaVersion < 3) {
   //   data = migrateFromV2ToV3(data);
   // }

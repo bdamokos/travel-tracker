@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TravelReference, Location, Transportation } from '../../types';
+import { TravelReference, Location, Transportation, Accommodation } from '../../types';
+import { useAccommodations } from '../../hooks/useAccommodations';
 
 interface TravelItem {
   id: string;
-  type: 'location' | 'route';
+  type: 'location' | 'accommodation' | 'route';
   name: string;
   description: string;
   date: string;
   tripTitle: string;
+  locationName?: string; // For accommodations
 }
 
 interface TravelItemSelectorProps {
@@ -28,12 +30,15 @@ export default function TravelItemSelector({
   const [selectedType, setSelectedType] = useState<'location' | 'accommodation' | 'route' | ''>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
+  
+  // Load accommodations
+  const { accommodations } = useAccommodations();
 
   // Load current reference values
   useEffect(() => {
     if (currentReference) {
       setSelectedType(currentReference.type);
-      setSelectedItem(currentReference.locationId || currentReference.routeId || '');
+      setSelectedItem(currentReference.locationId || currentReference.accommodationId || currentReference.routeId || '');
       setDescription(currentReference.description || '');
     }
   }, [currentReference]);
@@ -124,12 +129,14 @@ export default function TravelItemSelector({
     if (!selectedTravelItem) return;
 
     const reference: TravelReference = {
-      type: type === 'accommodation' ? 'location' : selectedTravelItem.type,
+      type: selectedTravelItem.type as 'location' | 'accommodation' | 'route',
       description: desc || selectedTravelItem.name
     };
 
     if (selectedTravelItem.type === 'location') {
       reference.locationId = itemId;
+    } else if (selectedTravelItem.type === 'accommodation') {
+      reference.accommodationId = itemId;
     } else if (selectedTravelItem.type === 'route') {
       reference.routeId = itemId;
     }
@@ -153,9 +160,6 @@ export default function TravelItemSelector({
   }
 
   const filteredItems = travelItems.filter(item => {
-    if (selectedType === 'accommodation') {
-      return item.type === 'location';
-    }
     return item.type === selectedType;
   });
 
@@ -180,7 +184,7 @@ export default function TravelItemSelector({
       {selectedType && (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {selectedType === 'accommodation' ? 'Location (for accommodation)' : 
+            {selectedType === 'accommodation' ? 'Accommodation' : 
              selectedType === 'location' ? 'Location' : 'Route'}
           </label>
           <select
@@ -191,7 +195,10 @@ export default function TravelItemSelector({
             <option value="">Select {selectedType}...</option>
             {filteredItems.map(item => (
               <option key={item.id} value={item.id}>
-                {item.name} - {item.tripTitle} ({item.date})
+                {item.type === 'accommodation' ? 
+                  `${item.name} (in ${item.locationName}) - ${item.tripTitle} (${item.date})` :
+                  `${item.name} - ${item.tripTitle} (${item.date})`
+                }
               </option>
             ))}
           </select>
