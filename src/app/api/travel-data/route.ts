@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
 import { filterTravelDataForServer } from '../../lib/serverPrivacyUtils';
 import { updateTravelData, getLegacyTravelData } from '../../lib/unifiedDataService';
 
@@ -11,26 +9,12 @@ export async function POST(request: NextRequest) {
     // Generate a unique ID for this travel map
     const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
     
-    // Add the ID to the data
-    const dataWithId = {
-      id,
+    // Use unified data service to save travel data
+    await updateTravelData(id, {
       ...travelData,
+      id,
       createdAt: new Date().toISOString()
-    };
-    
-    // Create data directory if it doesn't exist
-    const dataDir = join(process.cwd(), 'data');
-    
-    try {
-      // Try to create directory (will fail silently if it exists)
-      await writeFile(join(dataDir, '.gitkeep'), '');
-    } catch (error) {
-      // Directory might not exist, that's okay for now
-    }
-    
-    // Save the data to a JSON file
-    const filePath = join(dataDir, `travel-${id}.json`);
-    await writeFile(filePath, JSON.stringify(dataWithId, null, 2));
+    });
     
     return NextResponse.json({ 
       success: true, 
