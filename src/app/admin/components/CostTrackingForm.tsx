@@ -1303,9 +1303,29 @@ export default function CostTrackingForm() {
                   </div>
                 )}
                 <div className="bg-gray-50 dark:bg-gray-950 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Days Remaining</h4>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">
+                    {(() => {
+                      if (costSummary.tripStatus === 'before') {
+                        const daysUntilStart = Math.max(0, Math.ceil((new Date(costData.tripStartDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+                        return daysUntilStart > 0 ? 'Days Until Trip' : 'Trip Starting';
+                      } else if (costSummary.tripStatus === 'during') {
+                        return 'Days Until End';
+                      } else {
+                        return 'Trip Duration';
+                      }
+                    })()}
+                  </h4>
                   <p className="text-lg font-bold text-gray-600 dark:text-gray-300">
-                    {costSummary.remainingDays}
+                    {(() => {
+                      if (costSummary.tripStatus === 'before') {
+                        const daysUntilStart = Math.max(0, Math.ceil((new Date(costData.tripStartDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+                        return daysUntilStart;
+                      } else if (costSummary.tripStatus === 'during') {
+                        return costSummary.remainingDays;
+                      } else {
+                        return costSummary.totalDays;
+                      }
+                    })()}
                   </p>
                 </div>
               </div>
