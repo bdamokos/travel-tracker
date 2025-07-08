@@ -69,7 +69,7 @@ export default function ReassignmentDialog({
                 </h4>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                   These expenses (totaling <strong>{formatCurrency(totalAmount, currency)}</strong>) will be moved 
-                  from "<strong>{fromItemName}</strong>" to the {itemType} you select below.
+                  from &quot;<strong>{fromItemName}</strong>&quot; to the {itemType} you select below.
                 </p>
               </div>
             </div>

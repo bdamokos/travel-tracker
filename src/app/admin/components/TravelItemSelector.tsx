@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TravelReference } from '../../types';
+import { TravelReference, Location, Transportation } from '../../types';
 
 interface TravelItem {
   id: string;
@@ -55,7 +55,7 @@ export default function TravelItemSelector({
             
             // Add locations
             if (tripData.locations) {
-              tripData.locations.forEach((location: any) => {
+              tripData.locations.forEach((location: Location) => {
                 allItems.push({
                   id: location.id,
                   type: 'location',
@@ -69,7 +69,7 @@ export default function TravelItemSelector({
             
             // Add routes
             if (tripData.routes) {
-              tripData.routes.forEach((route: any) => {
+              tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: string }) => {
                 allItems.push({
                   id: route.id,
                   type: 'route',
@@ -99,9 +99,9 @@ export default function TravelItemSelector({
   }, []);
 
   const handleTypeChange = (type: string) => {
-    setSelectedType(type as any);
+    setSelectedType(type as 'location' | 'accommodation' | 'route' | '');
     setSelectedItem('');
-    updateReference(type as any, '', description);
+    updateReference(type, '', description);
   };
 
   const handleItemChange = (itemId: string) => {

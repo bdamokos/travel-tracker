@@ -7,7 +7,7 @@ interface TravelRoute {
   to: string;
   fromCoords: [number, number];
   toCoords: [number, number];
-  transportType: 'plane' | 'train' | 'car' | 'bus' | 'boat' | 'walk' | 'ferry' | 'metro' | 'bike';
+  transportType: Transportation['type'];
   date: string;
   duration?: string;
   notes?: string;

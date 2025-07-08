@@ -5,7 +5,7 @@
  * while maintaining backwards compatibility and future-proofing
  */
 
-import { Journey, CostTrackingData } from '../types';
+import { Journey, CostTrackingData, Location, Transportation } from '../types';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -26,8 +26,8 @@ export interface UnifiedTripData {
   // Travel data (can be null for cost-only trips in future)
   travelData?: {
     // Legacy format
-    locations?: any[];
-    routes?: any[];
+    locations?: Location[];
+    routes?: Transportation[];
     // New Journey format
     days?: Journey['days'];
   };
@@ -51,9 +51,9 @@ interface LegacyTravelData {
   description: string;
   startDate: string;
   endDate: string;
-  locations: any[];
-  routes: any[];
-  days?: any[];
+  locations: Location[];
+  routes: Transportation[];
+  days?: Journey['days'];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -69,9 +69,9 @@ interface LegacyCostData {
   tripEndDate: string;
   overallBudget: number;
   currency: string;
-  countryBudgets: any[];
-  expenses: any[];
-  ynabImportData?: any;
+  countryBudgets: CostTrackingData['countryBudgets'];
+  expenses: CostTrackingData['expenses'];
+  ynabImportData?: CostTrackingData['ynabImportData'];
   createdAt: string;
   updatedAt?: string;
 }
@@ -142,22 +142,22 @@ export function migrateLegacyCostData(costData: LegacyCostData): UnifiedTripData
 /**
  * Checks if data is already in unified format
  */
-export function isUnifiedFormat(data: any): data is UnifiedTripData {
-  return data && typeof data.schemaVersion === 'number' && data.schemaVersion >= 1;
+export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
+  return data !== null && typeof data === 'object' && 'schemaVersion' in data && typeof (data as any).schemaVersion === 'number' && (data as any).schemaVersion >= 1;
 }
 
 /**
  * Checks if data is legacy travel format
  */
-export function isLegacyTravelFormat(data: any): data is LegacyTravelData {
-  return data && data.locations && Array.isArray(data.locations) && !data.schemaVersion;
+export function isLegacyTravelFormat(data: unknown): data is LegacyTravelData {
+  return data !== null && typeof data === 'object' && 'locations' in data && Array.isArray((data as any).locations) && !('schemaVersion' in data);
 }
 
 /**
  * Checks if data is legacy cost format
  */
-export function isLegacyCostFormat(data: any): data is LegacyCostData {
-  return data && data.tripId && data.expenses && Array.isArray(data.expenses) && !data.schemaVersion;
+export function isLegacyCostFormat(data: unknown): data is LegacyCostData {
+  return data !== null && typeof data === 'object' && 'tripId' in data && 'expenses' in data && Array.isArray((data as any).expenses) && !('schemaVersion' in data);
 }
 
 /**

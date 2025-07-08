@@ -101,10 +101,17 @@ export function filterJourneyForServer(journey: Journey, host: string | null): J
   };
 }
 
+interface LegacyTravelData {
+  locations?: Location[];
+  routes?: Transportation[];
+  days?: JourneyPeriod[];
+  [key: string]: unknown;
+}
+
 /**
  * Filter travel data for legacy format compatibility (server-side only)
  */
-export function filterTravelDataForServer(travelData: any, host: string | null): any {
+export function filterTravelDataForServer(travelData: LegacyTravelData, host: string | null): LegacyTravelData {
   const isAdmin = isAdminRequest(host);
   
   if (isAdmin) {
@@ -114,7 +121,7 @@ export function filterTravelDataForServer(travelData: any, host: string | null):
   // Handle both new Journey format and legacy format
   if (travelData.days) {
     // New format with JourneyPeriods
-    return filterJourneyForServer(travelData, host);
+    return filterJourneyForServer(travelData as any, host);
   }
 
   // Legacy format - filter locations and routes directly

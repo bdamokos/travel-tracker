@@ -44,7 +44,7 @@ export default function CostTrackingLinksManager({
             const costData = await detailResponse.json();
             
             if (costData.expenses) {
-              costData.expenses.forEach((expense: any) => {
+              costData.expenses.forEach((expense: Expense) => {
                 allExpenses.push({
                   id: expense.id,
                   description: expense.description,

@@ -119,7 +119,8 @@ export function parseAccommodationData(accommodationData: string): ParsedAccommo
       const additionalNotes = yamlMatch[2].trim();
       
       // Simple YAML parser for basic key-value pairs
-      const parsed: any = {};
+      type ParsedYaml = { [key: string]: string };
+      const parsed: ParsedYaml = {};
       const lines = yamlContent.split('\n');
       let currentKey = '';
       let multilineValue = '';

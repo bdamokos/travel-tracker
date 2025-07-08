@@ -1,84 +1,109 @@
 import { Transportation } from '../types';
 
-// Colors for different transportation types
-export const transportationColors = {
-  walk: '#4CAF50',    // Green
-  bus: '#2196F3',     // Blue
-  train: '#F44336',   // Red
-  plane: '#9C27B0',   // Purple
-  car: '#FF9800',     // Orange
-  ferry: '#03A9F4',   // Light Blue
-  bike: '#8BC34A',    // Light Green
-  other: '#607D8B',   // Grey Blue
-};
-
-// Line styles for different transportation types
-export const getRouteStyle = (type: Transportation['type']) => {
-  switch (type) {
-    case 'walk':
-      return {
-        color: transportationColors.walk,
-        weight: 3,
-        opacity: 0.8,
-        dashArray: '5, 5',  // Dashed line for walking
-      };
-    case 'bus':
-      return {
-        color: transportationColors.bus,
-        weight: 4,
-        opacity: 0.8,
-      };
-    case 'train':
-      return {
-        color: transportationColors.train,
-        weight: 5,
-        opacity: 0.8,
-        dashArray: '10, 5',  // Dashed line for train
-      };
-    case 'plane':
-      return {
-        color: transportationColors.plane,
-        weight: 3,
-        opacity: 0.6,
-        dashArray: '10, 10',  // Dotted line for plane
-      };
-    case 'car':
-      return {
-        color: transportationColors.car,
-        weight: 4,
-        opacity: 0.8,
-      };
-    case 'ferry':
-      return {
-        color: transportationColors.ferry,
-        weight: 4,
-        opacity: 0.7,
-        dashArray: '15, 5',  // Dashed line for ferry
-      };
-    case 'bike':
-      return {
-        color: transportationColors.bike,
-        weight: 3,
-        opacity: 0.8,
-        dashArray: '5, 3',  // Small dashed line for bike
-      };
-    case 'other':
-    default:
-      return {
-        color: transportationColors.other,
-        weight: 3,
-        opacity: 0.7,
-      };
+// Transportation configuration with styles and metadata
+export const transportationConfig: Record<Transportation['type'], {
+  color: string;
+  weight: number;
+  opacity: number;
+  dashArray?: string;
+  description: string;
+}> = {
+  walk: {
+    color: '#4CAF50',     // Green
+    weight: 3,
+    opacity: 0.8,
+    dashArray: '5, 5',    // Dashed line for walking
+    description: 'Walking'
+  },
+  bike: {
+    color: '#8BC34A',     // Light Green
+    weight: 3,
+    opacity: 0.8,
+    dashArray: '5, 3',    // Small dashed line for bike
+    description: 'Bicycle'
+  },
+  car: {
+    color: '#FF9800',     // Orange
+    weight: 4,
+    opacity: 0.8,
+    description: 'Car'
+  },
+  bus: {
+    color: '#2196F3',     // Blue
+    weight: 4,
+    opacity: 0.8,
+    description: 'Bus'
+  },
+  train: {
+    color: '#F44336',     // Red
+    weight: 5,
+    opacity: 0.8,
+    dashArray: '10, 5',   // Dashed line for train
+    description: 'Train'
+  },
+  metro: {
+    color: '#E91E63',     // Pink
+    weight: 4,
+    opacity: 0.9,
+    dashArray: '3, 3',    // Short dashed line for metro
+    description: 'Metro/Subway'
+  },
+  plane: {
+    color: '#9C27B0',     // Purple
+    weight: 3,
+    opacity: 0.6,
+    dashArray: '10, 10',  // Dotted line for plane
+    description: 'Airplane'
+  },
+  ferry: {
+    color: '#03A9F4',     // Light Blue
+    weight: 4,
+    opacity: 0.7,
+    dashArray: '15, 5',   // Dashed line for ferry
+    description: 'Ferry'
+  },
+  boat: {
+    color: '#00BCD4',     // Cyan
+    weight: 4,
+    opacity: 0.7,
+    dashArray: '20, 5',   // Long dashed line for boat
+    description: 'Boat'
+  },
+  other: {
+    color: '#607D8B',     // Grey Blue
+    weight: 3,
+    opacity: 0.7,
+    description: 'Other'
   }
 };
 
-// Convert degrees to radians
-const toRadians = (degrees: number): number => degrees * Math.PI / 180;
+// Legacy colors export for backward compatibility
+export const transportationColors = Object.fromEntries(
+  Object.entries(transportationConfig).map(([key, config]) => [key, config.color])
+);
 
-// Convert radians to degrees
-const toDegrees = (radians: number): number => radians * 180 / Math.PI;
+// Get route style for a transportation type
+export const getRouteStyle = (type: Transportation['type']) => {
+  const config = transportationConfig[type] || transportationConfig.other;
+  return {
+    color: config.color,
+    weight: config.weight,
+    opacity: config.opacity,
+    ...(config.dashArray && { dashArray: config.dashArray })
+  };
+};
 
-// Calculate great circle route between two points on Earth
+// Export transport types and labels for use in dropdowns and forms
+export const transportationTypes = Object.keys(transportationConfig) as Transportation['type'][];
+export const transportationLabels = Object.fromEntries(
+  Object.entries(transportationConfig).map(([key, config]) => [key, config.description])
+);
+
+// Helper functions for coordinate calculations
+const toRadians = (degrees: number) => degrees * (Math.PI / 180);
+const toDegrees = (radians: number) => radians * (180 / Math.PI);
+
+// Calculate great circle points for air routes using real spherical geometry
 export const calculateGreatCirclePoints = (
   startPoint: [number, number],
   endPoint: [number, number],
@@ -228,6 +253,7 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
     case 'car':
     case 'bus':
     case 'train':
+    case 'metro':
     case 'other':
     default:
       return 'car';
@@ -265,7 +291,8 @@ export const generateRoutePoints = async (
       );
       break;
     case 'ferry':
-      // Use simple arc for ferries (less precise but appropriate for water routes)
+    case 'boat':
+      // Use simple arc for ferries and boats (less precise but appropriate for water routes)
       routePoints = calculateSimpleArc(
         fromCoordinates,
         toCoordinates,
@@ -274,6 +301,7 @@ export const generateRoutePoints = async (
       );
       break;
     case 'train':
+    case 'metro':
     case 'bus':
     case 'car':
     case 'walk':
@@ -321,8 +349,10 @@ export const generateRoutePointsSync = (
     case 'plane':
       return calculateGreatCirclePoints(fromCoordinates, toCoordinates, 50);
     case 'ferry':
+    case 'boat':
       return calculateSimpleArc(fromCoordinates, toCoordinates, 15, 0.15);
     case 'train':
+    case 'metro':
     case 'bus':
     case 'car':
     case 'walk':
@@ -331,4 +361,4 @@ export const generateRoutePointsSync = (
     default:
       return [fromCoordinates, toCoordinates];
   }
-}; 
+};

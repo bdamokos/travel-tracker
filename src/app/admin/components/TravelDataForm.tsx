@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '../../lib/domains';
 import { calculateSmartDurations, formatDuration } from '../../lib/durationUtils';
-import { Location, InstagramPost, BlogPost } from '../../types';
+import { Location, InstagramPost, BlogPost, CostTrackingLink, Transportation } from '../../types';
 import LocationForm from './LocationForm';
 import RouteForm from './RouteForm';
 import AccommodationDisplay from '../../components/AccommodationDisplay';
@@ -18,12 +18,12 @@ interface TravelRoute {
   to: string;
   fromCoords: [number, number];
   toCoords: [number, number];
-  transportType: 'plane' | 'train' | 'car' | 'bus' | 'boat' | 'walk' | 'ferry' | 'metro' | 'bike';
+  transportType: Transportation['type'];
   date: string;
   duration?: string;
   notes?: string;
   privateNotes?: string;
-  costTrackingLinks?: any[];
+  costTrackingLinks?: CostTrackingLink[];
 }
 
 interface TravelData {
@@ -226,13 +226,13 @@ export default function TravelDataForm() {
     }
   };
 
-  const migrateOldFormat = (tripData: any): TravelData => {
+  const migrateOldFormat = (tripData: Partial<TravelData>): TravelData => {
     // Migrate locations to new format if they don't have IDs
-    const migratedLocations = tripData.locations?.map((location: any) => ({
+    const migratedLocations = tripData.locations?.map((location: Partial<Location>) => ({
       id: location.id || generateId(),
-      name: location.name,
-      coordinates: location.coordinates,
-      date: location.date,
+      name: location.name || '',
+      coordinates: location.coordinates || [0, 0] as [number, number],
+      date: location.date || '',
       endDate: location.endDate,
       duration: location.duration,
       arrivalTime: location.arrivalTime,
@@ -246,14 +246,14 @@ export default function TravelDataForm() {
     })) || [];
 
     // Migrate routes to new format if they don't have IDs
-    const migratedRoutes = tripData.routes?.map((route: any) => ({
+    const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute>) => ({
       id: route.id || generateId(),
-      from: route.from,
-      to: route.to,
-      fromCoords: route.fromCoords,
-      toCoords: route.toCoords,
-      transportType: route.transportType,
-      date: route.date,
+      from: route.from || '',
+      to: route.to || '',
+      fromCoords: route.fromCoords || [0, 0] as [number, number],
+      toCoords: route.toCoords || [0, 0] as [number, number],
+      transportType: route.transportType || 'car',
+      date: route.date || '',
       duration: route.duration,
       notes: route.notes || '',
       privateNotes: route.privateNotes,

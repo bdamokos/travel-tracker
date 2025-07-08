@@ -43,7 +43,7 @@ export type Location = {
 // Transportation type for route segments
 export interface Transportation {
   id: string;
-  type: 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other';
+  type: 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other';
   from: string;
   to: string;
   departureTime?: string;
