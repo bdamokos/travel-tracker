@@ -1,6 +1,6 @@
 'use client';
 
-import { Expense, ExpenseType, TravelReference } from '../../types';
+import { Expense, ExpenseType } from '../../types';
 import { generateId } from '../../lib/costUtils';
 import TravelItemSelector from './TravelItemSelector';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '../../lib/domains';
 import { calculateSmartDurations, formatDuration } from '../../lib/durationUtils';
 import { Location, InstagramPost, BlogPost } from '../../types';
@@ -140,6 +140,43 @@ export default function TravelDataForm() {
     };
   }, []);
 
+  // Silent auto-save function (no alerts, no redirects)
+  const autoSaveTravelData = useCallback(async () => {
+    // Validation (silent)
+    if (!travelData.title || travelData.locations.length === 0) {
+      return false; // Invalid data, don't save
+    }
+
+    try {
+      const method = mode === 'edit' ? 'PUT' : 'POST';
+      const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(travelData),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        // For new entries, update the travel data with the returned ID
+        if (mode === 'create' && result.id) {
+          setTravelData(prev => ({ ...prev, id: result.id }));
+          setMode('edit'); // Switch to edit mode after first save
+        }
+        return true;
+      } else {
+        console.warn('Auto-save failed:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.warn('Auto-save error:', error);
+      return false;
+    }
+  }, [travelData, mode, setTravelData, setMode]);
+
   // Auto-save effect for edit mode (debounced)
   useEffect(() => {
     // Only auto-save if we're in edit mode or create mode with sufficient data
@@ -164,7 +201,7 @@ export default function TravelDataForm() {
       return () => clearTimeout(timeoutId);
     }
   }, [travelData.title, travelData.description, travelData.startDate, travelData.endDate, 
-      travelData.locations, travelData.routes, mode, hasUnsavedChanges]);
+      travelData.locations, travelData.routes, travelData.id, mode, hasUnsavedChanges, autoSaveTravelData]);
 
   // Track when user makes changes (but not on initial load)
   useEffect(() => {
@@ -173,7 +210,7 @@ export default function TravelDataForm() {
       setHasUnsavedChanges(true);
     }
   }, [travelData.title, travelData.description, travelData.startDate, travelData.endDate, 
-      travelData.locations, travelData.routes, mode]);
+      travelData.locations, travelData.routes, travelData.id, mode]);
 
   const loadExistingTrips = async () => {
     try {
@@ -430,42 +467,6 @@ export default function TravelDataForm() {
     }
   };
 
-  // Silent auto-save function (no alerts, no redirects)
-  const autoSaveTravelData = async () => {
-    // Validation (silent)
-    if (!travelData.title || travelData.locations.length === 0) {
-      return false; // Invalid data, don't save
-    }
-
-    try {
-      const method = mode === 'edit' ? 'PUT' : 'POST';
-      const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(travelData),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        // For new entries, update the travel data with the returned ID
-        if (mode === 'create' && result.id) {
-          setTravelData(prev => ({ ...prev, id: result.id }));
-          setMode('edit'); // Switch to edit mode after first save
-        }
-        return true;
-      } else {
-        console.warn('Auto-save failed:', response.status);
-        return false;
-      }
-    } catch (error) {
-      console.warn('Auto-save error:', error);
-      return false;
-    }
-  };
 
   const generateMap = async () => {
     try {

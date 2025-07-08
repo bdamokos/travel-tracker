@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Journey, JourneyDay, Transportation, BlogPost, Location, InstagramPost } from '../types';
+import { Journey, JourneyDay, Transportation } from '../types';
 import { transportationColors } from '../lib/routeUtils';
 import AccommodationDisplay from './AccommodationDisplay';
 

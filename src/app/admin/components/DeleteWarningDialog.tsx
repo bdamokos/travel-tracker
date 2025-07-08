@@ -56,7 +56,7 @@ export default function DeleteWarningDialog({
                   Linked Expenses Found
                 </h4>
                 <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                  The {itemType} "<strong>{itemName}</strong>" has <strong>{linkedExpenses.length}</strong> linked 
+                  The {itemType} &quot;<strong>{itemName}</strong>&quot; has <strong>{linkedExpenses.length}</strong> linked 
                   expense{linkedExpenses.length !== 1 ? 's' : ''} totaling <strong>{formatCurrency(totalAmount, currency)}</strong>.
                 </p>
               </div>

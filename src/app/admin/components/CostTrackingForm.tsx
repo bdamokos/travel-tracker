@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, YnabCategoryMapping, ExpenseType } from '../../types';
 import { calculateCostSummary, formatCurrency, formatDate, generateId, EXPENSE_CATEGORIES, getCountryAverageDisplay, formatCurrencyWithRefunds } from '../../lib/costUtils';
 import YnabImportForm from './YnabImportForm';
@@ -170,6 +170,29 @@ export default function CostTrackingForm() {
     }
   }, [costData]);
 
+  // Silent auto-save function (no alerts, no redirects)
+  const autoSaveCostData = useCallback(async () => {
+    // Validation (silent)
+    if (!costData.tripId || !costData.overallBudget || costData.overallBudget <= 0) {
+      return false; // Invalid data, don't save
+    }
+
+    const method = mode === 'edit' ? 'PUT' : 'POST';
+    const url = mode === 'edit' ? `/api/cost-tracking?id=${costData.id}` : '/api/cost-tracking';
+    
+    const dataToSave = mode === 'edit' ? costData : { ...costData, id: undefined };
+    
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dataToSave),
+    });
+    
+    return response.ok; // Return success status
+  }, [costData, mode]);
+
   // Auto-save effect for edit mode (debounced)
   useEffect(() => {
     // Only auto-save if we're in edit mode and have made changes
@@ -190,7 +213,7 @@ export default function CostTrackingForm() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [costData.overallBudget, costData.countryBudgets, costData.expenses, mode, hasUnsavedChanges]);
+  }, [costData.overallBudget, costData.countryBudgets, costData.expenses, costData.id, costData.tripId, mode, hasUnsavedChanges, autoSaveCostData]);
 
   // Track when user makes changes (but not on initial load)
   useEffect(() => {
@@ -198,7 +221,7 @@ export default function CostTrackingForm() {
       // Set flag that we have unsaved changes
       setHasUnsavedChanges(true);
     }
-  }, [costData.overallBudget, costData.countryBudgets, costData.expenses]); // Track actual data changes
+  }, [costData.overallBudget, costData.countryBudgets, costData.expenses, costData.id, mode]); // Track actual data changes
 
   const loadExistingTrips = async () => {
     try {
@@ -584,28 +607,6 @@ export default function CostTrackingForm() {
     }
   };
 
-  // Silent auto-save function (no alerts, no redirects)
-  const autoSaveCostData = async () => {
-    // Validation (silent)
-    if (!costData.tripId || !costData.overallBudget || costData.overallBudget <= 0) {
-      return false; // Invalid data, don't save
-    }
-
-    const method = mode === 'edit' ? 'PUT' : 'POST';
-    const url = mode === 'edit' ? `/api/cost-tracking?id=${costData.id}` : '/api/cost-tracking';
-    
-    const dataToSave = mode === 'edit' ? costData : { ...costData, id: undefined };
-    
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(dataToSave),
-    });
-    
-    return response.ok; // Return success status
-  };
 
   const saveCostData = async () => {
     try {

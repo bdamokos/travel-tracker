@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { JourneyDay, Location, Transportation, InstagramPost, BlogPost } from '../types';
 import { 
   geocodeLocation, 
   reverseGeocode,
   calculateDistance,
   estimateTravelTime,
-  formatTravelTime,
-  getRoutePath
+  formatTravelTime
 } from '../services/geocoding';
 
 interface EditFormProps {
@@ -235,7 +234,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       
       // Set default times if none are set
       const now = new Date();
-      let departureTime = newTransportation.departureTime || 
+      const departureTime = newTransportation.departureTime || 
                          `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
       
       // Calculate arrival time based on departure time and estimated travel time

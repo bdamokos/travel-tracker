@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
@@ -145,7 +144,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     // Find the location closest to current date
     const closestLocation = findClosestLocationToCurrentDate(travelData.locations);
     
-    travelData.locations.forEach((location, index) => {
+    travelData.locations.forEach((location) => {
       // Build popup content with posts
       const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       const popupStyles = isDarkMode 

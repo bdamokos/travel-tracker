@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Journey, JourneyDay, Location, Transportation, BlogPost } from '../types';
-import { generateRoutePointsSync, getRouteStyle, transportationColors } from '../lib/routeUtils';
+import { Journey, JourneyDay, Location } from '../types';
+import { generateRoutePointsSync, getRouteStyle } from '../lib/routeUtils';
 import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
 
 // Fix Leaflet icon issues with Next.js
@@ -45,15 +45,6 @@ const createHighlightedIcon = () => {
   });
 };
 
-// Custom icon for transport types
-const createTransportIcon = (type: Transportation['type']) => {
-  return L.divIcon({
-    className: 'transport-icon',
-    html: `<div style="background-color: ${transportationColors[type]}; width: 10px; height: 10px; border-radius: 50%;"></div>`,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5],
-  });
-};
 
 interface MapProps {
   journey: Journey | null;
@@ -63,7 +54,6 @@ interface MapProps {
 
 const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) => {
   const mapRef = useRef<L.Map | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [days, setDays] = useState<JourneyDay[]>([]);
   const [key, setKey] = useState(0);
   
