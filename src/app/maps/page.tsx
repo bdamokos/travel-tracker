@@ -1,7 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { readdir, readFile } from 'fs/promises';
-import { join } from 'path';
+import { listAllTrips, loadUnifiedTripData } from '../lib/unifiedDataService';
 
 interface TravelMap {
   id: string;
@@ -20,29 +19,27 @@ export const metadata: Metadata = {
 
 async function getTravelMaps(): Promise<TravelMap[]> {
   try {
-    const dataDir = join(process.cwd(), 'data');
-    const files = await readdir(dataDir);
-    const travelFiles = files.filter(file => file.startsWith('travel-') && file.endsWith('.json'));
+    const trips = await listAllTrips();
+    const travelTrips = trips.filter(trip => trip.hasTravel);
     
     const maps: TravelMap[] = [];
     
-    for (const file of travelFiles) {
+    for (const trip of travelTrips) {
       try {
-        const filePath = join(dataDir, file);
-        const content = await readFile(filePath, 'utf-8');
-        const data = JSON.parse(content);
-        
-        maps.push({
-          id: data.id,
-          title: data.title || 'Untitled Journey',
-          description: data.description || '',
-          startDate: data.startDate,
-          endDate: data.endDate,
-          createdAt: data.createdAt || new Date().toISOString(),
-          locationCount: data.locations?.length || 0,
-        });
+        const fullData = await loadUnifiedTripData(trip.id);
+        if (fullData && fullData.travelData) {
+          maps.push({
+            id: trip.id,
+            title: trip.title || 'Untitled Journey',
+            description: fullData.description || '',
+            startDate: trip.startDate,
+            endDate: trip.endDate,
+            createdAt: trip.createdAt,
+            locationCount: fullData.travelData.locations?.length || 0,
+          });
+        }
       } catch (error) {
-        console.error(`Error reading ${file}:`, error);
+        console.error(`Error reading trip ${trip.id}:`, error);
       }
     }
     

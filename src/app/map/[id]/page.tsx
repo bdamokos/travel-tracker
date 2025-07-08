@@ -43,19 +43,26 @@ interface TravelData {
 
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
-    // Use direct file reading for server-side rendering to avoid fetch issues
+    // Use direct unified data service for server-side rendering
     if (typeof window === 'undefined') {
-      const { readFile } = await import('fs/promises');
-      const { join } = await import('path');
+      const { loadUnifiedTripData } = await import('../../lib/unifiedDataService');
+      const unifiedData = await loadUnifiedTripData(id);
       
-      try {
-        const filePath = join(process.cwd(), 'data', `travel-${id}.json`);
-        const fileContent = await readFile(filePath, 'utf-8');
-        return JSON.parse(fileContent);
-      } catch (fileError) {
-        console.error('Error reading travel data file:', fileError);
+      if (!unifiedData || !unifiedData.travelData) {
         return null;
       }
+      
+      // Transform unified data to legacy format for compatibility
+      return {
+        id: unifiedData.id,
+        title: unifiedData.title,
+        description: unifiedData.description,
+        startDate: unifiedData.startDate,
+        endDate: unifiedData.endDate,
+        locations: unifiedData.travelData.locations || [],
+        routes: unifiedData.travelData.routes || [],
+        createdAt: unifiedData.createdAt
+      };
     }
     
     // Use fetch for client-side requests
