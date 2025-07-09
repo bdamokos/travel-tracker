@@ -2,6 +2,9 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { listAllTrips, loadUnifiedTripData } from '../lib/unifiedDataService';
 
+// Force dynamic rendering to ensure trip list is always current
+export const dynamic = 'force-dynamic';
+
 interface TravelMap {
   id: string;
   title: string;
