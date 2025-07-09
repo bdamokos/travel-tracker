@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TravelReference, Location, Transportation, Accommodation } from '../../types';
+import { Location, Transportation, Accommodation } from '../../types';
+import { ExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
 
 interface TravelItem {
   id: string;
@@ -14,13 +15,15 @@ interface TravelItem {
 }
 
 interface TravelItemSelectorProps {
-  currentReference?: TravelReference;
-  onReferenceChange: (reference: TravelReference | undefined) => void;
+  expenseId: string;
+  travelLookup: ExpenseTravelLookup | null;
+  onReferenceChange: (travelLinkInfo: TravelLinkInfo | undefined) => void;
   className?: string;
 }
 
 export default function TravelItemSelector({
-  currentReference,
+  expenseId,
+  travelLookup,
   onReferenceChange,
   className = ''
 }: TravelItemSelectorProps) {
@@ -32,12 +35,15 @@ export default function TravelItemSelector({
 
   // Load current reference values
   useEffect(() => {
-    if (currentReference) {
-      setSelectedType(currentReference.type);
-      setSelectedItem(currentReference.locationId || currentReference.accommodationId || currentReference.routeId || '');
-      setDescription(currentReference.description || '');
+    if (travelLookup && expenseId) {
+      const currentLink = travelLookup.getTravelLinkForExpense(expenseId);
+      if (currentLink) {
+        setSelectedType(currentLink.type);
+        setSelectedItem(currentLink.id);
+        setDescription(currentLink.name);
+      }
     }
-  }, [currentReference]);
+  }, [travelLookup, expenseId]);
 
   // Load available travel items
   useEffect(() => {
@@ -141,20 +147,18 @@ export default function TravelItemSelector({
     const selectedTravelItem = travelItems.find(item => item.id === itemId);
     if (!selectedTravelItem) return;
 
-    const reference: TravelReference = {
+    const travelLinkInfo: TravelLinkInfo = {
       type: selectedTravelItem.type as 'location' | 'accommodation' | 'route',
-      description: desc || selectedTravelItem.name
+      id: itemId,
+      name: desc || selectedTravelItem.name,
+      tripTitle: selectedTravelItem.tripTitle,
     };
 
-    if (selectedTravelItem.type === 'location') {
-      reference.locationId = itemId;
-    } else if (selectedTravelItem.type === 'accommodation') {
-      reference.accommodationId = itemId;
-    } else if (selectedTravelItem.type === 'route') {
-      reference.routeId = itemId;
+    if (selectedTravelItem.type === 'accommodation') {
+      travelLinkInfo.locationName = selectedTravelItem.locationName;
     }
 
-    onReferenceChange(reference);
+    onReferenceChange(travelLinkInfo);
   };
 
   const handleClear = () => {
@@ -237,7 +241,7 @@ export default function TravelItemSelector({
         </div>
       )}
 
-      {currentReference && (
+      {selectedType && selectedItem && (
         <div className="flex items-center gap-2">
           <span className="text-xs text-green-600 dark:text-green-400">
             ✓ Linked to {selectedType}

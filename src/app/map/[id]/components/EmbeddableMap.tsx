@@ -55,53 +55,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
-
-  useEffect(() => {
-    setIsClient(true);
-    
-    // Dynamically import Leaflet only on client side
-    const loadLeaflet = async () => {
-      try {
-        const leaflet = await import('leaflet');
-        
-        // Fix Leaflet icon issues with Next.js
-        delete (leaflet.default.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-        
-        leaflet.default.Icon.Default.mergeOptions({
-          iconRetinaUrl: '/images/marker-icon-2x.png',
-          iconUrl: '/images/marker-icon.png',
-          shadowUrl: '/images/marker-shadow.png',
-        });
-        
-        // Create highlighted marker icon using divIcon approach
-        const customHighlightedIcon = leaflet.default.divIcon({
-          className: 'custom-highlighted-marker',
-          html: `
-            <div style="
-              width: 25px; 
-              height: 41px; 
-              background-image: url('/images/marker-icon.png'); 
-              background-size: contain; 
-              background-repeat: no-repeat;
-              filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
-              animation: pulse-marker 2s infinite;
-            "></div>
-          `,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34]
-        });
-        
-        setL(leaflet.default);
-        setHighlightedIcon(customHighlightedIcon);
-      } catch (error) {
-        console.error('Error loading Leaflet:', error);
-      }
-    };
-    
-    loadLeaflet();
-  }, []);
-
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
 

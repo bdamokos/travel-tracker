@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { Accommodation, CostTrackingLink } from '../../types';
+import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import { CostTrackingData } from '../../types';
 import { useAccommodations } from '../../hooks/useAccommodations';
 import AccommodationInput from './AccommodationInput';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
@@ -13,6 +15,8 @@ interface LocationAccommodationsManagerProps {
   locationName: string;
   accommodationIds: string[];
   onAccommodationIdsChange: (ids: string[]) => void;
+  travelLookup: ExpenseTravelLookup | null;
+  costData: CostTrackingData | null;
 }
 
 export default function LocationAccommodationsManager({
@@ -20,7 +24,9 @@ export default function LocationAccommodationsManager({
   locationId,
   locationName,
   accommodationIds,
-  onAccommodationIdsChange
+  onAccommodationIdsChange,
+  travelLookup,
+  costData
 }: LocationAccommodationsManagerProps) {
   const {
     loading,
@@ -140,6 +146,8 @@ export default function LocationAccommodationsManager({
               accommodation={accommodation}
               onEdit={() => setEditingId(accommodation.id)}
               onDelete={() => handleDeleteAccommodation(accommodation.id)}
+              travelLookup={travelLookup}
+              costData={costData}
             />
           )}
         </div>
@@ -217,11 +225,15 @@ export default function LocationAccommodationsManager({
 function AccommodationDisplay({ 
   accommodation, 
   onEdit, 
-  onDelete 
+  onDelete, 
+  travelLookup,
+  costData
 }: {
   accommodation: Accommodation;
   onEdit: () => void;
   onDelete: () => void;
+  travelLookup: ExpenseTravelLookup | null;
+  costData: CostTrackingData | null;
 }) {
   return (
     <div>
@@ -266,6 +278,8 @@ function AccommodationDisplay({
         itemId={accommodation.id}
         itemType="accommodation"
         itemName={accommodation.name}
+        travelLookup={travelLookup}
+        costData={costData}
       />
     </div>
   );

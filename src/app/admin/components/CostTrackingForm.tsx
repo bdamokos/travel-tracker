@@ -7,7 +7,7 @@ import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
 import CostPieCharts from './CostPieCharts';
 import ExpenseForm from './ExpenseForm';
-import { ExpenseTravelLookup, createExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import { ExpenseTravelLookup, createExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
 import TravelLinkDisplay from './TravelLinkDisplay';
 
 interface ExistingTrip {
@@ -284,9 +284,6 @@ export default function CostTrackingForm() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Cost tracking data loaded:', data);
-        console.log('Data tripId:', data.tripId);
-        console.log('travelLookup:', travelLookup);
         
         // Migration: Ensure all expenses have expenseType field (for backward compatibility)
         const migratedData = {
@@ -296,8 +293,6 @@ export default function CostTrackingForm() {
             expenseType: expense.expenseType || 'actual'
           }))
         };
-        
-        console.log('Migrated data tripId:', migratedData.tripId);
         
         setCostData(migratedData);
         await initializeTravelLookup(migratedData.tripId);
@@ -357,7 +352,7 @@ export default function CostTrackingForm() {
 
 
   // Handler for the new ExpenseForm component using React 19 Actions
-  const handleExpenseAdded = (expense: Expense) => {
+  const handleExpenseAdded = async (expense: Expense, travelLinkInfo?: TravelLinkInfo) => {
     // Auto-create country budget if expense is for a country we don't have a budget for
     if (!expense.isGeneralExpense && expense.country && editingExpenseIndex === null) {
       const existingCountryBudget = costData.countryBudgets.find(
@@ -387,6 +382,29 @@ export default function CostTrackingForm() {
       setEditingExpenseIndex(null);
     } else {
       setCostData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
+    }
+
+    // Update travel links if provided
+    if (travelLinkInfo) {
+      try {
+        const response = await fetch('/api/travel-data/update-links', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tripId: costData.tripId,
+            travelLinkInfo,
+            expenseId: expense.id,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('Failed to update travel links', await response.json());
+        }
+      } catch (error) {
+        console.error('Error updating travel links:', error);
+      }
     }
 
     // Note: Country dropdown now handled in ExpenseForm
@@ -1156,6 +1174,7 @@ export default function CostTrackingForm() {
               currency={costData.currency}
               categories={getCategories()}
               countryOptions={getExistingCountries()}
+              travelLookup={travelLookup}
             />
 
             {/* Expense List */}

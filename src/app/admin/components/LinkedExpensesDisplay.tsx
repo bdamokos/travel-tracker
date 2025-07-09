@@ -2,78 +2,47 @@
 
 import { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../lib/costUtils';
-import { TravelReference } from '../../types';
-
-interface LinkedExpense {
-  id: string;
-  description: string;
-  amount: number;
-  currency: string;
-  date: string;
-  category: string;
-  travelReference: TravelReference;
-}
+import { Expense, CostTrackingData } from '../../types';
+import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 
 interface LinkedExpensesDisplayProps {
   itemId: string;
   itemType: 'location' | 'accommodation' | 'route';
   itemName: string;
   className?: string;
+  travelLookup: ExpenseTravelLookup | null;
+  costData: CostTrackingData | null;
 }
 
-export default function LinkedExpensesDisplay({ 
-  itemId, 
-  itemType, 
-  className = '' 
+export default function LinkedExpensesDisplay({
+  itemId,
+  itemType,
+  className = '',
+  travelLookup,
+  costData
 }: LinkedExpensesDisplayProps) {
-  const [linkedExpenses, setLinkedExpenses] = useState<LinkedExpense[]>([]);
+  const [linkedExpenses, setLinkedExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!travelLookup || !costData) {
+      setLoading(false);
+      return;
+    }
+
     async function loadLinkedExpenses() {
       try {
-        // Get all cost tracking data
-        const response = await fetch('/api/cost-tracking/list');
-        const costEntries = await response.json();
-        
-        const allLinkedExpenses: LinkedExpense[] = [];
-        
-        // Search through all cost entries for linked expenses
-        for (const entry of costEntries) {
-          try {
-            const detailResponse = await fetch(`/api/cost-tracking?id=${entry.id}`);
-            const costData = await detailResponse.json();
-            
-            if (costData.expenses) {
-              costData.expenses.forEach((expense: LinkedExpense) => {
-                if (expense.travelReference) {
-                  const ref = expense.travelReference;
-                  const matchesLocation = itemType === 'location' && ref.locationId === itemId;
-                  const matchesAccommodation = itemType === 'accommodation' && ref.accommodationId === itemId;
-                  const matchesRoute = itemType === 'route' && ref.routeId === itemId;
-                  
-                  if (matchesLocation || matchesAccommodation || matchesRoute) {
-                    allLinkedExpenses.push({
-                      id: expense.id,
-                      description: expense.description,
-                      amount: expense.amount,
-                      currency: expense.currency,
-                      date: expense.date,
-                      category: expense.category,
-                      travelReference: ref
-                    });
-                  }
-                }
-              });
-            }
-          } catch (error) {
-            console.error(`Error loading cost data for ${entry.id}:`, error);
-          }
+        if (!travelLookup || !costData) {
+          setLinkedExpenses([]);
+          return;
         }
         
+        const expenseIds = travelLookup.getExpensesForTravelItem(itemType, itemId);
+        const expenses = costData.expenses.filter(exp => expenseIds.includes(exp.id));
+        
         // Sort by date
-        allLinkedExpenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        setLinkedExpenses(allLinkedExpenses);
+        expenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setLinkedExpenses(expenses);
       } catch (error) {
         console.error('Error loading linked expenses:', error);
       } finally {
@@ -82,7 +51,7 @@ export default function LinkedExpensesDisplay({
     }
     
     loadLinkedExpenses();
-  }, [itemId, itemType]);
+  }, [itemId, itemType, travelLookup, costData]);
 
   if (loading) {
     return (
@@ -111,11 +80,7 @@ export default function LinkedExpensesDisplay({
           <div key={expense.id} className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-2 py-1 rounded">
             <div className="flex items-center gap-2">
               <span>{expense.description}</span>
-              {expense.travelReference.description && (
-                <span className="text-green-600 dark:text-green-400">
-                  • {expense.travelReference.description}
-                </span>
-              )}
+              
             </div>
             <div className="flex items-center gap-2">
               <span>{formatCurrency(expense.amount, expense.currency)}</span>

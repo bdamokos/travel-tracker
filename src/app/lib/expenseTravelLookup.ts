@@ -116,7 +116,7 @@ export class ExpenseTravelLookup {
   getExpensesForTravelItem(itemType: 'location' | 'accommodation' | 'route', itemId: string): string[] {
     const expenseIds: string[] = [];
     
-    for (const [expenseId, linkInfo] of this.expenseToTravelMap) {
+    for (const [expenseId, linkInfo] of Array.from(this.expenseToTravelMap.entries())) {
       if (linkInfo.type === itemType && linkInfo.id === itemId) {
         expenseIds.push(expenseId);
       }

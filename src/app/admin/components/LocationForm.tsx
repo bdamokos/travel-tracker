@@ -5,6 +5,8 @@ import { formatDuration } from '../../lib/durationUtils';
 import { Location } from '../../types';
 import LocationAccommodationsManager from './LocationAccommodationsManager';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
+import { CostTrackingData } from '../../types';
+import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -18,6 +20,8 @@ interface LocationFormProps {
   editingLocationIndex: number | null;
   setEditingLocationIndex: (index: number | null) => void;
   onGeocode?: (locationName: string) => Promise<void>;
+  travelLookup: ExpenseTravelLookup | null;
+  costData: CostTrackingData | null;
 }
 
 export default function LocationForm({
@@ -27,7 +31,9 @@ export default function LocationForm({
   onLocationAdded,
   editingLocationIndex,
   setEditingLocationIndex,
-  onGeocode
+  onGeocode,
+  travelLookup,
+  costData
 }: LocationFormProps) {
 
   // React 19 Action for adding/updating locations
@@ -250,6 +256,8 @@ export default function LocationForm({
             onAccommodationIdsChange={(ids) => 
               setCurrentLocation((prev: Partial<Location>) => ({ ...prev, accommodationIds: ids }))
             }
+            travelLookup={travelLookup}
+            costData={costData}
           />
         </div>
 

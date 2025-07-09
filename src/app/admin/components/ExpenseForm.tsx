@@ -1,18 +1,22 @@
 'use client';
 
-import { Expense, ExpenseType } from '../../types';
-import { generateId } from '../../lib/costUtils';
+import { useState } from 'react';
 import TravelItemSelector from './TravelItemSelector';
+import { Expense, ExpenseType } from '../../types';
+import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { generateId } from '@/app/lib/costUtils';
+
 
 interface ExpenseFormProps {
   currentExpense: Partial<Expense>;
   setCurrentExpense: (expense: Partial<Expense>) => void;
-  onExpenseAdded: (expense: Expense) => void;
+  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => void;
   editingExpenseIndex: number | null;
   setEditingExpenseIndex: (index: number | null) => void;
   currency: string;
   categories: string[];
   countryOptions: string[];
+  travelLookup: ExpenseTravelLookup | null;
 }
 
 export default function ExpenseForm({
@@ -23,9 +27,11 @@ export default function ExpenseForm({
   setEditingExpenseIndex,
   currency,
   categories,
-  countryOptions
+  countryOptions,
+  travelLookup
 }: ExpenseFormProps) {
-  
+  const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+
   // React 19 Action for adding/updating expenses
   async function submitExpenseAction(formData: FormData) {
     try {
@@ -42,8 +48,7 @@ export default function ExpenseForm({
         description: data.description as string || '',
         notes: data.notes as string || '',
         isGeneralExpense: data.isGeneralExpense === 'on',
-        expenseType: (data.expenseType as ExpenseType) || 'actual',
-        travelReference: currentExpense.travelReference
+        expenseType: (data.expenseType as ExpenseType) || 'actual'
       };
 
       // Validate required fields
@@ -56,7 +61,7 @@ export default function ExpenseForm({
       }
 
       // Call the parent handler
-      onExpenseAdded(expense);
+      onExpenseAdded(expense, selectedTravelLinkInfo);
       
       // Reset form state first
       if (editingExpenseIndex !== null) {
@@ -73,9 +78,9 @@ export default function ExpenseForm({
         description: '',
         notes: '',
         isGeneralExpense: false,
-        expenseType: 'actual',
-        travelReference: undefined
+        expenseType: 'actual'
       });
+      setSelectedTravelLinkInfo(undefined);
       
     } catch (error) {
       console.error('Error submitting expense:', error);
@@ -232,11 +237,19 @@ export default function ExpenseForm({
 
         <div className="md:col-span-2">
           <TravelItemSelector
-            currentReference={currentExpense.travelReference}
-            onReferenceChange={(reference) => {
+            expenseId={currentExpense.id!}
+            travelLookup={travelLookup}
+            onReferenceChange={(travelLinkInfo) => {
+              setSelectedTravelLinkInfo(travelLinkInfo);
               setCurrentExpense({
                 ...currentExpense,
-                travelReference: reference
+                travelReference: travelLinkInfo ? {
+                  type: travelLinkInfo.type,
+                  locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
+                  accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
+                  routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
+                  description: travelLinkInfo.name,
+                } : undefined,
               });
             }}
           />
@@ -267,6 +280,7 @@ export default function ExpenseForm({
                   expenseType: 'actual',
                   travelReference: undefined
                 });
+                setSelectedTravelLinkInfo(undefined);
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >

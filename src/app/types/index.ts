@@ -12,15 +12,6 @@ export type CostTrackingLink = {
   description?: string;
 };
 
-// Travel reference for linking expenses to travel items
-export type TravelReference = {
-  type: 'location' | 'accommodation' | 'route';
-  locationId?: string;
-  accommodationId?: string;
-  routeId?: string;
-  description?: string;
-};
-
 // Independent accommodation entity
 export type Accommodation = {
   id: string;
@@ -122,6 +113,14 @@ export type BudgetItem = {
 };
 
 export type ExpenseType = 'actual' | 'planned';
+
+export type TravelReference = {
+  type: 'location' | 'accommodation' | 'route';
+  locationId?: string;
+  accommodationId?: string;
+  routeId?: string;
+  description?: string;
+};
 
 export type Expense = {
   id: string;

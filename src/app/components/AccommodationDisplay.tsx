@@ -1,36 +1,59 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { parseAccommodationData, PrivacyOptions } from '../lib/privacyUtils';
+import { ExpenseTravelLookup } from '../lib/expenseTravelLookup';
+import { CostTrackingData } from '../types';
+import { formatCurrency } from '../lib/costUtils';
 
 interface AccommodationDisplayProps {
   accommodationData?: string;
   isAccommodationPublic?: boolean;
   privacyOptions: PrivacyOptions;
   className?: string;
+  travelLookup?: ExpenseTravelLookup | null;
+  costData?: CostTrackingData | null;
 }
 
 export default function AccommodationDisplay({
   accommodationData,
   isAccommodationPublic = false,
   privacyOptions,
-  className = ''
+  className = '',
+  travelLookup,
+  costData
 }: AccommodationDisplayProps) {
-  // Check if accommodation should be displayed based on privacy settings
-  const shouldDisplay = privacyOptions.isAdminView || isAccommodationPublic;
-  
-  if (!accommodationData || !shouldDisplay) {
-    return null;
-  }
+  const [totalLinkedCost, setTotalLinkedCost] = useState<number | null>(null);
+  const [parsedAccommodationData, setParsedAccommodationData] = useState<ReturnType<typeof parseAccommodationData>>({ isStructured: false, data: null, rawText: '' });
 
-  const parsedData = parseAccommodationData(accommodationData);
+  // Effect to parse accommodation data and calculate linked expenses
+  useEffect(() => {
+    const parsed = parseAccommodationData(accommodationData || '');
+    setParsedAccommodationData(parsed);
+
+    if (
+      travelLookup &&
+      costData &&
+      parsed.isStructured &&
+      parsed.data &&
+      typeof parsed.data === 'object' &&
+      'id' in parsed.data
+    ) {
+      const linkedExpenseIds = travelLookup.getExpensesForTravelItem('accommodation', (parsed.data as { id: string }).id);
+      const linkedExpenses = costData.expenses.filter(exp => linkedExpenseIds.includes(exp.id));
+      const total = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      setTotalLinkedCost(total);
+    } else {
+      setTotalLinkedCost(null);
+    }
+  }, [travelLookup, costData, accommodationData]);
 
   const renderStructuredData = () => {
-    if (!parsedData.isStructured || !parsedData.data) {
+    if (!parsedAccommodationData.isStructured || !parsedAccommodationData.data) {
       return null;
     }
 
-    const data = parsedData.data;
+    const data = parsedAccommodationData.data;
     
     return (
       <div className={`space-y-2 ${className}`}>
@@ -109,6 +132,14 @@ export default function AccommodationDisplay({
               </div>
             </div>
           )}
+
+          {totalLinkedCost !== null && totalLinkedCost > 0 && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                💰 Linked Cost: {formatCurrency(totalLinkedCost, costData?.currency || 'EUR')}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -140,5 +171,5 @@ export default function AccommodationDisplay({
     );
   };
 
-  return parsedData.isStructured ? renderStructuredData() : renderFreeText();
+  return parsedAccommodationData.isStructured ? renderStructuredData() : renderFreeText();
 }

@@ -11,6 +11,8 @@ import LinkedExpensesDisplay from './LinkedExpensesDisplay';
 import DeleteWarningDialog from './DeleteWarningDialog';
 import ReassignmentDialog from './ReassignmentDialog';
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '../../lib/costLinkCleanup';
+import { CostTrackingData } from '../../types';
+import { ExpenseTravelLookup, createExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 
 interface TravelRoute {
   id: string;
@@ -59,6 +61,8 @@ export default function TravelDataForm() {
     locations: [],
     routes: []
   });
+  const [costData, setCostData] = useState<CostTrackingData | null>(null);
+  const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
   
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
@@ -280,6 +284,21 @@ export default function TravelDataForm() {
         const rawTripData = await response.json();
         const tripData = migrateOldFormat(rawTripData);
         setTravelData(tripData);
+
+        // Load cost data for this trip
+        const costResponse = await fetch(`/api/cost-tracking?id=${tripId}`);
+        if (costResponse.ok) {
+          const costData = await costResponse.json();
+          setCostData(costData);
+          // Initialize travel lookup
+          const lookup = new ExpenseTravelLookup(costData.tripId);
+          await lookup.buildIndex();
+          setTravelLookup(lookup);
+        } else {
+          setCostData(null);
+          setTravelLookup(null);
+        }
+
         setMode('edit');
         setHasUnsavedChanges(false); // Just loaded, no changes yet
       }
@@ -737,6 +756,8 @@ export default function TravelDataForm() {
             const coords = await geocodeLocation(locationName);
             setCurrentLocation(prev => ({ ...prev, coordinates: coords }));
           }}
+          travelLookup={travelLookup}
+          costData={costData}
         />
         
         {/* Location List */}
@@ -772,6 +793,8 @@ export default function TravelDataForm() {
                             isAccommodationPublic={location.isAccommodationPublic}
                             privacyOptions={{ isAdminView: true }}
                             className="text-sm"
+                            travelLookup={travelLookup}
+                            costData={costData}
                           />
                         </div>
                       )}
@@ -781,6 +804,8 @@ export default function TravelDataForm() {
                         itemId={location.id}
                         itemType="location"
                         itemName={location.name}
+                        travelLookup={travelLookup}
+                        costData={costData}
                       />
                     </div>
                     <div className="flex gap-2">
@@ -992,6 +1017,8 @@ export default function TravelDataForm() {
                       itemId={route.id}
                       itemType="route"
                       itemName={`${route.from} → ${route.to}`}
+                      travelLookup={travelLookup}
+                      costData={costData}
                     />
                   </div>
                   <div className="flex gap-2">

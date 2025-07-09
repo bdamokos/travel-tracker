@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Journey, JourneyDay, Transportation } from '../types';
 import { transportationColors } from '../lib/routeUtils';
 import AccommodationDisplay from './AccommodationDisplay';
+
+import { ExpenseTravelLookup } from '../lib/expenseTravelLookup';
+import { CostTrackingData } from '../types';
+import { formatCurrency } from '../lib/costUtils';
 
 interface TimelineProps {
   journey: Journey | null;
@@ -12,9 +16,11 @@ interface TimelineProps {
   onDaySelect: (dayId: string) => void;
   onAddDay: () => void;
   isAdminView?: boolean; // For privacy filtering
+  travelLookup?: ExpenseTravelLookup | null;
+  costData?: CostTrackingData | null;
 }
 
-const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect, onAddDay, isAdminView = false }) => {
+const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect, onAddDay, isAdminView = false, travelLookup, costData }) => {
   const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
   
   const toggleDay = (dayId: string) => {
@@ -59,6 +65,8 @@ const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect
             isSelected={selectedDayId === day.id}
             onClick={() => toggleDay(day.id)}
             isAdminView={isAdminView}
+            travelLookup={travelLookup || null}
+            costData={costData || null}
           />
         ))}
       </div>
@@ -72,9 +80,11 @@ interface DayCardProps {
   isSelected: boolean;
   onClick: () => void;
   isAdminView: boolean;
+  travelLookup: ExpenseTravelLookup | null;
+  costData: CostTrackingData | null;
 }
 
-const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick, isAdminView }) => {
+const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick, isAdminView, travelLookup, costData }) => {
   const formattedDate = format(new Date(day.date), 'MMM d, yyyy');
   
   return (
@@ -192,7 +202,11 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
           {day.transportation && (
             <div className="mb-3">
               <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Transportation</h4>
-              <TransportationItem transportation={day.transportation} />
+              <TransportationItem 
+                transportation={day.transportation} 
+                travelLookup={travelLookup}
+                costData={costData}
+              />
             </div>
           )}
           
@@ -232,10 +246,22 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
 
 interface TransportationItemProps {
   transportation: Transportation;
+  travelLookup: ExpenseTravelLookup | null;
+  costData: CostTrackingData | null;
 }
 
-const TransportationItem: React.FC<TransportationItemProps> = ({ transportation }) => {
-  const { type, from, to, distance, departureTime, arrivalTime } = transportation;
+const TransportationItem: React.FC<TransportationItemProps> = ({ transportation, travelLookup, costData }) => {
+  const { type, from, to, distance, departureTime, arrivalTime, id } = transportation;
+  const [totalLinkedCost, setTotalLinkedCost] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (travelLookup && costData && id) {
+      const linkedExpenseIds = travelLookup.getExpensesForTravelItem('route', id);
+      const linkedExpenses = costData.expenses.filter(exp => linkedExpenseIds.includes(exp.id));
+      const total = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      setTotalLinkedCost(total);
+    }
+  }, [travelLookup, costData, id]);
   
   const getTransportIcon = (type: Transportation['type']) => {
     switch (type) {
@@ -278,6 +304,13 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation 
           ) : null}
           {distance && <span> ({distance} km)</span>}
         </div>
+        {totalLinkedCost !== null && totalLinkedCost > 0 && (
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-600 mt-2">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              💰 Linked Cost: {formatCurrency(totalLinkedCost, costData?.currency || 'EUR')}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
