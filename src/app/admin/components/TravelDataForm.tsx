@@ -801,9 +801,10 @@ export default function TravelDataForm() {
                       
                       {/* Linked Expenses Display */}
                       <LinkedExpensesDisplay
-                        itemId={location.id}
-                        itemType="location"
-                        itemName={location.name}
+                        items={[
+                          { itemType: 'location', itemId: location.id },
+                          ...((location.accommodationIds || []).map((accId: string) => ({ itemType: 'accommodation', itemId: accId })) as { itemType: 'accommodation', itemId: string }[])
+                        ]}
                         travelLookup={travelLookup}
                         costData={costData}
                       />

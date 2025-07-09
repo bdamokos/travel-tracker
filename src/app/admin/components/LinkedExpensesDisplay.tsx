@@ -6,15 +6,19 @@ import { Expense, CostTrackingData } from '../../types';
 import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 
 interface LinkedExpensesDisplayProps {
-  itemId: string;
-  itemType: 'location' | 'accommodation' | 'route';
-  itemName: string;
+  // New: support multiple items
+  items?: Array<{ itemType: 'location' | 'accommodation' | 'route'; itemId: string; itemName?: string }>;
+  // Backward compatibility
+  itemId?: string;
+  itemType?: 'location' | 'accommodation' | 'route';
+  itemName?: string;
   className?: string;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
 }
 
 export default function LinkedExpensesDisplay({
+  items,
   itemId,
   itemType,
   className = '',
@@ -36,10 +40,19 @@ export default function LinkedExpensesDisplay({
           setLinkedExpenses([]);
           return;
         }
-        
-        const expenseIds = travelLookup.getExpensesForTravelItem(itemType, itemId);
+        // New: support multiple items
+        let expenseIds: string[] = [];
+        if (items && items.length > 0) {
+          for (const item of items) {
+            const ids = travelLookup.getExpensesForTravelItem(item.itemType, item.itemId);
+            expenseIds.push(...ids);
+          }
+        } else if (itemType && itemId) {
+          expenseIds = travelLookup.getExpensesForTravelItem(itemType, itemId);
+        }
+        // Deduplicate
+        expenseIds = Array.from(new Set(expenseIds));
         const expenses = costData.expenses.filter(exp => expenseIds.includes(exp.id));
-        
         // Sort by date
         expenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         setLinkedExpenses(expenses);
@@ -49,9 +62,8 @@ export default function LinkedExpensesDisplay({
         setLoading(false);
       }
     }
-    
     loadLinkedExpenses();
-  }, [itemId, itemType, travelLookup, costData]);
+  }, [items, itemId, itemType, travelLookup, costData]);
 
   if (loading) {
     return (
