@@ -3,6 +3,7 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { parseYnabFile } from '@/app/lib/ynabUtils';
 import { cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
+import { isAdminDomain } from '@/app/lib/server-domains';
 import JSZip from 'jszip';
 
 // Security constants
@@ -68,6 +69,12 @@ async function extractYnabTsvFromZip(zipFile: File): Promise<string> {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { id } = await params;
     const formData = await request.formData();
     const file = formData.get('file') as File;

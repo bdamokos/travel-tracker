@@ -12,9 +12,16 @@ import {
 } from '@/app/types';
 import { createTransactionHash } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { id } = await params;
     const body = await request.json();
     const { tempFileId, mappings, selectedTransactions } = body;
@@ -154,6 +161,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 // GET endpoint to retrieve processed transactions for review
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { id } = await params;
     const url = new URL(request.url);
     const tempFileId = url.searchParams.get('tempFileId');

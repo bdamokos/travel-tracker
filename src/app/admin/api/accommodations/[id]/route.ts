@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData } from '../../../../lib/unifiedDataService';
 import { Accommodation } from '../../../../types';
+import { isAdminDomain } from '../../../../lib/server-domains';
 
 // GET - Get single accommodation by ID
 export async function GET(
@@ -8,6 +9,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const tripId = searchParams.get('tripId');

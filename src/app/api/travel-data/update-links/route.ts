@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, updateTravelData } from '../../../lib/unifiedDataService';
 import { TravelLinkInfo } from '../../../lib/expenseTravelLookup';
 import { Location, Accommodation, Transportation, CostTrackingLink } from '../../../types';
+import { isAdminDomain } from '../../../lib/server-domains';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { tripId, travelLinkInfo, expenseId } = await request.json();
 
     if (!tripId || !expenseId) {

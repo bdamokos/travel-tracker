@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { listAllTrips, getLegacyCostData } from '../../../lib/unifiedDataService';
 import { Expense } from '../../../types';
+import { isAdminDomain } from '../../../lib/server-domains';
 
 
 export async function GET() {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const trips = await listAllTrips();
     
     // Get cost entries with actual data

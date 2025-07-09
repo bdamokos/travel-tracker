@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
 import { Accommodation } from '../../../types';
+import { isAdminDomain } from '../../../lib/server-domains';
 
 
 // Generate unique ID
@@ -11,6 +12,12 @@ function generateId(): string {
 // GET - List accommodations for a specific trip
 export async function GET(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { searchParams } = new URL(request.url);
     const tripId = searchParams.get('tripId');
     const locationId = searchParams.get('locationId');
@@ -43,6 +50,12 @@ export async function GET(request: NextRequest) {
 // POST - Create new accommodation in a trip
 export async function POST(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const body = await request.json();
     const { tripId } = body;
     

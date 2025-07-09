@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateCostData, getLegacyCostData } from '../../lib/unifiedDataService';
+import { isAdminDomain } from '../../lib/server-domains';
 
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const costData = await request.json();
     
     // Generate a unique ID for this cost tracking data
@@ -39,6 +46,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
@@ -74,6 +87,12 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
