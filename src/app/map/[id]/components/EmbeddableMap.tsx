@@ -55,6 +55,50 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
+  
+  // Initialize client-side state
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Load Leaflet dynamically
+  useEffect(() => {
+    if (!isClient) return;
+    
+    import('leaflet').then((leaflet) => {
+      setL(leaflet);
+      
+      // Fix Leaflet icon issues
+      delete (leaflet.Icon.Default.prototype as any)._getIconUrl;
+      leaflet.Icon.Default.mergeOptions({
+        iconRetinaUrl: '/images/marker-icon-2x.png',
+        iconUrl: '/images/marker-icon.png',
+        shadowUrl: '/images/marker-shadow.png',
+      });
+      
+      // Create highlighted icon
+      const highlightedIcon = leaflet.divIcon({
+        className: 'custom-highlighted-marker',
+        html: `
+          <div style="
+            width: 25px; 
+            height: 41px; 
+            background-image: url('/images/marker-icon.png'); 
+            background-size: contain; 
+            background-repeat: no-repeat;
+            filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
+            animation: pulse-marker 2s infinite;
+          "></div>
+        `,
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34]
+      });
+      
+      setHighlightedIcon(highlightedIcon);
+    });
+  }, [isClient]);
+  
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
 
