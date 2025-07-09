@@ -28,51 +28,58 @@ export default function ExpenseForm({
   
   // React 19 Action for adding/updating expenses
   async function submitExpenseAction(formData: FormData) {
-    const data = Object.fromEntries(formData);
-    
-    // Convert form data to expense object
-    const expense: Expense = {
-      id: editingExpenseIndex !== null ? currentExpense.id! : generateId(),
-      date: data.date as string,
-      amount: parseFloat(data.amount as string),
-      currency: data.currency as string || currency,
-      category: data.category as string,
-      country: data.country as string || '',
-      description: data.description as string || '',
-      notes: data.notes as string || '',
-      isGeneralExpense: data.isGeneralExpense === 'on',
-      expenseType: (data.expenseType as ExpenseType) || 'actual',
-      travelReference: currentExpense.travelReference
-    };
+    try {
+      const data = Object.fromEntries(formData);
+      
+      // Convert form data to expense object
+      const expense: Expense = {
+        id: editingExpenseIndex !== null ? currentExpense.id! : generateId(),
+        date: data.date as string,
+        amount: parseFloat(data.amount as string),
+        currency: data.currency as string || currency,
+        category: data.category as string,
+        country: data.country as string || '',
+        description: data.description as string || '',
+        notes: data.notes as string || '',
+        isGeneralExpense: data.isGeneralExpense === 'on',
+        expenseType: (data.expenseType as ExpenseType) || 'actual',
+        travelReference: currentExpense.travelReference
+      };
 
-    // Validate required fields
-    if (!expense.date || !expense.amount || expense.amount === 0 || !expense.category) {
-      const missing = [];
-      if (!expense.date) missing.push('Date');
-      if (!expense.amount || expense.amount === 0) missing.push('Amount (cannot be zero, use negative for refunds)');
-      if (!expense.category) missing.push('Category');
-      throw new Error(`Please fill in the following required fields: ${missing.join(', ')}`);
-    }
+      // Validate required fields
+      if (!expense.date || !expense.amount || expense.amount === 0 || !expense.category) {
+        const missing = [];
+        if (!expense.date) missing.push('Date');
+        if (!expense.amount || expense.amount === 0) missing.push('Amount (cannot be zero, use negative for refunds)');
+        if (!expense.category) missing.push('Category');
+        throw new Error(`Please fill in the following required fields: ${missing.join(', ')}`);
+      }
 
-    // Call the parent handler
-    onExpenseAdded(expense);
-    
-    // Reset form
-    setCurrentExpense({
-      date: '',
-      amount: 0,
-      currency: currency,
-      category: '',
-      country: '',
-      description: '',
-      notes: '',
-      isGeneralExpense: false,
-      expenseType: 'actual',
-      travelReference: undefined
-    });
-    
-    if (editingExpenseIndex !== null) {
-      setEditingExpenseIndex(null);
+      // Call the parent handler
+      onExpenseAdded(expense);
+      
+      // Reset form state first
+      if (editingExpenseIndex !== null) {
+        setEditingExpenseIndex(null);
+      }
+      
+      // Reset form data
+      setCurrentExpense({
+        date: '',
+        amount: 0,
+        currency: currency,
+        category: '',
+        country: '',
+        description: '',
+        notes: '',
+        isGeneralExpense: false,
+        expenseType: 'actual',
+        travelReference: undefined
+      });
+      
+    } catch (error) {
+      console.error('Error submitting expense:', error);
+      throw error; // Re-throw to show error to user
     }
   }
 

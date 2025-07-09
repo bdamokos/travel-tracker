@@ -1,49 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
 import { Accommodation } from '../../../types';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const ACCOMMODATIONS_FILE = path.join(DATA_DIR, 'accommodations.json');
-
-// Ensure data directory exists
-async function ensureDataDir() {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-  } catch {
-    // Directory already exists
-  }
-}
-
-// Load all accommodations
-async function loadAccommodations(): Promise<Accommodation[]> {
-  try {
-    const data = await fs.readFile(ACCOMMODATIONS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    // File doesn't exist, return empty array
-    return [];
-  }
-}
-
-// Save accommodations
-async function saveAccommodations(accommodations: Accommodation[]): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(ACCOMMODATIONS_FILE, JSON.stringify(accommodations, null, 2));
-}
 
 // Generate unique ID
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
-// GET - List accommodations (optionally filtered by locationId)
+// GET - List accommodations for a specific trip
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const tripId = searchParams.get('tripId');
     const locationId = searchParams.get('locationId');
     
-    const accommodations = await loadAccommodations();
+    if (!tripId) {
+      return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
+    }
+    
+    const tripData = await loadUnifiedTripData(tripId);
+    if (!tripData) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    }
+    
+    const accommodations = tripData.accommodations || [];
     
     if (locationId) {
       // Filter by location
@@ -51,7 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(filtered);
     }
     
-    // Return all accommodations
+    // Return all accommodations for this trip
     return NextResponse.json(accommodations);
   } catch (error) {
     console.error('Error loading accommodations:', error);
@@ -59,34 +40,23 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new accommodation(s)
+// POST - Create new accommodation in a trip
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const accommodations = await loadAccommodations();
+    const { tripId } = body;
     
-    // Support bulk creation for migration
-    if (body.accommodations && Array.isArray(body.accommodations)) {
-      const newAccommodations: Accommodation[] = body.accommodations.map((acc: Accommodation) => ({
-        id: acc.id || generateId(),
-        name: acc.name || 'Accommodation',
-        locationId: acc.locationId,
-        accommodationData: acc.accommodationData || '',
-        isAccommodationPublic: acc.isAccommodationPublic || false,
-        costTrackingLinks: acc.costTrackingLinks || [],
-        createdAt: acc.createdAt || new Date().toISOString(),
-        updatedAt: acc.updatedAt || new Date().toISOString()
-      }));
-      
-      accommodations.push(...newAccommodations);
-      await saveAccommodations(accommodations);
-      
-      return NextResponse.json(newAccommodations);
+    if (!tripId) {
+      return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
     }
     
-    // Single accommodation creation
     if (!body.name || !body.locationId) {
       return NextResponse.json({ error: 'Name and locationId are required' }, { status: 400 });
+    }
+    
+    const tripData = await loadUnifiedTripData(tripId);
+    if (!tripData) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
     }
     
     const newAccommodation: Accommodation = {
@@ -100,8 +70,12 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString()
     };
     
-    accommodations.push(newAccommodation);
-    await saveAccommodations(accommodations);
+    if (!tripData.accommodations) {
+      tripData.accommodations = [];
+    }
+    tripData.accommodations.push(newAccommodation);
+    
+    await saveUnifiedTripData(tripData);
     
     return NextResponse.json(newAccommodation);
   } catch (error) {
@@ -114,23 +88,36 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const accommodations = await loadAccommodations();
+    const { tripId } = body;
     
-    const index = accommodations.findIndex(acc => acc.id === body.id);
+    if (!tripId || !body.id) {
+      return NextResponse.json({ error: 'tripId and id are required' }, { status: 400 });
+    }
+    
+    const tripData = await loadUnifiedTripData(tripId);
+    if (!tripData) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    }
+    
+    if (!tripData.accommodations) {
+      return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
+    }
+    
+    const index = tripData.accommodations.findIndex(acc => acc.id === body.id);
     if (index === -1) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
     }
     
     // Update accommodation
-    accommodations[index] = {
-      ...accommodations[index],
+    tripData.accommodations[index] = {
+      ...tripData.accommodations[index],
       ...body,
       updatedAt: new Date().toISOString()
     };
     
-    await saveAccommodations(accommodations);
+    await saveUnifiedTripData(tripData);
     
-    return NextResponse.json(accommodations[index]);
+    return NextResponse.json(tripData.accommodations[index]);
   } catch (error) {
     console.error('Error updating accommodation:', error);
     return NextResponse.json({ error: 'Failed to update accommodation' }, { status: 500 });
@@ -142,20 +129,28 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const tripId = searchParams.get('tripId');
     
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    if (!id || !tripId) {
+      return NextResponse.json({ error: 'ID and tripId are required' }, { status: 400 });
     }
     
-    const accommodations = await loadAccommodations();
-    const index = accommodations.findIndex(acc => acc.id === id);
+    const tripData = await loadUnifiedTripData(tripId);
+    if (!tripData) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    }
     
+    if (!tripData.accommodations) {
+      return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
+    }
+    
+    const index = tripData.accommodations.findIndex(acc => acc.id === id);
     if (index === -1) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
     }
     
-    accommodations.splice(index, 1);
-    await saveAccommodations(accommodations);
+    tripData.accommodations.splice(index, 1);
+    await saveUnifiedTripData(tripData);
     
     return NextResponse.json({ success: true });
   } catch (error) {

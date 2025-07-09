@@ -5,8 +5,10 @@ import { Accommodation, CostTrackingLink } from '../../types';
 import { useAccommodations } from '../../hooks/useAccommodations';
 import AccommodationInput from './AccommodationInput';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
+import LinkedExpensesDisplay from './LinkedExpensesDisplay';
 
 interface LocationAccommodationsManagerProps {
+  tripId: string;
   locationId: string;
   locationName: string;
   accommodationIds: string[];
@@ -14,6 +16,7 @@ interface LocationAccommodationsManagerProps {
 }
 
 export default function LocationAccommodationsManager({
+  tripId,
   locationId,
   locationName,
   accommodationIds,
@@ -26,7 +29,7 @@ export default function LocationAccommodationsManager({
     updateAccommodation,
     deleteAccommodation,
     getAccommodationById
-  } = useAccommodations();
+  } = useAccommodations(tripId);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -54,7 +57,7 @@ export default function LocationAccommodationsManager({
     }
 
     try {
-      const created = await createAccommodation({
+      const created = await createAccommodation(tripId, {
         ...newAccommodation,
         locationId
       });
@@ -77,7 +80,7 @@ export default function LocationAccommodationsManager({
 
   const handleUpdateAccommodation = async (accommodation: Accommodation) => {
     try {
-      await updateAccommodation(accommodation);
+      await updateAccommodation(tripId, accommodation);
       setEditingId(null);
     } catch (error) {
       console.error('Error updating accommodation:', error);
@@ -87,7 +90,7 @@ export default function LocationAccommodationsManager({
   const handleDeleteAccommodation = async (accommodationId: string) => {
     if (confirm('Are you sure you want to delete this accommodation?')) {
       try {
-        await deleteAccommodation(accommodationId);
+        await deleteAccommodation(tripId, accommodationId);
         // Remove from location's accommodation IDs
         onAccommodationIdsChange(accommodationIds.filter(id => id !== accommodationId));
       } catch (error) {
@@ -257,6 +260,13 @@ function AccommodationDisplay({
           💰 {accommodation.costTrackingLinks?.length || 0} linked expense{accommodation.costTrackingLinks?.length !== 1 ? 's' : ''}
         </span>
       </div>
+      
+      {/* Linked Expenses Display */}
+      <LinkedExpensesDisplay
+        itemId={accommodation.id}
+        itemType="accommodation"
+        itemName={accommodation.name}
+      />
     </div>
   );
 }

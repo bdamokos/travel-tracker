@@ -11,6 +11,7 @@ function generateId(): string {
 }
 
 interface LocationFormProps {
+  tripId: string;
   currentLocation: Partial<Location>;
   setCurrentLocation: React.Dispatch<React.SetStateAction<Partial<Location>>>;
   onLocationAdded: (location: Location) => void;
@@ -20,6 +21,7 @@ interface LocationFormProps {
 }
 
 export default function LocationForm({
+  tripId,
   currentLocation,
   setCurrentLocation,
   onLocationAdded,
@@ -101,7 +103,7 @@ export default function LocationForm({
   };
 
   return (
-    <div className="bg-gray-50 p-4 rounded-md mb-4">
+    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-4">
       <h4 className="font-medium mb-3">
         {editingLocationIndex !== null ? 'Edit Location' : 'Add Location'}
       </h4>
@@ -112,7 +114,7 @@ export default function LocationForm({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <div>
-          <label htmlFor="location-name" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="location-name" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Location Name *
           </label>
           <div className="flex gap-2">
@@ -137,7 +139,7 @@ export default function LocationForm({
         </div>
 
         <div>
-          <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Arrival Date *
           </label>
           <input
@@ -153,7 +155,7 @@ export default function LocationForm({
         </div>
 
         <div>
-          <label htmlFor="location-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="location-end-date" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Departure Date (optional)
           </label>
           <input
@@ -173,14 +175,14 @@ export default function LocationForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {currentLocation.duration && currentLocation.date && currentLocation.endDate && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Duration: {formatDuration(currentLocation.duration, currentLocation.date, currentLocation.endDate)}
             </p>
           )}
         </div>
 
         <div className="md:col-span-2">
-          <label htmlFor="location-notes" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="location-notes" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Notes (optional)
           </label>
           <textarea
@@ -195,7 +197,7 @@ export default function LocationForm({
         </div>
 
         <div>
-          <label htmlFor="location-latitude" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="location-latitude" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Coordinates
           </label>
           <div className="flex gap-2">
@@ -228,9 +230,20 @@ export default function LocationForm({
           </div>
         </div>
 
+        {/* Location-Level Cost Tracking Links */}
+        <div className="md:col-span-2">
+          <CostTrackingLinksManager
+            currentLinks={currentLocation.costTrackingLinks || []}
+            onLinksChange={(links) => 
+              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, costTrackingLinks: links }))
+            }
+          />
+        </div>
+
         {/* Location Accommodations Manager */}
         <div className="md:col-span-2">
           <LocationAccommodationsManager
+            tripId={tripId}
             locationId={currentLocation.id || 'temp-location'}
             locationName={currentLocation.name || 'New Location'}
             accommodationIds={currentLocation.accommodationIds || []}
@@ -240,15 +253,7 @@ export default function LocationForm({
           />
         </div>
 
-        {/* Cost Tracking Links */}
-        <div className="md:col-span-2">
-          <CostTrackingLinksManager
-            currentLinks={currentLocation.costTrackingLinks || []}
-            onLinksChange={(links) => 
-              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, costTrackingLinks: links }))
-            }
-          />
-        </div>
+
 
         <div className="flex items-end gap-2">
           <button

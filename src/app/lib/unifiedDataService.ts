@@ -119,7 +119,10 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
           : migrateLegacyCostData(costData!);
       }
       
-      // Save the merged/migrated data
+      // Apply latest schema migration
+      finalData = migrateToLatestSchema(finalData);
+      
+      // Save the migrated data
       await saveUnifiedTripData(finalData);
       
       // Clean up legacy files only if we actually found legacy data to migrate
@@ -127,7 +130,7 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
         await cleanupLegacyFiles(finalData.id, travelData, costData);
       }
       
-      return migrateToLatestSchema(finalData);
+      return finalData;
     }
     
     return null;

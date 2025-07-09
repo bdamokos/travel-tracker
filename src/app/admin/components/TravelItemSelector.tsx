@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { TravelReference, Location, Transportation, Accommodation } from '../../types';
-import { useAccommodations } from '../../hooks/useAccommodations';
 
 interface TravelItem {
   id: string;
@@ -30,9 +29,6 @@ export default function TravelItemSelector({
   const [selectedType, setSelectedType] = useState<'location' | 'accommodation' | 'route' | ''>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
-  
-  // Load accommodations
-  const { accommodations } = useAccommodations();
 
   // Load current reference values
   useEffect(() => {
@@ -52,7 +48,7 @@ export default function TravelItemSelector({
         
         const allItems: TravelItem[] = [];
         
-        // Load detailed data for each trip to get locations and routes
+        // Load detailed data for each trip to get locations, routes, and accommodations
         for (const trip of trips) {
           try {
             const detailResponse = await fetch(`/api/travel-data?id=${trip.id}`);
@@ -82,6 +78,23 @@ export default function TravelItemSelector({
                   description: `${route.transportType} transport`,
                   date: route.date,
                   tripTitle: trip.title
+                });
+              });
+            }
+            
+            // Add accommodations from unified trip data
+            if (tripData.accommodations) {
+              tripData.accommodations.forEach((accommodation: Accommodation) => {
+                // Find the location for this accommodation
+                const location = allItems.find(item => item.type === 'location' && item.id === accommodation.locationId);
+                allItems.push({
+                  id: accommodation.id,
+                  type: 'accommodation',
+                  name: accommodation.name,
+                  description: accommodation.accommodationData?.substring(0, 100) || '',
+                  date: location?.date || '',
+                  tripTitle: trip.title,
+                  locationName: location?.name
                 });
               });
             }

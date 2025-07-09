@@ -5,24 +5,24 @@ interface UseAccommodationsResult {
   accommodations: Accommodation[];
   loading: boolean;
   error: string | null;
-  createAccommodation: (accommodation: Omit<Accommodation, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Accommodation>;
-  updateAccommodation: (accommodation: Accommodation) => Promise<Accommodation>;
-  deleteAccommodation: (id: string) => Promise<void>;
+  createAccommodation: (tripId: string, accommodation: Omit<Accommodation, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Accommodation>;
+  updateAccommodation: (tripId: string, accommodation: Accommodation) => Promise<Accommodation>;
+  deleteAccommodation: (tripId: string, id: string) => Promise<void>;
   getAccommodationsByLocation: (locationId: string) => Accommodation[];
   getAccommodationById: (id: string) => Accommodation | undefined;
-  refreshAccommodations: () => Promise<void>;
+  loadAccommodationsForTrip: (tripId: string) => Promise<void>;
 }
 
-export function useAccommodations(): UseAccommodationsResult {
+export function useAccommodations(tripId?: string): UseAccommodationsResult {
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAccommodations = async () => {
+  const loadAccommodationsForTrip = async (targetTripId: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/admin/api/accommodations');
+      const response = await fetch(`/admin/api/accommodations?tripId=${targetTripId}`);
       
       if (!response.ok) {
         throw new Error('Failed to load accommodations');
@@ -37,12 +37,12 @@ export function useAccommodations(): UseAccommodationsResult {
     }
   };
 
-  const createAccommodation = async (accommodationData: Omit<Accommodation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Accommodation> => {
+  const createAccommodation = async (targetTripId: string, accommodationData: Omit<Accommodation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Accommodation> => {
     try {
       const response = await fetch('/admin/api/accommodations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(accommodationData)
+        body: JSON.stringify({ ...accommodationData, tripId: targetTripId })
       });
 
       if (!response.ok) {
@@ -58,12 +58,12 @@ export function useAccommodations(): UseAccommodationsResult {
     }
   };
 
-  const updateAccommodation = async (accommodation: Accommodation): Promise<Accommodation> => {
+  const updateAccommodation = async (targetTripId: string, accommodation: Accommodation): Promise<Accommodation> => {
     try {
       const response = await fetch('/admin/api/accommodations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(accommodation)
+        body: JSON.stringify({ ...accommodation, tripId: targetTripId })
       });
 
       if (!response.ok) {
@@ -81,9 +81,9 @@ export function useAccommodations(): UseAccommodationsResult {
     }
   };
 
-  const deleteAccommodation = async (id: string): Promise<void> => {
+  const deleteAccommodation = async (targetTripId: string, id: string): Promise<void> => {
     try {
-      const response = await fetch(`/admin/api/accommodations?id=${id}`, {
+      const response = await fetch(`/admin/api/accommodations?id=${id}&tripId=${targetTripId}`, {
         method: 'DELETE'
       });
 
@@ -106,13 +106,11 @@ export function useAccommodations(): UseAccommodationsResult {
     return accommodations.find(acc => acc.id === id);
   };
 
-  const refreshAccommodations = async (): Promise<void> => {
-    await loadAccommodations();
-  };
-
   useEffect(() => {
-    loadAccommodations();
-  }, []);
+    if (tripId) {
+      loadAccommodationsForTrip(tripId);
+    }
+  }, [tripId]);
 
   return {
     accommodations,
@@ -123,6 +121,6 @@ export function useAccommodations(): UseAccommodationsResult {
     deleteAccommodation,
     getAccommodationsByLocation,
     getAccommodationById,
-    refreshAccommodations
+    loadAccommodationsForTrip
   };
 }

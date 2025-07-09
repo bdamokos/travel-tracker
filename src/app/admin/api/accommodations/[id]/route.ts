@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { loadUnifiedTripData } from '../../../../lib/unifiedDataService';
 import { Accommodation } from '../../../../types';
-
-const DATA_DIR = path.join(process.cwd(), 'data');
-const ACCOMMODATIONS_FILE = path.join(DATA_DIR, 'accommodations.json');
-
-// Load all accommodations
-async function loadAccommodations(): Promise<Accommodation[]> {
-  try {
-    const data = await fs.readFile(ACCOMMODATIONS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    // File doesn't exist, return empty array
-    return [];
-  }
-}
 
 // GET - Get single accommodation by ID
 export async function GET(
@@ -24,9 +9,19 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const accommodations = await loadAccommodations();
-    const accommodation = accommodations.find(acc => acc.id === id);
+    const { searchParams } = new URL(request.url);
+    const tripId = searchParams.get('tripId');
     
+    if (!tripId) {
+      return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
+    }
+    
+    const tripData = await loadUnifiedTripData(tripId);
+    if (!tripData) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    }
+    
+    const accommodation = tripData.accommodations?.find(acc => acc.id === id);
     if (!accommodation) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
     }

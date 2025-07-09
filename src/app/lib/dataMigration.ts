@@ -5,7 +5,7 @@
  * while maintaining backwards compatibility and future-proofing
  */
 
-import { Journey, CostTrackingData, Location, Transportation, Accommodation } from '../types';
+import { Journey, CostTrackingData, Location, Transportation, Accommodation, CostTrackingLink } from '../types';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -31,6 +31,9 @@ export interface UnifiedTripData {
     // New Journey format
     days?: Journey['days'];
   };
+  
+  // Accommodations data
+  accommodations?: Accommodation[];
   
   // Cost tracking data (can be null for travel-only trips)
   costData?: {
@@ -163,7 +166,7 @@ export function isLegacyCostFormat(data: unknown): data is LegacyCostData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * Migrates from version 1 to version 2 - extracts accommodations from locations
@@ -201,35 +204,108 @@ export function migrateFromV1ToV2(data: UnifiedTripData): UnifiedTripData {
     });
   }
   
-  // Save extracted accommodations to file
-  if (extractedAccommodations.length > 0) {
-    saveExtractedAccommodations(extractedAccommodations);
-  }
-  
   return {
     ...data,
+    accommodations: extractedAccommodations,
     schemaVersion: 2,
     updatedAt: new Date().toISOString()
   };
 }
 
+// Accommodations are now stored directly in the trip data, no separate file needed
+
 /**
- * Saves extracted accommodations to the accommodations file
+ * Migrates from version 2 to version 3 - properly extracts accommodations from locations
+ * This fixes the incomplete v2 migration that didn't actually create accommodations
  */
-async function saveExtractedAccommodations(accommodations: Accommodation[]) {
-  try {
-    const response = await fetch('/admin/api/accommodations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accommodations })
+export function migrateFromV2ToV3(data: UnifiedTripData): UnifiedTripData {
+  const extractedAccommodations: Accommodation[] = [];
+  const accommodationMap = new Map<string, string>(); // locationId -> accommodationId
+  
+  // First, if accommodations already exist, create a map of existing ones
+  if (data.accommodations) {
+    data.accommodations.forEach(acc => {
+      accommodationMap.set(acc.locationId, acc.id);
+      extractedAccommodations.push(acc);
+    });
+  }
+  
+  // Process locations: create accommodations only for locations that have accommodationData
+  if (data.travelData?.locations) {
+    data.travelData.locations.forEach(location => {
+      // Only create accommodations for locations that have accommodationData
+      if (location.accommodationData && !accommodationMap.has(location.id)) {
+        const accommodationId = `acc-${location.id}-${Date.now()}`;
+        
+        // For locations with accommodation data, move accommodation-related expenses to the accommodation
+        const accommodationExpenses = (location.costTrackingLinks || []).filter(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          return expense?.category === 'Accommodation' || 
+                 expense?.travelReference?.type === 'accommodation';
+        });
+        
+        // Keep all other expenses at the location level
+        const locationExpenses = (location.costTrackingLinks || []).filter(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          return !(expense?.category === 'Accommodation' || 
+                  expense?.travelReference?.type === 'accommodation');
+        });
+        
+        const accommodation: Accommodation = {
+          id: accommodationId,
+          name: 'Accommodation', // Default name for legacy accommodations
+          locationId: location.id,
+          accommodationData: location.accommodationData,
+          isAccommodationPublic: location.isAccommodationPublic || false,
+          costTrackingLinks: accommodationExpenses,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        extractedAccommodations.push(accommodation);
+        accommodationMap.set(location.id, accommodationId);
+      }
     });
     
-    if (!response.ok) {
-      console.error('Failed to save extracted accommodations');
-    }
-  } catch (error) {
-    console.error('Error saving extracted accommodations:', error);
+    // Second pass: update all locations
+    data.travelData.locations = data.travelData.locations.map(location => {
+      const accommodationId = accommodationMap.get(location.id);
+      
+      if (accommodationId) {
+        // Location has accommodation - reference it and update cost links
+        const accommodationExpenses = (location.costTrackingLinks || []).filter(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          return expense?.category === 'Accommodation' || 
+                 expense?.travelReference?.type === 'accommodation';
+        });
+        
+        const locationExpenses = (location.costTrackingLinks || []).filter(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          return !(expense?.category === 'Accommodation' || 
+                  expense?.travelReference?.type === 'accommodation');
+        });
+        
+        return {
+          ...location,
+          accommodationIds: [accommodationId],
+          costTrackingLinks: locationExpenses
+        };
+      } else {
+        // Location has no accommodation - keep all cost tracking links and ensure accommodationIds is empty array
+        return {
+          ...location,
+          accommodationIds: []
+        };
+      }
+    });
   }
+  
+  return {
+    ...data,
+    accommodations: extractedAccommodations,
+    schemaVersion: 3,
+    updatedAt: new Date().toISOString()
+  };
 }
 
 /**
@@ -244,9 +320,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   if (data.schemaVersion < 2) {
     data = migrateFromV1ToV2(data);
   }
-  // if (data.schemaVersion < 3) {
-  //   data = migrateFromV2ToV3(data);
-  // }
+  if (data.schemaVersion < 3) {
+    data = migrateFromV2ToV3(data);
+  }
   
   // Ensure current version
   if (data.schemaVersion < CURRENT_SCHEMA_VERSION) {

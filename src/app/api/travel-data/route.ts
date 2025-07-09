@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Return the travel data portion for backward compatibility
+    // Return the travel data portion for backward compatibility, including accommodations
     const travelData = {
       id: unifiedData.id,
       title: unifiedData.title,
@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
       endDate: unifiedData.endDate,
       locations: unifiedData.travelData?.locations || [],
       routes: unifiedData.travelData?.routes || [],
-      days: unifiedData.travelData?.days
+      days: unifiedData.travelData?.days,
+      accommodations: unifiedData.accommodations || []
     };
     
     // Apply server-side privacy filtering based on domain

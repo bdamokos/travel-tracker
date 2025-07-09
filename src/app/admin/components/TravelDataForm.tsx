@@ -69,6 +69,7 @@ export default function TravelDataForm() {
     blogPosts: [],
     accommodationData: '',
     isAccommodationPublic: false,
+    accommodationIds: [],
     costTrackingLinks: []
   });
   
@@ -242,6 +243,7 @@ export default function TravelDataForm() {
       blogPosts: location.blogPosts || [],
       accommodationData: location.accommodationData,
       isAccommodationPublic: location.isAccommodationPublic || false,
+      accommodationIds: location.accommodationIds || [],
       costTrackingLinks: location.costTrackingLinks || []
     })) || [];
 
@@ -725,6 +727,7 @@ export default function TravelDataForm() {
           )}
         </div>
         <LocationForm
+          tripId={travelData.id || ''}
           currentLocation={currentLocation}
           setCurrentLocation={setCurrentLocation}
           onLocationAdded={handleLocationAdded}

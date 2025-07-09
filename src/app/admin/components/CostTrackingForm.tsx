@@ -7,6 +7,7 @@ import YnabImportForm from './YnabImportForm';
 import YnabMappingManager from './YnabMappingManager';
 import CostPieCharts from './CostPieCharts';
 import ExpenseForm from './ExpenseForm';
+import { ExpenseTravelLookup, createExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 import TravelLinkDisplay from './TravelLinkDisplay';
 
 interface ExistingTrip {
@@ -68,8 +69,7 @@ export default function CostTrackingForm() {
     description: '',
     notes: '',
     isGeneralExpense: false,
-    expenseType: 'actual',
-    travelReference: undefined
+    expenseType: 'actual'
   });
 
   const [editingBudgetIndex, setEditingBudgetIndex] = useState<number | null>(null);
@@ -93,6 +93,9 @@ export default function CostTrackingForm() {
   // YNAB Import state
   const [showYnabImport, setShowYnabImport] = useState(false);
   const [showYnabMappings, setShowYnabMappings] = useState(false);
+  
+  // Travel lookup service state
+  const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
   
   // Country autocomplete state (keeping for other parts of the form)
   // const [showCountryDropdown, setShowCountryDropdown] = useState(false);
@@ -142,6 +145,20 @@ export default function CostTrackingForm() {
   // Note: These functions were used by the old expense form, now handled by ExpenseForm
   // const handleCountryInputChange = (value: string) => { ... };
   // const selectCountry = (country: string) => { ... };
+
+  // Travel links are now resolved at runtime using the lookup service - no storage needed
+
+  // Initialize the travel lookup service
+  const initializeTravelLookup = async (tripId: string) => {
+    if (!tripId || tripId === '') return;
+    
+    try {
+      const lookup = await createExpenseTravelLookup(tripId);
+      setTravelLookup(lookup);
+    } catch (error) {
+      console.error('Failed to initialize travel lookup:', error);
+    }
+  };
 
   // Load existing trips and cost entries
   useEffect(() => {
@@ -223,6 +240,8 @@ export default function CostTrackingForm() {
     }
   }, [costData.overallBudget, costData.countryBudgets, costData.expenses, costData.id, mode]); // Track actual data changes
 
+
+
   const loadExistingTrips = async () => {
     try {
       const response = await fetch('/api/travel-data/list');
@@ -252,6 +271,7 @@ export default function CostTrackingForm() {
   };
 
   const loadCostEntryForEditing = async (costId: string) => {
+    console.log('loadCostEntryForEditing called with costId:', costId);
     try {
       if (!costId) {
         console.error('Cost ID is missing');
@@ -260,8 +280,13 @@ export default function CostTrackingForm() {
       }
       
       const response = await fetch(`/api/cost-tracking?id=${costId}`);
+      console.log('Cost tracking API response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Cost tracking data loaded:', data);
+        console.log('Data tripId:', data.tripId);
+        console.log('travelLookup:', travelLookup);
         
         // Migration: Ensure all expenses have expenseType field (for backward compatibility)
         const migratedData = {
@@ -272,7 +297,10 @@ export default function CostTrackingForm() {
           }))
         };
         
+        console.log('Migrated data tripId:', migratedData.tripId);
+        
         setCostData(migratedData);
+        await initializeTravelLookup(migratedData.tripId);
         setHasUnsavedChanges(false); // Reset flag when entering edit mode
         setMode('edit');
       } else {
@@ -325,6 +353,8 @@ export default function CostTrackingForm() {
 
   // Note: Replaced by handleExpenseAdded for React 19 Actions
   // const addExpense = () => { ... };
+
+
 
   // Handler for the new ExpenseForm component using React 19 Actions
   const handleExpenseAdded = (expense: Expense) => {
@@ -380,14 +410,7 @@ export default function CostTrackingForm() {
     setEditingExpenseIndex(index);
   };
 
-  const removeTravelLink = (expenseId: string) => {
-    const updatedExpenses = costData.expenses.map(expense => 
-      expense.id === expenseId 
-        ? { ...expense, travelReference: undefined }
-        : expense
-    );
-    setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
-  };
+
 
   const deleteBudgetItem = (index: number) => {
     const updatedBudgets = costData.countryBudgets.filter((_, i) => i !== index);
@@ -1118,6 +1141,7 @@ export default function CostTrackingForm() {
                   >
                     Import from YNAB
                   </button>
+
                 </div>
               )}
             </div>
@@ -1153,15 +1177,7 @@ export default function CostTrackingForm() {
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {formatDate(expense.date)} • {expense.category}
-                          {expense.travelReference && expense.travelReference.description ? (
-                            <span className="text-blue-600 dark:text-blue-400">
-                              {' • '}
-                              {expense.travelReference.type === 'location' ? '📍' : 
-               expense.travelReference.type === 'accommodation' ? '🏨' : '🚗'} {expense.travelReference.description}
-                            </span>
-                          ) : (
-                            expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`
-                          )}
+                          {expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`}
                           {(expense.expenseType === 'planned' || isPostTripExpense(expense)) && (
                             <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
                               expense.expenseType === 'planned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
@@ -1173,15 +1189,20 @@ export default function CostTrackingForm() {
                         {expense.notes && (
                           <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{expense.notes}</div>
                         )}
-                        {expense.travelReference && (
-                          <div className="mt-2">
-                            <TravelLinkDisplay 
-                              travelReference={expense.travelReference} 
-                              showRemoveButton={true}
-                              onRemove={() => removeTravelLink(expense.id)}
-                            />
-                          </div>
-                        )}
+                        
+                        {/* Travel Link Display */}
+                        {travelLookup && (() => {
+                          const travelLink = travelLookup.getTravelLinkForExpense(expense.id);
+                          if (travelLink) {
+                            return (
+                              <div className="mt-2">
+                                <TravelLinkDisplay travelLinkInfo={travelLink} />
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
                       </div>
                       <div className="flex gap-2">
                         <button

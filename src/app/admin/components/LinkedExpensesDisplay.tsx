@@ -16,7 +16,7 @@ interface LinkedExpense {
 
 interface LinkedExpensesDisplayProps {
   itemId: string;
-  itemType: 'location' | 'route';
+  itemType: 'location' | 'accommodation' | 'route';
   itemName: string;
   className?: string;
 }
@@ -49,9 +49,10 @@ export default function LinkedExpensesDisplay({
                 if (expense.travelReference) {
                   const ref = expense.travelReference;
                   const matchesLocation = itemType === 'location' && ref.locationId === itemId;
+                  const matchesAccommodation = itemType === 'accommodation' && ref.accommodationId === itemId;
                   const matchesRoute = itemType === 'route' && ref.routeId === itemId;
                   
-                  if (matchesLocation || matchesRoute) {
+                  if (matchesLocation || matchesAccommodation || matchesRoute) {
                     allLinkedExpenses.push({
                       id: expense.id,
                       description: expense.description,
