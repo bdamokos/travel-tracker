@@ -244,7 +244,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
   // Silent auto-save function (no alerts, no redirects)
   const autoSaveTravelData = useCallback(async () => {
     // Validation (silent)
-    if (!travelData.title || travelData.locations.length === 0) {
+    if (!travelData.title) {
       return false; // Invalid data, don't save
     }
 
@@ -282,7 +282,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
   useEffect(() => {
     // Only auto-save if we're in edit mode or create mode with sufficient data
     const canAutoSave = (mode === 'edit' && travelData.id) || 
-                       (mode === 'create' && travelData.title && travelData.locations.length > 0);
+                       (mode === 'create' && travelData.title);
     
     if (canAutoSave && hasUnsavedChanges) {
       const timeoutId = setTimeout(async () => {
@@ -896,7 +896,10 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
               id="journey-title"
               type="text"
               value={travelData.title}
-              onChange={(e) => setTravelData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e) => {
+                setTravelData(prev => ({ ...prev, title: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               placeholder="My Amazing Trip"
             />
@@ -907,7 +910,10 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
               id="journey-description"
               type="text"
               value={travelData.description}
-              onChange={(e) => setTravelData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => {
+                setTravelData(prev => ({ ...prev, description: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               placeholder="A wonderful journey across..."
             />
@@ -918,7 +924,10 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
               id="journey-start-date"
               type="date"
               value={travelData.startDate}
-              onChange={(e) => setTravelData(prev => ({ ...prev, startDate: e.target.value }))}
+              onChange={(e) => {
+                setTravelData(prev => ({ ...prev, startDate: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -928,7 +937,10 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
               id="journey-end-date"
               type="date"
               value={travelData.endDate}
-              onChange={(e) => setTravelData(prev => ({ ...prev, endDate: e.target.value }))}
+              onChange={(e) => {
+                setTravelData(prev => ({ ...prev, endDate: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
