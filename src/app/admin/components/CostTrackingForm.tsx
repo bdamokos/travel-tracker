@@ -9,6 +9,9 @@ import CostPieCharts from './CostPieCharts';
 import ExpenseForm from './ExpenseForm';
 import { ExpenseTravelLookup, createExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
 import TravelLinkDisplay from './TravelLinkDisplay';
+import InPlaceEditor from './InPlaceEditor';
+import ExpenseDisplay from './ExpenseDisplay';
+import ExpenseInlineEditor from './ExpenseInlineEditor';
 
 interface ExistingTrip {
   id: string;
@@ -416,17 +419,18 @@ export default function CostTrackingForm() {
     setEditingBudgetIndex(index);
   };
 
-  const editExpense = (expenseId: string) => {
-    const index = costData.expenses.findIndex(exp => exp.id === expenseId);
-    if (index === -1) {
-      console.error('Expense not found:', expenseId);
-      return;
-    }
-    
-    const expense = costData.expenses[index];
-    setCurrentExpense(expense);
-    setEditingExpenseIndex(index);
-  };
+  // Note: editExpense function replaced by InPlaceEditor for expenses
+  // const editExpense = (expenseId: string) => {
+  //   const index = costData.expenses.findIndex(exp => exp.id === expenseId);
+  //   if (index === -1) {
+  //     console.error('Expense not found:', expenseId);
+  //     return;
+  //   }
+  //   
+  //   const expense = costData.expenses[index];
+  //   setCurrentExpense(expense);
+  //   setEditingExpenseIndex(index);
+  // };
 
 
 
@@ -1181,73 +1185,61 @@ export default function CostTrackingForm() {
             {costData.expenses.length > 0 && (
               <div>
                 <h4 className="font-medium mb-2">Expenses ({costData.expenses.length})</h4>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                                  {costData.expenses
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((expense) => (
-                  <div key={expense.id} className="bg-white dark:bg-gray-800 p-3 rounded-sm border dark:border-gray-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{expense.description}</span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {formatCurrency(expense.amount, expense.currency)}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {formatDate(expense.date)} • {expense.category}
-                          {expense.isGeneralExpense ? ' • General' : ` • ${expense.country}`}
-                          {(expense.expenseType === 'planned' || isPostTripExpense(expense)) && (
-                            <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                              expense.expenseType === 'planned' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                            }`}>
-                              {expense.expenseType === 'planned' ? 'Planned' : 'Post-Trip'}
-                            </span>
-                          )}
-                        </div>
-                        {expense.notes && (
-                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{expense.notes}</div>
-                        )}
-                        
-                        {/* Travel Link Display */}
-                        {travelLookup && (() => {
-                          const travelLink = travelLookup.getTravelLinkForExpense(expense.id);
-                          if (travelLink) {
-                            return (
-                              <div className="mt-2">
-                                <TravelLinkDisplay travelLinkInfo={travelLink} />
-                              </div>
-                            );
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {costData.expenses
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .map((expense) => (
+                    <div key={expense.id}>
+                      <InPlaceEditor<Expense>
+                        data={expense}
+                        onSave={async (updatedExpense) => {
+                          const updatedExpenses = [...costData.expenses];
+                          const expenseIndex = updatedExpenses.findIndex(e => e.id === expense.id);
+                          if (expenseIndex !== -1) {
+                            updatedExpenses[expenseIndex] = updatedExpense;
+                            setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+                            setHasUnsavedChanges(true);
                           }
-                          return null;
-                        })()}
-
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => editExpense(expense.id)}
-                          className="text-blue-500 hover:text-blue-700 text-sm"
-                        >
-                          Edit
-                        </button>
-                        {expense.expenseType === 'planned' && (
-                          <button
-                            onClick={() => convertPlannedToActual(expense.id)}
-                            className="text-green-500 hover:text-green-700 text-sm"
-                          >
-                            Mark Actual
-                          </button>
+                        }}
+                        editor={(expense, onSave, onCancel) => (
+                          <ExpenseInlineEditor
+                            expense={expense}
+                            onSave={onSave}
+                            onCancel={onCancel}
+                            currency={costData.currency}
+                            categories={[...EXPENSE_CATEGORIES]}
+                            countryOptions={getExistingCountries()}
+                            travelLookup={travelLookup}
+                          />
                         )}
-                        <button
-                          onClick={() => deleteExpense(expense.id)}
-                          className="text-red-500 hover:text-red-700 text-sm"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      >
+                        {(expense, _isEditing, onEdit) => (
+                          <div>
+                            <ExpenseDisplay
+                              expense={expense}
+                              onEdit={onEdit}
+                              onDelete={() => deleteExpense(expense.id)}
+                              onMarkActual={() => convertPlannedToActual(expense.id)}
+                              showMarkActual={expense.expenseType === 'planned'}
+                            />
+                            
+                            {/* Travel Link Display */}
+                            {travelLookup && (() => {
+                              const travelLink = travelLookup.getTravelLinkForExpense(expense.id);
+                              if (travelLink) {
+                                return (
+                                  <div className="mt-2">
+                                    <TravelLinkDisplay travelLinkInfo={travelLink} />
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        )}
+                      </InPlaceEditor>
                     </div>
-                  </div>
-                ))}
+                  ))}
                 </div>
               </div>
             )}

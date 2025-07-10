@@ -15,7 +15,7 @@ const eslintConfig = [
     rules: {
       // Downgrade some rules from errors to warnings to prevent build failures
       "@typescript-eslint/no-unused-vars": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
+      // "@typescript-eslint/no-explicit-any": "warn",
       "react/no-unescaped-entities": "warn",
       "prefer-const": "warn",
     },

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { formatDuration } from '../../lib/durationUtils';
 import { Location } from '../../types';
 import LocationAccommodationsManager from './LocationAccommodationsManager';
@@ -35,10 +35,18 @@ export default function LocationForm({
   travelLookup,
   costData
 }: LocationFormProps) {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // React 19 Action for adding/updating locations
   async function submitLocationAction(formData: FormData) {
+    console.log('LocationForm: submitLocationAction called');
+    setSubmitError(null);
+    setIsSubmitting(true);
+    
+    try {
     const data = Object.fromEntries(formData);
+    console.log('LocationForm: form data', data);
     
     // Parse coordinates
     const lat = parseFloat(data.latitude as string) || 0;
@@ -72,33 +80,38 @@ export default function LocationForm({
       costTrackingLinks: currentLocation.costTrackingLinks || []
     };
 
-    // Validate required fields
-    if (!location.name || !location.date) {
-      const missing = [];
-      if (!location.name) missing.push('Location Name');
-      if (!location.date) missing.push('Date');
-      throw new Error(`Please fill in the following required fields: ${missing.join(', ')}`);
-    }
+      // Validate required fields
+      if (!location.name || !location.date) {
+        const missing = [];
+        if (!location.name) missing.push('Location Name');
+        if (!location.date) missing.push('Date');
+        throw new Error(`Please fill in the following required fields: ${missing.join(', ')}`);
+      }
 
-    // Call the parent handler
-    onLocationAdded(location);
-    
-    // Reset form
-    setCurrentLocation({
-      name: '',
-      coordinates: [0, 0],
-      date: '',
-      notes: '',
-      instagramPosts: [],
-      blogPosts: [],
-      accommodationIds: [],
-      accommodationData: '',
-      isAccommodationPublic: false,
-      costTrackingLinks: []
-    });
-    
-    if (editingLocationIndex !== null) {
-      setEditingLocationIndex(null);
+      // Call the parent handler
+      onLocationAdded(location);
+      
+      // Reset form
+      setCurrentLocation({
+        name: '',
+        coordinates: [0, 0],
+        date: '',
+        notes: '',
+        instagramPosts: [],
+        blogPosts: [],
+        accommodationIds: [],
+        accommodationData: '',
+        isAccommodationPublic: false,
+        costTrackingLinks: []
+      });
+      
+      if (editingLocationIndex !== null) {
+        setEditingLocationIndex(null);
+      }
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save location');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -113,6 +126,12 @@ export default function LocationForm({
       <h4 className="font-medium mb-3">
         {editingLocationIndex !== null ? 'Edit Location' : 'Add Location'}
       </h4>
+      
+      {submitError && (
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 rounded">
+          {submitError}
+        </div>
+      )}
       
       <form 
         key={editingLocationIndex !== null ? `edit-${currentLocation.id}` : 'new'} 
@@ -131,7 +150,7 @@ export default function LocationForm({
               defaultValue={currentLocation.name || ''}
               onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, name: e.target.value }))}
               required
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="Paris, France"
             />
             <button
@@ -156,7 +175,7 @@ export default function LocationForm({
             onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: e.target.value }))}
             required
             data-testid="location-date"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
 
@@ -178,7 +197,7 @@ export default function LocationForm({
                 return { ...prev, endDate, duration };
               });
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
           {currentLocation.duration && currentLocation.date && currentLocation.endDate && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -196,7 +215,7 @@ export default function LocationForm({
             name="notes"
             defaultValue={currentLocation.notes || ''}
             onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, notes: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             rows={2}
             placeholder="What you did here..."
           />
@@ -217,7 +236,7 @@ export default function LocationForm({
                 ...prev, 
                 coordinates: [parseFloat(e.target.value) || 0, prev.coordinates?.[1] || 0]
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="Latitude"
             />
             <input
@@ -230,7 +249,7 @@ export default function LocationForm({
                 ...prev, 
                 coordinates: [prev.coordinates?.[0] || 0, parseFloat(e.target.value) || 0]
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="Longitude"
             />
           </div>
@@ -266,9 +285,10 @@ export default function LocationForm({
         <div className="flex items-end gap-2">
           <button
             type="submit"
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingLocationIndex !== null ? 'Update Location' : 'Add Location'}
+            {isSubmitting ? 'Saving...' : editingLocationIndex !== null ? 'Update Location' : 'Add Location'}
           </button>
           
           {editingLocationIndex !== null && (

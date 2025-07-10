@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '../../lib/domains';
-import { calculateSmartDurations, formatDuration } from '../../lib/durationUtils';
+import { calculateSmartDurations } from '../../lib/durationUtils';
 import { Location, InstagramPost, BlogPost, CostTrackingLink, Transportation } from '../../types';
 import LocationForm from './LocationForm';
 import RouteForm from './RouteForm';
@@ -12,7 +12,12 @@ import DeleteWarningDialog from './DeleteWarningDialog';
 import ReassignmentDialog from './ReassignmentDialog';
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '../../lib/costLinkCleanup';
 import { CostTrackingData } from '../../types';
-import { ExpenseTravelLookup, createExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import InPlaceEditor from './InPlaceEditor';
+import LocationDisplay from './LocationDisplay';
+import LocationInlineEditor from './LocationInlineEditor';
+import RouteDisplay from './RouteDisplay';
+import RouteInlineEditor from './RouteInlineEditor';
 
 interface TravelRoute {
   id: string;
@@ -516,17 +521,19 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
     }
   };
 
-  const editLocation = (index: number) => {
-    const location = travelData.locations[index];
-    setCurrentLocation(location);
-    setEditingLocationIndex(index);
-  };
+  // Note: editLocation function replaced by InPlaceEditor for locations
+  // const editLocation = (index: number) => {
+  //   const location = travelData.locations[index];
+  //   setCurrentLocation(location);
+  //   setEditingLocationIndex(index);
+  // };
 
-  const editRoute = (index: number) => {
-    const route = travelData.routes[index];
-    setCurrentRoute(route);
-    setEditingRouteIndex(index);
-  };
+  // Note: editRoute function replaced by InPlaceEditor for routes
+  // const editRoute = (index: number) => {
+  //   const route = travelData.routes[index];
+  //   setCurrentRoute(route);
+  //   setEditingRouteIndex(index);
+  // };
 
   const deleteLocation = async (index: number) => {
     const location = travelData.locations[index];
@@ -708,7 +715,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
                         Complete Trip Deletion
                       </h4>
                       <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                        You are about to delete the trip <strong>"{tripDeleteDialog.tripTitle}"</strong>. 
+                        You are about to delete the trip <strong>&quot;{tripDeleteDialog.tripTitle}&quot;</strong>. 
                         This will permanently remove both the travel data AND any associated cost tracking data.
                       </p>
                       <p className="text-sm text-red-700 dark:text-red-300 mt-2">
@@ -987,68 +994,67 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
               {travelData.locations
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((location, index) => (
-                <div key={location.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h5 className="font-medium text-gray-900 dark:text-white">{location.name}</h5>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        <p>{new Date(location.date).toLocaleDateString()}</p>
-                        {location.endDate && (
-                          <p>to {new Date(location.endDate).toLocaleDateString()}</p>
-                        )}
-                        {location.duration && (
-                          <p className="text-blue-600">({formatDuration(location.duration, location.date, location.endDate)})</p>
-                        )}
-                      </div>
-                      {location.notes && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{location.notes}</p>
-                      )}
-                      
-                      {/* Accommodation Display */}
-                      {location.accommodationData && (
-                        <div className="mt-3">
-                          <AccommodationDisplay
-                            accommodationData={location.accommodationData}
-                            isAccommodationPublic={location.isAccommodationPublic}
-                            privacyOptions={{ isAdminView: true }}
-                            className="text-sm"
-                            travelLookup={travelLookup}
-                            costData={costData}
-                          />
-                        </div>
-                      )}
-                      
-                      {/* Linked Expenses Display */}
-                      <LinkedExpensesDisplay
-                        items={[
-                          { itemType: 'location', itemId: location.id },
-                          ...((location.accommodationIds || []).map((accId: string) => ({ itemType: 'accommodation', itemId: accId })) as { itemType: 'accommodation', itemId: string }[])
-                        ]}
+                <div key={location.id}>
+                  <InPlaceEditor<Location>
+                    data={location}
+                    onSave={async (updatedLocation) => {
+                      const updatedLocations = [...travelData.locations];
+                      updatedLocations[index] = updatedLocation;
+                      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
+                      setHasUnsavedChanges(true);
+                    }}
+                    editor={(location, onSave, onCancel) => (
+                      <LocationInlineEditor
+                        location={location}
+                        onSave={onSave}
+                        onCancel={onCancel}
+                        onGeocode={async (locationName) => {
+                          const coords = await geocodeLocation(locationName);
+                          return coords;
+                        }}
+                        tripId={travelData.id || ''}
                         travelLookup={travelLookup}
                         costData={costData}
                       />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => editLocation(index)}
-                        className="text-blue-500 hover:text-blue-700 text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setSelectedLocationForPosts(selectedLocationForPosts === index ? null : index)}
-                        className="text-green-500 hover:text-green-700 text-sm"
-                      >
-                        Posts
-                      </button>
-                      <button
-                        onClick={() => deleteLocation(index)}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+                    )}
+                  >
+                    {(location, _isEditing, onEdit) => (
+                      <div>
+                        <LocationDisplay
+                          location={location}
+                          onEdit={onEdit}
+                          onDelete={() => deleteLocation(index)}
+                          onViewPosts={() => setSelectedLocationForPosts(selectedLocationForPosts === index ? null : index)}
+                          showAccommodations={true}
+                          linkedExpenses={[]}
+                        />
+                        
+                        {/* Accommodation Display */}
+                        {location.accommodationData && (
+                          <div className="mt-3">
+                            <AccommodationDisplay
+                              accommodationData={location.accommodationData}
+                              isAccommodationPublic={location.isAccommodationPublic}
+                              privacyOptions={{ isAdminView: true }}
+                              className="text-sm"
+                              travelLookup={travelLookup}
+                              costData={costData}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Linked Expenses Display */}
+                        <LinkedExpensesDisplay
+                          items={[
+                            { itemType: 'location', itemId: location.id },
+                            ...((location.accommodationIds || []).map((accId: string) => ({ itemType: 'accommodation', itemId: accId })) as { itemType: 'accommodation', itemId: string }[])
+                          ]}
+                          travelLookup={travelLookup}
+                          costData={costData}
+                        />
+                      </div>
+                    )}
+                  </InPlaceEditor>
 
                   {/* Posts Section */}
                   {selectedLocationForPosts === index && (
@@ -1196,65 +1202,55 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
         {travelData.routes.length > 0 && (
           <div>
             <h4 className="font-medium mb-2">Added Routes ({travelData.routes.length})</h4>
-            <div className="space-y-2">
+            <div className="space-y-4">
               {travelData.routes
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((route, index) => (
-                <div key={route.id} className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-sm border dark:border-gray-700">
-                  <div>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {route.transportType === 'plane' && '✈️'}
-                      {route.transportType === 'train' && '🚆'}
-                      {route.transportType === 'car' && '🚗'}
-                      {route.transportType === 'bus' && '🚌'}
-                      {route.transportType === 'ferry' && '⛴️'}
-                      {route.transportType === 'boat' && '🛥️'}
-                      {route.transportType === 'metro' && '🚇'}
-                      {route.transportType === 'bike' && '🚴'}
-                      {route.transportType === 'walk' && '🚶'}
-                      {' '}{route.from} → {route.to}
-                    </span>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {new Date(route.date).toLocaleDateString()}
-                      {route.duration && ` • ${route.duration}`}
-                    </div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      From: [{route.fromCoords[0].toFixed(4)}, {route.fromCoords[1].toFixed(4)}] → 
-                      To: [{route.toCoords[0].toFixed(4)}, {route.toCoords[1].toFixed(4)}]
-                    </div>
-                    {route.notes && (
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1"><strong>Public:</strong> {route.notes}</p>
+                <div key={route.id}>
+                  <InPlaceEditor<TravelRoute>
+                    data={route}
+                    onSave={async (updatedRoute) => {
+                      const updatedRoutes = [...travelData.routes];
+                      updatedRoutes[index] = updatedRoute;
+                      setTravelData(prev => ({ ...prev, routes: updatedRoutes }));
+                      setHasUnsavedChanges(true);
+                    }}
+                    editor={(route, onSave, onCancel) => (
+                      <RouteInlineEditor
+                        route={route}
+                        onSave={onSave}
+                        onCancel={onCancel}
+                        locationOptions={travelData.locations.map(loc => ({
+                          name: loc.name,
+                          coordinates: loc.coordinates
+                        }))}
+                        onGeocode={async (locationName) => {
+                          const coords = await geocodeLocation(locationName);
+                          return coords;
+                        }}
+                      />
                     )}
-                    {route.privateNotes && (
-                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                        <strong>Private:</strong> {route.privateNotes}
-                        <span className="text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-1 rounded ml-2">Admin Only</span>
-                      </p>
+                  >
+                    {(route, _isEditing, onEdit) => (
+                      <div>
+                        <RouteDisplay
+                          route={route}
+                          onEdit={onEdit}
+                          onDelete={() => deleteRoute(index)}
+                          linkedExpenses={[]}
+                        />
+                        
+                        {/* Linked Expenses Display */}
+                        <LinkedExpensesDisplay
+                          itemId={route.id}
+                          itemType="route"
+                          itemName={`${route.from} → ${route.to}`}
+                          travelLookup={travelLookup}
+                          costData={costData}
+                        />
+                      </div>
                     )}
-                    
-                    {/* Linked Expenses Display */}
-                    <LinkedExpensesDisplay
-                      itemId={route.id}
-                      itemType="route"
-                      itemName={`${route.from} → ${route.to}`}
-                      travelLookup={travelLookup}
-                      costData={costData}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => editRoute(index)}
-                      className="text-blue-500 hover:text-blue-700 text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deleteRoute(index)}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  </InPlaceEditor>
                 </div>
               ))}
             </div>
