@@ -303,14 +303,6 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
     }
   }, [travelData, mode, hasUnsavedChanges, autoSaveTravelData]);
 
-  // Track when user makes changes (but not on initial load)
-  useEffect(() => {
-    if ((mode === 'edit' && travelData.id) || (mode === 'create' && travelData.title)) {
-      // Set flag that we have unsaved changes
-      setHasUnsavedChanges(true);
-    }
-  }, [travelData, mode]);
-
   const loadExistingTrips = async () => {
     try {
       const response = await fetch('/api/travel-data/list');
@@ -417,6 +409,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
         locations: [...prev.locations, newLocation]
       }));
     }
+    setHasUnsavedChanges(true);
   };
 
   const handleRouteAdded = (newRoute: TravelRoute) => {
@@ -479,6 +472,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
         locations: updatedLocations
       }));
     }
+    setHasUnsavedChanges(true);
   };
 
   const addInstagramPost = (locationIndex: number) => {
@@ -497,6 +491,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
       
       setTravelData(prev => ({ ...prev, locations: updatedLocations }));
       setNewInstagramPost({ url: '', caption: '' });
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -517,6 +512,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
       
       setTravelData(prev => ({ ...prev, locations: updatedLocations }));
       setNewBlogPost({ title: '', url: '', excerpt: '' });
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -554,6 +550,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
         ...prev,
         locations: prev.locations.filter((_, i) => i !== index)
       }));
+      setHasUnsavedChanges(true);
     }
   };
 
@@ -579,6 +576,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
         ...prev,
         routes: prev.routes.filter((_, i) => i !== index)
       }));
+      setHasUnsavedChanges(true);
     }
   };
 
