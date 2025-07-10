@@ -45,9 +45,9 @@ export class ExpenseTravelLookup {
       
       // Index locations
       if (tripData.locations) {
-        tripData.locations.forEach((location: any) => {
+        tripData.locations.forEach((location: Location) => {
           if (location.costTrackingLinks) {
-            location.costTrackingLinks.forEach((link: any) => {
+            location.costTrackingLinks.forEach((link: CostTrackingLink) => {
               this.expenseToTravelMap.set(link.expenseId, {
                 type: 'location',
                 id: location.id,
@@ -61,11 +61,11 @@ export class ExpenseTravelLookup {
       
       // Index accommodations
       if (tripData.accommodations) {
-        tripData.accommodations.forEach((accommodation: any) => {
+        tripData.accommodations.forEach((accommodation: Accommodation) => {
           if (accommodation.costTrackingLinks) {
-            accommodation.costTrackingLinks.forEach((link: any) => {
+            accommodation.costTrackingLinks.forEach((link: CostTrackingLink) => {
               // Find the location name for this accommodation
-              const location = tripData.locations?.find((loc: any) => loc.id === accommodation.locationId);
+              const location = tripData.locations?.find((loc: Location) => loc.id === accommodation.locationId);
               const locationName = location?.name || 'Unknown location';
               
               this.expenseToTravelMap.set(link.expenseId, {
@@ -82,9 +82,9 @@ export class ExpenseTravelLookup {
       
       // Index routes
       if (tripData.routes) {
-        tripData.routes.forEach((route: any) => {
+        tripData.routes.forEach((route: Transportation) => {
           if (route.costTrackingLinks) {
-            route.costTrackingLinks.forEach((link: any) => {
+            route.costTrackingLinks.forEach((link: CostTrackingLink) => {
               this.expenseToTravelMap.set(link.expenseId, {
                 type: 'route',
                 id: route.id,

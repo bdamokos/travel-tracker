@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getEmbedUrl } from '../../lib/domains';
+import { Transportation } from '../../types';
 import EmbeddableMap from './components/EmbeddableMap';
 
 interface TravelData {
@@ -60,16 +61,16 @@ async function getTravelData(id: string): Promise<TravelData | null> {
         startDate: unifiedData.startDate,
         endDate: unifiedData.endDate,
         locations: unifiedData.travelData.locations || [],
-        routes: (unifiedData.travelData.routes || []).map((route: any) => ({
+        routes: (unifiedData.travelData.routes || []).map((route: Transportation) => ({
           id: route.id,
           from: route.from,
           to: route.to,
-          fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
-          toCoords: route.toCoords || route.toCoordinates || [0, 0],
-          transportType: route.transportType || route.type,
-          date: route.date || route.departureTime || '',
-          duration: route.duration,
-          notes: route.notes || route.privateNotes
+          fromCoords: route.fromCoordinates || [0, 0],
+          toCoords: route.toCoordinates || [0, 0],
+          transportType: route.type,
+          date: route.departureTime || '',
+          duration: undefined, // Transportation doesn't have duration
+          notes: route.privateNotes
         })),
         createdAt: unifiedData.createdAt
       };

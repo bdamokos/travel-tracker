@@ -112,6 +112,7 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
         const L = await import('leaflet');
 
         // Fix default icons
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: '/images/marker-icon-2x.png',

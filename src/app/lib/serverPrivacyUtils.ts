@@ -121,7 +121,7 @@ export function filterTravelDataForServer(travelData: LegacyTravelData, host: st
   // Handle both new Journey format and legacy format
   if (travelData.days) {
     // New format with JourneyPeriods
-    return filterJourneyForServer(travelData as any, host);
+    return filterJourneyForServer(travelData as unknown as Journey, host);
   }
 
   // Legacy format - filter locations and routes directly

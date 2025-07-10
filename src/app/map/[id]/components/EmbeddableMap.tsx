@@ -69,6 +69,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       setL(leaflet);
       
       // Fix Leaflet icon issues
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (leaflet.Icon.Default.prototype as any)._getIconUrl;
       leaflet.Icon.Default.mergeOptions({
         iconRetinaUrl: '/images/marker-icon-2x.png',
