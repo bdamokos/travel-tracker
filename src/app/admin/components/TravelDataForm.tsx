@@ -47,7 +47,84 @@ interface ExistingTrip {
   createdAt: string;
 }
 
-export default function TravelDataForm() {
+// Toast Notification Component
+const ToastNotification: React.FC<{
+  notification: { message: string; type: 'success' | 'error' | 'info'; isVisible: boolean };
+  onClose: () => void;
+}> = ({ notification, onClose }) => (
+  <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
+    notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+  }`}>
+    <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
+      notification.type === 'success' ? 'bg-green-50 dark:bg-green-900' :
+      notification.type === 'error' ? 'bg-red-50 dark:bg-red-900' :
+      'bg-blue-50 dark:bg-blue-900'
+    }`}>
+      <div className="p-4">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            {notification.type === 'success' && (
+              <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            {notification.type === 'error' && (
+              <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            {notification.type === 'info' && (
+              <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+          </div>
+          <div className="ml-3 w-0 flex-1 pt-0.5">
+            <p className={`text-sm font-medium ${
+              notification.type === 'success' ? 'text-green-800 dark:text-green-200' :
+              notification.type === 'error' ? 'text-red-800 dark:text-red-200' :
+              'text-blue-800 dark:text-blue-200'
+            }`}>
+              {notification.message}
+            </p>
+          </div>
+          <div className="ml-4 flex-shrink-0 flex">
+            <button
+              onClick={onClose}
+              className={`rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                notification.type === 'success' ? 'text-green-500 hover:text-green-600 focus:ring-green-500' :
+                notification.type === 'error' ? 'text-red-500 hover:text-red-600 focus:ring-red-500' :
+                'text-blue-500 hover:text-blue-600 focus:ring-blue-500'
+              }`}
+            >
+              <span className="sr-only">Close</span>
+              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+interface TravelDataFormProps {
+  tripDeleteDialog: {
+    isOpen: boolean;
+    tripId: string;
+    tripTitle: string;
+    isDeleting?: boolean;
+  } | null;
+  setTripDeleteDialog: React.Dispatch<React.SetStateAction<{
+    isOpen: boolean;
+    tripId: string;
+    tripTitle: string;
+    isDeleting?: boolean;
+  } | null>>;
+}
+
+export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }: TravelDataFormProps) {
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +192,25 @@ export default function TravelDataForm() {
     itemName: string;
     linkedExpenses: LinkedExpense[];
   } | null>(null);
+
+  // Notification state
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    isVisible: boolean;
+  } | null>(null);
+
+  // Show notification function
+  const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
+    setNotification({ message, type, isVisible: true });
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      setNotification(prev => prev ? { ...prev, isVisible: false } : null);
+      // Clear after fade animation
+      setTimeout(() => setNotification(null), 300);
+    }, 5000);
+  };
   
   const [reassignDialog, setReassignDialog] = useState<{
     isOpen: boolean;
@@ -180,7 +276,7 @@ export default function TravelDataForm() {
       console.warn('Auto-save error:', error);
       return false;
     }
-  }, [travelData, mode, setTravelData, setMode]);
+  }, [travelData, mode]);
 
   // Auto-save effect for edit mode (debounced)
   useEffect(() => {
@@ -205,8 +301,7 @@ export default function TravelDataForm() {
 
       return () => clearTimeout(timeoutId);
     }
-  }, [travelData.title, travelData.description, travelData.startDate, travelData.endDate, 
-      travelData.locations, travelData.routes, travelData.id, mode, hasUnsavedChanges, autoSaveTravelData]);
+  }, [travelData, mode, hasUnsavedChanges, autoSaveTravelData]);
 
   // Track when user makes changes (but not on initial load)
   useEffect(() => {
@@ -214,8 +309,7 @@ export default function TravelDataForm() {
       // Set flag that we have unsaved changes
       setHasUnsavedChanges(true);
     }
-  }, [travelData.title, travelData.description, travelData.startDate, travelData.endDate, 
-      travelData.locations, travelData.routes, travelData.id, mode]);
+  }, [travelData, mode]);
 
   const loadExistingTrips = async () => {
     try {
@@ -488,13 +582,59 @@ export default function TravelDataForm() {
     }
   };
 
+  const deleteTrip = async (tripId: string, tripTitle: string) => {
+    // Show confirmation dialog
+    setTripDeleteDialog({
+      isOpen: true,
+      tripId,
+      tripTitle
+    });
+  };
+
+  const confirmTripDeletion = async () => {
+    if (!tripDeleteDialog) return;
+
+    // Set loading state
+    setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: true } : null);
+
+    try {
+      const response = await fetch(`/api/travel-data?id=${tripDeleteDialog.tripId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Show success notification
+        showNotification(`✅ ${result.message}`, 'success');
+        
+        // Refresh the trip list
+        await loadExistingTrips();
+        
+        // Close dialog
+        setTripDeleteDialog(null);
+      } else {
+        const error = await response.json();
+        console.error('Delete failed:', error);
+        showNotification(`❌ Failed to delete trip: ${error.error}`, 'error');
+        
+        // Reset loading state but keep dialog open
+        setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: false } : null);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      showNotification(`❌ Error deleting trip: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      
+      // Reset loading state but keep dialog open
+      setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: false } : null);
+    }
+  };
+
 
   const generateMap = async () => {
     try {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
-      
-      console.log('Saving travel data:', { method, url, data: travelData });
       
       const response = await fetch(url, {
         method,
@@ -506,12 +646,10 @@ export default function TravelDataForm() {
       
       if (response.ok) {
         const result = await response.json();
-        console.log('Save successful, result:', result);
         setHasUnsavedChanges(false); // Mark as saved
         
         // Use the proper helper function and open the map
         const mapUrl = getMapUrl(result.id);
-        console.log('Opening map URL:', mapUrl);
         window.open(mapUrl, '_blank');
       } else {
         const errorText = await response.text();
@@ -541,41 +679,73 @@ export default function TravelDataForm() {
   // List view
   if (mode === 'list') {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Travel Maps</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                setLoading(true);
-                await loadExistingTrips();
-                setLoading(false);
-              }}
-              disabled={loading}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
-            >
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
-            <button
-              onClick={() => {
-                setMode('create');
-                setHasUnsavedChanges(false); // New form, no changes yet
-              }}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
-            >
-              Create New Trip
-            </button>
-          </div>
-        </div>
+      <>
+        {tripDeleteDialog?.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.704-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Delete Trip?
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
 
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">Loading travel maps...</p>
+              <div className="mb-6">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.704-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <h4 className="font-medium text-red-800 dark:text-red-200">
+                        Complete Trip Deletion
+                      </h4>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                        You are about to delete the trip <strong>"{tripDeleteDialog.tripTitle}"</strong>. 
+                        This will permanently remove both the travel data AND any associated cost tracking data.
+                      </p>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-2">
+                        A backup will be created before deletion for recovery purposes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setTripDeleteDialog(null)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmTripDeletion}
+                  disabled={tripDeleteDialog?.isDeleting}
+                  className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white rounded-md hover:bg-red-700 dark:hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {tripDeleteDialog?.isDeleting && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  {tripDeleteDialog?.isDeleting ? 'Deleting...' : 'Delete Trip'}
+                </button>
+              </div>
+            </div>
           </div>
-        ) : existingTrips.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">No travel maps found.</p>
-            <div className="space-y-3">
+        )}
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Travel Maps</h2>
+            <div className="flex gap-2">
               <button
                 onClick={async () => {
                   setLoading(true);
@@ -583,53 +753,92 @@ export default function TravelDataForm() {
                   setLoading(false);
                 }}
                 disabled={loading}
-                className="block mx-auto px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
               >
-                {loading ? 'Loading...' : 'Try Refreshing'}
+                {loading ? 'Loading...' : 'Refresh'}
               </button>
               <button
                 onClick={() => {
                   setMode('create');
                   setHasUnsavedChanges(false); // New form, no changes yet
                 }}
-                className="px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
               >
-                Create Your First Travel Map
+                Create New Trip
               </button>
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {existingTrips.map((trip) => (
-              <div key={trip.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow">
-                <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">{trip.title}</h3>
-                <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">{trip.description}</p>
-                <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
-                  {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
-                </p>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => loadTripForEditing(trip.id)}
-                    className="flex-1 px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      const mapUrl = getMapUrl(trip.id);
-                      window.open(mapUrl, '_blank');
-                    }}
-                    className="flex-1 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-sm text-sm hover:bg-green-600 dark:hover:bg-green-700"
-                  >
-                    View
-                  </button>
-                </div>
+
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400">Loading travel maps...</p>
+            </div>
+          ) : existingTrips.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No travel maps found.</p>
+              <div className="space-y-3">
+                <button
+                  onClick={async () => {
+                    setLoading(true);
+                    await loadExistingTrips();
+                    setLoading(false);
+                  }}
+                  disabled={loading}
+                  className="block mx-auto px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
+                >
+                  {loading ? 'Loading...' : 'Try Refreshing'}
+                </button>
+                <button
+                  onClick={() => {
+                    setMode('create');
+                    setHasUnsavedChanges(false); // New form, no changes yet
+                  }}
+                  className="px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
+                >
+                  Create Your First Travel Map
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {existingTrips.map((trip) => (
+                <div key={trip.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-6 shadow-xs hover:shadow-md transition-shadow relative">
+                  <button
+                    onClick={() => deleteTrip(trip.id, trip.title)}
+                    className="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded"
+                    title="Delete Trip"
+                  >
+                    🗑️
+                  </button>
+                  <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white pr-8">{trip.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">{trip.description}</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
+                    {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
+                  </p>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => loadTripForEditing(trip.id)}
+                      className="flex-1 px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        const mapUrl = getMapUrl(trip.id);
+                        window.open(mapUrl, '_blank');
+                      }}
+                      className="flex-1 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-sm text-sm hover:bg-green-600 dark:hover:bg-green-700"
+                    >
+                      View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
     );
   }
 
@@ -1143,6 +1352,17 @@ export default function TravelDataForm() {
           onCancel={() => {
             setReassignDialog(null);
             setDeleteDialog(null);
+          }}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {notification && (
+        <ToastNotification
+          notification={notification}
+          onClose={() => {
+            setNotification(prev => prev ? { ...prev, isVisible: false } : null);
+            setTimeout(() => setNotification(null), 300);
           }}
         />
       )}

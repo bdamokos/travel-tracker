@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateTravelData, loadUnifiedTripData } from '../../lib/unifiedDataService';
+import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '../../lib/unifiedDataService';
 import { filterTravelDataForServer } from '../../lib/serverPrivacyUtils';
+import { isAdminDomain } from '../../lib/server-domains';
 
 export async function POST(request: NextRequest) {
   try {
@@ -114,3 +115,49 @@ export async function PUT(request: NextRequest) {
     );
   }
 } 
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Delete operation only allowed on admin domain' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID parameter is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Verify trip exists before deletion
+    const tripData = await loadUnifiedTripData(id);
+    if (!tripData) {
+      return NextResponse.json(
+        { error: 'Trip not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Delete trip with backup
+    await deleteTripWithBackup(id);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: `Trip "${tripData.title}" has been deleted and backed up`
+    });
+  } catch (error) {
+    console.error('Error deleting trip:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete trip' },
+      { status: 500 }
+    );
+  }
+}

@@ -7,6 +7,12 @@ import CostTrackingForm from './components/CostTrackingForm';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'travel' | 'cost'>('travel');
+  const [tripDeleteDialog, setTripDeleteDialog] = useState<{
+    isOpen: boolean;
+    tripId: string;
+    tripTitle: string;
+    isDeleting?: boolean;
+  } | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -90,7 +96,7 @@ export default function AdminPage() {
           
           {/* Tab Content */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            {activeTab === 'travel' && <TravelDataForm />}
+            {activeTab === 'travel' && <TravelDataForm tripDeleteDialog={tripDeleteDialog} setTripDeleteDialog={setTripDeleteDialog} />}
             {activeTab === 'cost' && <CostTrackingForm />}
           </div>
         </div>

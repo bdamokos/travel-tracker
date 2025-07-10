@@ -5,7 +5,7 @@
  * both travel and cost data, while maintaining backwards compatibility
  */
 
-import { readFile, writeFile, readdir, unlink } from 'fs/promises';
+import { readFile, writeFile, readdir, unlink, access, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { 
   UnifiedTripData, 
@@ -22,6 +22,85 @@ import {
 import { Location, Transportation, BudgetItem, Expense, YnabImportData, JourneyPeriod } from '../types';
 
 const DATA_DIR = join(process.cwd(), 'data');
+const BACKUP_DIR = join(DATA_DIR, 'backups');
+
+async function ensureBackupDir() {
+  try {
+    await access(BACKUP_DIR);
+  } catch {
+    await mkdir(BACKUP_DIR, { recursive: true });
+  }
+}
+
+export async function createTripBackup(id: string): Promise<void> {
+  try {
+    await ensureBackupDir();
+    
+    const tripData = await loadUnifiedTripData(id);
+    if (!tripData) {
+      throw new Error(`Trip ${id} not found for backup`);
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupData = {
+      ...tripData,
+      backupMetadata: {
+        deletedAt: new Date().toISOString(),
+        originalId: id,
+        backupType: 'trip_deletion'
+      }
+    };
+    
+    const backupFilename = `deleted-trip-${id}-${timestamp}.json`;
+    const backupPath = join(BACKUP_DIR, backupFilename);
+    
+    await writeFile(backupPath, JSON.stringify(backupData, null, 2));
+    console.log(`Created backup for trip ${id} at ${backupPath}`);
+  } catch (error) {
+    console.error(`Failed to create backup for trip ${id}:`, error);
+    throw new Error(`Backup creation failed: ${error}`);
+  }
+}
+
+export async function deleteTripWithBackup(id: string): Promise<void> {
+  try {
+    // Create backup first
+    await createTripBackup(id);
+    
+    // Remove unified trip file
+    const unifiedPath = join(DATA_DIR, `trip-${id}.json`);
+    try {
+      await unlink(unifiedPath);
+      console.log(`Deleted unified trip file: ${unifiedPath}`);
+    } catch (error) {
+      // File might not exist, check for legacy files
+      console.log(`Unified trip file not found, checking legacy files`);
+    }
+    
+    // Remove legacy files if they exist
+    const legacyTravelPath = join(DATA_DIR, `travel-${id}.json`);
+    const legacyCostPath = join(DATA_DIR, `cost-${id}.json`);
+    
+    try {
+      await unlink(legacyTravelPath);
+      console.log(`Deleted legacy travel file: ${legacyTravelPath}`);
+    } catch {
+      // Legacy travel file doesn't exist
+    }
+    
+    try {
+      await unlink(legacyCostPath);
+      console.log(`Deleted legacy cost file: ${legacyCostPath}`);
+    } catch {
+      // Legacy cost file doesn't exist
+    }
+    
+    console.log(`Successfully deleted trip ${id} with backup`);
+  } catch (error) {
+    console.error(`Failed to delete trip ${id}:`, error);
+    throw error;
+  }
+}
 
 /**
  * Loads and migrates data automatically
