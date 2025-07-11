@@ -64,16 +64,16 @@ async function getTravelData(id: string): Promise<TravelData | null> {
           ...location,
           date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date
         })),
-        routes: (unifiedData.travelData.routes || []).map((route: Transportation) => ({
+        routes: (unifiedData.travelData.routes || []).map((route: Transportation & { fromCoords?: [number, number]; toCoords?: [number, number]; transportType?: string; date?: string; duration?: string; notes?: string }) => ({
           id: route.id,
           from: route.from,
           to: route.to,
-          fromCoords: route.fromCoordinates || [0, 0],
-          toCoords: route.toCoordinates || [0, 0],
-          transportType: route.type,
-          date: route.departureTime || '',
-          duration: undefined, // Transportation doesn't have duration
-          notes: route.privateNotes
+          fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
+          toCoords: route.toCoords || route.toCoordinates || [0, 0],
+          transportType: route.transportType || route.type,
+          date: route.date || route.departureTime || '',
+          duration: route.duration,
+          notes: route.notes || route.privateNotes
         })),
         createdAt: unifiedData.createdAt
       };
