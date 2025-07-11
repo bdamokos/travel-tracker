@@ -5,6 +5,7 @@ import { Transportation, CostTrackingLink } from '../../types';
 import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
+import AriaComboBox from './AriaComboBox';
 
 interface TravelRoute {
   id: string;
@@ -129,39 +130,31 @@ export default function RouteInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               From *
             </label>
-            <input
-              type="text"
+            <AriaComboBox
+              id="from-locations-inline"
               value={formData.from}
-              onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))}
-              list="from-locations-inline"
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              onChange={(value) => setFormData(prev => ({ ...prev, from: value }))}
+              className="w-full px-2 py-1 text-sm"
+              options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
               placeholder="Paris"
               required
+              allowsCustomValue={true}
             />
-            <datalist id="from-locations-inline">
-              {locationOptions.map(location => (
-                <option key={location.name} value={location.name} />
-              ))}
-            </datalist>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               To *
             </label>
-            <input
-              type="text"
+            <AriaComboBox
+              id="to-locations-inline"
               value={formData.to}
-              onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))}
-              list="to-locations-inline"
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              onChange={(value) => setFormData(prev => ({ ...prev, to: value }))}
+              className="w-full px-2 py-1 text-sm"
+              options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
               placeholder="London"
               required
+              allowsCustomValue={true}
             />
-            <datalist id="to-locations-inline">
-              {locationOptions.map(location => (
-                <option key={location.name} value={location.name} />
-              ))}
-            </datalist>
           </div>
         </div>
 

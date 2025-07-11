@@ -5,6 +5,7 @@ import { CostTrackingLink, Transportation } from '../../types';
 import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
+import AriaComboBox from './AriaComboBox';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -175,44 +176,32 @@ export default function RouteForm({
           <label htmlFor="route-from" className="block text-sm font-medium text-gray-700 mb-1">
             From Location *
           </label>
-          <input
+          <AriaComboBox
             id="route-from"
             name="from"
-            type="text"
-            list="from-locations"
             defaultValue={currentRoute.from || ''}
-            onChange={(e) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, from: e.target.value }))}
+            onChange={(value) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, from: value }))}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
             placeholder="Enter location name (new locations will be created)"
+            allowsCustomValue={true}
           />
-          <datalist id="from-locations">
-            {locationOptions.map(location => (
-              <option key={location.name} value={location.name} />
-            ))}
-          </datalist>
         </div>
 
         <div>
           <label htmlFor="route-to" className="block text-sm font-medium text-gray-700 mb-1">
             To Location *
           </label>
-          <input
+          <AriaComboBox
             id="route-to"
             name="to"
-            type="text"
-            list="to-locations"
             defaultValue={currentRoute.to || ''}
-            onChange={(e) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, to: e.target.value }))}
+            onChange={(value) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, to: value }))}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
             placeholder="Enter location name (new locations will be created)"
+            allowsCustomValue={true}
           />
-          <datalist id="to-locations">
-            {locationOptions.map(location => (
-              <option key={location.name} value={location.name} />
-            ))}
-          </datalist>
         </div>
 
         <div>
