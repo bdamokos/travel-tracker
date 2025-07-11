@@ -60,7 +60,10 @@ async function getTravelData(id: string): Promise<TravelData | null> {
         description: unifiedData.description,
         startDate: unifiedData.startDate,
         endDate: unifiedData.endDate,
-        locations: unifiedData.travelData.locations || [],
+        locations: (unifiedData.travelData.locations || []).map(location => ({
+          ...location,
+          date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date
+        })),
         routes: (unifiedData.travelData.routes || []).map((route: Transportation) => ({
           id: route.id,
           from: route.from,

@@ -21,8 +21,9 @@ export default function LocationDisplay({
   showAccommodations = false,
   linkedExpenses = []
 }: LocationDisplayProps) {
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-GB', {
+  const formatDate = (date: string | Date) => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'

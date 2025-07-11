@@ -31,8 +31,8 @@ export type Location = {
   coordinates: [number, number]; // [latitude, longitude]
   arrivalTime?: string;
   departureTime?: string; // When leaving this location
-  date: string; // Primary date (arrival date)
-  endDate?: string; // Optional end date for multi-day stays
+  date: Date; // Primary date (arrival date)
+  endDate?: Date; // Optional end date for multi-day stays
   duration?: number; // Duration in days (calculated or manual)
   notes?: string;
   instagramPosts?: InstagramPost[];
@@ -72,8 +72,8 @@ export type InstagramPost = {
 // Single travel period (could be a day, part of a day, or multiple days)
 export type JourneyPeriod = {
   id: string;
-  date: string;        // Primary date for the period
-  endDate?: string;    // Optional end date if period spans multiple days
+  date: Date;        // Primary date for the period
+  endDate?: Date;    // Optional end date if period spans multiple days
   title: string;
   locations: Location[];
   transportation?: Transportation;
@@ -88,8 +88,8 @@ export type JourneyDay = JourneyPeriod;
 export type Journey = {
   id: string;
   title: string;
-  startDate: string;
-  endDate?: string;
+  startDate: Date;
+  endDate?: Date;
   days: JourneyPeriod[];  // Still called "days" for API compatibility, but contains periods
 };
 
@@ -98,8 +98,8 @@ export type Journey = {
 // Cost tracking types
 export type CountryPeriod = {
   id: string;
-  startDate: string;
-  endDate: string;
+  startDate: Date;
+  endDate: Date;
   notes?: string;
 };
 
@@ -142,8 +142,8 @@ export type CostTrackingData = {
   id: string;
   tripId: string; // Reference to the travel trip
   tripTitle: string;
-  tripStartDate: string;
-  tripEndDate: string;
+  tripStartDate: Date;
+  tripEndDate: Date;
   overallBudget: number;
   currency: string;
   countryBudgets: BudgetItem[];

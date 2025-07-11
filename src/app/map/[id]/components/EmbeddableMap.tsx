@@ -140,7 +140,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const markers: L.Marker[] = [];
     
     // Find the location closest to current date
-    const closestLocation = findClosestLocationToCurrentDate(travelData.locations);
+    const closestLocation = findClosestLocationToCurrentDate(
+      travelData.locations.map(location => ({
+        ...location,
+        date: new Date(location.date)
+      }))
+    );
     
     travelData.locations.forEach((location) => {
       // Build popup content with posts

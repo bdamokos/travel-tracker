@@ -53,11 +53,12 @@ export default function LocationInlineEditor({
   };
 
   const handleEndDateChange = (endDate: string) => {
-    const duration = endDate && formData.date ? 
-      Math.ceil((new Date(endDate).getTime() - new Date(formData.date).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
+    const endDateObj = endDate ? new Date(endDate) : undefined;
+    const duration = endDateObj && formData.date ? 
+      Math.ceil((endDateObj.getTime() - (formData.date instanceof Date ? formData.date.getTime() : new Date(formData.date).getTime())) / (1000 * 60 * 60 * 24)) + 1 : 
       undefined;
     
-    setFormData(prev => ({ ...prev, endDate: endDate || undefined, duration }));
+    setFormData(prev => ({ ...prev, endDate: endDateObj, duration }));
   };
 
   return (
@@ -95,8 +96,8 @@ export default function LocationInlineEditor({
             </label>
             <input
               type="date"
-              value={formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: new Date(e.target.value) }))}
               className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               required
             />
@@ -107,7 +108,7 @@ export default function LocationInlineEditor({
             </label>
             <input
               type="date"
-              value={formData.endDate || ''}
+              value={formData.endDate instanceof Date ? formData.endDate.toISOString().split('T')[0] : (formData.endDate || '')}
               onChange={(e) => handleEndDateChange(e.target.value)}
               className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             />

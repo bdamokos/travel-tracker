@@ -69,7 +69,7 @@ export default function TravelItemSelector({
                   type: 'location',
                   name: location.name,
                   description: location.notes || '',
-                  date: location.date,
+                  date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date,
                   tripTitle: trip.title
                 });
               });
@@ -77,13 +77,13 @@ export default function TravelItemSelector({
             
             // Add routes
             if (tripData.routes) {
-              tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: string }) => {
+              tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: Date }) => {
                 allItems.push({
                   id: route.id,
                   type: 'route',
                   name: `${route.from} → ${route.to}`,
                   description: `${route.transportType} transport`,
-                  date: route.date,
+                  date: route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date,
                   tripTitle: trip.title
                 });
               });

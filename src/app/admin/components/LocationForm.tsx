@@ -53,10 +53,12 @@ export default function LocationForm({
     const lng = parseFloat(data.longitude as string) || 0;
     
     // Handle end date and calculate duration
-    const startDate = data.date as string;
-    const endDate = data.endDate as string || undefined;
+    const startDateStr = data.date as string;
+    const endDateStr = data.endDate as string || undefined;
+    const startDate = new Date(startDateStr);
+    const endDate = endDateStr ? new Date(endDateStr) : undefined;
     const duration = endDate && startDate ? 
-      Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
+      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
       undefined;
     
     // Create location object
@@ -95,7 +97,7 @@ export default function LocationForm({
       setCurrentLocation({
         name: '',
         coordinates: [0, 0],
-        date: '',
+        date: new Date(),
         notes: '',
         instagramPosts: [],
         blogPosts: [],
@@ -171,8 +173,8 @@ export default function LocationForm({
             id="location-date"
             name="date"
             type="date"
-            defaultValue={currentLocation.date || ''}
-            onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: e.target.value }))}
+            defaultValue={currentLocation.date instanceof Date ? currentLocation.date.toISOString().split('T')[0] : (currentLocation.date || '')}
+            onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: new Date(e.target.value) }))}
             required
             data-testid="location-date"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -187,12 +189,13 @@ export default function LocationForm({
             id="location-end-date"
             name="endDate"
             type="date"
-            defaultValue={currentLocation.endDate || ''}
+            defaultValue={currentLocation.endDate instanceof Date ? currentLocation.endDate.toISOString().split('T')[0] : (currentLocation.endDate || '')}
             onChange={(e) => {
-              const endDate = e.target.value;
+              const endDateStr = e.target.value;
+              const endDate = endDateStr ? new Date(endDateStr) : undefined;
               setCurrentLocation((prev: Partial<Location>) => {
                 const duration = endDate && prev.date ? 
-                  Math.ceil((new Date(endDate).getTime() - new Date(prev.date).getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
+                  Math.ceil((endDate.getTime() - (prev.date instanceof Date ? prev.date.getTime() : new Date(prev.date).getTime())) / (1000 * 60 * 60 * 24)) + 1 : 
                   undefined;
                 return { ...prev, endDate, duration };
               });
@@ -299,7 +302,7 @@ export default function LocationForm({
                 setCurrentLocation({
                   name: '',
                   coordinates: [0, 0],
-                  date: '',
+                  date: new Date(),
                   notes: '',
                   instagramPosts: [],
                   blogPosts: [],

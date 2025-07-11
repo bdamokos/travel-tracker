@@ -27,7 +27,7 @@ interface TravelRoute {
   fromCoords: [number, number];
   toCoords: [number, number];
   transportType: Transportation['type'];
-  date: string;
+  date: Date;
   duration?: string;
   notes?: string;
   privateNotes?: string;
@@ -38,8 +38,8 @@ interface TravelData {
   id?: string;
   title: string;
   description: string;
-  startDate: string;
-  endDate: string;
+  startDate: Date;
+  endDate: Date;
   locations: Location[];
   routes: TravelRoute[];
 }
@@ -48,8 +48,8 @@ interface ExistingTrip {
   id: string;
   title: string;
   description: string;
-  startDate: string;
-  endDate: string;
+  startDate: Date;
+  endDate: Date;
   createdAt: string;
 }
 
@@ -139,8 +139,8 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
   const [travelData, setTravelData] = useState<TravelData>({
     title: '',
     description: '',
-    startDate: '',
-    endDate: '',
+    startDate: new Date(),
+    endDate: new Date(),
     locations: [],
     routes: []
   });
@@ -150,7 +150,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
     coordinates: [0, 0],
-    date: '',
+    date: new Date(),
     notes: '',
     instagramPosts: [],
     blogPosts: [],
@@ -166,7 +166,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
     fromCoords: [0, 0],
     toCoords: [0, 0],
     transportType: 'plane',
-    date: '',
+    date: new Date(),
     duration: '',
     notes: '',
     privateNotes: '',
@@ -329,8 +329,8 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
       id: location.id || generateId(),
       name: location.name || '',
       coordinates: location.coordinates || [0, 0] as [number, number],
-      date: location.date || '',
-      endDate: location.endDate,
+      date: location.date ? (location.date instanceof Date ? location.date : new Date(location.date)) : new Date(),
+      endDate: location.endDate ? (location.endDate instanceof Date ? location.endDate : new Date(location.endDate)) : undefined,
       duration: location.duration,
       arrivalTime: location.arrivalTime,
       departureTime: location.departureTime,
@@ -351,7 +351,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
       fromCoords: route.fromCoords || [0, 0] as [number, number],
       toCoords: route.toCoords || [0, 0] as [number, number],
       transportType: route.transportType || 'car',
-      date: route.date || '',
+      date: route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date(),
       duration: route.duration,
       notes: route.notes || '',
       privateNotes: route.privateNotes,
@@ -362,8 +362,8 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
       id: tripData.id,
       title: tripData.title || '',
       description: tripData.description || '',
-      startDate: tripData.startDate || '',
-      endDate: tripData.endDate || '',
+      startDate: tripData.startDate ? (tripData.startDate instanceof Date ? tripData.startDate : new Date(tripData.startDate)) : new Date(),
+      endDate: tripData.endDate ? (tripData.endDate instanceof Date ? tripData.endDate : new Date(tripData.endDate)) : new Date(),
       locations: migratedLocations,
       routes: migratedRoutes
     };
@@ -881,8 +881,8 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
             setTravelData({
               title: '',
               description: '',
-              startDate: '',
-              endDate: '',
+              startDate: new Date(),
+              endDate: new Date(),
               locations: [],
               routes: []
             });
@@ -931,9 +931,9 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
             <input
               id="journey-start-date"
               type="date"
-              value={travelData.startDate}
+              value={travelData.startDate instanceof Date ? travelData.startDate.toISOString().split('T')[0] : travelData.startDate}
               onChange={(e) => {
-                setTravelData(prev => ({ ...prev, startDate: e.target.value }));
+                setTravelData(prev => ({ ...prev, startDate: new Date(e.target.value) }));
                 setHasUnsavedChanges(true);
               }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
@@ -944,9 +944,9 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
             <input
               id="journey-end-date"
               type="date"
-              value={travelData.endDate}
+              value={travelData.endDate instanceof Date ? travelData.endDate.toISOString().split('T')[0] : travelData.endDate}
               onChange={(e) => {
-                setTravelData(prev => ({ ...prev, endDate: e.target.value }));
+                setTravelData(prev => ({ ...prev, endDate: new Date(e.target.value) }));
                 setHasUnsavedChanges(true);
               }}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"

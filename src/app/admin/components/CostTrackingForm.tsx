@@ -48,8 +48,8 @@ export default function CostTrackingForm() {
     id: '',
     tripId: '',
     tripTitle: '',
-    tripStartDate: '',
-    tripEndDate: '',
+    tripStartDate: new Date(),
+    tripEndDate: new Date(),
     overallBudget: 0,
     currency: 'EUR',
     countryBudgets: [],
@@ -85,8 +85,8 @@ export default function CostTrackingForm() {
   const [editingPeriodForBudget, setEditingPeriodForBudget] = useState<string | null>(null);
   const [editingPeriodIndex, setEditingPeriodIndex] = useState<number | null>(null);
   const [currentPeriod, setCurrentPeriod] = useState<Partial<CountryPeriod>>({
-    startDate: '',
-    endDate: '',
+    startDate: new Date(),
+    endDate: new Date(),
     notes: ''
   });
   
@@ -319,8 +319,8 @@ export default function CostTrackingForm() {
       ...prev,
       tripId: trip.id,
       tripTitle: trip.title,
-      tripStartDate: trip.startDate,
-      tripEndDate: trip.endDate
+      tripStartDate: new Date(trip.startDate),
+      tripEndDate: new Date(trip.endDate)
     }));
   };
 
@@ -459,8 +459,8 @@ export default function CostTrackingForm() {
 
     const period: CountryPeriod = {
       id: editingPeriodIndex !== null ? '' : generateId(), // Will be updated for edit
-      startDate: currentPeriod.startDate,
-      endDate: currentPeriod.endDate,
+      startDate: new Date(currentPeriod.startDate!),
+      endDate: new Date(currentPeriod.endDate!),
       notes: currentPeriod.notes || ''
     };
 
@@ -483,7 +483,7 @@ export default function CostTrackingForm() {
     });
 
     setCostData(prev => ({ ...prev, countryBudgets: updatedBudgets }));
-    setCurrentPeriod({ startDate: '', endDate: '', notes: '' });
+    setCurrentPeriod({ startDate: new Date(), endDate: new Date(), notes: '' });
     setEditingPeriodIndex(null);
   };
 
@@ -510,7 +510,7 @@ export default function CostTrackingForm() {
   };
 
   const cancelPeriodEdit = () => {
-    setCurrentPeriod({ startDate: '', endDate: '', notes: '' });
+    setCurrentPeriod({ startDate: new Date(), endDate: new Date(), notes: '' });
     setEditingPeriodForBudget(null);
     setEditingPeriodIndex(null);
   };
@@ -792,8 +792,8 @@ export default function CostTrackingForm() {
               id: '',
               tripId: '',
               tripTitle: '',
-              tripStartDate: '',
-              tripEndDate: '',
+              tripStartDate: new Date(),
+              tripEndDate: new Date(),
               overallBudget: 0,
               currency: 'EUR',
               countryBudgets: [],
@@ -971,7 +971,7 @@ export default function CostTrackingForm() {
                           <button
                             onClick={() => {
                               setEditingPeriodForBudget(budget.id);
-                              setCurrentPeriod({ startDate: '', endDate: '', notes: '' });
+                              setCurrentPeriod({ startDate: new Date(), endDate: new Date(), notes: '' });
                             }}
                             className="text-xs text-blue-500 hover:text-blue-700"
                           >
@@ -1037,8 +1037,8 @@ export default function CostTrackingForm() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
                       <input
                         type="date"
-                        value={currentPeriod.startDate || ''}
-                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, startDate: e.target.value }))}
+                        value={currentPeriod.startDate instanceof Date ? currentPeriod.startDate.toISOString().split('T')[0] : (currentPeriod.startDate || '')}
+                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, startDate: new Date(e.target.value) }))}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                     </div>
@@ -1046,8 +1046,8 @@ export default function CostTrackingForm() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
                       <input
                         type="date"
-                        value={currentPeriod.endDate || ''}
-                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, endDate: e.target.value }))}
+                        value={currentPeriod.endDate instanceof Date ? currentPeriod.endDate.toISOString().split('T')[0] : (currentPeriod.endDate || '')}
+                        onChange={(e) => setCurrentPeriod(prev => ({ ...prev, endDate: new Date(e.target.value) }))}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                     </div>

@@ -18,7 +18,7 @@ interface TravelRoute {
   fromCoords: [number, number];
   toCoords: [number, number];
   transportType: Transportation['type'];
-  date: string;
+  date: Date;
   duration?: string;
   notes?: string;
   // Private fields (admin only)
@@ -82,7 +82,7 @@ export default function RouteForm({
       to: data.to as string,
       fromCoords,
       toCoords,
-      date: data.date as string,
+      date: new Date(data.date as string),
       notes: data.notes as string || '',
       duration: data.duration as string || '',
       // Private fields
@@ -115,7 +115,7 @@ export default function RouteForm({
       to: '',
       fromCoords: [0, 0],
       toCoords: [0, 0],
-      date: '',
+      date: new Date(),
       notes: '',
       duration: '',
       privateNotes: '',
@@ -165,7 +165,7 @@ export default function RouteForm({
             id="route-date"
             name="date"
             type="date"
-            defaultValue={currentRoute.date || ''}
+            defaultValue={currentRoute.date instanceof Date ? currentRoute.date.toISOString().split('T')[0] : (currentRoute.date || '')}
             required
             data-testid="route-date"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -278,7 +278,7 @@ export default function RouteForm({
                   to: '',
                   fromCoords: [0, 0],
                   toCoords: [0, 0],
-                  date: '',
+                  date: new Date(),
                   notes: '',
                   duration: '',
                   privateNotes: '',

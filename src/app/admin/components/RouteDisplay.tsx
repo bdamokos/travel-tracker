@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Transportation } from '../../types';
+import { Transportation, CostTrackingLink } from '../../types';
 import { transportationLabels } from '../../lib/routeUtils';
 
 interface TravelRoute {
@@ -11,10 +11,11 @@ interface TravelRoute {
   fromCoords: [number, number];
   toCoords: [number, number];
   transportType: Transportation['type'];
-  date: string;
+  date: Date;
   duration?: string;
   notes?: string;
   privateNotes?: string;
+  costTrackingLinks?: CostTrackingLink[];
 }
 
 interface RouteDisplayProps {
@@ -30,8 +31,8 @@ export default function RouteDisplay({
   onDelete,
   linkedExpenses = []
 }: RouteDisplayProps) {
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

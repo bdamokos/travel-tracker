@@ -4,7 +4,7 @@
 
 export interface LocationWithDate {
   id: string;
-  date: string;
+  date: Date;
   [key: string]: unknown;
 }
 
@@ -26,7 +26,7 @@ export function findClosestLocationToCurrentDate<T extends LocationWithDate>(
   // Filter out locations without valid dates
   const validLocations = locations.filter(location => {
     if (!location.date) return false;
-    const locationDate = new Date(location.date);
+    const locationDate = location.date instanceof Date ? location.date : new Date(location.date);
     return !isNaN(locationDate.getTime());
   });
   
@@ -37,7 +37,7 @@ export function findClosestLocationToCurrentDate<T extends LocationWithDate>(
   const futureLocations: T[] = [];
   
   validLocations.forEach(location => {
-    const locationDate = new Date(location.date);
+    const locationDate = location.date instanceof Date ? location.date : new Date(location.date);
     if (locationDate <= now) {
       pastLocations.push(location);
     } else {
@@ -48,8 +48,8 @@ export function findClosestLocationToCurrentDate<T extends LocationWithDate>(
   // If we have past locations, return the latest one
   if (pastLocations.length > 0) {
     return pastLocations.reduce((latest, current) => {
-      const latestDate = new Date(latest.date);
-      const currentDate = new Date(current.date);
+      const latestDate = latest.date instanceof Date ? latest.date : new Date(latest.date);
+      const currentDate = current.date instanceof Date ? current.date : new Date(current.date);
       return currentDate > latestDate ? current : latest;
     });
   }
@@ -57,8 +57,8 @@ export function findClosestLocationToCurrentDate<T extends LocationWithDate>(
   // If all locations are in the future, return the earliest one (closest to today)
   if (futureLocations.length > 0) {
     return futureLocations.reduce((closest, current) => {
-      const closestDate = new Date(closest.date);
-      const currentDate = new Date(current.date);
+      const closestDate = closest.date instanceof Date ? closest.date : new Date(closest.date);
+      const currentDate = current.date instanceof Date ? current.date : new Date(current.date);
       return currentDate < closestDate ? current : closest;
     });
   }

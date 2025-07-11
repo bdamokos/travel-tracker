@@ -20,7 +20,7 @@ interface EditFormProps {
 const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   const [formData, setFormData] = useState<Partial<JourneyDay>>(
     day || {
-      date: new Date().toISOString().split('T')[0],
+      date: new Date(),
       title: '',
       locations: [],
       customNotes: '',
@@ -71,7 +71,10 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: (name === 'date' || name === 'endDate') ? new Date(value) : value 
+    }));
   };
   
   const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -350,7 +353,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
         id: `temp-${Date.now()}`,
         name: newLocation.name!,  // Use non-null assertion since we've checked above
         coordinates: newLocation.coordinates || [0, 0] as [number, number],
-        date: prev.date || new Date().toISOString().split('T')[0], // Use the day's date
+        date: prev.date || new Date(), // Use the day's date
         arrivalTime: newLocation.arrivalTime,
         notes: newLocation.notes,
         instagramPosts: newLocation.instagramPosts || [],
@@ -618,7 +621,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   type="date"
                   id="date"
                   name="date"
-                  value={formData.date}
+                  value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date}
                   onChange={handleChange}
                   className="w-full p-2 border rounded-sm"
                   required
@@ -633,10 +636,10 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   type="date"
                   id="endDate"
                   name="endDate"
-                  value={formData.endDate || ''}
+                  value={formData.endDate instanceof Date ? formData.endDate.toISOString().split('T')[0] : formData.endDate || ''}
                   onChange={handleChange}
                   className="w-full p-2 border rounded-sm"
-                  min={formData.date} // Cannot be before start date
+                  min={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date} // Cannot be before start date
                 />
                 <p className="text-xs text-gray-500 mt-1">For multi-day periods</p>
               </div>

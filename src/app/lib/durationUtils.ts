@@ -8,7 +8,7 @@ interface TravelRoute {
   fromCoords: [number, number];
   toCoords: [number, number];
   transportType: Transportation['type'];
-  date: string;
+  date: Date;
   duration?: string;
   notes?: string;
 }
@@ -17,9 +17,9 @@ interface TravelRoute {
  * Calculate the duration in days between two dates (inclusive)
  * Returns the number of days staying (including both start and end dates)
  */
-export function calculateDurationInDays(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+export function calculateDurationInDays(startDate: string | Date, endDate: string | Date): number {
+  const start = startDate instanceof Date ? startDate : new Date(startDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   return diffDays;
@@ -29,9 +29,9 @@ export function calculateDurationInDays(startDate: string, endDate: string): num
  * Calculate the number of nights between two dates
  * Same date = 0 nights, consecutive dates = 1 night, etc.
  */
-export function calculateNights(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+export function calculateNights(startDate: string | Date, endDate: string | Date): number {
+  const start = startDate instanceof Date ? startDate : new Date(startDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return nights;
@@ -48,7 +48,7 @@ function convertTravelRouteToTransportation(route: TravelRoute): Transportation 
           route.transportType as Transportation['type'],
     from: route.from,
     to: route.to,
-    departureTime: route.date,
+    departureTime: route.date instanceof Date ? route.date.toISOString() : route.date,
     fromCoordinates: route.fromCoords,
     toCoordinates: route.toCoords
   };
@@ -92,7 +92,7 @@ export function calculateSmartDurations(
       return location;
     }
 
-    let suggestedEndDate: string | undefined;
+    let suggestedEndDate: Date | undefined;
     let suggestedDuration: number | undefined;
 
     // Method 1: Look for outbound transportation from this location
@@ -104,8 +104,8 @@ export function calculateSmartDurations(
     if (outboundRoute && outboundRoute.departureTime) {
       // Extract date from departure time (assuming format includes date)
       const departureDate = outboundRoute.departureTime.split('T')[0] || outboundRoute.departureTime;
-      suggestedEndDate = departureDate;
-      suggestedDuration = calculateDurationInDays(location.date, departureDate);
+      suggestedEndDate = new Date(departureDate);
+      suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
     }
 
     // Method 2: Look at the next location's arrival
@@ -121,13 +121,13 @@ export function calculateSmartDurations(
 
       if (routeToNext && routeToNext.departureTime) {
         const departureDate = routeToNext.departureTime.split('T')[0] || routeToNext.departureTime;
-        suggestedEndDate = departureDate;
-        suggestedDuration = calculateDurationInDays(location.date, departureDate);
+        suggestedEndDate = new Date(departureDate);
+        suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
       } else {
         // Fallback: use the day before next location's date
         const dayBefore = new Date(nextLocation.date);
         dayBefore.setDate(dayBefore.getDate() - 1);
-        suggestedEndDate = dayBefore.toISOString().split('T')[0];
+        suggestedEndDate = dayBefore;
         suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
       }
     }
@@ -137,7 +137,7 @@ export function calculateSmartDurations(
       suggestedDuration = 1; // Default to 1 day
       const endDate = new Date(location.date);
       endDate.setDate(endDate.getDate() + suggestedDuration);
-      suggestedEndDate = endDate.toISOString().split('T')[0];
+      suggestedEndDate = endDate;
     }
 
     // Only suggest if it makes sense (positive duration, reasonable length)
@@ -157,7 +157,7 @@ export function calculateSmartDurations(
 /**
  * Format duration for display using "X days/Y nights" format
  */
-export function formatDuration(days: number, startDate?: string, endDate?: string): string {
+export function formatDuration(days: number, startDate?: string | Date, endDate?: string | Date): string {
   if (startDate && endDate) {
     const nights = calculateNights(startDate, endDate);
     return `${days} day${days !== 1 ? 's' : ''}/${nights} night${nights !== 1 ? 's' : ''}`;
