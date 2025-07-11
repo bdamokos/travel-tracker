@@ -14,6 +14,45 @@ export function createTransactionHash(transaction: YnabTransaction): string {
   return createHash('sha256').update(hashString).digest('hex');
 }
 
+/**
+ * Converts YNAB date format (DD/MM/YYYY) to ISO format (YYYY-MM-DD)
+ * @param ynabDate - Date in DD/MM/YYYY format
+ * @returns Date in YYYY-MM-DD format, or empty string if invalid
+ */
+export function convertYnabDateToISO(ynabDate: string): string {
+  if (!ynabDate || typeof ynabDate !== 'string') {
+    return '';
+  }
+
+  // Handle DD/MM/YYYY format
+  const dateParts = ynabDate.trim().split('/');
+  if (dateParts.length !== 3) {
+    return '';
+  }
+
+  const [day, month, year] = dateParts;
+  
+  // Validate that all parts are numbers
+  if (!/^\d{1,2}$/.test(day) || !/^\d{1,2}$/.test(month) || !/^\d{4}$/.test(year)) {
+    return '';
+  }
+
+  // Convert to numbers and validate ranges
+  const dayNum = parseInt(day, 10);
+  const monthNum = parseInt(month, 10);
+  const yearNum = parseInt(year, 10);
+
+  if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
+    return '';
+  }
+
+  // Pad with zeros and return in ISO format
+  const paddedDay = day.padStart(2, '0');
+  const paddedMonth = month.padStart(2, '0');
+  
+  return `${yearNum}-${paddedMonth}-${paddedDay}`;
+}
+
 export function parseYnabFile(fileContent: string): YnabParseResult {
   const lines = fileContent.split('\n').filter(line => line.trim() !== '');
   

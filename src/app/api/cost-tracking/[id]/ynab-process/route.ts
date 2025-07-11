@@ -10,6 +10,7 @@ import {
   ExpenseType
 } from '@/app/types';
 import { createTransactionHash } from '@/app/lib/ynabUtils';
+import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // Convert to our expense format
       const expense: Expense = {
         id: `ynab-${transactionHash}`,
-        date: originalTxn.Date,
+        date: convertYnabDateToISO(originalTxn.Date),
         amount: amount,
         currency: costData.currency,
         category: expenseCategory,
