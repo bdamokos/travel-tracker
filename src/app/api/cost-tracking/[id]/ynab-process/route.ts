@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { 
-  CostTrackingData, 
   YnabCategoryMapping, 
   ProcessedYnabTransaction, 
   YnabTransaction,
@@ -13,6 +12,18 @@ import {
 import { createTransactionHash } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
+import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
+
+// Type guard for customCategories
+function hasCustomCategories(obj: unknown): obj is { customCategories: string[] } {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'customCategories' in obj &&
+    Array.isArray((obj as { customCategories?: unknown }).customCategories) &&
+    (obj as { customCategories: unknown[] }).customCategories.every(cat => typeof cat === 'string')
+  );
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -37,10 +48,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const tempFileContent = await readFile(tempFilePath, 'utf-8');
     const tempData = JSON.parse(tempFileContent);
 
-    // Load existing cost tracking data
-    const costTrackingFilePath = join(process.cwd(), 'data', `cost-${id}.json`);
-    const costTrackingContent = await readFile(costTrackingFilePath, 'utf-8');
-    const costData: CostTrackingData = JSON.parse(costTrackingContent);
+    // Load existing cost tracking data using unifiedDataService
+    const unifiedTrip = await loadUnifiedTripData(id.replace(/^cost-/, ''));
+    if (!unifiedTrip || !unifiedTrip.costData) {
+      return NextResponse.json({ error: 'Cost tracking data not found' }, { status: 404 });
+    }
+    const costData = unifiedTrip.costData;
 
     // Initialize YNAB import data if not exists
     if (!costData.ynabImportData) {
@@ -132,10 +145,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Add new expenses to cost data
     costData.expenses.push(...newExpenses);
     costData.ynabImportData.importedTransactionHashes.push(...newHashes);
-    costData.updatedAt = new Date().toISOString();
+    // updatedAt is handled in the unified trip object, not here
 
-    // Save updated cost tracking data
-    await writeFile(costTrackingFilePath, JSON.stringify(costData, null, 2));
+    // Save updated cost tracking data using unifiedDataService
+    await updateCostData(id.replace(/^cost-/, ''), {
+      overallBudget: costData.overallBudget,
+      currency: costData.currency,
+      countryBudgets: costData.countryBudgets,
+      expenses: costData.expenses,
+      ynabImportData: costData.ynabImportData,
+      tripTitle: unifiedTrip.title,
+      tripStartDate: unifiedTrip.startDate,
+      tripEndDate: unifiedTrip.endDate,
+      ...(hasCustomCategories(costData) ? { customCategories: (costData as { customCategories: string[] }).customCategories } : {}),
+      createdAt: unifiedTrip.createdAt,
+      updatedAt: new Date().toISOString()
+    });
 
     // Clean up temporary file
     await cleanupTempFile(tempFileId);
@@ -191,10 +216,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const tempFileContent = await readFile(tempFilePath, 'utf-8');
     const tempData = JSON.parse(tempFileContent);
 
-    // Load existing cost tracking data to check for duplicates
-    const costTrackingFilePath = join(process.cwd(), 'data', `cost-${id}.json`);
-    const costTrackingContent = await readFile(costTrackingFilePath, 'utf-8');
-    const costData: CostTrackingData = JSON.parse(costTrackingContent);
+    // Load existing cost tracking data to check for duplicates using unifiedDataService
+    const unifiedTrip = await loadUnifiedTripData(id.replace(/^cost-/, ''));
+    if (!unifiedTrip || !unifiedTrip.costData) {
+      return NextResponse.json({ error: 'Cost tracking data not found' }, { status: 404 });
+    }
+    const costData = unifiedTrip.costData;
 
     const existingHashes = costData.ynabImportData?.importedTransactionHashes || [];
 
