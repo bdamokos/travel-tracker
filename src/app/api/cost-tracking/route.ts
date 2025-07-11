@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateCostData, getLegacyCostData } from '../../lib/unifiedDataService';
+import { updateCostData, loadUnifiedTripData } from '../../lib/unifiedDataService';
 import { isAdminDomain } from '../../lib/server-domains';
 
 
@@ -65,15 +65,31 @@ export async function GET(request: NextRequest) {
     // Clean the ID to handle both cost-prefixed and clean IDs
     const cleanId = id.replace(/^(cost-)+/, '');
     
-    // Use unified data service for automatic migration
-    const costData = await getLegacyCostData(cleanId);
+    // Load unified trip data
+    const unifiedData = await loadUnifiedTripData(cleanId);
     
-    if (!costData) {
+    if (!unifiedData?.costData) {
       return NextResponse.json(
         { error: 'Cost tracking data not found' },
         { status: 404 }
       );
     }
+    
+    // Extract cost data in legacy format for backward compatibility
+    const costData = {
+      id: `cost-${cleanId}`,
+      tripId: cleanId,
+      tripTitle: unifiedData.title,
+      tripStartDate: unifiedData.startDate,
+      tripEndDate: unifiedData.endDate,
+      overallBudget: unifiedData.costData.overallBudget,
+      currency: unifiedData.costData.currency,
+      countryBudgets: unifiedData.costData.countryBudgets,
+      expenses: unifiedData.costData.expenses,
+      ynabImportData: unifiedData.costData.ynabImportData,
+      createdAt: unifiedData.createdAt,
+      updatedAt: unifiedData.updatedAt
+    };
     
     return NextResponse.json(costData);
   } catch (error) {

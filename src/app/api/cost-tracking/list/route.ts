@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listAllTrips, getLegacyCostData } from '../../../lib/unifiedDataService';
+import { listAllTrips, loadUnifiedTripData } from '../../../lib/unifiedDataService';
 import { Expense } from '../../../types';
 import { isAdminDomain } from '../../../lib/server-domains';
 
@@ -21,27 +21,28 @@ export async function GET() {
         .map(async (trip) => {
           try {
             // Load the actual cost data using the unified service
-            const costData = await getLegacyCostData(trip.id);
+            const unifiedData = await loadUnifiedTripData(trip.id);
             
-            if (costData) {
+            if (unifiedData?.costData) {
+              const costData = unifiedData.costData;
               // Calculate totals
               const totalSpent = costData.expenses?.reduce((sum: number, expense: Expense) => sum + expense.amount, 0) || 0;
               const remainingBudget = (costData.overallBudget || 0) - totalSpent;
               
               return {
-                id: costData.id,
-                tripId: costData.tripId,
-                tripTitle: costData.tripTitle,
-                tripStartDate: costData.tripStartDate,
-                tripEndDate: costData.tripEndDate,
+                id: `cost-${trip.id}`,
+                tripId: trip.id,
+                tripTitle: unifiedData.title,
+                tripStartDate: unifiedData.startDate,
+                tripEndDate: unifiedData.endDate,
                 overallBudget: costData.overallBudget || 0,
                 currency: costData.currency || 'EUR',
                 totalSpent,
                 remainingBudget,
                 expenseCount: costData.expenses?.length || 0,
                 countryBudgetCount: costData.countryBudgets?.length || 0,
-                createdAt: costData.createdAt,
-                updatedAt: costData.updatedAt || costData.createdAt
+                createdAt: unifiedData.createdAt,
+                updatedAt: unifiedData.updatedAt || unifiedData.createdAt
               };
             } else {
               // Return null if no cost data found

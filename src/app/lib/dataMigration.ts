@@ -1,11 +1,10 @@
 /**
  * Data Migration System for Travel Tracker
  * 
- * Handles migration from separate travel/cost files to unified data model
- * while maintaining backwards compatibility and future-proofing
+ * Handles unified data model and schema migrations
  */
 
-import { Journey, CostTrackingData, Location, Transportation, Accommodation, CostTrackingLink } from '../types';
+import { Journey, CostTrackingData, Location, Transportation, Accommodation } from '../types';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -46,121 +45,10 @@ export interface UnifiedTripData {
 }
 
 /**
- * Legacy travel data format
- */
-interface LegacyTravelData {
-  id: string;
-  title: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  locations: Location[];
-  routes: Transportation[];
-  days?: Journey['days'];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/**
- * Legacy cost data format
- */
-interface LegacyCostData {
-  id: string;
-  tripId: string;
-  tripTitle: string;
-  tripStartDate: string;
-  tripEndDate: string;
-  overallBudget: number;
-  currency: string;
-  countryBudgets: CostTrackingData['countryBudgets'];
-  expenses: CostTrackingData['expenses'];
-  ynabImportData?: CostTrackingData['ynabImportData'];
-  createdAt: string;
-  updatedAt?: string;
-}
-
-/**
- * Migrates legacy travel data to unified format
- */
-export function migrateLegacyTravelData(
-  travelData: LegacyTravelData, 
-  costData?: LegacyCostData
-): UnifiedTripData {
-  return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    id: travelData.id,
-    title: travelData.title,
-    description: travelData.description,
-    startDate: travelData.startDate,
-    endDate: travelData.endDate,
-    createdAt: travelData.createdAt || new Date().toISOString(),
-    updatedAt: travelData.updatedAt || new Date().toISOString(),
-    
-    travelData: {
-      locations: travelData.locations || [],
-      routes: travelData.routes || [],
-      days: travelData.days
-    },
-    
-    costData: costData ? {
-      overallBudget: costData.overallBudget,
-      currency: costData.currency,
-      countryBudgets: costData.countryBudgets,
-      expenses: costData.expenses,
-      ynabImportData: costData.ynabImportData
-    } : undefined
-  };
-}
-
-/**
- * Migrates legacy cost data to unified format (for standalone cost trackers)
- */
-export function migrateLegacyCostData(costData: LegacyCostData): UnifiedTripData {
-  // Clean the trip ID to avoid duplicate prefixes if cost ID was used as tripId (handle multiple repeated prefixes)
-  const cleanTripId = costData.tripId.replace(/^(cost-)+/, '');
-  
-  return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    id: cleanTripId, // Use clean tripId as the unified ID
-    title: costData.tripTitle,
-    description: '',
-    startDate: costData.tripStartDate,
-    endDate: costData.tripEndDate,
-    createdAt: costData.createdAt,
-    updatedAt: costData.updatedAt || new Date().toISOString(),
-    
-    // No travel data for cost-only entries
-    travelData: undefined,
-    
-    costData: {
-      overallBudget: costData.overallBudget,
-      currency: costData.currency,
-      countryBudgets: costData.countryBudgets,
-      expenses: costData.expenses,
-      ynabImportData: costData.ynabImportData
-    }
-  };
-}
-
-/**
  * Checks if data is already in unified format
  */
 export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
   return data !== null && typeof data === 'object' && 'schemaVersion' in data && typeof (data as UnifiedTripData).schemaVersion === 'number' && (data as UnifiedTripData).schemaVersion >= 1;
-}
-
-/**
- * Checks if data is legacy travel format
- */
-export function isLegacyTravelFormat(data: unknown): data is LegacyTravelData {
-  return data !== null && typeof data === 'object' && 'locations' in data && Array.isArray((data as LegacyTravelData).locations) && !('schemaVersion' in data);
-}
-
-/**
- * Checks if data is legacy cost format
- */
-export function isLegacyCostFormat(data: unknown): data is LegacyCostData {
-  return data !== null && typeof data === 'object' && 'tripId' in data && 'expenses' in data && Array.isArray((data as LegacyCostData).expenses) && !('schemaVersion' in data);
 }
 
 /**
@@ -212,8 +100,6 @@ export function migrateFromV1ToV2(data: UnifiedTripData): UnifiedTripData {
   };
 }
 
-// Accommodations are now stored directly in the trip data, no separate file needed
-
 /**
  * Migrates from version 2 to version 3 - properly extracts accommodations from locations
  * This fixes the incomplete v2 migration that didn't actually create accommodations
@@ -244,12 +130,7 @@ export function migrateFromV2ToV3(data: UnifiedTripData): UnifiedTripData {
                  expense?.travelReference?.type === 'accommodation';
         });
         
-        // Keep all other expenses at the location level
-        const locationExpenses = (location.costTrackingLinks || []).filter(link => {
-          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
-          return !(expense?.category === 'Accommodation' || 
-                  expense?.travelReference?.type === 'accommodation');
-        });
+
         
         const accommodation: Accommodation = {
           id: accommodationId,
@@ -273,11 +154,6 @@ export function migrateFromV2ToV3(data: UnifiedTripData): UnifiedTripData {
       
       if (accommodationId) {
         // Location has accommodation - reference it and update cost links
-        const accommodationExpenses = (location.costTrackingLinks || []).filter(link => {
-          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
-          return expense?.category === 'Accommodation' || 
-                 expense?.travelReference?.type === 'accommodation';
-        });
         
         const locationExpenses = (location.costTrackingLinks || []).filter(link => {
           const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
@@ -331,49 +207,4 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   
   return data;
-}
-
-/**
- * Extracts legacy travel data format from unified data
- * (for backwards compatibility with existing components)
- */
-export function extractLegacyTravelData(unifiedData: UnifiedTripData): LegacyTravelData {
-  return {
-    id: unifiedData.id,
-    title: unifiedData.title,
-    description: unifiedData.description,
-    startDate: unifiedData.startDate,
-    endDate: unifiedData.endDate,
-    locations: unifiedData.travelData?.locations || [],
-    routes: unifiedData.travelData?.routes || [],
-    days: unifiedData.travelData?.days,
-    createdAt: unifiedData.createdAt,
-    updatedAt: unifiedData.updatedAt
-  };
-}
-
-/**
- * Extracts legacy cost data format from unified data
- * (for backwards compatibility with existing components)
- */
-export function extractLegacyCostData(unifiedData: UnifiedTripData): LegacyCostData | null {
-  if (!unifiedData.costData) return null;
-  
-  // Clean the trip ID to avoid duplicate prefixes (handle multiple repeated prefixes)
-  const cleanTripId = unifiedData.id.replace(/^(cost-)+/, '');
-  
-  return {
-    id: `cost-${cleanTripId}`, // Generate cost ID from clean trip ID
-    tripId: cleanTripId, // Use clean trip ID
-    tripTitle: unifiedData.title,
-    tripStartDate: unifiedData.startDate,
-    tripEndDate: unifiedData.endDate,
-    overallBudget: unifiedData.costData.overallBudget,
-    currency: unifiedData.costData.currency,
-    countryBudgets: unifiedData.costData.countryBudgets,
-    expenses: unifiedData.costData.expenses,
-    ynabImportData: unifiedData.costData.ynabImportData,
-    createdAt: unifiedData.createdAt,
-    updatedAt: unifiedData.updatedAt
-  };
 }

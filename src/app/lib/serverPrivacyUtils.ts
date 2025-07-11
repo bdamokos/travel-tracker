@@ -1,5 +1,12 @@
 import { Journey, Location, Transportation, JourneyPeriod } from '../types';
 
+interface TravelData {
+  locations?: Location[];
+  routes?: Transportation[];
+  days?: JourneyPeriod[];
+  [key: string]: unknown;
+}
+
 /**
  * Server-side privacy filtering utilities
  * These functions ensure private data never reaches the client in public/embeddable views
@@ -101,17 +108,10 @@ export function filterJourneyForServer(journey: Journey, host: string | null): J
   };
 }
 
-interface LegacyTravelData {
-  locations?: Location[];
-  routes?: Transportation[];
-  days?: JourneyPeriod[];
-  [key: string]: unknown;
-}
-
 /**
- * Filter travel data for legacy format compatibility (server-side only)
+ * Filter travel data for server-side privacy
  */
-export function filterTravelDataForServer(travelData: LegacyTravelData, host: string | null): LegacyTravelData {
+export function filterTravelDataForServer(travelData: TravelData, host: string | null): TravelData {
   const isAdmin = isAdminRequest(host);
   
   if (isAdmin) {
