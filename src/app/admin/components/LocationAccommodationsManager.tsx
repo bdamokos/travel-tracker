@@ -8,6 +8,7 @@ import { useAccommodations } from '../../hooks/useAccommodations';
 import AccommodationInput from './AccommodationInput';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import LinkedExpensesDisplay from './LinkedExpensesDisplay';
+import AccommodationReadOnlyDisplay from './AccommodationReadOnlyDisplay';
 
 interface LocationAccommodationsManagerProps {
   tripId: string;
@@ -17,6 +18,7 @@ interface LocationAccommodationsManagerProps {
   onAccommodationIdsChange: (ids: string[]) => void;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
+  displayMode?: boolean; // When true, shows read-only display without editing controls
 }
 
 export default function LocationAccommodationsManager({
@@ -26,7 +28,8 @@ export default function LocationAccommodationsManager({
   accommodationIds,
   onAccommodationIdsChange,
   travelLookup,
-  costData
+  costData,
+  displayMode = false
 }: LocationAccommodationsManagerProps) {
   const {
     loading,
@@ -121,6 +124,45 @@ export default function LocationAccommodationsManager({
     );
   }
 
+  // Display mode: show read-only accommodations without editing controls
+  if (displayMode) {
+    // Check for orphaned accommodation IDs (IDs that don't have corresponding accommodation data)
+    const missingAccommodations = accommodationIds.filter(id => !getAccommodationById(id));
+    
+    return (
+      <div className="space-y-3">
+        {locationAccommodations.length > 0 && (
+          <div>
+            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              🏨 Accommodations ({locationAccommodations.length})
+            </div>
+            {locationAccommodations.map((accommodation) => (
+              <AccommodationReadOnlyDisplay
+                key={accommodation.id}
+                accommodation={accommodation}
+                travelLookup={travelLookup}
+                costData={costData}
+              />
+            ))}
+          </div>
+        )}
+        
+        {missingAccommodations.length > 0 && (
+          <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800">
+            ⚠️ {missingAccommodations.length} accommodation{missingAccommodations.length !== 1 ? 's' : ''} need{missingAccommodations.length === 1 ? 's' : ''} migration
+          </div>
+        )}
+        
+        {locationAccommodations.length === 0 && accommodationIds.length === 0 && (
+          <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+            No accommodations added
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Edit mode: show full management interface
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">

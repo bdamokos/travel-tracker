@@ -18,6 +18,7 @@ import LocationDisplay from './LocationDisplay';
 import LocationInlineEditor from './LocationInlineEditor';
 import RouteDisplay from './RouteDisplay';
 import RouteInlineEditor from './RouteInlineEditor';
+import LocationAccommodationsManager from './LocationAccommodationsManager';
 
 interface TravelRoute {
   id: string;
@@ -1025,12 +1026,31 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
                           onEdit={onEdit}
                           onDelete={() => deleteLocation(index)}
                           onViewPosts={() => setSelectedLocationForPosts(selectedLocationForPosts === index ? null : index)}
-                          showAccommodations={true}
+                          showAccommodations={false}
                           linkedExpenses={[]}
                         />
                         
                         {/* Accommodation Display */}
-                        {location.accommodationData && (
+                        {/* Show accommodations using the new system if available, otherwise fallback to legacy */}
+                        {location.accommodationIds && location.accommodationIds.length > 0 ? (
+                          <div className="mt-3">
+                            <LocationAccommodationsManager
+                              tripId={travelData.id || ''}
+                              locationId={location.id}
+                              locationName={location.name}
+                              accommodationIds={location.accommodationIds}
+                              onAccommodationIdsChange={(newIds) => {
+                                const updatedLocations = [...travelData.locations];
+                                updatedLocations[index] = { ...location, accommodationIds: newIds };
+                                setTravelData(prev => ({ ...prev, locations: updatedLocations }));
+                                setHasUnsavedChanges(true);
+                              }}
+                              travelLookup={travelLookup}
+                              costData={costData}
+                              displayMode={true} // Read-only display mode
+                            />
+                          </div>
+                        ) : location.accommodationData && (
                           <div className="mt-3">
                             <AccommodationDisplay
                               accommodationData={location.accommodationData}
@@ -1044,14 +1064,16 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
                         )}
                         
                         {/* Linked Expenses Display */}
-                        <LinkedExpensesDisplay
-                          items={[
-                            { itemType: 'location', itemId: location.id },
-                            ...((location.accommodationIds || []).map((accId: string) => ({ itemType: 'accommodation', itemId: accId })) as { itemType: 'accommodation', itemId: string }[])
-                          ]}
-                          travelLookup={travelLookup}
-                          costData={costData}
-                        />
+                        {travelLookup && costData && (
+                          <LinkedExpensesDisplay
+                            items={[
+                              { itemType: 'location', itemId: location.id },
+                              ...((location.accommodationIds || []).map((accId: string) => ({ itemType: 'accommodation', itemId: accId })) as { itemType: 'accommodation', itemId: string }[])
+                            ]}
+                            travelLookup={travelLookup}
+                            costData={costData}
+                          />
+                        )}
                       </div>
                     )}
                   </InPlaceEditor>
