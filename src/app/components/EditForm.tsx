@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { JourneyDay, Location, Transportation, InstagramPost, BlogPost } from '../types';
+import AriaSelect from '../admin/components/AriaSelect';
 import { 
   geocodeLocation, 
   reverseGeocode,
@@ -833,22 +834,24 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 <label htmlFor="transportType" className="block mb-1">
                   Transportation Type
                 </label>
-                <select
+                <AriaSelect
                   id="transportType"
                   name="type"
                   value={newTransportation.type}
-                  onChange={handleTransportationChange}
-                  className="w-full p-2 border rounded-sm"
-                >
-                  <option value="walk">Walking</option>
-                  <option value="bike">Biking</option>
-                  <option value="car">Car</option>
-                  <option value="bus">Bus</option>
-                  <option value="train">Train</option>
-                  <option value="plane">Plane</option>
-                  <option value="ferry">Ferry</option>
-                  <option value="other">Other</option>
-                </select>
+                  onChange={(value) => handleTransportationChange({ target: { name: 'type', value } } as React.ChangeEvent<HTMLSelectElement>)}
+                  className="w-full p-2"
+                  options={[
+                    { value: 'walk', label: 'Walking' },
+                    { value: 'bike', label: 'Biking' },
+                    { value: 'car', label: 'Car' },
+                    { value: 'bus', label: 'Bus' },
+                    { value: 'train', label: 'Train' },
+                    { value: 'plane', label: 'Plane' },
+                    { value: 'ferry', label: 'Ferry' },
+                    { value: 'other', label: 'Other' }
+                  ]}
+                  placeholder="Select Transportation Type"
+                />
               </div>
               
               <div className="mb-3">
@@ -1155,19 +1158,20 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                   <label htmlFor="locationSelect" className="block mb-1">
                     Select Location
                   </label>
-                  <select
+                  <AriaSelect
                     id="locationSelect"
-                    value={selectedLocationForPosts}
-                    onChange={(e) => setSelectedLocationForPosts(parseInt(e.target.value))}
-                    className="w-full p-2 border rounded-sm"
-                  >
-                    <option value={-1}>Choose a location...</option>
-                    {formData.locations.map((location, index) => (
-                      <option key={location.id} value={index}>
-                        {location.name}
-                      </option>
-                    ))}
-                  </select>
+                    value={selectedLocationForPosts.toString()}
+                    onChange={(value) => setSelectedLocationForPosts(parseInt(value))}
+                    className="w-full p-2"
+                    options={[
+                      { value: '-1', label: 'Choose a location...' },
+                      ...formData.locations.map((location, index) => ({
+                        value: index.toString(),
+                        label: location.name
+                      }))
+                    ]}
+                    placeholder="Choose a location..."
+                  />
                 </div>
                 
                 {selectedLocationForPosts >= 0 && (

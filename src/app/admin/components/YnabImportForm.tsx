@@ -7,6 +7,7 @@ import {
   CostTrackingData 
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
+import AriaSelect from './AriaSelect';
 
 interface YnabImportFormProps {
   costData: CostTrackingData;
@@ -324,29 +325,30 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                         </div>
                       </div>
                     
-                    <select
+                    <AriaSelect
+                      id={`mapping-type-${index}`}
                       value={mapping.mappingType}
-                      onChange={(e) => handleCategoryMappingChange(index, 'mappingType', e.target.value)}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="none">None (Not Travel-Related)</option>
-                      <option value="general">General Expenses</option>
-                      <option value="country">Country-Specific</option>
-                    </select>
+                      onChange={(value) => handleCategoryMappingChange(index, 'mappingType', value)}
+                      options={[
+                        { value: 'none', label: 'None (Not Travel-Related)' },
+                        { value: 'general', label: 'General Expenses' },
+                        { value: 'country', label: 'Country-Specific' }
+                      ]}
+                      placeholder="Select Mapping Type"
+                    />
                     
                     {mapping.mappingType === 'country' && (
                       <div className="flex gap-2">
-                        <select
+                        <AriaSelect
+                          id={`country-${index}`}
                           value={mapping.countryName || ''}
-                          onChange={(e) => handleCategoryMappingChange(index, 'countryName', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
-                        >
-                          <option value="">Select Country</option>
-                          {availableCountries.map(country => (
-                            <option key={country} value={country}>{country}</option>
-                          ))}
-                          <option value="__new__">+ Create New Country</option>
-                        </select>
+                          onChange={(value) => handleCategoryMappingChange(index, 'countryName', value)}
+                          options={[
+                            ...availableCountries.map(country => ({ value: country, label: country })),
+                            { value: '__new__', label: '+ Create New Country' }
+                          ]}
+                          placeholder="Select Country"
+                        />
                         {mapping.countryName === '__new__' && (
                           <input
                             type="text"
@@ -496,15 +498,14 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
                         </div>
                         
                         {isSelected && (
-                          <select
+                          <AriaSelect
+                            id={`expense-category-${txn.hash}`}
                             value={selection?.expenseCategory || availableCategories[0]}
-                            onChange={(e) => handleCategoryChange(txn.hash, e.target.value)}
-                            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm dark:bg-gray-700 dark:text-white"
-                          >
-                            {availableCategories.map(category => (
-                              <option key={category} value={category}>{category}</option>
-                            ))}
-                          </select>
+                            onChange={(value) => handleCategoryChange(txn.hash, value)}
+                            className="px-3 py-1 text-sm"
+                            options={availableCategories.map(category => ({ value: category, label: category }))}
+                            placeholder="Select Category"
+                          />
                         )}
                       </div>
                     </div>

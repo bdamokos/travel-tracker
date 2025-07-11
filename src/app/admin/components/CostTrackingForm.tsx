@@ -12,6 +12,7 @@ import TravelLinkDisplay from './TravelLinkDisplay';
 import InPlaceEditor from './InPlaceEditor';
 import ExpenseDisplay from './ExpenseDisplay';
 import ExpenseInlineEditor from './ExpenseInlineEditor';
+import AriaSelect from './AriaSelect';
 
 interface ExistingTrip {
   id: string;
@@ -848,18 +849,19 @@ export default function CostTrackingForm() {
                 </div>
                 <div>
                   <label htmlFor="currency-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
-                  <select
+                  <AriaSelect
                     id="currency-select"
                     value={costData.currency}
-                    onChange={(e) => setCostData(prev => ({ ...prev, currency: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="GBP">GBP</option>
-                    <option value="CAD">CAD</option>
-                    <option value="AUD">AUD</option>
-                  </select>
+                    onChange={(value) => setCostData(prev => ({ ...prev, currency: value }))}
+                    options={[
+                      { value: 'EUR', label: 'EUR' },
+                      { value: 'USD', label: 'USD' },
+                      { value: 'GBP', label: 'GBP' },
+                      { value: 'CAD', label: 'CAD' },
+                      { value: 'AUD', label: 'AUD' }
+                    ]}
+                    placeholder="Select Currency"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trip</label>

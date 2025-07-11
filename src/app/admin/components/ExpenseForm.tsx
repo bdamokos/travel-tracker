@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import TravelItemSelector from './TravelItemSelector';
+import AriaSelect from './AriaSelect';
 import { Expense, ExpenseType } from '../../types';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { generateId } from '@/app/lib/costUtils';
@@ -132,66 +133,60 @@ export default function ExpenseForm({
           <label htmlFor="expense-currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Currency
           </label>
-          <select
+          <AriaSelect
             id="expense-currency"
             name="currency"
             defaultValue={currentExpense.currency || currency}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-          </select>
+            options={[
+              { value: 'EUR', label: 'EUR' },
+              { value: 'USD', label: 'USD' },
+              { value: 'GBP', label: 'GBP' }
+            ]}
+            placeholder="Select Currency"
+          />
         </div>
 
         <div>
           <label htmlFor="expense-category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Category *
           </label>
-          <select
+          <AriaSelect
             id="expense-category"
             name="category"
             defaultValue={currentExpense.category || ''}
             required
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="">Select Category</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+            options={categories.map(cat => ({ value: cat, label: cat }))}
+            placeholder="Select Category"
+          />
         </div>
 
         <div>
           <label htmlFor="expense-country" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Country
           </label>
-          <select
+          <AriaSelect
             id="expense-country"
             name="country"
             defaultValue={currentExpense.country || ''}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="">General/Multiple Countries</option>
-            {countryOptions.map(country => (
-              <option key={country} value={country}>{country}</option>
-            ))}
-          </select>
+            options={countryOptions.map(country => ({ value: country, label: country }))}
+            placeholder="General/Multiple Countries"
+          />
         </div>
 
         <div>
           <label htmlFor="expense-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Expense Type
           </label>
-          <select
+          <AriaSelect
             id="expense-type"
             name="expenseType"
             defaultValue={currentExpense.expenseType || 'actual'}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="actual">Actual</option>
-            <option value="planned">Planned</option>
-          </select>
+            options={[
+              { value: 'actual', label: 'Actual' },
+              { value: 'planned', label: 'Planned' }
+            ]}
+            placeholder="Select Type"
+          />
         </div>
 
         <div className="md:col-span-2">

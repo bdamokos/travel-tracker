@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Transportation, CostTrackingLink } from '../../types';
 import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
+import AriaSelect from './AriaSelect';
 
 interface TravelRoute {
   id: string;
@@ -98,16 +99,15 @@ export default function RouteInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Transportation *
             </label>
-            <select
+            <AriaSelect
+              id="transport-type-select"
               value={formData.transportType}
-              onChange={(e) => setFormData(prev => ({ ...prev, transportType: e.target.value as Transportation['type'] }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              onChange={(value) => setFormData(prev => ({ ...prev, transportType: value as Transportation['type'] }))}
+              className="w-full px-2 py-1 text-sm"
               required
-            >
-              {transportOptions.map(type => (
-                <option key={type.value} value={type.value}>{type.label}</option>
-              ))}
-            </select>
+              options={transportOptions}
+              placeholder="Select Transportation"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

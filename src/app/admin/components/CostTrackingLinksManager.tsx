@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CostTrackingLink } from '../../types';
+import AriaSelect from './AriaSelect';
 
 interface Expense {
   id: string;
@@ -166,18 +167,17 @@ export default function CostTrackingLinksManager({
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                 Select Expense to Link
               </label>
-              <select
+              <AriaSelect
+                id="expense-select"
                 value={selectedExpenseId}
-                onChange={(e) => setSelectedExpenseId(e.target.value)}
-                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="">Choose an expense...</option>
-                {availableToLink.map(expense => (
-                  <option key={expense.id} value={expense.id}>
-                    {expense.description} - {expense.amount} {expense.currency} ({expense.date})
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setSelectedExpenseId(value)}
+                className="w-full px-2 py-1 text-sm"
+                options={availableToLink.map(expense => ({
+                  value: expense.id,
+                  label: `${expense.description} - ${expense.amount} ${expense.currency} (${expense.date})`
+                }))}
+                placeholder="Choose an expense..."
+              />
             </div>
 
             {selectedExpenseId && (

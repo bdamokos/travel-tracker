@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Expense, ExpenseType } from '../../types';
 import TravelItemSelector from './TravelItemSelector';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import AriaSelect from './AriaSelect';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
@@ -78,31 +79,32 @@ export default function ExpenseInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Currency
             </label>
-            <select
+            <AriaSelect
+              id="currency-select"
               value={formData.currency}
-              onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-              <option value="GBP">GBP</option>
-            </select>
+              onChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
+              className="w-full px-2 py-1 text-sm"
+              options={[
+                { value: 'EUR', label: 'EUR' },
+                { value: 'USD', label: 'USD' },
+                { value: 'GBP', label: 'GBP' }
+              ]}
+              placeholder="Select Currency"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category *
             </label>
-            <select
+            <AriaSelect
+              id="category-select"
               value={formData.category}
-              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              onChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+              className="w-full px-2 py-1 text-sm"
               required
-            >
-              <option value="">Select Category</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+              options={categories.map(cat => ({ value: cat, label: cat }))}
+              placeholder="Select Category"
+            />
           </div>
         </div>
 
@@ -112,29 +114,30 @@ export default function ExpenseInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Country
             </label>
-            <select
+            <AriaSelect
+              id="country-select"
               value={formData.country || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="">General/Multiple</option>
-              {countryOptions.map(country => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-            </select>
+              onChange={(value) => setFormData(prev => ({ ...prev, country: value }))}
+              className="w-full px-2 py-1 text-sm"
+              options={countryOptions.map(country => ({ value: country, label: country }))}
+              placeholder="General/Multiple"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Type
             </label>
-            <select
+            <AriaSelect
+              id="expense-type-select"
               value={formData.expenseType}
-              onChange={(e) => setFormData(prev => ({ ...prev, expenseType: e.target.value as ExpenseType }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="actual">Actual</option>
-              <option value="planned">Planned</option>
-            </select>
+              onChange={(value) => setFormData(prev => ({ ...prev, expenseType: value as ExpenseType }))}
+              className="w-full px-2 py-1 text-sm"
+              options={[
+                { value: 'actual', label: 'Actual' },
+                { value: 'planned', label: 'Planned' }
+              ]}
+              placeholder="Select Type"
+            />
           </div>
         </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Location, Transportation, Accommodation } from '../../types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
+import AriaSelect from './AriaSelect';
 
 interface TravelItem {
   id: string;
@@ -186,16 +187,17 @@ export default function TravelItemSelector({
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Link to Travel Item (Optional)
         </label>
-        <select
+        <AriaSelect
+          id="travel-type-select"
           value={selectedType}
-          onChange={(e) => handleTypeChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        >
-          <option value="">Select type...</option>
-          <option value="location">Location</option>
-          <option value="accommodation">Accommodation</option>
-          <option value="route">Transportation Route</option>
-        </select>
+          onChange={(value) => handleTypeChange(value)}
+          options={[
+            { value: 'location', label: 'Location' },
+            { value: 'accommodation', label: 'Accommodation' },
+            { value: 'route', label: 'Transportation Route' }
+          ]}
+          placeholder="Select type..."
+        />
       </div>
 
       {selectedType && (
@@ -204,21 +206,18 @@ export default function TravelItemSelector({
             {selectedType === 'accommodation' ? 'Accommodation' : 
              selectedType === 'location' ? 'Location' : 'Route'}
           </label>
-          <select
+          <AriaSelect
+            id="travel-item-select"
             value={selectedItem}
-            onChange={(e) => handleItemChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">Select {selectedType}...</option>
-            {filteredItems.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.type === 'accommodation' ? 
-                  `${item.name} (in ${item.locationName}) - ${item.tripTitle} (${item.date})` :
-                  `${item.name} - ${item.tripTitle} (${item.date})`
-                }
-              </option>
-            ))}
-          </select>
+            onChange={(value) => handleItemChange(value)}
+            options={filteredItems.map(item => ({
+              value: item.id,
+              label: item.type === 'accommodation' ? 
+                `${item.name} (in ${item.locationName}) - ${item.tripTitle} (${item.date})` :
+                `${item.name} - ${item.tripTitle} (${item.date})`
+            }))}
+            placeholder={`Select ${selectedType}...`}
+          />
         </div>
       )}
 

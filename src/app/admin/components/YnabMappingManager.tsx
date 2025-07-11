@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { YnabCategoryMapping, CostTrackingData } from '@/app/types';
 import { extractCategoriesFromYnabFile } from '@/app/lib/ynabUtils';
 import JSZip from 'jszip';
+import AriaSelect from './AriaSelect';
 
 // Security constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
@@ -266,20 +267,17 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                         All as General
                       </button>
                       {availableCountries.length > 0 && (
-                        <select
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleQuickMapAll('country', e.target.value);
-                              e.target.value = '';
+                        <AriaSelect
+                          id="quick-map-country"
+                          onChange={(value) => {
+                            if (value) {
+                              handleQuickMapAll('country', value);
                             }
                           }}
-                          className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-sm dark:bg-gray-700 dark:text-white"
-                        >
-                          <option value="">All to Country...</option>
-                          {availableCountries.map(country => (
-                            <option key={country} value={country}>{country}</option>
-                          ))}
-                        </select>
+                          className="px-3 py-1 text-sm"
+                          options={availableCountries.map(country => ({ value: country, label: country }))}
+                          placeholder="All to Country..."
+                        />
                       )}
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
@@ -301,18 +299,15 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                 </label>
                 {extractedCategories.length > 0 ? (
                   <div className="space-y-2">
-                    <select
+                    <AriaSelect
+                      id="ynab-category-select"
                       value={newMapping.ynabCategory}
-                      onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="">Select from extracted categories</option>
-                      {extractedCategories
+                      onChange={(value) => setNewMapping(prev => ({ ...prev, ynabCategory: value }))}
+                      options={extractedCategories
                         .filter(cat => !mappings.some(m => m.ynabCategory === cat))
-                        .map(category => (
-                          <option key={category} value={category}>{category}</option>
-                        ))}
-                    </select>
+                        .map(category => ({ value: category, label: category }))}
+                      placeholder="Select from extracted categories"
+                    />
                     <input
                       type="text"
                       value={newMapping.ynabCategory}
@@ -336,19 +331,21 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Mapping Type
                 </label>
-                <select
+                <AriaSelect
+                  id="mapping-type-select"
                   value={newMapping.mappingType}
-                  onChange={(e) => setNewMapping(prev => ({ 
+                  onChange={(value) => setNewMapping(prev => ({ 
                     ...prev, 
-                    mappingType: e.target.value as 'country' | 'general' | 'none',
-                    countryName: e.target.value === 'general' || e.target.value === 'none' ? '' : prev.countryName
+                    mappingType: value as 'country' | 'general' | 'none',
+                    countryName: value === 'general' || value === 'none' ? '' : prev.countryName
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="none">None (Not Travel-Related)</option>
-                  <option value="general">General Expenses</option>
-                  <option value="country">Country-Specific</option>
-                </select>
+                  options={[
+                    { value: 'none', label: 'None (Not Travel-Related)' },
+                    { value: 'general', label: 'General Expenses' },
+                    { value: 'country', label: 'Country-Specific' }
+                  ]}
+                  placeholder="Select Mapping Type"
+                />
               </div>
 
               {newMapping.mappingType === 'country' && (
@@ -357,17 +354,17 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                     Country
                   </label>
                   <div className="flex gap-2">
-                    <select
+                    <AriaSelect
+                      id="country-select"
                       value={newMapping.countryName === '__new__' ? '__new__' : newMapping.countryName}
-                      onChange={(e) => setNewMapping(prev => ({ ...prev, countryName: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="">Select Country</option>
-                      {availableCountries.map(country => (
-                        <option key={country} value={country}>{country}</option>
-                      ))}
-                      <option value="__new__">+ Create New Country</option>
-                    </select>
+                      onChange={(value) => setNewMapping(prev => ({ ...prev, countryName: value }))}
+                      className="flex-1"
+                      options={[
+                        ...availableCountries.map(country => ({ value: country, label: country })),
+                        { value: '__new__', label: '+ Create New Country' }
+                      ]}
+                      placeholder="Select Country"
+                    />
                     {newMapping.countryName === '__new__' && (
                       <input
                         type="text"
@@ -420,29 +417,30 @@ export default function YnabMappingManager({ costData, onSave, onClose }: YnabMa
                       />
                     </div>
                     
-                    <select
+                    <AriaSelect
+                      id={`mapping-type-${index}`}
                       value={mapping.mappingType}
-                      onChange={(e) => handleUpdateMapping(index, 'mappingType', e.target.value)}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="none">None (Not Travel-Related)</option>
-                      <option value="general">General Expenses</option>
-                      <option value="country">Country-Specific</option>
-                    </select>
+                      onChange={(value) => handleUpdateMapping(index, 'mappingType', value)}
+                      options={[
+                        { value: 'none', label: 'None (Not Travel-Related)' },
+                        { value: 'general', label: 'General Expenses' },
+                        { value: 'country', label: 'Country-Specific' }
+                      ]}
+                      placeholder="Select Mapping Type"
+                    />
                     
                     {mapping.mappingType === 'country' && (
                       <div className="flex gap-2">
-                        <select
+                        <AriaSelect
+                          id={`country-${index}`}
                           value={mapping.countryName === '__new__' ? '__new__' : (mapping.countryName || '')}
-                          onChange={(e) => handleUpdateMapping(index, 'countryName', e.target.value)}
-                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                        >
-                          <option value="">Select Country</option>
-                          {availableCountries.map(country => (
-                            <option key={country} value={country}>{country}</option>
-                          ))}
-                          <option value="__new__">+ Create New Country</option>
-                        </select>
+                          onChange={(value) => handleUpdateMapping(index, 'countryName', value)}
+                          options={[
+                            ...availableCountries.map(country => ({ value: country, label: country })),
+                            { value: '__new__', label: '+ Create New Country' }
+                          ]}
+                          placeholder="Select Country"
+                        />
                         {mapping.countryName === '__new__' && (
                           <input
                             type="text"

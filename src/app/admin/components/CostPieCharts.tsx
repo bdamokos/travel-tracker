@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { CostSummary, CountryBreakdown } from '../../types';
 import { formatCurrency } from '../../lib/costUtils';
+import AriaSelect from './AriaSelect';
 
 interface CostPieChartsProps {
   costSummary: CostSummary;
@@ -137,14 +138,17 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
             <h5 className="font-medium text-gray-800 dark:text-gray-100">Spending by Country</h5>
-            <select
+            <AriaSelect
+              id="country-basis-select"
               value={countryBasis}
-              onChange={(e) => setCountryBasis(e.target.value as 'total' | 'daily')}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="total">Total Amount</option>
-              <option value="daily">Daily Average</option>
-            </select>
+              onChange={(value) => setCountryBasis(value as 'total' | 'daily')}
+              className="px-3 py-1 text-sm"
+              options={[
+                { value: 'total', label: 'Total Amount' },
+                { value: 'daily', label: 'Daily Average' }
+              ]}
+              placeholder="Select Basis"
+            />
           </div>
           
           {countryData.length > 0 ? (
@@ -185,16 +189,17 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
             <h5 className="font-medium text-gray-800 dark:text-gray-100">Spending by Category</h5>
-            <select
+            <AriaSelect
+              id="category-filter-select"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-sm text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="all">All Countries</option>
-              {countries.slice(1).map(country => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-            </select>
+              onChange={(value) => setCategoryFilter(value)}
+              className="px-3 py-1 text-sm"
+              options={[
+                { value: 'all', label: 'All Countries' },
+                ...countries.slice(1).map(country => ({ value: country, label: country }))
+              ]}
+              placeholder="Select Country"
+            />
           </div>
           
           {categoryData.length > 0 ? (
