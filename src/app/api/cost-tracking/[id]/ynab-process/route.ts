@@ -113,7 +113,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // Convert to our expense format
       const expense: Expense = {
         id: `ynab-${transactionHash}`,
-        date: convertYnabDateToISO(originalTxn.Date),
+        date: new Date(convertYnabDateToISO(originalTxn.Date)),
         amount: amount,
         currency: costData.currency,
         category: expenseCategory,

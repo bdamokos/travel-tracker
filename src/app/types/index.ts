@@ -124,7 +124,7 @@ export type TravelReference = {
 
 export type Expense = {
   id: string;
-  date: string;
+  date: Date;
   amount: number;
   currency: string;
   category: string;

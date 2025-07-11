@@ -22,9 +22,9 @@ export default function LocationDisplay({
   linkedExpenses = []
 }: LocationDisplayProps) {
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
+    return new Date(date).toLocaleDateString('en-GB', {
       day: 'numeric',
+      month: 'short',
       year: 'numeric'
     });
   };

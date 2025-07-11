@@ -625,7 +625,7 @@ export function calculateDailySpendingTrend(expenses: Expense[]): { date: string
   const dailySpending = new Map<string, number>();
   
   expenses.forEach(expense => {
-    const date = expense.date;
+    const date = expense.date instanceof Date ? expense.date.toISOString().split('T')[0] : expense.date;
     dailySpending.set(date, (dailySpending.get(date) || 0) + expense.amount);
   });
   
@@ -686,11 +686,17 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
 /**
  * Format date for display
  */
-export function formatDate(dateString: string): string {
+export function formatDate(dateInput: string | Date): string {
   // Handle different date formats
   let date: Date;
   
-  // Check if it's in dd/mm/yyyy format (from YNAB imports)
+  // If it's already a Date object, use it directly
+  if (dateInput instanceof Date) {
+    date = dateInput;
+  } else {
+    const dateString = dateInput;
+    
+    // Check if it's in dd/mm/yyyy format (from YNAB imports)
   if (dateString.includes('/') && dateString.split('/').length === 3) {
     const parts = dateString.split('/');
     if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
@@ -707,16 +713,17 @@ export function formatDate(dateString: string): string {
     // Try to parse as-is (ISO format, etc.)
     date = new Date(dateString);
   }
+  }
   
   // Check if date is valid
   if (isNaN(date.getTime())) {
     return 'Invalid Date';
   }
   
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
     month: 'short',
-    day: 'numeric'
+    year: 'numeric'
   });
 }
 

@@ -51,8 +51,8 @@ export default function ExpenseInlineEditor({
             </label>
             <input
               type="date"
-              value={formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: new Date(e.target.value) }))}
               className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               required
             />

@@ -65,7 +65,7 @@ export default function CostTrackingForm() {
   });
 
   const [currentExpense, setCurrentExpense] = useState<Partial<Expense>>({
-    date: '',
+    date: new Date(),
     amount: 0,
     currency: 'EUR',
     category: '',

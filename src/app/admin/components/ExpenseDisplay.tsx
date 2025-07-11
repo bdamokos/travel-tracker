@@ -18,10 +18,11 @@ export default function ExpenseDisplay({
   onMarkActual,
   showMarkActual = false
 }: ExpenseDisplayProps) {
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
+  const formatDate = (date: string | Date) => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString('en-GB', {
       day: 'numeric',
+      month: 'short',
       year: 'numeric'
     });
   };

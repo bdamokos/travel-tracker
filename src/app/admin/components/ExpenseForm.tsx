@@ -41,7 +41,7 @@ export default function ExpenseForm({
       // Convert form data to expense object
       const expense: Expense = {
         id: editingExpenseIndex !== null ? currentExpense.id! : generateId(),
-        date: data.date as string,
+        date: new Date(data.date as string),
         amount: parseFloat(data.amount as string),
         currency: data.currency as string || currency,
         category: data.category as string,
@@ -71,7 +71,7 @@ export default function ExpenseForm({
       
       // Reset form data
       setCurrentExpense({
-        date: '',
+        date: new Date(),
         amount: 0,
         currency: currency,
         category: '',
@@ -108,7 +108,7 @@ export default function ExpenseForm({
             id="expense-date"
             name="date"
             type="date"
-            defaultValue={currentExpense.date || ''}
+            defaultValue={currentExpense.date instanceof Date ? currentExpense.date.toISOString().split('T')[0] : (currentExpense.date || '')}
             required
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
@@ -264,7 +264,7 @@ export default function ExpenseForm({
               onClick={() => {
                 setEditingExpenseIndex(null);
                 setCurrentExpense({
-                  date: '',
+                  date: new Date(),
                   amount: 0,
                   currency: currency,
                   category: '',
