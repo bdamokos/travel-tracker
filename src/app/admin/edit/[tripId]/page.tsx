@@ -3,34 +3,13 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useTripEditor } from './hooks/useTripEditor';
-import { Location, Transportation, CostTrackingLink } from '@/app/types';
-import LocationAccommodationsManager from '../../components/LocationAccommodationsManager';
-import LocationForm from '../../components/LocationForm';
-import RouteForm from '../../components/RouteForm';
-import AccommodationDisplay from '../../../components/AccommodationDisplay';
-import LinkedExpensesDisplay from '../../components/LinkedExpensesDisplay';
 import DeleteWarningDialog from '../../components/DeleteWarningDialog';
 import ReassignmentDialog from '../../components/ReassignmentDialog';
-import InPlaceEditor from '../../components/InPlaceEditor';
-import LocationDisplay from '../../components/LocationDisplay';
-import LocationInlineEditor from '../../components/LocationInlineEditor';
-import RouteDisplay from '../../components/RouteDisplay';
-import RouteInlineEditor from '../../components/RouteInlineEditor';
+import TripMetadataForm from './components/TripMetadataForm';
+import LocationManager from './components/LocationManager';
+import RouteManager from './components/RouteManager';
+import AccommodationManager from './components/AccommodationManager';
 
-// Type for travel routes - matches the interface in useTripEditor
-type TravelRoute = {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: Transportation['type'];
-  date: Date;
-  duration?: string;
-  notes?: string;
-  privateNotes?: string;
-  costTrackingLinks?: CostTrackingLink[];
-};
 
 export default function TripEditorPage() {
   const params = useParams();
@@ -216,405 +195,66 @@ export default function TripEditorPage() {
             </div>
           </div>
 
-          {/* Main Editor Content - Moved from TravelDataForm.tsx */}
+          {/* Main Editor Content - Broken down into smaller components */}
           <div className="space-y-8">
             {/* Basic Info */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Journey Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="journey-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-                  <input
-                    id="journey-title"
-                    type="text"
-                    value={travelData.title}
-                    onChange={(e) => {
-                      setTravelData(prev => ({ ...prev, title: e.target.value }));
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    placeholder="My Amazing Trip"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="journey-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-                  <input
-                    id="journey-description"
-                    type="text"
-                    value={travelData.description}
-                    onChange={(e) => {
-                      setTravelData(prev => ({ ...prev, description: e.target.value }));
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    placeholder="A wonderful journey across..."
-                  />
-                </div>
-                <div>
-                  <label htmlFor="journey-start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    id="journey-start-date"
-                    type="date"
-                    value={travelData.startDate instanceof Date ? travelData.startDate.toISOString().split('T')[0] : travelData.startDate}
-                    onChange={(e) => {
-                      setTravelData(prev => ({ ...prev, startDate: new Date(e.target.value) }));
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="journey-end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                  <input
-                    id="journey-end-date"
-                    type="date"
-                    value={travelData.endDate instanceof Date ? travelData.endDate.toISOString().split('T')[0] : travelData.endDate}
-                    onChange={(e) => {
-                      setTravelData(prev => ({ ...prev, endDate: new Date(e.target.value) }));
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
+            <TripMetadataForm
+              travelData={travelData}
+              setTravelData={setTravelData}
+              setHasUnsavedChanges={setHasUnsavedChanges}
+            />
 
             {/* Locations */}
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold">Locations</h3>
-                {travelData.locations.length > 0 && travelData.routes.length > 0 && (
-                  <button
-                    onClick={() => {
-                      const updatedLocations = calculateSmartDurations(travelData.locations, travelData.routes);
-                      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="px-3 py-1 bg-purple-500 dark:bg-purple-600 text-white rounded-sm text-sm hover:bg-purple-600 dark:hover:bg-purple-700"
-                  >
-                    🤖 Calculate Durations
-                  </button>
-                )}
-              </div>
-              <LocationForm
-                tripId={travelData.id || ''}
-                currentLocation={currentLocation}
-                setCurrentLocation={setCurrentLocation}
-                onLocationAdded={handleLocationAdded}
-                editingLocationIndex={editingLocationIndex}
-                setEditingLocationIndex={setEditingLocationIndex}
-                onGeocode={async (locationName: string) => {
-                  const coords = await geocodeLocation(locationName);
-                  setCurrentLocation(prev => ({ ...prev, coordinates: coords }));
-                }}
-                travelLookup={travelLookup}
-                costData={costData}
-              />
-              
-              {/* Location List */}
-              {travelData.locations.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Added Locations ({travelData.locations.length})</h4>
-                  <div className="space-y-4">
-                    {travelData.locations
-                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                      .map((location, index) => (
-                      <div key={location.id}>
-                        <InPlaceEditor<Location>
-                          data={location}
-                          onSave={async (updatedLocation) => {
-                            const updatedLocations = [...travelData.locations];
-                            updatedLocations[index] = updatedLocation;
-                            setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-                            setHasUnsavedChanges(true);
-                          }}
-                          editor={(location, onSave, onCancel) => (
-                            <LocationInlineEditor
-                              location={location}
-                              onSave={onSave}
-                              onCancel={onCancel}
-                              onGeocode={async (locationName) => {
-                                const coords = await geocodeLocation(locationName);
-                                return coords;
-                              }}
-                              tripId={travelData.id || ''}
-                              travelLookup={travelLookup}
-                              costData={costData}
-                            />
-                          )}
-                        >
-                          {(location, _isEditing, onEdit) => (
-                            <div>
-                              <LocationDisplay
-                                location={location}
-                                onEdit={onEdit}
-                                onDelete={() => deleteLocation(index)}
-                                onViewPosts={() => setSelectedLocationForPosts(selectedLocationForPosts === index ? null : index)}
-                                showAccommodations={false}
-                                linkedExpenses={[]}
-                              />
-                              
-                              {/* Accommodation Display */}
-                              {/* Show accommodations using the new system if available, otherwise fallback to legacy */}
-                              {location.accommodationIds && location.accommodationIds.length > 0 ? (
-                                <div className="mt-3">
-                                  <LocationAccommodationsManager
-                                    tripId={travelData.id || ''}
-                                    locationId={location.id}
-                                    locationName={location.name}
-                                    accommodationIds={location.accommodationIds}
-                                    onAccommodationIdsChange={(newIds) => {
-                                      const updatedLocations = [...travelData.locations];
-                                      updatedLocations[index] = { ...location, accommodationIds: newIds };
-                                      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-                                      setHasUnsavedChanges(true);
-                                    }}
-                                    travelLookup={travelLookup}
-                                    costData={costData}
-                                    displayMode={true} // Read-only display mode
-                                  />
-                                </div>
-                              ) : location.accommodationData && (
-                                <div className="mt-3">
-                                  <AccommodationDisplay
-                                    accommodationData={location.accommodationData}
-                                    isAccommodationPublic={location.isAccommodationPublic}
-                                    privacyOptions={{ isAdminView: true }}
-                                    className="text-sm"
-                                    travelLookup={travelLookup}
-                                    costData={costData}
-                                  />
-                                </div>
-                              )}
-                              
-                              {/* Linked Expenses Display */}
-                              {travelLookup && costData && (
-                                <LinkedExpensesDisplay
-                                  items={[
-                                    { itemType: 'location', itemId: location.id },
-                                    ...((location.accommodationIds || []).map((accId: string) => ({ itemType: 'accommodation', itemId: accId })) as { itemType: 'accommodation', itemId: string }[])
-                                  ]}
-                                  travelLookup={travelLookup}
-                                  costData={costData}
-                                />
-                              )}
-                            </div>
-                          )}
-                        </InPlaceEditor>
-
-                        {/* Posts Section */}
-                        {selectedLocationForPosts === index && (
-                          <div className="mt-4 p-3 bg-gray-50 rounded-sm">
-                            <h6 className="font-medium mb-3">Instagram & Blog Posts</h6>
-                            
-                            {/* Instagram Posts */}
-                            <div className="mb-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Posts</label>
-                              <div className="flex gap-2 mb-2">
-                                <input
-                                  type="url"
-                                  value={newInstagramPost.url || ''}
-                                  onChange={(e) => setNewInstagramPost(prev => ({ ...prev, url: e.target.value }))}
-                                  className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                                  placeholder="Instagram post URL"
-                                />
-                                <input
-                                  type="text"
-                                  value={newInstagramPost.caption || ''}
-                                  onChange={(e) => setNewInstagramPost(prev => ({ ...prev, caption: e.target.value }))}
-                                  className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                                  placeholder="Caption (optional)"
-                                />
-                                <button
-                                  onClick={() => addInstagramPost(index)}
-                                  className="px-3 py-1 bg-pink-500 text-white rounded-sm text-sm hover:bg-pink-600"
-                                >
-                                  Add
-                                </button>
-                              </div>
-                              
-                              {location.instagramPosts && location.instagramPosts.length > 0 && (
-                                <div className="space-y-1">
-                                  {location.instagramPosts.map((post) => (
-                                    <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded-sm text-sm">
-                                      <a href={post.url} target="_blank" rel="noopener" className="text-blue-500 hover:underline truncate">
-                                        {post.url}
-                                      </a>
-                                      <button
-                                        onClick={() => {
-                                          const updatedLocations = [...travelData.locations];
-                                          updatedLocations[index].instagramPosts = updatedLocations[index].instagramPosts?.filter(p => p.id !== post.id);
-                                          setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-                                        }}
-                                        className="text-red-500 hover:text-red-700 ml-2"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Blog Posts */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Blog Posts</label>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-                                <input
-                                  type="text"
-                                  value={newBlogPost.title || ''}
-                                  onChange={(e) => setNewBlogPost(prev => ({ ...prev, title: e.target.value }))}
-                                  className="px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                                  placeholder="Post title"
-                                />
-                                <input
-                                  type="url"
-                                  value={newBlogPost.url || ''}
-                                  onChange={(e) => setNewBlogPost(prev => ({ ...prev, url: e.target.value }))}
-                                  className="px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                                  placeholder="Blog post URL"
-                                />
-                                <div className="flex gap-1">
-                                  <input
-                                    type="text"
-                                    value={newBlogPost.excerpt || ''}
-                                    onChange={(e) => setNewBlogPost(prev => ({ ...prev, excerpt: e.target.value }))}
-                                    className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                                    placeholder="Excerpt (optional)"
-                                  />
-                                  <button
-                                    onClick={() => addBlogPost(index)}
-                                    className="px-3 py-1 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
-                                  >
-                                    Add
-                                  </button>
-                                </div>
-                              </div>
-                              
-                              {location.blogPosts && location.blogPosts.length > 0 && (
-                                <div className="space-y-1">
-                                  {location.blogPosts.map((post) => (
-                                    <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded-sm text-sm">
-                                      <div className="flex-1 truncate">
-                                        <a href={post.url} target="_blank" rel="noopener" className="text-blue-500 hover:underline font-medium">
-                                          {post.title}
-                                        </a>
-                                        {post.excerpt && <p className="text-gray-600 text-xs">{post.excerpt}</p>}
-                                      </div>
-                                      <button
-                                        onClick={() => {
-                                          const updatedLocations = [...travelData.locations];
-                                          updatedLocations[index].blogPosts = updatedLocations[index].blogPosts?.filter(p => p.id !== post.id);
-                                          setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-                                        }}
-                                        className="text-red-500 hover:text-red-700 ml-2"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <LocationManager
+              travelData={travelData}
+              setTravelData={setTravelData}
+              setHasUnsavedChanges={setHasUnsavedChanges}
+              currentLocation={currentLocation}
+              setCurrentLocation={setCurrentLocation}
+              editingLocationIndex={editingLocationIndex}
+              setEditingLocationIndex={setEditingLocationIndex}
+              selectedLocationForPosts={selectedLocationForPosts}
+              setSelectedLocationForPosts={setSelectedLocationForPosts}
+              newInstagramPost={newInstagramPost}
+              setNewInstagramPost={setNewInstagramPost}
+              newBlogPost={newBlogPost}
+              setNewBlogPost={setNewBlogPost}
+              travelLookup={travelLookup}
+              costData={costData}
+              handleLocationAdded={handleLocationAdded}
+              geocodeLocation={geocodeLocation}
+              deleteLocation={deleteLocation}
+              addInstagramPost={addInstagramPost}
+              addBlogPost={addBlogPost}
+              calculateSmartDurations={calculateSmartDurations}
+            />
 
             {/* Routes */}
-            <div>
-              <h3 className="text-xl font-semibold mb-4">Routes</h3>
-              <RouteForm
-                currentRoute={currentRoute}
-                setCurrentRoute={setCurrentRoute}
-                onRouteAdded={handleRouteAdded}
-                editingRouteIndex={editingRouteIndex}
-                setEditingRouteIndex={setEditingRouteIndex}
-                locationOptions={travelData.locations.map(loc => ({
-                  name: loc.name,
-                  coordinates: loc.coordinates
-                }))}
-                onGeocode={async (locationName: string) => {
-                  const coords = await geocodeLocation(locationName);
-                  return coords;
-                }}
-              />
+            <RouteManager
+              travelData={travelData}
+              setTravelData={setTravelData}
+              setHasUnsavedChanges={setHasUnsavedChanges}
+              currentRoute={currentRoute}
+              setCurrentRoute={setCurrentRoute}
+              editingRouteIndex={editingRouteIndex}
+              setEditingRouteIndex={setEditingRouteIndex}
+              travelLookup={travelLookup}
+              costData={costData}
+              handleRouteAdded={handleRouteAdded}
+              geocodeLocation={geocodeLocation}
+              deleteRoute={deleteRoute}
+              recalculateRoutePoints={recalculateRoutePoints}
+              generateMap={generateMap}
+            />
 
-              {/* Route List */}
-              {travelData.routes.length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Added Routes ({travelData.routes.length})</h4>
-                  <div className="space-y-4">
-                    {travelData.routes
-                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                      .map((route, index) => (
-                      <div key={route.id}>
-                        <InPlaceEditor<TravelRoute>
-                          data={route}
-                          onSave={async (updatedRoute) => {
-                            const updatedRoutes = [...travelData.routes];
-                            updatedRoutes[index] = updatedRoute;
-                            setTravelData(prev => ({ ...prev, routes: updatedRoutes }));
-                            setHasUnsavedChanges(true);
-                          }}
-                          editor={(route, onSave, onCancel) => (
-                            <RouteInlineEditor
-                              route={route}
-                              onSave={onSave}
-                              onCancel={onCancel}
-                              locationOptions={travelData.locations.map(loc => ({
-                                name: loc.name,
-                                coordinates: loc.coordinates
-                              }))}
-                              onGeocode={async (locationName) => {
-                                const coords = await geocodeLocation(locationName);
-                                return coords;
-                              }}
-                            />
-                          )}
-                        >
-                          {(route, _isEditing, onEdit) => (
-                            <div>
-                              <RouteDisplay
-                                route={route}
-                                onEdit={onEdit}
-                                onDelete={() => deleteRoute(index)}
-                                onRecalculateRoute={() => recalculateRoutePoints(index)}
-                                linkedExpenses={[]}
-                              />
-                              
-                              {/* Linked Expenses Display */}
-                              <LinkedExpensesDisplay
-                                itemId={route.id}
-                                itemType="route"
-                                itemName={`${route.from} → ${route.to}`}
-                                travelLookup={travelLookup}
-                                costData={costData}
-                              />
-                            </div>
-                          )}
-                        </InPlaceEditor>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Generate Button */}
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={generateMap}
-                disabled={!travelData.title || travelData.locations.length === 0}
-                className="px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed font-medium"
-              >
-                View Travel Map
-              </button>
-            </div>
+            {/* Accommodations */}
+            <AccommodationManager
+              travelData={travelData}
+              setTravelData={setTravelData}
+              setHasUnsavedChanges={setHasUnsavedChanges}
+              travelLookup={travelLookup}
+              costData={costData}
+            />
           </div>
 
           {/* Safe Deletion Dialogs - Moved from TravelDataForm.tsx */}
