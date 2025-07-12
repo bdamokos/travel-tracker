@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import TravelDataForm from './components/TravelDataForm';
+import TripList from './components/TripList';
 import CostTrackingForm from './components/CostTrackingForm';
 
 export default function AdminPage() {
@@ -96,7 +96,7 @@ export default function AdminPage() {
           
           {/* Tab Content */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            {activeTab === 'travel' && <TravelDataForm tripDeleteDialog={tripDeleteDialog} setTripDeleteDialog={setTripDeleteDialog} />}
+            {activeTab === 'travel' && <TripList tripDeleteDialog={tripDeleteDialog} setTripDeleteDialog={setTripDeleteDialog} />}
             {activeTab === 'cost' && <CostTrackingForm />}
           </div>
         </div>
