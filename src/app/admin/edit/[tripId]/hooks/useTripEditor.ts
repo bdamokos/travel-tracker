@@ -8,6 +8,7 @@ import { Location, InstagramPost, BlogPost, CostTrackingLink, Transportation } f
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { generateRoutePoints } from '@/app/lib/routeUtils';
 
 interface TravelRoute {
   id: string;
@@ -21,6 +22,7 @@ interface TravelRoute {
   notes?: string;
   privateNotes?: string;
   costTrackingLinks?: CostTrackingLink[];
+  routePoints?: [number, number][]; // Pre-generated route points for better performance
 }
 
 interface TravelData {
@@ -319,7 +321,7 @@ export function useTripEditor(tripId: string | null) {
     setHasUnsavedChanges(true);
   };
 
-  const handleRouteAdded = (newRoute: TravelRoute) => {
+  const handleRouteAdded = async (newRoute: TravelRoute) => {
     // Auto-create missing locations for route endpoints
     const updatedLocations = [...travelData.locations];
     
@@ -363,6 +365,25 @@ export function useTripEditor(tripId: string | null) {
         costTrackingLinks: []
       };
       updatedLocations.push(toLocation);
+    }
+
+    // Pre-generate route points for better public map performance
+    try {
+      const transportation: Transportation = {
+        id: newRoute.id,
+        type: newRoute.transportType,
+        from: newRoute.from,
+        to: newRoute.to,
+        fromCoordinates: newRoute.fromCoords,
+        toCoordinates: newRoute.toCoords
+      };
+      
+      const routePoints = await generateRoutePoints(transportation);
+      newRoute.routePoints = routePoints;
+    } catch (error) {
+      console.warn('Failed to pre-generate route points:', error);
+      // Don't block route creation if route generation fails
+      newRoute.routePoints = [newRoute.fromCoords, newRoute.toCoords];
     }
 
     if (editingRouteIndex !== null) {

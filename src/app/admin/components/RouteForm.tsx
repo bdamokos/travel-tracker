@@ -29,7 +29,7 @@ interface TravelRoute {
 interface RouteFormProps {
   currentRoute: Partial<TravelRoute>;
   setCurrentRoute: React.Dispatch<React.SetStateAction<Partial<TravelRoute>>>;
-  onRouteAdded: (route: TravelRoute) => void;
+  onRouteAdded: (route: TravelRoute) => Promise<void>;
   editingRouteIndex: number | null;
   setEditingRouteIndex: (index: number | null) => void;
   locationOptions: Array<{ name: string; coordinates: [number, number] }>;
@@ -106,7 +106,7 @@ export default function RouteForm({
     }
 
     // Call the parent handler
-    onRouteAdded(route);
+    await onRouteAdded(route);
     
     // Reset form
     setCurrentRoute({
