@@ -105,6 +105,7 @@ export default function AriaComboBox({
       <div className="flex">
         <input
           {...inputProps}
+          name={name}
           ref={inputRef}
           className={finalClassName}
         />
