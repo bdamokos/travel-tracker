@@ -1,7 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getEmbedUrl } from '../../lib/domains';
-import { Transportation } from '../../types';
 import EmbeddableMap from './components/EmbeddableMap';
 
 interface TravelData {
@@ -38,48 +37,14 @@ interface TravelData {
     date: string;
     duration?: string;
     notes?: string;
+    routePoints?: [number, number][]; // Pre-generated route points for better performance
   }>;
   createdAt: string;
 }
 
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
-    // Use direct unified data service for server-side rendering
-    if (typeof window === 'undefined') {
-      const { loadUnifiedTripData } = await import('../../lib/unifiedDataService');
-      const unifiedData = await loadUnifiedTripData(id);
-      
-      if (!unifiedData || !unifiedData.travelData) {
-        return null;
-      }
-      
-      // Transform unified data to legacy format for compatibility
-      return {
-        id: unifiedData.id,
-        title: unifiedData.title,
-        description: unifiedData.description,
-        startDate: unifiedData.startDate,
-        endDate: unifiedData.endDate,
-        locations: (unifiedData.travelData.locations || []).map(location => ({
-          ...location,
-          date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date
-        })),
-        routes: (unifiedData.travelData.routes || []).map((route: Transportation & { fromCoords?: [number, number]; toCoords?: [number, number]; transportType?: string; date?: string; duration?: string; notes?: string }) => ({
-          id: route.id,
-          from: route.from,
-          to: route.to,
-          fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
-          toCoords: route.toCoords || route.toCoordinates || [0, 0],
-          transportType: route.transportType || route.type,
-          date: route.date || route.departureTime || '',
-          duration: route.duration,
-          notes: route.notes || route.privateNotes
-        })),
-        createdAt: unifiedData.createdAt
-      };
-    }
-    
-    // Use fetch for client-side requests
+    // Use unified API for both server and client side
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
     
     const response = await fetch(`${baseUrl}/api/travel-data?id=${id}`, {

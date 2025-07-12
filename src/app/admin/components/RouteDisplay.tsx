@@ -22,6 +22,7 @@ interface RouteDisplayProps {
   route: TravelRoute;
   onEdit: () => void;
   onDelete?: () => void;
+  onRecalculateRoute?: () => void;
   linkedExpenses?: Array<{ description: string; amount: number; currency: string }>;
 }
 
@@ -29,6 +30,7 @@ export default function RouteDisplay({
   route,
   onEdit,
   onDelete,
+  onRecalculateRoute,
   linkedExpenses = []
 }: RouteDisplayProps) {
   const formatDate = (date: Date) => {
@@ -91,6 +93,15 @@ export default function RouteDisplay({
           >
             Edit
           </button>
+          {onRecalculateRoute && (
+            <button
+              onClick={onRecalculateRoute}
+              className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 text-sm font-medium"
+              title="Recalculate route points using OSRM"
+            >
+              🔄 Route
+            </button>
+          )}
           {onDelete && (
             <button
               onClick={onDelete}

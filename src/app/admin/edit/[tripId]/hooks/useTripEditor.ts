@@ -496,6 +496,42 @@ export function useTripEditor(tripId: string | null) {
     }
   };
 
+  const recalculateRoutePoints = async (index: number) => {
+    const route = travelData.routes[index];
+    
+    try {
+      // Create transportation object for route generation
+      const transportation: Transportation = {
+        id: route.id,
+        type: route.transportType,
+        from: route.from,
+        to: route.to,
+        fromCoordinates: route.fromCoords,
+        toCoordinates: route.toCoords
+      };
+      
+      console.log(`[recalculateRoutePoints] Regenerating route points for ${route.from} → ${route.to}`);
+      const routePoints = await generateRoutePoints(transportation);
+      
+      // Update the route with new route points
+      setTravelData(prev => ({
+        ...prev,
+        routes: prev.routes.map((r, i) => 
+          i === index ? { ...r, routePoints } : r
+        )
+      }));
+      
+      setHasUnsavedChanges(true);
+      console.log(`[recalculateRoutePoints] Successfully regenerated ${routePoints.length} route points`);
+      
+      // Show success notification
+      showNotification('Route points recalculated successfully', 'success');
+    } catch (error) {
+      console.error('Failed to recalculate route points:', error);
+      showNotification('Failed to recalculate route points', 'error');
+    }
+  };
+
   const deleteTrip = async (tripId: string, tripTitle: string) => {
     // Show confirmation dialog
     // This part will be handled by the parent component
@@ -600,6 +636,7 @@ export function useTripEditor(tripId: string | null) {
     addBlogPost,
     deleteLocation,
     deleteRoute,
+    recalculateRoutePoints,
     deleteTrip,
     confirmTripDeletion,
     generateMap,

@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
-import { generateRoutePoints, generateRoutePointsSync, getRouteStyle } from '../../../lib/routeUtils';
+import { getRouteStyle } from '../../../lib/routeUtils';
 
 interface TravelData {
   id: string;
@@ -57,56 +57,21 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
   
-  // Route update queue to prevent race conditions
-  const routeUpdateQueueRef = useRef<Array<{routeId: string, routePoints: [number, number][]}>>([]);
-  const isProcessingUpdatesRef = useRef(false);
-  const processedRoutesRef = useRef<Set<string>>(new Set()); // Track which routes we've already processed
-  
-  // Process queued route updates in a batch
-  const processRouteUpdateQueue = useCallback(async () => {
-    if (isProcessingUpdatesRef.current || routeUpdateQueueRef.current.length === 0) return;
-    
-    isProcessingUpdatesRef.current = true;
-    const updates = [...routeUpdateQueueRef.current];
-    routeUpdateQueueRef.current = [];
-    
-    try {
-      await fetch(`/api/travel-data?id=${travelData.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          batchRouteUpdate: updates
-        })
-      });
-    } catch (error) {
-      console.warn('Failed to save batch route updates:', error);
-    } finally {
-      isProcessingUpdatesRef.current = false;
-      
-      // Process any new updates that arrived during processing
-      if (routeUpdateQueueRef.current.length > 0) {
-        setTimeout(processRouteUpdateQueue, 100);
-      }
-    }
-  }, [travelData.id]);
-  
-  // Add route update to queue
-  const queueRouteUpdate = useCallback((routeId: string, routePoints: [number, number][]) => {
-    routeUpdateQueueRef.current.push({ routeId, routePoints });
-    
-    // Debounce processing to allow batching
-    setTimeout(processRouteUpdateQueue, 500);
-  }, [processRouteUpdateQueue]);
+  // Simplified - no more client-side route generation
   
   // Initialize client-side state
   useEffect(() => {
     setIsClient(true);
   }, []);
   
-  // Clear processed routes when travel data changes (new page load)
+  // Log what route data we received
   useEffect(() => {
-    processedRoutesRef.current.clear();
-  }, [travelData.id]);
+    console.log(`[EmbeddableMap] Received travel data for trip ${travelData.id} with ${travelData.routes.length} routes`);
+    travelData.routes.forEach((route, index) => {
+      const routePointsCount = route.routePoints ? route.routePoints.length : 0;
+      console.log(`[EmbeddableMap] Received route ${index} (${route.id}): ${routePointsCount} route points`);
+    });
+  }, [travelData.id, travelData.routes]);
   
   // Load Leaflet dynamically
   useEffect(() => {
@@ -268,33 +233,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       
       if (route.routePoints && route.routePoints.length > 0) {
         // Use pre-generated points for better performance and accuracy
+        console.log(`[EmbeddableMap] Using pre-generated route points for ${route.id}: ${route.routePoints.length} points`);
         routePoints = route.routePoints;
       } else {
-        // Fallback to sync generation for immediate display
-        const transportation = {
-          id: route.id || 'route',
-          type: route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other',
-          from: route.from,
-          to: route.to,
-          fromCoordinates: route.fromCoords,
-          toCoordinates: route.toCoords
-        };
-        routePoints = generateRoutePointsSync(transportation);
-        
-        // Only generate and save proper route points if we haven't already processed this route
-        if (!processedRoutesRef.current.has(route.id)) {
-          processedRoutesRef.current.add(route.id);
-          
-          // Asynchronously generate and save proper route points for future visitors
-          generateRoutePoints(transportation).then((properRoutePoints) => {
-            // Add to queue instead of making immediate API call
-            queueRouteUpdate(route.id, properRoutePoints);
-          }).catch(error => {
-            console.warn('Failed to generate proper route points:', error);
-            // Remove from processed set on failure so it can be retried later
-            processedRoutesRef.current.delete(route.id);
-          });
-        }
+        // Fallback to straight lines if no pre-generated points available
+        console.log(`[EmbeddableMap] No pre-generated points for ${route.id}, using straight line fallback`);
+        routePoints = [route.fromCoords, route.toCoords];
       }
       
       const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
@@ -333,7 +277,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon, queueRouteUpdate]);
+  }, [travelData, L, isClient, highlightedIcon]);
 
   if (!isClient) {
     return (

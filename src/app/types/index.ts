@@ -57,6 +57,7 @@ export interface Transportation {
   distance?: number; // Distance in kilometers
   fromCoordinates?: [number, number]; // [latitude, longitude]
   toCoordinates?: [number, number]; // [latitude, longitude]
+  routePoints?: [number, number][]; // Pre-generated route points for better performance
   // Private fields (admin only)
   privateNotes?: string; // Travel company, station info, reminders
   costTrackingLinks?: CostTrackingLink[];

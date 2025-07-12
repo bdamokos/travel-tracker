@@ -89,6 +89,7 @@ export default function TravelDataForm({ tripId, tripDeleteDialog, setTripDelete
     addBlogPost,
     deleteLocation,
     deleteRoute,
+    recalculateRoutePoints,
     deleteTrip,
     confirmTripDeletion,
     generateMap,
@@ -735,6 +736,7 @@ export default function TravelDataForm({ tripId, tripDeleteDialog, setTripDelete
                           route={route}
                           onEdit={onEdit}
                           onDelete={() => deleteRoute(index)}
+                          onRecalculateRoute={() => recalculateRoutePoints(index)}
                           linkedExpenses={[]}
                         />
                         

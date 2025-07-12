@@ -61,12 +61,14 @@ export function filterTransportationForServer(
     return transportation; // Admin sees everything
   }
 
-  // Public view - remove private data entirely
+  // Public view - remove private data entirely  
   const filteredTransportation: Transportation = {
     ...transportation,
     // Remove private fields completely
     privateNotes: undefined,
     costTrackingLinks: undefined,
+    // Preserve routePoints for public map display
+    routePoints: transportation.routePoints,
   };
 
   return filteredTransportation;
