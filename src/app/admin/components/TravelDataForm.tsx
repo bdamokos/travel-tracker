@@ -1,26 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { getMapUrl } from '../../lib/domains';
-import { calculateSmartDurations } from '../../lib/durationUtils';
-import { Location, InstagramPost, BlogPost, CostTrackingLink, Transportation } from '../../types';
-import LocationForm from './LocationForm';
-import RouteForm from './RouteForm';
-import AccommodationDisplay from '../../components/AccommodationDisplay';
-import LinkedExpensesDisplay from './LinkedExpensesDisplay';
-import DeleteWarningDialog from './DeleteWarningDialog';
-import ReassignmentDialog from './ReassignmentDialog';
-import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '../../lib/costLinkCleanup';
-import { CostTrackingData } from '../../types';
-import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
-import InPlaceEditor from './InPlaceEditor';
-import LocationDisplay from './LocationDisplay';
-import LocationInlineEditor from './LocationInlineEditor';
-import RouteDisplay from './RouteDisplay';
-import RouteInlineEditor from './RouteInlineEditor';
-import LocationAccommodationsManager from './LocationAccommodationsManager';
+import { useTripEditor } from '../edit/[tripId]/hooks/useTripEditor';
+import { Location, Transportation, CostTrackingLink } from '@/app/types';
 
-interface TravelRoute {
+// Type for travel routes - matches the interface in useTripEditor
+type TravelRoute = {
   id: string;
   from: string;
   to: string;
@@ -32,90 +16,23 @@ interface TravelRoute {
   notes?: string;
   privateNotes?: string;
   costTrackingLinks?: CostTrackingLink[];
-}
-
-interface TravelData {
-  id?: string;
-  title: string;
-  description: string;
-  startDate: Date;
-  endDate: Date;
-  locations: Location[];
-  routes: TravelRoute[];
-}
-
-interface ExistingTrip {
-  id: string;
-  title: string;
-  description: string;
-  startDate: Date;
-  endDate: Date;
-  createdAt: string;
-}
-
-// Toast Notification Component
-const ToastNotification: React.FC<{
-  notification: { message: string; type: 'success' | 'error' | 'info'; isVisible: boolean };
-  onClose: () => void;
-}> = ({ notification, onClose }) => (
-  <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
-    notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-  }`}>
-    <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
-      notification.type === 'success' ? 'bg-green-50 dark:bg-green-900' :
-      notification.type === 'error' ? 'bg-red-50 dark:bg-red-900' :
-      'bg-blue-50 dark:bg-blue-900'
-    }`}>
-      <div className="p-4">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            {notification.type === 'success' && (
-              <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-            {notification.type === 'error' && (
-              <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-            {notification.type === 'info' && (
-              <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-          </div>
-          <div className="ml-3 w-0 flex-1 pt-0.5">
-            <p className={`text-sm font-medium ${
-              notification.type === 'success' ? 'text-green-800 dark:text-green-200' :
-              notification.type === 'error' ? 'text-red-800 dark:text-red-200' :
-              'text-blue-800 dark:text-blue-200'
-            }`}>
-              {notification.message}
-            </p>
-          </div>
-          <div className="ml-4 flex-shrink-0 flex">
-            <button
-              onClick={onClose}
-              className={`rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                notification.type === 'success' ? 'text-green-500 hover:text-green-600 focus:ring-green-500' :
-                notification.type === 'error' ? 'text-red-500 hover:text-red-600 focus:ring-red-500' :
-                'text-blue-500 hover:text-blue-600 focus:ring-blue-500'
-              }`}
-            >
-              <span className="sr-only">Close</span>
-              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+};
+import LocationAccommodationsManager from './LocationAccommodationsManager';
+import LocationForm from './LocationForm';
+import RouteForm from './RouteForm';
+import AccommodationDisplay from '../../components/AccommodationDisplay';
+import LinkedExpensesDisplay from './LinkedExpensesDisplay';
+import DeleteWarningDialog from './DeleteWarningDialog';
+import ReassignmentDialog from './ReassignmentDialog';
+import InPlaceEditor from './InPlaceEditor';
+import LocationDisplay from './LocationDisplay';
+import LocationInlineEditor from './LocationInlineEditor';
+import RouteDisplay from './RouteDisplay';
+import RouteInlineEditor from './RouteInlineEditor';
+import React from 'react';
 
 interface TravelDataFormProps {
+  tripId?: string | null;
   tripDeleteDialog: {
     isOpen: boolean;
     tripId: string;
@@ -130,556 +47,119 @@ interface TravelDataFormProps {
   } | null>>;
 }
 
-export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }: TravelDataFormProps) {
-  const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
-  const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [autoSaving, setAutoSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [travelData, setTravelData] = useState<TravelData>({
-    title: '',
-    description: '',
-    startDate: new Date(),
-    endDate: new Date(),
-    locations: [],
-    routes: []
-  });
-  const [costData, setCostData] = useState<CostTrackingData | null>(null);
-  const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
-  
-  const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
-    name: '',
-    coordinates: [0, 0],
-    date: new Date(),
-    notes: '',
-    instagramPosts: [],
-    blogPosts: [],
-    accommodationData: '',
-    isAccommodationPublic: false,
-    accommodationIds: [],
-    costTrackingLinks: []
-  });
-  
-  const [currentRoute, setCurrentRoute] = useState<Partial<TravelRoute>>({
-    from: '',
-    to: '',
-    fromCoords: [0, 0],
-    toCoords: [0, 0],
-    transportType: 'plane',
-    date: new Date(),
-    duration: '',
-    notes: '',
-    privateNotes: '',
-    costTrackingLinks: []
-  });
+export default function TravelDataForm({ tripId, tripDeleteDialog, setTripDeleteDialog }: TravelDataFormProps) {
+  const {
+    mode,
+    setMode,
+    existingTrips,
+    loading,
+    setLoading,
+    autoSaving,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+    travelData,
+    setTravelData,
+    costData,
+    travelLookup,
+    currentLocation,
+    setCurrentLocation,
+    currentRoute,
+    setCurrentRoute,
+    editingLocationIndex,
+    setEditingLocationIndex,
+    editingRouteIndex,
+    setEditingRouteIndex,
+    selectedLocationForPosts,
+    setSelectedLocationForPosts,
+    newInstagramPost,
+    setNewInstagramPost,
+    newBlogPost,
+    setNewBlogPost,
+    deleteDialog,
+    setDeleteDialog,
+    notification,
+    setNotification,
+    reassignDialog,
+    setReassignDialog,
+    loadExistingTrips,
+    loadTripForEditing,
+    handleLocationAdded,
+    handleRouteAdded,
+    addInstagramPost,
+    addBlogPost,
+    deleteLocation,
+    deleteRoute,
+    deleteTrip,
+    confirmTripDeletion,
+    generateMap,
+    geocodeLocation,
+    getMapUrl,
+    calculateSmartDurations,
+    cleanupExpenseLinks,
+    reassignExpenseLinks,
+  } = useTripEditor(tripId || null);
 
-  const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
-  const [editingRouteIndex, setEditingRouteIndex] = useState<number | null>(null);
-  const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<number | null>(null);
-  
-  // New post forms
-  const [newInstagramPost, setNewInstagramPost] = useState<Partial<InstagramPost>>({
-    url: '',
-    caption: ''
-  });
-  
-  const [newBlogPost, setNewBlogPost] = useState<Partial<BlogPost>>({
-    title: '',
-    url: '',
-    excerpt: ''
-  });
-
-  // Safe deletion state
-  const [deleteDialog, setDeleteDialog] = useState<{
-    isOpen: boolean;
-    itemType: 'location' | 'route';
-    itemIndex: number;
-    itemId: string;
-    itemName: string;
-    linkedExpenses: LinkedExpense[];
-  } | null>(null);
-
-  // Notification state
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: 'success' | 'error' | 'info';
-    isVisible: boolean;
-  } | null>(null);
-
-  // Show notification function
-  const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
-    setNotification({ message, type, isVisible: true });
-    
-    // Auto-hide after 5 seconds
-    setTimeout(() => {
-      setNotification(prev => prev ? { ...prev, isVisible: false } : null);
-      // Clear after fade animation
-      setTimeout(() => setNotification(null), 300);
-    }, 5000);
-  };
-  
-  const [reassignDialog, setReassignDialog] = useState<{
-    isOpen: boolean;
-    itemType: 'location' | 'route';
-    fromItemId: string;
-    fromItemName: string;
-    linkedExpenses: LinkedExpense[];
-    availableItems: Array<{ id: string; name: string; }>;
-    onComplete: () => void;
-  } | null>(null);
-
-  // Load existing trips
-  useEffect(() => {
-    let mounted = true;
-    
-    const loadTrips = async () => {
-      setLoading(true);
-      await loadExistingTrips();
-      if (mounted) {
-        setLoading(false);
-      }
-    };
-    
-    loadTrips();
-    
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Silent auto-save function (no alerts, no redirects)
-  const autoSaveTravelData = useCallback(async () => {
-    // Validation (silent)
-    if (!travelData.title) {
-      return false; // Invalid data, don't save
-    }
-
-    try {
-      const method = mode === 'edit' ? 'PUT' : 'POST';
-      const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(travelData),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        // For new entries, update the travel data with the returned ID
-        if (mode === 'create' && result.id) {
-          setTravelData(prev => ({ ...prev, id: result.id }));
-          setMode('edit'); // Switch to edit mode after first save
-        }
-        return true;
-      } else {
-        console.warn('Auto-save failed:', response.status);
-        return false;
-      }
-    } catch (error) {
-      console.warn('Auto-save error:', error);
-      return false;
-    }
-  }, [travelData, mode]);
-
-  // Auto-save effect for edit mode (debounced)
-  useEffect(() => {
-    // Only auto-save if we're in edit mode or create mode with sufficient data
-    const canAutoSave = (mode === 'edit' && travelData.id) || 
-                       (mode === 'create' && travelData.title);
-    
-    if (canAutoSave && hasUnsavedChanges) {
-      const timeoutId = setTimeout(async () => {
-        try {
-          setAutoSaving(true);
-          const success = await autoSaveTravelData();
-          if (success) {
-            setHasUnsavedChanges(false); // Mark as saved
-          }
-          setAutoSaving(false);
-        } catch (error) {
-          console.error('Auto-save failed:', error);
-          setAutoSaving(false);
-        }
-      }, 2000); // Auto-save after 2 seconds of inactivity
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [travelData, mode, hasUnsavedChanges, autoSaveTravelData]);
-
-  const loadExistingTrips = async () => {
-    try {
-      const response = await fetch('/api/travel-data/list');
-      if (response.ok) {
-        const trips = await response.json();
-        setExistingTrips(trips);
-      } else {
-        console.error('Failed to load trips, status:', response.status);
-      }
-    } catch (error) {
-      console.error('Error loading trips:', error);
-    }
-  };
-
-  const migrateOldFormat = (tripData: Partial<TravelData>): TravelData => {
-    // Migrate locations to new format if they don't have IDs
-    const migratedLocations = tripData.locations?.map((location: Partial<Location>) => ({
-      id: location.id || generateId(),
-      name: location.name || '',
-      coordinates: location.coordinates || [0, 0] as [number, number],
-      date: location.date ? (location.date instanceof Date ? location.date : new Date(location.date)) : new Date(),
-      endDate: location.endDate ? (location.endDate instanceof Date ? location.endDate : new Date(location.endDate)) : undefined,
-      duration: location.duration,
-      arrivalTime: location.arrivalTime,
-      departureTime: location.departureTime,
-      notes: location.notes || '',
-      instagramPosts: location.instagramPosts || [],
-      blogPosts: location.blogPosts || [],
-      accommodationData: location.accommodationData,
-      isAccommodationPublic: location.isAccommodationPublic || false,
-      accommodationIds: location.accommodationIds || [],
-      costTrackingLinks: location.costTrackingLinks || []
-    })) || [];
-
-    // Migrate routes to new format if they don't have IDs
-    const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute>) => ({
-      id: route.id || generateId(),
-      from: route.from || '',
-      to: route.to || '',
-      fromCoords: route.fromCoords || [0, 0] as [number, number],
-      toCoords: route.toCoords || [0, 0] as [number, number],
-      transportType: route.transportType || 'car',
-      date: route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date(),
-      duration: route.duration,
-      notes: route.notes || '',
-      privateNotes: route.privateNotes,
-      costTrackingLinks: route.costTrackingLinks || []
-    })) || [];
-
-    return {
-      id: tripData.id,
-      title: tripData.title || '',
-      description: tripData.description || '',
-      startDate: tripData.startDate ? (tripData.startDate instanceof Date ? tripData.startDate : new Date(tripData.startDate)) : new Date(),
-      endDate: tripData.endDate ? (tripData.endDate instanceof Date ? tripData.endDate : new Date(tripData.endDate)) : new Date(),
-      locations: migratedLocations,
-      routes: migratedRoutes
-    };
-  };
-
-  const loadTripForEditing = async (tripId: string) => {
-    try {
-      const response = await fetch(`/api/travel-data?id=${tripId}`);
-      if (response.ok) {
-        const rawTripData = await response.json();
-        const tripData = migrateOldFormat(rawTripData);
-        setTravelData(tripData);
-
-        // Load cost data for this trip
-        const costResponse = await fetch(`/api/cost-tracking?id=${tripId}`);
-        if (costResponse.ok) {
-          const costData = await costResponse.json();
-          setCostData(costData);
-          // Initialize travel lookup
-          const lookup = new ExpenseTravelLookup(costData.tripId);
-          await lookup.buildIndex();
-          setTravelLookup(lookup);
-        } else {
-          setCostData(null);
-          setTravelLookup(null);
-        }
-
-        setMode('edit');
-        setHasUnsavedChanges(false); // Just loaded, no changes yet
-      }
-    } catch (error) {
-      console.error('Error loading trip:', error);
-    }
-  };
-
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
-
-  const handleLocationAdded = (newLocation: Location) => {
-    if (editingLocationIndex !== null) {
-      // Update existing location
-      const updatedLocations = [...travelData.locations];
-      updatedLocations[editingLocationIndex] = newLocation;
-      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-      setEditingLocationIndex(null);
-    } else {
-      // Add new location
-      setTravelData(prev => ({
-        ...prev,
-        locations: [...prev.locations, newLocation]
-      }));
-    }
-    setHasUnsavedChanges(true);
-  };
-
-  const handleRouteAdded = (newRoute: TravelRoute) => {
-    // Auto-create missing locations for route endpoints
-    const updatedLocations = [...travelData.locations];
-    
-    // Check if 'from' location exists
-    const fromExists = updatedLocations.some(loc => 
-      loc.name.toLowerCase().trim() === newRoute.from.toLowerCase().trim()
-    );
-    
-    if (!fromExists && newRoute.fromCoords && (newRoute.fromCoords[0] !== 0 || newRoute.fromCoords[1] !== 0)) {
-      const fromLocation: Location = {
-        id: generateId(),
-        name: newRoute.from,
-        coordinates: newRoute.fromCoords,
-        date: newRoute.date,
-        notes: '',
-        instagramPosts: [],
-        blogPosts: [],
-        accommodationData: '',
-        isAccommodationPublic: false,
-        costTrackingLinks: []
-      };
-      updatedLocations.push(fromLocation);
-    }
-    
-    // Check if 'to' location exists
-    const toExists = updatedLocations.some(loc => 
-      loc.name.toLowerCase().trim() === newRoute.to.toLowerCase().trim()
-    );
-    
-    if (!toExists && newRoute.toCoords && (newRoute.toCoords[0] !== 0 || newRoute.toCoords[1] !== 0)) {
-      const toLocation: Location = {
-        id: generateId(),
-        name: newRoute.to,
-        coordinates: newRoute.toCoords,
-        date: newRoute.date,
-        notes: '',
-        instagramPosts: [],
-        blogPosts: [],
-        accommodationData: '',
-        isAccommodationPublic: false,
-        costTrackingLinks: []
-      };
-      updatedLocations.push(toLocation);
-    }
-
-    if (editingRouteIndex !== null) {
-      // Update existing route
-      const updatedRoutes = [...travelData.routes];
-      updatedRoutes[editingRouteIndex] = newRoute;
-      setTravelData(prev => ({ ...prev, routes: updatedRoutes, locations: updatedLocations }));
-      setEditingRouteIndex(null);
-    } else {
-      // Add new route
-      setTravelData(prev => ({
-        ...prev,
-        routes: [...prev.routes, newRoute],
-        locations: updatedLocations
-      }));
-    }
-    setHasUnsavedChanges(true);
-  };
-
-  const addInstagramPost = (locationIndex: number) => {
-    if (newInstagramPost.url) {
-      const post: InstagramPost = {
-        id: generateId(),
-        url: newInstagramPost.url,
-        caption: newInstagramPost.caption || ''
-      };
-
-      const updatedLocations = [...travelData.locations];
-      updatedLocations[locationIndex].instagramPosts = [
-        ...(updatedLocations[locationIndex].instagramPosts || []),
-        post
-      ];
-      
-      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-      setNewInstagramPost({ url: '', caption: '' });
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  const addBlogPost = (locationIndex: number) => {
-    if (newBlogPost.title && newBlogPost.url) {
-      const post: BlogPost = {
-        id: generateId(),
-        title: newBlogPost.title,
-        url: newBlogPost.url,
-        excerpt: newBlogPost.excerpt || ''
-      };
-
-      const updatedLocations = [...travelData.locations];
-      updatedLocations[locationIndex].blogPosts = [
-        ...(updatedLocations[locationIndex].blogPosts || []),
-        post
-      ];
-      
-      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
-      setNewBlogPost({ title: '', url: '', excerpt: '' });
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  // Note: editLocation function replaced by InPlaceEditor for locations
-  // const editLocation = (index: number) => {
-  //   const location = travelData.locations[index];
-  //   setCurrentLocation(location);
-  //   setEditingLocationIndex(index);
-  // };
-
-  // Note: editRoute function replaced by InPlaceEditor for routes
-  // const editRoute = (index: number) => {
-  //   const route = travelData.routes[index];
-  //   setCurrentRoute(route);
-  //   setEditingRouteIndex(index);
-  // };
-
-  const deleteLocation = async (index: number) => {
-    const location = travelData.locations[index];
-    
-    // Check for linked expenses
-    const linkedExpenses = await getLinkedExpenses('location', location.id);
-    
-    if (linkedExpenses.length > 0) {
-      // Show safe deletion dialog
-      setDeleteDialog({
-        isOpen: true,
-        itemType: 'location',
-        itemIndex: index,
-        itemId: location.id,
-        itemName: location.name,
-        linkedExpenses
-      });
-    } else {
-      // No linked expenses, safe to delete directly
-      setTravelData(prev => ({
-        ...prev,
-        locations: prev.locations.filter((_, i) => i !== index)
-      }));
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  const deleteRoute = async (index: number) => {
-    const route = travelData.routes[index];
-    
-    // Check for linked expenses
-    const linkedExpenses = await getLinkedExpenses('route', route.id);
-    
-    if (linkedExpenses.length > 0) {
-      // Show safe deletion dialog
-      setDeleteDialog({
-        isOpen: true,
-        itemType: 'route',
-        itemIndex: index,
-        itemId: route.id,
-        itemName: `${route.from} → ${route.to}`,
-        linkedExpenses
-      });
-    } else {
-      // No linked expenses, safe to delete directly
-      setTravelData(prev => ({
-        ...prev,
-        routes: prev.routes.filter((_, i) => i !== index)
-      }));
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  const deleteTrip = async (tripId: string, tripTitle: string) => {
-    // Show confirmation dialog
-    setTripDeleteDialog({
-      isOpen: true,
-      tripId,
-      tripTitle
-    });
-  };
-
-  const confirmTripDeletion = async () => {
-    if (!tripDeleteDialog) return;
-
-    // Set loading state
-    setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: true } : null);
-
-    try {
-      const response = await fetch(`/api/travel-data?id=${tripDeleteDialog.tripId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Show success notification
-        showNotification(`✅ ${result.message}`, 'success');
-        
-        // Refresh the trip list
-        await loadExistingTrips();
-        
-        // Close dialog
-        setTripDeleteDialog(null);
-      } else {
-        const error = await response.json();
-        console.error('Delete failed:', error);
-        showNotification(`❌ Failed to delete trip: ${error.error}`, 'error');
-        
-        // Reset loading state but keep dialog open
-        setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: false } : null);
-      }
-    } catch (error) {
-      console.error('Delete error:', error);
-      showNotification(`❌ Error deleting trip: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      
-      // Reset loading state but keep dialog open
-      setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: false } : null);
-    }
-  };
-
-
-  const generateMap = async () => {
-    try {
-      const method = mode === 'edit' ? 'PUT' : 'POST';
-      const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(travelData),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        setHasUnsavedChanges(false); // Mark as saved
-        
-        // Use the proper helper function and open the map
-        const mapUrl = getMapUrl(result.id);
-        window.open(mapUrl, '_blank');
-      } else {
-        const errorText = await response.text();
-        console.error('Save failed:', response.status, errorText);
-        alert(`Error saving map: ${response.status} ${errorText}`);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert(`Error saving map: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
-  const geocodeLocation = async (locationName: string) => {
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}&limit=1`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        return [parseFloat(data[0].lat), parseFloat(data[0].lon)] as [number, number];
-      }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-    }
-    return [0, 0] as [number, number];
-  };
+  // Toast Notification Component
+  const ToastNotification: React.FC<{
+    notification: { message: string; type: 'success' | 'error' | 'info'; isVisible: boolean };
+    onClose: () => void;
+  }> = ({ notification, onClose }) => (
+    <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
+      notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+    }`}>
+      <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
+        notification.type === 'success' ? 'bg-green-50 dark:bg-green-900' :
+        notification.type === 'error' ? 'bg-red-50 dark:bg-red-900' :
+        'bg-blue-50 dark:bg-blue-900'
+      }`}>
+        <div className="p-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              {notification.type === 'success' && (
+                <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              {notification.type === 'error' && (
+                <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              {notification.type === 'info' && (
+                <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <div className="ml-3 w-0 flex-1 pt-0.5">
+              <p className={`text-sm font-medium ${
+                notification.type === 'success' ? 'text-green-800 dark:text-green-200' :
+                notification.type === 'error' ? 'text-red-800 dark:text-red-200' :
+                'text-blue-800 dark:text-blue-200'
+              }`}>
+                {notification.message}
+              </p>
+            </div>
+            <div className="ml-4 flex-shrink-0 flex">
+              <button
+                onClick={onClose}
+                className={`rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  notification.type === 'success' ? 'text-green-500 hover:text-green-600 focus:ring-green-500' :
+                  notification.type === 'error' ? 'text-red-500 hover:text-red-600 focus:ring-red-500' :
+                  'text-blue-500 hover:text-blue-600 focus:ring-blue-500'
+                }`}
+              >
+                <span className="sr-only">Close</span>
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
 
   // List view
@@ -753,11 +233,7 @@ export default function TravelDataForm({ tripDeleteDialog, setTripDeleteDialog }
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Travel Maps</h2>
             <div className="flex gap-2">
               <button
-                onClick={async () => {
-                  setLoading(true);
-                  await loadExistingTrips();
-                  setLoading(false);
-                }}
+                onClick={loadExistingTrips}
                 disabled={loading}
                 className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
               >
