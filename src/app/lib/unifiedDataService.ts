@@ -186,7 +186,22 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     updatedAt: new Date().toISOString(),
     travelData: {
       locations: (travelUpdates.locations as Location[]) || baseData.travelData?.locations || [],
-      routes: (travelUpdates.routes as Transportation[]) || baseData.travelData?.routes || [],
+      routes: (() => {
+        const newRoutes = travelUpdates.routes as Transportation[];
+        const existingRoutes = baseData.travelData?.routes || [];
+        
+        if (!newRoutes) return existingRoutes;
+        
+        // Merge routes, preserving routePoints from existing routes when not provided in updates
+        return newRoutes.map((newRoute) => {
+          const existingRoute = existingRoutes.find(r => r.id === newRoute.id);
+          return {
+            ...newRoute,
+            // Preserve existing routePoints if not provided in the update
+            routePoints: newRoute.routePoints || existingRoute?.routePoints
+          };
+        });
+      })(),
       days: (travelUpdates.days as JourneyPeriod[]) || baseData.travelData?.days
     }
   };

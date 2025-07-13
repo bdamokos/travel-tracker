@@ -94,6 +94,15 @@ export type Journey = {
   days: JourneyPeriod[];  // Still called "days" for API compatibility, but contains periods
 };
 
+export interface TravelLink {
+  id: string;
+  url: string;
+  title: string;
+  description?: string;
+  type: 'booking' | 'ticket' | 'info' | 'other';
+  associatedWith: 'trip' | 'location' | 'accommodation' | 'transportation';
+  entityId: string; // ID of the trip, location, etc.
+}
 
 
 // Cost tracking types
@@ -246,3 +255,42 @@ export type ProcessedYnabTransaction = {
   hash: string; // unique identifier to prevent duplicates
   expenseType?: ExpenseType; // Optional expense type, defaults to 'actual'
 };
+
+export interface Trip {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  isArchived?: boolean;
+  locations: Location[];
+  routes: Transportation[];
+  accommodations: Accommodation[];
+  travelLinks?: TravelLink[];
+  costTrackingId?: string;
+  schemaVersion?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExistingTrip {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
+export interface ExistingCostEntry {
+  id: string;
+  tripId: string;
+  tripTitle: string;
+  tripStartDate: string;
+  tripEndDate: string;
+  overallBudget: number;
+  currency: string;
+  totalSpent: number;
+  remainingBudget: number;
+  createdAt: string;
+}

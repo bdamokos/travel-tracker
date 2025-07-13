@@ -37,7 +37,9 @@ export class ExpenseTravelLookup {
         accommodations?: Accommodation[];
         routes?: Transportation[];
       }
-      const tripData: TripData = await fetch(`/api/travel-data?id=${this.tripId}`).then(r => r.json());
+      // Use proper baseURL handling for both server and client
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const tripData: TripData = await fetch(`${baseUrl}/api/travel-data?id=${this.tripId}`).then(r => r.json());
       this.tripTitle = tripData.title || '';
       
       // Clear existing mappings
