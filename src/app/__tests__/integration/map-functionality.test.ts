@@ -8,6 +8,11 @@
 
 import { readFileSync, existsSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { isExternalApiAvailable, getMockRoutePoints, setupRouteMocking } from '../utils/mockRouteUtils'
+
+// Expected coordinates that OSRM actually returns for our test route
+const EXPECTED_OSRM_START = [51.507478, -0.127965];
+const EXPECTED_OSRM_END = [48.857243, 2.352316];
 
 // Test data interfaces
 interface TestTrip {
@@ -94,12 +99,26 @@ const DATA_DIR = join(process.cwd(), 'data')
 
 describe('Map Functionality Integration Tests (Pyramid)', () => {
   let testTripId: string
+  let mockGenerateRoutePoints: jest.MockedFunction<any> | null = null
   
   beforeAll(() => {
     testTripId = TEST_TRIP_DATA.id
+    
+    // Set up route mocking if external API is not available
+    if (!isExternalApiAvailable()) {
+      console.log('🔧 External API not available, setting up route mocking...')
+      mockGenerateRoutePoints = setupRouteMocking()
+    } else {
+      console.log('✅ External API available, using real route generation')
+    }
   })
   
   afterAll(() => {
+    // Clean up mocks
+    if (mockGenerateRoutePoints) {
+      jest.clearAllMocks()
+    }
+    
     // Cleanup: Remove test trip file if it exists
     const testFilePath = join(DATA_DIR, `trip-${testTripId}.json`)
     if (existsSync(testFilePath)) {
@@ -267,7 +286,6 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       console.log('🔄 Test 3: Adding route...')
       
       // Generate RoutePoints for the test route (simulating handleRouteAdded)
-      const { generateRoutePoints } = await import('../../lib/routeUtils')
       const transportation = {
         id: TEST_ROUTE.id,
         type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
@@ -278,8 +296,18 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       }
       
       console.log('🔄 Test 3: Generating RoutePoints...')
-      const routePoints = await generateRoutePoints(transportation)
-      console.log(`✅ Test 3: Generated ${routePoints.length} RoutePoints`)
+      let routePoints: [number, number][]
+      
+      if (isExternalApiAvailable()) {
+        // Use real API
+        const { generateRoutePoints } = await import('../../lib/routeUtils')
+        routePoints = await generateRoutePoints(transportation)
+        console.log(`✅ Test 3: Generated ${routePoints.length} RoutePoints via external API`)
+      } else {
+        // Use mock data
+        routePoints = getMockRoutePoints(transportation)
+        console.log(`✅ Test 3: Generated ${routePoints.length} RoutePoints via mock data`)
+      }
       
       const routeWithPoints = {
         ...TEST_ROUTE,
@@ -356,9 +384,6 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     it('should test route generation directly', async () => {
       console.log('🔄 Test 3: Testing route generation directly...')
       
-      // Import the route generation function directly
-      const { generateRoutePoints } = await import('../../lib/routeUtils')
-      
       const transportation = {
         id: TEST_ROUTE.id,
         type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
@@ -368,13 +393,35 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
         toCoordinates: TEST_ROUTE.toCoords
       }
       
-      const routePoints = await generateRoutePoints(transportation)
+      let routePoints: [number, number][]
+      
+      if (isExternalApiAvailable()) {
+        // Import and use real route generation function
+        const { generateRoutePoints } = await import('../../lib/routeUtils')
+        routePoints = await generateRoutePoints(transportation)
+        console.log(`✅ Test 3: Direct route generation via external API - ${routePoints.length} points`)
+      } else {
+        // Use mock data
+        routePoints = getMockRoutePoints(transportation)
+        console.log(`✅ Test 3: Direct route generation via mock data - ${routePoints.length} points`)
+      }
       
       expect(routePoints).toBeDefined()
       expect(Array.isArray(routePoints)).toBe(true)
       expect(routePoints.length).toBeGreaterThan(0)
       
-      console.log(`✅ Test 3: Direct route generation successful - ${routePoints.length} points`)
+      // Verify start and end points are correct based on API availability
+      if (isExternalApiAvailable()) {
+        // OSRM returns more precise coordinates
+        expect(routePoints[0][0]).toBeCloseTo(EXPECTED_OSRM_START[0], 3)
+        expect(routePoints[0][1]).toBeCloseTo(EXPECTED_OSRM_START[1], 3)
+        expect(routePoints[routePoints.length - 1][0]).toBeCloseTo(EXPECTED_OSRM_END[0], 3)
+        expect(routePoints[routePoints.length - 1][1]).toBeCloseTo(EXPECTED_OSRM_END[1], 3)
+      } else {
+        // Mock data uses our test coordinates
+        expect(routePoints[0]).toEqual(TEST_ROUTE.fromCoords)
+        expect(routePoints[routePoints.length - 1]).toEqual(TEST_ROUTE.toCoords)
+      }
     })
   })
 

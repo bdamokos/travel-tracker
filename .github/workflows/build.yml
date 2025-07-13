@@ -45,6 +45,11 @@ jobs:
       - name: Run unit tests
         run: bun run test src/app/__tests__/utils.test.ts
 
+      - name: Run API connectivity test
+        run: bun run test src/app/__tests__/integration/api-connectivity.test.ts
+        env:
+          TEST_API_BASE_URL: http://localhost:3000
+
       - name: Run integration tests
         run: bun run test:integration
         env:
