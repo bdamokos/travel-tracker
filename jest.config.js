@@ -10,8 +10,8 @@ const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: process.env.JEST_INTEGRATION_TESTS ? 'node' : 'jsdom',
   testMatch: process.env.JEST_INTEGRATION_TESTS 
-    ? ['**/__tests__/integration/**/*.(ts|tsx|js)', '**/__tests__/**/*.integration.(ts|tsx|js)']
-    : ['**/__tests__/**/*.(ts|tsx|js)', '!**/__tests__/integration/**/*', '!**/__tests__/**/*.integration.(ts|tsx|js)', '**/*.(test|spec).(ts|tsx|js)', '!**/*.integration.(ts|tsx|js)'],
+    ? ['**/__tests__/integration/**/*.(ts|tsx|js)', '**/__tests__/**/*.integration.(ts|tsx|js)', '**/__tests__/**/*.integration.test.(ts|tsx|js)']
+    : ['**/__tests__/**/*.(ts|tsx|js)', '**/*.(test|spec).(ts|tsx|js)', '!**/__tests__/integration/**/*', '!**/__tests__/**/*.integration.(ts|tsx|js)', '!**/__tests__/**/*.integration.test.(ts|tsx|js)', '!**/*.integration.(ts|tsx|js)', '!**/*.integration.test.(ts|tsx|js)'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

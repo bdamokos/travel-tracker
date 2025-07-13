@@ -58,10 +58,19 @@ jest.mock('react-leaflet', () => ({
   Polyline: () => <div data-testid="polyline" />,
 }))
 
-// Global fetch mock for API calls - only mock fetch if explicitly requested
-if (process.env.JEST_MOCK_FETCH) {
-  global.fetch = jest.fn()
+// Make fetch available in Node.js test environment for integration tests
+if (process.env.JEST_INTEGRATION_TESTS && typeof global.fetch === 'undefined') {
+  // In Node.js 18+, fetch is available in globalThis
+  global.fetch = globalThis.fetch
+  global.Headers = globalThis.Headers
+  global.Request = globalThis.Request
+  global.Response = globalThis.Response
 }
+
+// // Global fetch mock for API calls - only mock fetch if explicitly requested
+// if (process.env.JEST_MOCK_FETCH) {
+//   global.fetch = jest.fn()
+// }
 
 beforeEach(() => {
   // Reset all mocks before each test (but only if we're using mocks)
