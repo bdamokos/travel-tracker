@@ -40,7 +40,6 @@ export default function TripEditorPage() {
   }, [router]);
 
   const {
-    mode,
     autoSaving,
     hasUnsavedChanges,
     setHasUnsavedChanges,

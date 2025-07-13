@@ -155,6 +155,8 @@ export default function CostTrackingPage() {
 
       return () => clearTimeout(timeoutId);
     }
+    // Return undefined cleanup function for other code paths
+    return undefined;
   }, [costData, hasUnsavedChanges, isNewCostTracker, autoSaveCostData]);
 
   // Track when user makes changes

@@ -284,6 +284,8 @@ export function useTripEditor(tripId: string | null) {
 
       return () => clearTimeout(timeoutId);
     }
+    // Return undefined cleanup function for other code paths
+    return undefined;
   }, [travelData, mode, hasUnsavedChanges, autoSaveTravelData]);
 
   const handleLocationAdded = (newLocation: Location) => {
@@ -520,14 +522,8 @@ export function useTripEditor(tripId: string | null) {
     }
   };
 
-  const deleteTrip = async (tripId: string, tripTitle: string) => {
-    // Show confirmation dialog
-    // This part will be handled by the parent component
-  };
-
-  const confirmTripDeletion = async () => {
-    // This part will be handled by the parent component
-  };
+  // Note: deleteTrip and confirmTripDeletion are handled by TripList component
+  // These are legacy exports that should be removed in future refactoring
 
   const generateMap = async () => {
     try {
@@ -625,8 +621,6 @@ export function useTripEditor(tripId: string | null) {
     deleteLocation,
     deleteRoute,
     recalculateRoutePoints,
-    deleteTrip,
-    confirmTripDeletion,
     generateMap,
     autoSaveTravelData,
     geocodeLocation,

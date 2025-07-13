@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, updateTravelData } from '../../../lib/unifiedDataService';
-import { TravelLinkInfo } from '../../../lib/expenseTravelLookup';
-import { Location, Accommodation, Transportation, CostTrackingLink } from '../../../types';
+import { CostTrackingLink } from '../../../types';
 import { isAdminDomain } from '../../../lib/server-domains';
 
 export async function POST(request: NextRequest) {

@@ -164,7 +164,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {countryData.map((entry, index) => (
+                  {countryData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -215,7 +215,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   fill="#82ca9d"
                   dataKey="value"
                 >
-                  {categoryData.map((entry, index) => (
+                  {categoryData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

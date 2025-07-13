@@ -86,10 +86,14 @@ export default function CostTrackingLinksManager({
       return;
     }
 
-    const newLink: CostTrackingLink = {
-      expenseId: selectedExpenseId,
-      description: linkDescription || undefined
+    const baseLink = {
+      expenseId: selectedExpenseId
     };
+
+    // Only include description if it has a value
+    const newLink: CostTrackingLink = linkDescription 
+      ? { ...baseLink, description: linkDescription }
+      : baseLink;
 
     onLinksChange([...currentLinks, newLink]);
     setSelectedExpenseId('');

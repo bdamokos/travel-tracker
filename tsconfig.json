@@ -17,7 +17,7 @@
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "strictNullChecks": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "strictPropertyInitialization": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,

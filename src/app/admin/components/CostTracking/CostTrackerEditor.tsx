@@ -37,7 +37,7 @@ export default function CostTrackerEditor({
 }: CostTrackerEditorProps) {
   const [currentBudget, setCurrentBudget] = useState<Partial<BudgetItem>>({
     country: '',
-    amount: undefined,
+    // amount omitted initially - no amount set
     notes: ''
   });
 
@@ -130,7 +130,7 @@ export default function CostTrackerEditor({
         const newCountryBudget: BudgetItem = {
           id: generateId(),
           country: expense.country,
-          amount: undefined,
+          // amount omitted - no budget amount set for auto-created budget
           currency: costData.currency,
           notes: 'Auto-created when adding expense'
         };

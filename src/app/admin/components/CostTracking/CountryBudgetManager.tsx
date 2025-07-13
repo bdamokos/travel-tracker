@@ -39,13 +39,17 @@ export default function CountryBudgetManager({
       return;
     }
 
-    const budgetItem: BudgetItem = {
+    const baseBudgetItem = {
       id: editingBudgetIndex !== null ? costData.countryBudgets[editingBudgetIndex].id : generateId(),
       country: currentBudget.country,
-      amount: currentBudget.amount && currentBudget.amount > 0 ? currentBudget.amount : undefined,
       currency: costData.currency,
       notes: currentBudget.notes || ''
     };
+
+    // Only include amount if it's a positive number
+    const budgetItem: BudgetItem = currentBudget.amount && currentBudget.amount > 0 
+      ? { ...baseBudgetItem, amount: currentBudget.amount }
+      : baseBudgetItem;
 
     if (editingBudgetIndex !== null) {
       const updatedBudgets = [...costData.countryBudgets];
@@ -56,7 +60,7 @@ export default function CountryBudgetManager({
       setCostData(prev => ({ ...prev, countryBudgets: [...prev.countryBudgets, budgetItem] }));
     }
 
-    setCurrentBudget({ country: '', amount: undefined, notes: '' });
+    setCurrentBudget({ country: '', notes: '' });
   };
 
   const editBudgetItem = (index: number) => {
@@ -165,7 +169,17 @@ export default function CountryBudgetManager({
             id="budget-amount"
             type="number"
             value={currentBudget.amount || ''}
-            onChange={(e) => setCurrentBudget(prev => ({ ...prev, amount: e.target.value ? parseFloat(e.target.value) : undefined }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value) {
+                setCurrentBudget(prev => ({ ...prev, amount: parseFloat(value) }));
+              } else {
+                // Remove amount property when input is empty
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { amount, ...rest } = currentBudget;
+                setCurrentBudget(rest);
+              }
+            }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             placeholder="1000 (leave empty for undefined budget)"
           />
@@ -191,7 +205,7 @@ export default function CountryBudgetManager({
             <button
               onClick={() => {
                 setEditingBudgetIndex(null);
-                setCurrentBudget({ country: '', amount: undefined, notes: '' });
+                setCurrentBudget({ country: '', notes: '' });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
             >

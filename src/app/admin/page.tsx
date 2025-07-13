@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TripList from './components/TripList';
 import CostTrackerList from './components/CostTracking/CostTrackerList';
-import { ExistingCostEntry } from './types';
+import { ExistingCostEntry } from '../types';
 
-export default function AdminPage() {
+function AdminPageContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'travel' | 'cost'>('travel');
   const [tripDeleteDialog, setTripDeleteDialog] = useState<{
@@ -153,5 +153,13 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Loading...</div>}>
+      <AdminPageContent />
+    </Suspense>
   );
 } 

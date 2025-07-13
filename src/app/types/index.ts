@@ -63,6 +63,35 @@ export interface Transportation {
   costTrackingLinks?: CostTrackingLink[];
 }
 
+// Travel route type for route segments (simplified version of Transportation)
+export interface TravelRoute {
+  id: string;
+  from: string;
+  to: string;
+  fromCoords: [number, number];
+  toCoords: [number, number];
+  transportType: Transportation['type'];
+  date: Date;
+  duration?: string;
+  notes?: string;
+  // Private fields (admin only)
+  privateNotes?: string;
+  costTrackingLinks?: CostTrackingLink[];
+  // Pre-generated route points for better performance
+  routePoints?: [number, number][];
+}
+
+// Travel data structure for a complete trip
+export interface TravelData {
+  id?: string;
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+  locations: Location[];
+  routes: TravelRoute[];
+}
+
 // Instagram post reference
 export type InstagramPost = {
   id: string;
@@ -116,7 +145,7 @@ export type CountryPeriod = {
 export type BudgetItem = {
   id: string;
   country: string;
-  amount?: number; // Optional amount for undefined budgets
+  amount?: number; // Optional amount for budgets
   currency: string;
   notes?: string;
   periods?: CountryPeriod[];
