@@ -6,6 +6,7 @@
  */
 
 import { generateRoutePoints } from '../../lib/routeUtils';
+import { isExternalApiAvailable } from '../utils/mockRouteUtils';
 
 const TEST_ROUTE = {
   id: 'connectivity-test',
@@ -39,46 +40,8 @@ describe('API Connectivity Test', () => {
   let externalApiAvailable = false;
   
   beforeAll(async () => {
-    // Test OSRM API connectivity with a short timeout
-    try {
-      console.log('🔍 Testing OSRM API connectivity...');
-      
-      const testUrl = 'https://router.project-osrm.org/route/v1/car/-0.1278,51.5074;2.3522,48.8566?overview=full&geometries=geojson';
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
-      const response = await fetch(testUrl, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Travel-Tracker-Test'
-        }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.routes && data.routes[0]) {
-          externalApiAvailable = true;
-          console.log('✅ OSRM API is accessible');
-        } else {
-          console.log('❌ OSRM API returned unexpected data format');
-        }
-      } else {
-        console.log(`❌ OSRM API returned status: ${response.status}`);
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('❌ OSRM API request timed out');
-      } else {
-        console.log('❌ OSRM API connection failed:', error);
-      }
-    }
-    
-    // Set up global flag for other tests to use
-    (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = externalApiAvailable;
-    
+    console.log('🔍 Testing OSRM API connectivity...');
+    externalApiAvailable = await isExternalApiAvailable();
     console.log(`🌐 External API availability: ${externalApiAvailable}`);
   });
   

@@ -101,11 +101,12 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
   let testTripId: string
   let mockGenerateRoutePoints: jest.MockedFunction<(transportation: { id: string; type: string; from: string; to: string; fromCoordinates: [number, number]; toCoordinates: [number, number] }) => Promise<[number, number][]>> | null = null
   
-  beforeAll(() => {
+  beforeAll(async () => {
     testTripId = TEST_TRIP_DATA.id
     
-    // Set up route mocking if external API is not available
-    if (!isExternalApiAvailable()) {
+    // Check API availability and set up route mocking if needed
+    const apiAvailable = await isExternalApiAvailable()
+    if (!apiAvailable) {
       console.log('🔧 External API not available, setting up route mocking...')
       mockGenerateRoutePoints = setupRouteMocking()
     } else {
@@ -298,7 +299,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       console.log('🔄 Test 3: Generating RoutePoints...')
       let routePoints: [number, number][]
       
-      if (isExternalApiAvailable()) {
+      if (await isExternalApiAvailable()) {
         // Use real API
         const { generateRoutePoints } = await import('../../lib/routeUtils')
         routePoints = await generateRoutePoints(transportation)
@@ -395,7 +396,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       
       let routePoints: [number, number][]
       
-      if (isExternalApiAvailable()) {
+      if (await isExternalApiAvailable()) {
         // Import and use real route generation function
         const { generateRoutePoints } = await import('../../lib/routeUtils')
         routePoints = await generateRoutePoints(transportation)
@@ -411,7 +412,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       expect(routePoints.length).toBeGreaterThan(0)
       
       // Verify start and end points are correct based on API availability
-      if (isExternalApiAvailable()) {
+      if (await isExternalApiAvailable()) {
         // OSRM returns more precise coordinates
         expect(routePoints[0][0]).toBeCloseTo(EXPECTED_OSRM_START[0], 3)
         expect(routePoints[0][1]).toBeCloseTo(EXPECTED_OSRM_START[1], 3)

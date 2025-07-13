@@ -162,7 +162,43 @@ export const setupRouteMocking = () => {
   return mockGenerateRoutePoints;
 };
 
-// Check if external API is available (set by connectivity test)
-export const isExternalApiAvailable = (): boolean => {
-  return (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ === true;
+// Check if external API is available (test it directly)
+export const isExternalApiAvailable = async (): Promise<boolean> => {
+  // Check if we've already tested in this test run
+  const cached = (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__;
+  if (cached !== undefined) {
+    return cached;
+  }
+  
+  // Test OSRM API connectivity with a short timeout
+  try {
+    const testUrl = 'https://router.project-osrm.org/route/v1/car/-0.1278,51.5074;2.3522,48.8566?overview=full&geometries=geojson';
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
+    const response = await fetch(testUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Travel-Tracker-Test'
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      const available = !!(data.routes && data.routes[0]);
+      
+      // Cache the result
+      (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = available;
+      return available;
+    }
+  } catch (error) {
+    // API not available
+  }
+  
+  // Cache negative result
+  (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = false;
+  return false;
 };
