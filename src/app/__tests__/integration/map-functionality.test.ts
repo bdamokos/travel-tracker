@@ -1,0 +1,579 @@
+/**
+ * Map Functionality Integration Tests
+ * 
+ * These tests build like a pyramid - each test verifies that all previous functionality
+ * still works while adding new functionality to test. This ensures we catch any
+ * regressions or data loss at any step in the process.
+ */
+
+import { readFileSync, existsSync, unlinkSync } from 'fs'
+import { join } from 'path'
+
+// Test data interfaces
+interface TestTrip {
+  id: string
+  title: string
+  description: string
+  startDate: string
+  endDate: string
+}
+
+interface TestLocation {
+  id: string
+  name: string
+  coordinates: [number, number]
+  date: string
+  notes: string
+}
+
+interface TestRoute {
+  id: string
+  from: string
+  to: string
+  fromCoords: [number, number]
+  toCoords: [number, number]
+  transportType: string
+  date: string
+  duration: string
+  notes: string
+  routePoints?: [number, number][]
+}
+
+interface TripData {
+  id: string
+  title: string
+  description: string
+  startDate: string
+  endDate: string
+  travelData: {
+    locations: TestLocation[]
+    routes: TestRoute[]
+  }
+}
+
+// Test constants
+const TEST_TRIP_DATA: TestTrip = {
+  id: 'test-trip-' + Date.now(),
+  title: 'Test Trip for RoutePoints',
+  description: 'Testing map functionality systematically',
+  startDate: '2024-01-01T00:00:00.000Z',
+  endDate: '2024-01-31T00:00:00.000Z'
+}
+
+const TEST_LOCATIONS: TestLocation[] = [
+  {
+    id: 'test-loc-1',
+    name: 'London',
+    coordinates: [51.5074, -0.1278],
+    date: '2024-01-01T00:00:00.000Z',
+    notes: 'Starting point'
+  },
+  {
+    id: 'test-loc-2', 
+    name: 'Paris',
+    coordinates: [48.8566, 2.3522],
+    date: '2024-01-15T00:00:00.000Z',
+    notes: 'Midpoint destination'
+  }
+]
+
+const TEST_ROUTE: TestRoute = {
+  id: 'test-route-1',
+  from: 'London',
+  to: 'Paris',
+  fromCoords: [51.5074, -0.1278],
+  toCoords: [48.8566, 2.3522],
+  transportType: 'train',
+  date: '2024-01-15T00:00:00.000Z',
+  duration: '2h 30min',
+  notes: 'Eurostar connection'
+}
+
+const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
+const DATA_DIR = join(process.cwd(), 'data')
+
+describe('Map Functionality Integration Tests (Pyramid)', () => {
+  let testTripId: string
+  
+  beforeAll(() => {
+    testTripId = TEST_TRIP_DATA.id
+  })
+  
+  afterAll(() => {
+    // Cleanup: Remove test trip file if it exists
+    const testFilePath = join(DATA_DIR, `trip-${testTripId}.json`)
+    if (existsSync(testFilePath)) {
+      unlinkSync(testFilePath)
+    }
+  })
+
+  // Helper function to read trip data from file system
+  const readTripDataFromFile = (): TripData | null => {
+    const filePath = join(DATA_DIR, `trip-${testTripId}.json`)
+    if (!existsSync(filePath)) {
+      return null
+    }
+    try {
+      const content = readFileSync(filePath, 'utf-8')
+      return JSON.parse(content)
+    } catch (error) {
+      console.error('Error reading trip data:', error)
+      return null
+    }
+  }
+
+  // Helper function to make API calls
+  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+    const url = `${BASE_URL}${endpoint}`
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      ...options
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+    
+    return response
+  }
+
+  // Test 1: Trip Creation
+  describe('Test 1: Trip Creation', () => {
+    it('should create a new trip via API', async () => {
+      console.log('🔄 Test 1: Creating trip...')
+      
+      const response = await apiCall('/api/travel-data', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...TEST_TRIP_DATA,
+          locations: [],
+          routes: []
+        })
+      })
+      
+      const result = await response.json()
+      
+      // Update testTripId with the generated ID
+      testTripId = result.id
+      
+      // Verify API response
+      expect(result.success).toBe(true)
+      expect(result.id).toBeDefined()
+      
+      console.log(`✅ Test 1: Trip created successfully with ID: ${testTripId}`)
+    })
+
+    it('should verify trip exists in file system', async () => {
+      const tripData = readTripDataFromFile()
+      
+      expect(tripData).not.toBeNull()
+      expect(tripData!.id).toBe(testTripId)
+      expect(tripData!.title).toBe(TEST_TRIP_DATA.title)
+      expect(tripData!.travelData.locations).toEqual([])
+      expect(tripData!.travelData.routes).toEqual([])
+      
+      console.log('✅ Test 1: Trip verified in file system')
+    })
+  })
+
+  // Test 2: Location Addition (+ verify trip still exists)
+  describe('Test 2: Location Addition', () => {
+    it('should add first location via API', async () => {
+      console.log('🔄 Test 2: Adding first location...')
+      
+      const updatedTripData = {
+        ...TEST_TRIP_DATA,
+        locations: [TEST_LOCATIONS[0]],
+        routes: []
+      }
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedTripData)
+      })
+      
+      const result = await response.json()
+      expect(result.success).toBe(true)
+      
+      console.log('✅ Test 2: First location added successfully')
+    })
+
+    it('should verify first location exists and trip is intact', async () => {
+      const tripData = readTripDataFromFile()
+      
+      // Verify trip still exists
+      expect(tripData).not.toBeNull()
+      expect(tripData!.id).toBe(testTripId)
+      expect(tripData!.title).toBe(TEST_TRIP_DATA.title)
+      
+      // Verify location was added
+      expect(tripData!.travelData.locations).toHaveLength(1)
+      expect(tripData!.travelData.locations[0].name).toBe(TEST_LOCATIONS[0].name)
+      expect(tripData!.travelData.locations[0].coordinates).toEqual(TEST_LOCATIONS[0].coordinates)
+      
+      // Verify routes are still empty
+      expect(tripData!.travelData.routes).toEqual([])
+      
+      console.log('✅ Test 2: First location verified in file system')
+    })
+
+    it('should add second location via API', async () => {
+      console.log('🔄 Test 2: Adding second location...')
+      
+      const updatedTripData = {
+        ...TEST_TRIP_DATA,
+        locations: TEST_LOCATIONS,
+        routes: []
+      }
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedTripData)
+      })
+      
+      const result = await response.json()
+      expect(result.success).toBe(true)
+      
+      console.log('✅ Test 2: Second location added successfully')
+    })
+
+    it('should verify both locations exist and trip is intact', async () => {
+      const tripData = readTripDataFromFile()
+      
+      // Verify trip still exists
+      expect(tripData).not.toBeNull()
+      expect(tripData!.id).toBe(testTripId)
+      expect(tripData!.title).toBe(TEST_TRIP_DATA.title)
+      
+      // Verify both locations exist
+      expect(tripData!.travelData.locations).toHaveLength(2)
+      expect(tripData!.travelData.locations[0].name).toBe(TEST_LOCATIONS[0].name)
+      expect(tripData!.travelData.locations[1].name).toBe(TEST_LOCATIONS[1].name)
+      
+      // Verify routes are still empty
+      expect(tripData!.travelData.routes).toEqual([])
+      
+      console.log('✅ Test 2: Both locations verified in file system')
+    })
+  })
+
+  // Test 3: Route Creation with RoutePoints (+ verify all previous)
+  describe('Test 3: Route Creation with RoutePoints', () => {
+    it('should add route between locations via API', async () => {
+      console.log('🔄 Test 3: Adding route...')
+      
+      // Generate RoutePoints for the test route (simulating handleRouteAdded)
+      const { generateRoutePoints } = await import('../../lib/routeUtils')
+      const transportation = {
+        id: TEST_ROUTE.id,
+        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        from: TEST_ROUTE.from,
+        to: TEST_ROUTE.to,
+        fromCoordinates: TEST_ROUTE.fromCoords,
+        toCoordinates: TEST_ROUTE.toCoords
+      }
+      
+      console.log('🔄 Test 3: Generating RoutePoints...')
+      const routePoints = await generateRoutePoints(transportation)
+      console.log(`✅ Test 3: Generated ${routePoints.length} RoutePoints`)
+      
+      const routeWithPoints = {
+        ...TEST_ROUTE,
+        routePoints: routePoints
+      }
+      
+      const updatedTripData = {
+        ...TEST_TRIP_DATA,
+        id: testTripId, // Use the actual trip ID
+        locations: TEST_LOCATIONS,
+        routes: [routeWithPoints]
+      }
+      
+      console.log(`📦 Test 3: Sending route with ${routeWithPoints.routePoints.length} RoutePoints`)
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedTripData)
+      })
+      
+      const result = await response.json()
+      expect(result.success).toBe(true)
+      
+      console.log('✅ Test 3: Route added successfully')
+    })
+
+    it('should verify route exists with RoutePoints and all previous data intact', async () => {
+      const tripData = readTripDataFromFile()
+      
+      // Verify trip still exists
+      expect(tripData).not.toBeNull()
+      expect(tripData!.id).toBe(testTripId)
+      expect(tripData!.title).toBe(TEST_TRIP_DATA.title)
+      
+      // Verify both locations still exist
+      expect(tripData!.travelData.locations).toHaveLength(2)
+      expect(tripData!.travelData.locations[0].name).toBe(TEST_LOCATIONS[0].name)
+      expect(tripData!.travelData.locations[1].name).toBe(TEST_LOCATIONS[1].name)
+      
+      // Verify route exists
+      expect(tripData!.travelData.routes).toHaveLength(1)
+      const route = tripData!.travelData.routes[0]
+      expect(route.from).toBe(TEST_ROUTE.from)
+      expect(route.to).toBe(TEST_ROUTE.to)
+      expect(route.transportType).toBe(TEST_ROUTE.transportType)
+      
+      // 🔍 CRITICAL CHECK: Verify RoutePoints exist
+      console.log('🔍 Checking for RoutePoints...')
+      if (route.routePoints) {
+        console.log(`✅ Test 3: RoutePoints found! Length: ${route.routePoints.length}`)
+        expect(route.routePoints).toBeDefined()
+        expect(Array.isArray(route.routePoints)).toBe(true)
+        expect(route.routePoints.length).toBeGreaterThan(0)
+        
+        // Verify routePoints are valid coordinate pairs
+        route.routePoints.forEach((point) => {
+          expect(Array.isArray(point)).toBe(true)
+          expect(point).toHaveLength(2)
+          expect(typeof point[0]).toBe('number')
+          expect(typeof point[1]).toBe('number')
+          expect(point[0]).toBeGreaterThan(-90)
+          expect(point[0]).toBeLessThan(90)
+          expect(point[1]).toBeGreaterThan(-180)
+          expect(point[1]).toBeLessThan(180)
+        })
+      } else {
+        console.log('❌ Test 3: RoutePoints NOT found!')
+        throw new Error('RoutePoints should be present but are missing')
+      }
+      
+      console.log('✅ Test 3: Route with RoutePoints verified in file system')
+    })
+
+    it('should test route generation directly', async () => {
+      console.log('🔄 Test 3: Testing route generation directly...')
+      
+      // Import the route generation function directly
+      const { generateRoutePoints } = await import('../../lib/routeUtils')
+      
+      const transportation = {
+        id: TEST_ROUTE.id,
+        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        from: TEST_ROUTE.from,
+        to: TEST_ROUTE.to,
+        fromCoordinates: TEST_ROUTE.fromCoords,
+        toCoordinates: TEST_ROUTE.toCoords
+      }
+      
+      const routePoints = await generateRoutePoints(transportation)
+      
+      expect(routePoints).toBeDefined()
+      expect(Array.isArray(routePoints)).toBe(true)
+      expect(routePoints.length).toBeGreaterThan(0)
+      
+      console.log(`✅ Test 3: Direct route generation successful - ${routePoints.length} points`)
+    })
+  })
+
+  // Test 4: Data Persistence After Save/Reload (+ verify all previous)
+  describe('Test 4: Data Persistence After Save/Reload', () => {
+    it('should reload trip data via API and verify all data persists', async () => {
+      console.log('🔄 Test 4: Reloading trip data via API...')
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const tripData = await response.json()
+      
+      // Verify trip exists
+      expect(tripData.id).toBe(testTripId)
+      expect(tripData.title).toBe(TEST_TRIP_DATA.title)
+      
+      // Verify locations persist
+      expect(tripData.locations).toHaveLength(2)
+      expect(tripData.locations[0].name).toBe(TEST_LOCATIONS[0].name)
+      expect(tripData.locations[1].name).toBe(TEST_LOCATIONS[1].name)
+      
+      // Verify routes persist
+      expect(tripData.routes).toHaveLength(1)
+      const route = tripData.routes[0]
+      expect(route.from).toBe(TEST_ROUTE.from)
+      expect(route.to).toBe(TEST_ROUTE.to)
+      
+      // 🔍 CRITICAL CHECK: Verify RoutePoints persist after reload
+      if (route.routePoints) {
+        console.log(`✅ Test 4: RoutePoints persisted after reload! Length: ${route.routePoints.length}`)
+        expect(route.routePoints).toBeDefined()
+        expect(Array.isArray(route.routePoints)).toBe(true)
+        expect(route.routePoints.length).toBeGreaterThan(0)
+      } else {
+        console.log('❌ Test 4: RoutePoints LOST after reload!')
+        throw new Error('RoutePoints should persist after reload but are missing')
+      }
+      
+      console.log('✅ Test 4: All data persisted after API reload')
+    })
+  })
+
+  // Test 5: Map Component Data Loading (+ verify all previous)
+  describe('Test 5: Map Component Data Loading', () => {
+    it('should verify map component receives RoutePoints correctly', async () => {
+      console.log('🔄 Test 5: Testing map component data loading...')
+      
+      // Load trip data as the map component would
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const travelData = await response.json()
+      
+      // Verify the data structure matches what EmbeddableMap expects
+      expect(travelData.locations).toHaveLength(2)
+      expect(travelData.routes).toHaveLength(1)
+      
+      const route = travelData.routes[0]
+      
+      // 🔍 CRITICAL CHECK: Verify RoutePoints are available for map rendering
+      if (route.routePoints && route.routePoints.length > 0) {
+        console.log(`✅ Test 5: Map component will receive ${route.routePoints.length} RoutePoints`)
+        
+        // Verify the format matches what EmbeddableMap expects
+        expect(Array.isArray(route.routePoints)).toBe(true)
+        expect(route.routePoints.length).toBeGreaterThan(1) // Should have more than just start/end points
+        
+        // Verify points are valid coordinates
+        route.routePoints.forEach(point => {
+          expect(Array.isArray(point)).toBe(true)
+          expect(point).toHaveLength(2)
+          expect(typeof point[0]).toBe('number')
+          expect(typeof point[1]).toBe('number')
+        })
+      } else {
+        console.log('❌ Test 5: Map component will NOT receive RoutePoints - will use straight line fallback')
+        throw new Error('Map component should receive RoutePoints but they are missing')
+      }
+      
+      console.log('✅ Test 5: Map component data verified')
+    })
+  })
+
+  // Test 6: Route Update Scenarios (+ verify all previous)
+  describe('Test 6: Route Update Scenarios', () => {
+    it('should update trip metadata without losing RoutePoints', async () => {
+      console.log('🔄 Test 6: Testing metadata update without losing RoutePoints...')
+      
+      // First, get current data
+      const currentResponse = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const currentData = await currentResponse.json()
+      
+      // Update only the trip title
+      const updatedData = {
+        ...currentData,
+        title: 'Updated Test Trip Title'
+      }
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedData)
+      })
+      
+      const result = await response.json()
+      expect(result.success).toBe(true)
+      
+      // Verify RoutePoints weren't lost
+      const verifyResponse = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const verifyData = await verifyResponse.json()
+      
+      expect(verifyData.title).toBe('Updated Test Trip Title')
+      expect(verifyData.routes).toHaveLength(1)
+      
+      const route = verifyData.routes[0]
+      
+      // 🔍 CRITICAL CHECK: RoutePoints should survive metadata updates
+      if (route.routePoints) {
+        console.log(`✅ Test 6: RoutePoints survived metadata update! Length: ${route.routePoints.length}`)
+        expect(route.routePoints).toBeDefined()
+        expect(Array.isArray(route.routePoints)).toBe(true)
+        expect(route.routePoints.length).toBeGreaterThan(0)
+      } else {
+        console.log('❌ Test 6: RoutePoints LOST during metadata update!')
+        throw new Error('RoutePoints should survive metadata updates but were lost')
+      }
+      
+      console.log('✅ Test 6: Metadata update without RoutePoint loss verified')
+    })
+
+    it('should handle batch route updates correctly', async () => {
+      console.log('🔄 Test 6: Testing batch route updates...')
+      
+      // Get current route
+      const currentResponse = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const currentData = await currentResponse.json()
+      const currentRoute = currentData.routes[0]
+      
+      // Test the batch route update endpoint
+      const batchUpdate = {
+        batchRouteUpdate: [{
+          routeId: currentRoute.id,
+          routePoints: [
+            [51.5074, -0.1278], // London
+            [50.0, -1.0],       // Intermediate point
+            [48.8566, 2.3522]   // Paris
+          ]
+        }]
+      }
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(batchUpdate)
+      })
+      
+      const result = await response.json()
+      expect(result.success).toBe(true)
+      
+      // Verify the batch update worked
+      const verifyResponse = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const verifyData = await verifyResponse.json()
+      
+      const route = verifyData.routes[0]
+      expect(route.routePoints).toHaveLength(3)
+      expect(route.routePoints[0]).toEqual([51.5074, -0.1278])
+      expect(route.routePoints[2]).toEqual([48.8566, 2.3522])
+      
+      console.log('✅ Test 6: Batch route update verified')
+    })
+  })
+
+  // Summary Test: Verify Complete Data Integrity
+  describe('Final Verification: Complete Data Integrity', () => {
+    it('should verify all test data remains intact', async () => {
+      console.log('🔄 Final: Complete data integrity check...')
+      
+      const response = await apiCall(`/api/travel-data?id=${testTripId}`)
+      const finalData = await response.json()
+      
+      // Verify trip
+      expect(finalData.id).toBe(testTripId)
+      expect(finalData.title).toBe('Updated Test Trip Title') // From Test 6
+      
+      // Verify locations
+      expect(finalData.locations).toHaveLength(2)
+      expect(finalData.locations[0].name).toBe(TEST_LOCATIONS[0].name)
+      expect(finalData.locations[1].name).toBe(TEST_LOCATIONS[1].name)
+      
+      // Verify routes and RoutePoints
+      expect(finalData.routes).toHaveLength(1)
+      const route = finalData.routes[0]
+      expect(route.from).toBe(TEST_ROUTE.from)
+      expect(route.to).toBe(TEST_ROUTE.to)
+      expect(route.routePoints).toBeDefined()
+      expect(Array.isArray(route.routePoints)).toBe(true)
+      expect(route.routePoints.length).toBeGreaterThan(0)
+      
+      console.log('✅ Final: Complete data integrity verified')
+      console.log(`📊 Test Summary:`)
+      console.log(`   - Trip ID: ${finalData.id}`)
+      console.log(`   - Locations: ${finalData.locations.length}`)
+      console.log(`   - Routes: ${finalData.routes.length}`)
+      console.log(`   - RoutePoints: ${route.routePoints.length}`)
+    })
+  })
+})

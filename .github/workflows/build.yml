@@ -22,5 +22,26 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Lint code
+        run: bun run lint
+
       - name: Build project
         run: bun run build
+
+      - name: Start Next.js server
+        run: bun run start &
+        env:
+          NODE_ENV: production
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:3000/api/health 2>/dev/null; do sleep 1; done' || echo "Server may not be fully ready, proceeding with tests"
+
+      - name: Run unit tests
+        run: bun run test src/app/__tests__/utils.test.ts
+
+      - name: Run integration tests
+        run: bun run test:integration
+        env:
+          TEST_API_BASE_URL: http://localhost:3000
+          JEST_INTEGRATION_TESTS: true
