@@ -53,8 +53,11 @@ export default function AriaComboBox({
     onInputChange: (value) => {
       onChange?.(value);
     },
-    defaultInputValue: defaultValue || '',
-    inputValue: value || '',
+    // Only use inputValue if component is controlled (value prop provided)
+    ...(value !== undefined 
+      ? { inputValue: value }
+      : { defaultInputValue: defaultValue }
+    ),
     onSelectionChange: (key) => {
       if (key) {
         const selectedOption = options.find(option => option.value === key);
