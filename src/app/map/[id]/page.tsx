@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getEmbedUrl } from '../../lib/domains';
+// import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 
 interface TravelData {
@@ -176,7 +176,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
         )}
         
         {/* Embed Info */}
-        <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+        {/* <div className="mt-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <h3 className="font-medium text-gray-800 dark:text-white mb-2">Embed this map</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             Use this iframe code to embed the map in your blog:
@@ -184,7 +184,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
           <code className="block bg-white dark:bg-gray-700 p-3 rounded-sm border border-gray-200 dark:border-gray-600 text-xs font-mono break-all text-gray-900 dark:text-gray-100">
             {`<iframe src="${getEmbedUrl(travelData.id)}" width="100%" height="600" frameborder="0"></iframe>`}
           </code>
-        </div>
+        </div> */}
       </div>
     </div>
   );
