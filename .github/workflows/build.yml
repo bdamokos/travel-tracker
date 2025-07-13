@@ -29,7 +29,7 @@ jobs:
         run: bun run build
 
       - name: Start Next.js server
-        run: bun run start &
+        run: node .next/standalone/server.js &
         env:
           NODE_ENV: production
 
@@ -44,4 +44,4 @@ jobs:
         run: bun run test:integration
         env:
           TEST_API_BASE_URL: http://localhost:3000
-          JEST_INTEGRATION_TESTS: true
+          JEST_INTEGRATION_TESTS: 1
