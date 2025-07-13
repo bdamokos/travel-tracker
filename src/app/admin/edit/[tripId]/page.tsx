@@ -198,14 +198,17 @@ export default function TripEditorPage() {
           {/* Main Editor Content - Broken down into smaller components */}
           <div className="space-y-8">
             {/* Basic Info */}
-            <TripMetadataForm
-              travelData={travelData}
-              setTravelData={setTravelData}
-              setHasUnsavedChanges={setHasUnsavedChanges}
-            />
+            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <TripMetadataForm
+                travelData={travelData}
+                setTravelData={setTravelData}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+              />
+            </section>
 
             {/* Locations */}
-            <LocationManager
+            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <LocationManager
               travelData={travelData}
               setTravelData={setTravelData}
               setHasUnsavedChanges={setHasUnsavedChanges}
@@ -227,10 +230,12 @@ export default function TripEditorPage() {
               addInstagramPost={addInstagramPost}
               addBlogPost={addBlogPost}
               calculateSmartDurations={calculateSmartDurations}
-            />
+              />
+            </section>
 
             {/* Routes */}
-            <RouteManager
+            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <RouteManager
               travelData={travelData}
               setTravelData={setTravelData}
               setHasUnsavedChanges={setHasUnsavedChanges}
@@ -245,16 +250,19 @@ export default function TripEditorPage() {
               deleteRoute={deleteRoute}
               recalculateRoutePoints={recalculateRoutePoints}
               generateMap={generateMap}
-            />
+              />
+            </section>
 
             {/* Accommodations */}
-            <AccommodationManager
+            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <AccommodationManager
               travelData={travelData}
               setTravelData={setTravelData}
               setHasUnsavedChanges={setHasUnsavedChanges}
               travelLookup={travelLookup}
               costData={costData}
-            />
+              />
+            </section>
           </div>
 
           {/* Safe Deletion Dialogs - Moved from TravelDataForm.tsx */}

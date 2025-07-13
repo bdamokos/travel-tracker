@@ -79,9 +79,9 @@ export default function LocationManager({
   calculateSmartDurations,
 }: LocationManagerProps) {
   return (
-    <div>
+    <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold">Locations</h3>
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Locations</h3>
         {travelData.locations.length > 0 && travelData.routes.length > 0 && (
           <button
             onClick={() => {
@@ -95,20 +95,24 @@ export default function LocationManager({
           </button>
         )}
       </div>
-      <LocationForm
-        tripId={travelData.id || ''}
-        currentLocation={currentLocation}
-        setCurrentLocation={setCurrentLocation}
-        onLocationAdded={handleLocationAdded}
-        editingLocationIndex={editingLocationIndex}
-        setEditingLocationIndex={setEditingLocationIndex}
-        onGeocode={async (locationName: string) => {
-          const coords = await geocodeLocation(locationName);
-          setCurrentLocation(prev => ({ ...prev, coordinates: coords }));
-        }}
-        travelLookup={travelLookup}
-        costData={costData}
-      />
+      
+      {/* Add Location Form Section */}
+      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 mb-6">
+        <LocationForm
+          tripId={travelData.id || ''}
+          currentLocation={currentLocation}
+          setCurrentLocation={setCurrentLocation}
+          onLocationAdded={handleLocationAdded}
+          editingLocationIndex={editingLocationIndex}
+          setEditingLocationIndex={setEditingLocationIndex}
+          onGeocode={async (locationName: string) => {
+            const coords = await geocodeLocation(locationName);
+            setCurrentLocation(prev => ({ ...prev, coordinates: coords }));
+          }}
+          travelLookup={travelLookup}
+          costData={costData}
+        />
+      </div>
       
       <LocationList
         locations={travelData.locations}

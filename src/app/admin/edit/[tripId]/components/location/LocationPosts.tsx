@@ -47,12 +47,12 @@ export default function LocationPosts({
   };
 
   return (
-    <div className="mt-4 p-3 bg-gray-50 rounded-sm">
-      <h6 className="font-medium mb-3">Instagram & Blog Posts</h6>
+    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+      <h6 className="font-medium mb-4 text-gray-900 dark:text-white">Instagram & Blog Posts</h6>
       
       {/* Instagram Posts */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Instagram Posts</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instagram Posts</label>
         <div className="flex gap-2 mb-2">
           <input
             type="url"
@@ -97,7 +97,7 @@ export default function LocationPosts({
 
       {/* Blog Posts */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Blog Posts</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Blog Posts</label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
           <input
             type="text"

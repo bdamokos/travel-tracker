@@ -71,8 +71,11 @@ export default function RouteManager({
   return (
     <>
       <div>
-        <h3 className="text-xl font-semibold mb-4">Routes</h3>
-        <RouteForm
+        <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Routes</h3>
+        
+        {/* Add Route Form Section */}
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 mb-6">
+          <RouteForm
           currentRoute={currentRoute}
           setCurrentRoute={setCurrentRoute}
           onRouteAdded={handleRouteAdded}
@@ -86,7 +89,8 @@ export default function RouteManager({
             const coords = await geocodeLocation(locationName);
             return coords;
           }}
-        />
+          />
+        </div>
 
         {/* Route List */}
         {travelData.routes.length > 0 && (
@@ -132,13 +136,17 @@ export default function RouteManager({
                         />
                         
                         {/* Linked Expenses Display */}
-                        <LinkedExpensesDisplay
-                          itemId={route.id}
-                          itemType="route"
-                          itemName={`${route.from} → ${route.to}`}
-                          travelLookup={travelLookup}
-                          costData={costData}
-                        />
+                        {travelLookup && costData && travelLookup.getExpensesForTravelItem('route', route.id).length > 0 && (
+                          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <LinkedExpensesDisplay
+                              itemId={route.id}
+                              itemType="route"
+                              itemName={`${route.from} → ${route.to}`}
+                              travelLookup={travelLookup}
+                              costData={costData}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </InPlaceEditor>

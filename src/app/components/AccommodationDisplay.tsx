@@ -79,7 +79,7 @@ export default function AccommodationDisplay({
           )}
           
           {data.address && (
-            <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
               <span>📍</span>
               <span>{data.address}</span>
             </div>
@@ -100,7 +100,7 @@ export default function AccommodationDisplay({
           )}
           
           {data.phone && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
               <span>📞</span>
               <a href={`tel:${data.phone}`} className="hover:underline">
                 {data.phone}
@@ -109,7 +109,7 @@ export default function AccommodationDisplay({
           )}
           
           {(data.checkin || data.checkout) && (
-            <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex gap-4 text-sm text-gray-800 dark:text-gray-200">
               {data.checkin && (
                 <div className="flex items-center gap-1">
                   <span>⬇️</span>
@@ -127,7 +127,7 @@ export default function AccommodationDisplay({
           
           {data.notes && (
             <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-              <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+              <div className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
                 {data.notes}
               </div>
             </div>
@@ -135,7 +135,7 @@ export default function AccommodationDisplay({
 
           {totalLinkedCost !== null && totalLinkedCost > 0 && (
             <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-              <div className="text-sm text-gray-700 dark:text-gray-300">
+              <div className="text-sm text-gray-800 dark:text-gray-100">
                 💰 Linked Cost: {formatCurrency(totalLinkedCost, costData?.currency || 'EUR')}
               </div>
             </div>

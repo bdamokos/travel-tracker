@@ -298,7 +298,7 @@ function AccommodationDisplay({
       </div>
       
       {accommodation.accommodationData && (
-        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <div className="text-sm text-gray-800 dark:text-gray-200 mb-2">
           <div className="bg-gray-50 dark:bg-gray-700 p-2 rounded text-xs">
             {accommodation.accommodationData.substring(0, 100)}
             {accommodation.accommodationData.length > 100 && '...'}
@@ -306,7 +306,7 @@ function AccommodationDisplay({
         </div>
       )}
       
-      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+      <div className="flex items-center gap-4 text-xs text-gray-700 dark:text-gray-200">
         <span>
           {accommodation.isAccommodationPublic ? '🌍 Public' : '🔒 Private'}
         </span>

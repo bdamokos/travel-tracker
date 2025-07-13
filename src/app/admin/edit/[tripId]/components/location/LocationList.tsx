@@ -47,13 +47,13 @@ export default function LocationList({
   }
 
   return (
-    <div>
-      <h4 className="font-medium mb-2">Added Locations ({locations.length})</h4>
-      <div className="space-y-4">
+    <div className="space-y-6">
+      <h4 className="font-medium mb-4 text-gray-900 dark:text-white">Added Locations ({locations.length})</h4>
+      <div className="space-y-6">
         {locations
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
           .map((location, index) => (
-          <div key={location.id}>
+          <div key={location.id} className="space-y-3">
             <LocationItem
               location={location}
               tripId={tripId}

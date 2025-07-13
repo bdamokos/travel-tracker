@@ -38,7 +38,7 @@ export default function LocationItem({
   };
 
   return (
-    <div>
+    <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
       <InPlaceEditor<Location>
         data={location}
         onSave={async (updatedLocation) => {
