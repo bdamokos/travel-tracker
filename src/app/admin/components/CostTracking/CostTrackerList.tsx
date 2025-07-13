@@ -1,21 +1,18 @@
 'use client';
 
+import Link from 'next/link';
 import { ExistingCostEntry } from '../../../types';
 import { formatCurrency, formatDate } from '../../../lib/costUtils';
 
 interface CostTrackerListProps {
   existingCostEntries: ExistingCostEntry[];
   loading: boolean;
-  onEdit: (costId: string) => void;
-  onCreate: () => void;
   onRefresh: () => void;
 }
 
 export default function CostTrackerList({
   existingCostEntries,
   loading,
-  onEdit,
-  onCreate,
   onRefresh,
 }: CostTrackerListProps) {
   return (
@@ -30,12 +27,12 @@ export default function CostTrackerList({
           >
             {loading ? 'Loading...' : 'Refresh'}
           </button>
-          <button
-            onClick={onCreate}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          <Link
+            href="/admin/cost-tracking/new"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-block"
           >
             Create New Cost Tracker
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -46,12 +43,12 @@ export default function CostTrackerList({
       ) : existingCostEntries.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 mb-4">No cost tracking entries found.</p>
-          <button
-            onClick={onCreate}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          <Link
+            href="/admin/cost-tracking/new"
+            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-block"
           >
             Create Your First Cost Tracker
-          </button>
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -80,12 +77,12 @@ export default function CostTrackerList({
               </div>
               
               <div className="flex gap-2 mt-4">
-                <button
-                  onClick={() => onEdit(entry.id)}
-                  className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600"
+                <Link
+                  href={`/admin/cost-tracking/${entry.id}`}
+                  className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600 text-center inline-block"
                 >
                   Edit
-                </button>
+                </Link>
               </div>
             </div>
           ))}

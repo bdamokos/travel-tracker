@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import TripList from './components/TripList';
-import CostTrackingForm from './components/CostTrackingForm';
+import CostTrackerList from './components/CostTracking/CostTrackerList';
+import { ExistingCostEntry } from './types';
 
 export default function AdminPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'travel' | 'cost'>('travel');
   const [tripDeleteDialog, setTripDeleteDialog] = useState<{
     isOpen: boolean;
@@ -15,7 +17,19 @@ export default function AdminPage() {
   } | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [existingCostEntries, setExistingCostEntries] = useState<ExistingCostEntry[]>([]);
+  const [costTrackingLoading, setCostTrackingLoading] = useState(true);
   const router = useRouter();
+
+  // Set active tab based on URL parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'cost') {
+      setActiveTab('cost');
+    } else {
+      setActiveTab('travel');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Check if we're on an admin domain
@@ -37,6 +51,31 @@ export default function AdminPage() {
 
     checkAdminAccess();
   }, [router]);
+
+  const loadExistingCostEntries = async () => {
+    try {
+      setCostTrackingLoading(true);
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/cost-tracking/list`);
+      if (response.ok) {
+        const entries = await response.json();
+        setExistingCostEntries(entries);
+      } else {
+        console.error('Error loading cost entries:', response.status);
+      }
+    } catch (error) {
+      console.error('Error loading cost entries:', error);
+    } finally {
+      setCostTrackingLoading(false);
+    }
+  };
+
+  // Load cost tracking entries when authorized
+  useEffect(() => {
+    if (isAuthorized) {
+      loadExistingCostEntries();
+    }
+  }, [isAuthorized]);
 
   if (loading) {
     return (
@@ -71,7 +110,10 @@ export default function AdminPage() {
             <div className="border-b border-gray-200 dark:border-gray-700">
               <nav className="flex space-x-8 px-6">
                 <button
-                  onClick={() => setActiveTab('travel')}
+                  onClick={() => {
+                    setActiveTab('travel');
+                    router.push('/admin');
+                  }}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'travel'
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
@@ -81,7 +123,10 @@ export default function AdminPage() {
                   Travel Data
                 </button>
                 <button
-                  onClick={() => setActiveTab('cost')}
+                  onClick={() => {
+                    setActiveTab('cost');
+                    router.push('/admin?tab=cost');
+                  }}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'cost'
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
@@ -97,7 +142,13 @@ export default function AdminPage() {
           {/* Tab Content */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             {activeTab === 'travel' && <TripList tripDeleteDialog={tripDeleteDialog} setTripDeleteDialog={setTripDeleteDialog} />}
-            {activeTab === 'cost' && <CostTrackingForm />}
+            {activeTab === 'cost' && (
+              <CostTrackerList 
+                existingCostEntries={existingCostEntries}
+                loading={costTrackingLoading}
+                onRefresh={loadExistingCostEntries}
+              />
+            )}
           </div>
         </div>
       </div>

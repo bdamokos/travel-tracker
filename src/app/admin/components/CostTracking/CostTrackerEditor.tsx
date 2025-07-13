@@ -16,7 +16,6 @@ interface CostTrackerEditorProps {
   costData: CostTrackingData;
   setCostData: React.Dispatch<React.SetStateAction<CostTrackingData>>;
   onSave: () => void;
-  onCancel: () => void;
   existingTrips: ExistingTrip[];
   selectedTrip: ExistingTrip | null;
   setSelectedTrip: React.Dispatch<React.SetStateAction<ExistingTrip | null>>;
@@ -29,7 +28,6 @@ export default function CostTrackerEditor({
   costData,
   setCostData,
   onSave,
-  onCancel,
   existingTrips,
   selectedTrip,
   setSelectedTrip,
@@ -179,17 +177,6 @@ export default function CostTrackerEditor({
 
   return (
     <div className="space-y-8 text-gray-900 dark:text-gray-100">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">
-          {mode === 'edit' ? 'Edit Cost Tracker' : 'Create New Cost Tracker'}
-        </h2>
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-        >
-          ← Back to List
-        </button>
-      </div>
       <BudgetSetup
         costData={costData}
         setCostData={setCostData}
