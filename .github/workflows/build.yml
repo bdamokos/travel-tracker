@@ -37,6 +37,9 @@ jobs:
         run: |
           timeout 30 bash -c 'until curl -f http://localhost:3000/api/health 2>/dev/null; do sleep 1; done' || echo "Server may not be fully ready, proceeding with tests"
 
+      - name: Ensure data directory exists
+        run: mkdir -p data
+
       - name: Run unit tests
         run: bun run test src/app/__tests__/utils.test.ts
 
