@@ -58,9 +58,8 @@ jest.mock('react-leaflet', () => ({
   Polyline: () => <div data-testid="polyline" />,
 }))
 
-// Global fetch mock for API calls - but allow real fetch for integration tests
-// Only mock fetch if not in integration test environment
-if (!process.env.JEST_INTEGRATION_TESTS) {
+// Global fetch mock for API calls - only mock fetch if explicitly requested
+if (process.env.JEST_MOCK_FETCH) {
   global.fetch = jest.fn()
 }
 
