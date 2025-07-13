@@ -51,7 +51,7 @@ jobs:
           TEST_API_BASE_URL: http://localhost:3000
 
       - name: Run integration tests
-        run: bun run test:integration
+        run: bun run test:integration --runInBand
         env:
           TEST_API_BASE_URL: http://localhost:3000
   
