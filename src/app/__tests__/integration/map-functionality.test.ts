@@ -99,7 +99,7 @@ const DATA_DIR = join(process.cwd(), 'data')
 
 describe('Map Functionality Integration Tests (Pyramid)', () => {
   let testTripId: string
-  let mockGenerateRoutePoints: jest.MockedFunction<any> | null = null
+  let mockGenerateRoutePoints: jest.MockedFunction<(transportation: { id: string; type: string; from: string; to: string; fromCoordinates: [number, number]; toCoordinates: [number, number] }) => Promise<[number, number][]>> | null = null
   
   beforeAll(() => {
     testTripId = TEST_TRIP_DATA.id

@@ -164,5 +164,5 @@ export const setupRouteMocking = () => {
 
 // Check if external API is available (set by connectivity test)
 export const isExternalApiAvailable = (): boolean => {
-  return (global as any).__EXTERNAL_API_AVAILABLE__ === true;
+  return (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ === true;
 };

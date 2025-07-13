@@ -77,7 +77,7 @@ describe('API Connectivity Test', () => {
     }
     
     // Set up global flag for other tests to use
-    (global as any).__EXTERNAL_API_AVAILABLE__ = externalApiAvailable;
+    (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = externalApiAvailable;
     
     console.log(`🌐 External API availability: ${externalApiAvailable}`);
   });
@@ -124,7 +124,7 @@ describe('API Connectivity Test', () => {
       console.log('🔄 Setting up mock route data...');
       
       // Store mock data in global for other tests to use
-      (global as any).__MOCK_ROUTE_POINTS__ = MOCK_ROUTE_POINTS;
+      (global as typeof globalThis & { __MOCK_ROUTE_POINTS__?: [number, number][] }).__MOCK_ROUTE_POINTS__ = MOCK_ROUTE_POINTS;
       
       expect(MOCK_ROUTE_POINTS).toHaveLength(11);
       expect(MOCK_ROUTE_POINTS[0]).toEqual([51.5074, -0.1278]); // London
