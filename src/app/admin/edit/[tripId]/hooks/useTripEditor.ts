@@ -4,36 +4,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
 import { calculateSmartDurations } from '@/app/lib/durationUtils';
-import { Location, InstagramPost, BlogPost, CostTrackingLink, Transportation } from '@/app/types';
+import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Transportation } from '@/app/types';
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
-
-interface TravelRoute {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: Transportation['type'];
-  date: Date;
-  duration?: string;
-  notes?: string;
-  privateNotes?: string;
-  costTrackingLinks?: CostTrackingLink[];
-  routePoints?: [number, number][]; // Pre-generated route points for better performance
-}
-
-interface TravelData {
-  id?: string;
-  title: string;
-  description: string;
-  startDate: Date;
-  endDate: Date;
-  locations: Location[];
-  routes: TravelRoute[];
-}
 
 interface ExistingTrip {
   id: string;
@@ -174,7 +149,8 @@ export function useTripEditor(tripId: string | null) {
       duration: route.duration,
       notes: route.notes || '',
       privateNotes: route.privateNotes,
-      costTrackingLinks: route.costTrackingLinks || []
+      costTrackingLinks: route.costTrackingLinks || [],
+      routePoints: route.routePoints // Preserve existing routePoints
     })) || [];
 
     return {
@@ -252,6 +228,12 @@ export function useTripEditor(tripId: string | null) {
     try {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
+      
+      // Log what we're about to send
+      console.log(`[autoSaveTravelData] Saving ${travelData.routes.length} routes`);
+      travelData.routes.forEach((route, index) => {
+        console.log(`[autoSaveTravelData] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${route.routePoints?.length || 'undefined'}`);
+      });
       
       const response = await fetch(url, {
         method,
@@ -378,22 +360,28 @@ export function useTripEditor(tripId: string | null) {
         toCoordinates: newRoute.toCoords
       };
       
+      console.log(`[handleRouteAdded] Generating route points for ${newRoute.from} → ${newRoute.to}`);
       const routePoints = await generateRoutePoints(transportation);
       newRoute.routePoints = routePoints;
+      console.log(`[handleRouteAdded] Generated ${routePoints.length} route points, assigned to newRoute`);
+      console.log(`[handleRouteAdded] newRoute.routePoints length:`, newRoute.routePoints?.length);
     } catch (error) {
       console.warn('Failed to pre-generate route points:', error);
       // Don't block route creation if route generation fails
       newRoute.routePoints = [newRoute.fromCoords, newRoute.toCoords];
+      console.log(`[handleRouteAdded] Fallback: assigned ${newRoute.routePoints?.length} fallback points`);
     }
 
     if (editingRouteIndex !== null) {
       // Update existing route
       const updatedRoutes = [...travelData.routes];
       updatedRoutes[editingRouteIndex] = newRoute;
+      console.log(`[handleRouteAdded] Updating route at index ${editingRouteIndex}, routePoints: ${newRoute.routePoints?.length}`);
       setTravelData(prev => ({ ...prev, routes: updatedRoutes, locations: updatedLocations }));
       setEditingRouteIndex(null);
     } else {
       // Add new route
+      console.log(`[handleRouteAdded] Adding new route, routePoints: ${newRoute.routePoints?.length}`);
       setTravelData(prev => ({
         ...prev,
         routes: [...prev.routes, newRoute],

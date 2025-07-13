@@ -1,25 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Transportation, CostTrackingLink } from '../../types';
+import { Transportation, TravelRoute } from '../../types';
 import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
-
-interface TravelRoute {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: Transportation['type'];
-  date: Date;
-  duration?: string;
-  notes?: string;
-  privateNotes?: string;
-  costTrackingLinks?: CostTrackingLink[];
-}
 
 interface RouteInlineEditorProps {
   route: TravelRoute;

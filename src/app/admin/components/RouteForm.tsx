@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CostTrackingLink, Transportation } from '../../types';
+import { TravelRoute } from '../../types';
 import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
@@ -9,21 +9,6 @@ import AriaComboBox from './AriaComboBox';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
-}
-
-interface TravelRoute {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: Transportation['type'];
-  date: Date;
-  duration?: string;
-  notes?: string;
-  // Private fields (admin only)
-  privateNotes?: string;
-  costTrackingLinks?: CostTrackingLink[];
 }
 
 interface RouteFormProps {

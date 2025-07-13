@@ -45,7 +45,7 @@ interface TravelData {
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
     // Use unified API for both server and client side
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3002';
     
     const response = await fetch(`${baseUrl}/api/travel-data?id=${id}`, {
       cache: 'no-store' // Always fetch fresh data

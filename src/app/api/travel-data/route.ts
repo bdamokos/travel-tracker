@@ -114,6 +114,12 @@ export async function PUT(request: NextRequest) {
     
     const updatedData = await request.json();
     
+    // Log what we received
+    console.log(`[PUT] Received data for trip ${id}, ${updatedData.routes?.length || 0} routes`);
+    updatedData.routes?.forEach((route: { id: string; from: string; to: string; routePoints?: [number, number][] }, index: number) => {
+      console.log(`[PUT] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${route.routePoints?.length || 'undefined'}`);
+    });
+    
     // Use unified data service to update travel data
     await updateTravelData(id, {
       ...updatedData,
