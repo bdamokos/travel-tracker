@@ -39,6 +39,12 @@ jobs:
 
       - name: Ensure data directory exists
         run: mkdir -p data
+      
+      - name: Ensure data directory exists in standalone output
+        run: mkdir -p .next/standalone/data
+      
+      - name: Show us what we have
+        run: ls -la .next/standalone/data && ls -la .
 
       - name: Run unit tests
         run: bun run test src/app/__tests__/utils.test.ts
