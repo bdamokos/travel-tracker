@@ -97,7 +97,7 @@ export default function CalendarDayCell({
       
       {/* Outside trip or month styling */}
       {(day.isOutsideTrip || day.isOutsideMonth) && (
-        <div className="absolute inset-0 bg-gray-100 opacity-50" />
+        <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 opacity-50" />
       )}
     </div>
   );

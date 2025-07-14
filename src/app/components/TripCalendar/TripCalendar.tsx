@@ -72,10 +72,10 @@ export default function TripCalendar({
     return (
       <div className={`${styles.tripCalendar} ${className}`}>
         <div className="trip-calendar-header mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
             {trip.title} - Calendar View
           </h2>
-          <p className="text-sm text-gray-600">Loading calendar...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Loading calendar...</p>
         </div>
       </div>
     );
@@ -84,7 +84,7 @@ export default function TripCalendar({
   return (
     <div className={`${styles.tripCalendar} ${planningMode ? styles.planningMode : ''} ${className}`}>
       <div className="trip-calendar-header mb-4">
-        <h2 className="text-2xl font-bold text-gray-800">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
           {trip.title} - Calendar View
         </h2>
         <p className="text-sm text-gray-600">
@@ -102,7 +102,7 @@ export default function TripCalendar({
         {calendarData.monthCalendars.map((monthCalendar, index) => (
           <div key={index} className="month-calendar">
             {/* Month Header */}
-            <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 text-center">
               {monthCalendar.month.toLocaleDateString('en-US', { 
                 month: 'long', 
                 year: 'numeric' 
@@ -120,8 +120,8 @@ export default function TripCalendar({
       </div>
       
       {/* Location Legend */}
-      <div className="location-legend mt-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-3">Locations</h3>
+      <div className="location-legend mt-6 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Locations</h3>
         <div className="flex flex-wrap gap-3">
           {Array.from(calendarData.locationColors.entries()).map(([locationName, color]) => (
             <div key={locationName} className="flex items-center space-x-2">
@@ -129,7 +129,7 @@ export default function TripCalendar({
                 className="w-4 h-4 rounded"
                 style={{ backgroundColor: color }}
               />
-              <span className="text-sm text-gray-700">{locationName}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200">{locationName}</span>
             </div>
           ))}
         </div>

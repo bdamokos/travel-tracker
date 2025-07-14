@@ -42,6 +42,12 @@
   background-color: #f9fafb; /* bg-gray-50 */
   color: #9ca3af; /* text-gray-400 */
 }
+@media (prefers-color-scheme: dark) {
+  .calendarCell.outsideTrip {
+    background-color: #23272f; /* dark gray for dark mode */
+    color: #6b7280; /* slightly lighter gray for text */
+  }
+}
 
 /* Merged cell styling */
 .mergedCell {
