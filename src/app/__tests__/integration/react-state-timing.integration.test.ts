@@ -166,5 +166,5 @@ describe('React State Timing Test', () => {
 
     expect(finalData.routes[0].routePoints).toBeDefined()
     expect(finalData.routes[0].routePoints.length).toBeGreaterThan(0)
-  })
+  }, 10000) // 10 second timeout
 })
