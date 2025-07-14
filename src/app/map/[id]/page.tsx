@@ -90,13 +90,25 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
     <div className="min-h-screen bg-white dark:bg-gray-900">
       <div className="container mx-auto px-4 py-6">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">{travelData.title}</h1>
-          {travelData.description && (
-            <p className="text-gray-600 dark:text-gray-300 mb-2">{travelData.description}</p>
-          )}
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {new Date(travelData.startDate).toLocaleDateString()} - {new Date(travelData.endDate).toLocaleDateString()}
-          </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">{travelData.title}</h1>
+              {travelData.description && (
+                <p className="text-gray-600 dark:text-gray-300 mb-2">{travelData.description}</p>
+              )}
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {new Date(travelData.startDate).toLocaleDateString()} - {new Date(travelData.endDate).toLocaleDateString()}
+              </p>
+            </div>
+            <a 
+              href={`/calendars/${travelData.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 border border-purple-300 rounded-md shadow-sm bg-white text-sm font-medium text-purple-700 hover:bg-purple-50 dark:bg-gray-700 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-gray-600"
+            >
+              📅 View Calendar
+            </a>
+          </div>
         </header>
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">

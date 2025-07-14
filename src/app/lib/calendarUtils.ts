@@ -1,0 +1,378 @@
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { pickDistinctColors } from 'pick-distinct-colors';
+import { Trip, Location } from '@/app/types';
+
+export interface CalendarDay {
+  date: Date;
+  locations: Location[];
+  primaryLocation?: Location;
+  secondaryLocation?: Location;
+  cellType: 'single' | 'transition' | 'merged-start' | 'merged-middle' | 'merged-end';
+  mergeGroup?: string;
+  isOutsideTrip?: boolean;
+  isOutsideMonth?: boolean;
+}
+
+export interface CalendarCell {
+  day: CalendarDay;
+  backgroundColor: string;
+  textColor: string;
+  diagonalSplit?: {
+    topLeft: string;
+    bottomRight: string;
+    direction: 'A-to-B' | 'B-to-A';
+  };
+  mergeInfo?: {
+    colspan: number;
+    position: 'start' | 'middle' | 'end';
+    groupId: string;
+  };
+}
+
+export interface MonthCalendar {
+  month: Date;
+  weeks: CalendarCell[][];
+}
+
+export async function generateLocationColors(locations: Location[]): Promise<Map<string, string>> {
+  const uniqueLocations = Array.from(new Set(locations.map(l => l.name)));
+  
+  if (uniqueLocations.length === 0) {
+    return new Map();
+  }
+  
+  // Use pickDistinctColors for optimal color selection
+  const result = await pickDistinctColors({
+    count: uniqueLocations.length,
+    algorithm: 'greedy',
+    poolSize: Math.max(uniqueLocations.length * 20, 128),
+    seed: 42 // Fixed seed for consistent colors
+  });
+  
+  const selectedColors = result.colors;
+  
+  // Convert RGB arrays to hex colors and map to locations
+  const locationColors = new Map();
+  uniqueLocations.forEach((location, index) => {
+    const [r, g, b] = selectedColors[index];
+    const hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    locationColors.set(location, hexColor);
+  });
+  
+  return locationColors;
+}
+
+export function getContrastColor(hexColor: string): string {
+  // Remove # if present
+  const color = hexColor.replace('#', '');
+  
+  // Convert to RGB
+  const r = parseInt(color.slice(0, 2), 16);
+  const g = parseInt(color.slice(2, 4), 16);
+  const b = parseInt(color.slice(4, 6), 16);
+  
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // Return black or white based on luminance
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
+}
+
+export function muteColor(hexColor: string, opacity: number = 0.6): string {
+  // Convert to RGB, blend with white, return as hex
+  const color = hexColor.replace('#', '');
+  const r = parseInt(color.slice(0, 2), 16);
+  const g = parseInt(color.slice(2, 4), 16);
+  const b = parseInt(color.slice(4, 6), 16);
+  
+  const mutedR = Math.round(r + (255 - r) * (1 - opacity));
+  const mutedG = Math.round(g + (255 - g) * (1 - opacity));
+  const mutedB = Math.round(b + (255 - b) * (1 - opacity));
+  
+  return `#${mutedR.toString(16).padStart(2, '0')}${mutedG.toString(16).padStart(2, '0')}${mutedB.toString(16).padStart(2, '0')}`;
+}
+
+export function generateDateRange(startDate: string | Date, endDate: string | Date): Date[] {
+  const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
+  const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
+  
+  const dates: Date[] = [];
+  let currentDate = new Date(start);
+  
+  while (currentDate <= end) {
+    dates.push(new Date(currentDate));
+    currentDate = addDays(currentDate, 1);
+  }
+  
+  return dates;
+}
+
+export function getCalendarDaysForMonth(month: Date): Date[] {
+  const monthStart = startOfMonth(month);
+  const monthEnd = endOfMonth(month);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday = 1
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  
+  return generateDateRange(calendarStart, calendarEnd);
+}
+
+export function getAllMonthsInTrip(tripStart: Date, tripEnd: Date): Date[] {
+  const months: Date[] = [];
+  let currentMonth = startOfMonth(tripStart);
+  const lastMonth = startOfMonth(tripEnd);
+  
+  while (currentMonth <= lastMonth) {
+    months.push(new Date(currentMonth));
+    // Move to next month
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+  }
+  
+  return months;
+}
+
+export function calculateLocationPeriodsForMonth(trip: Trip, month: Date): CalendarDay[] {
+  const tripStart = new Date(trip.startDate);
+  const tripEnd = new Date(trip.endDate);
+  const monthDays = getCalendarDaysForMonth(month);
+  
+  return monthDays.map(date => {
+    // Normalize the calendar date to start of day in UTC to match location dates
+    const normalizedDate = new Date(Date.UTC(
+      date.getFullYear(), 
+      date.getMonth(), 
+      date.getDate()
+    ));
+    
+    const isOutsideTrip = normalizedDate < tripStart || normalizedDate > tripEnd;
+    const isOutsideMonth = date.getMonth() !== month.getMonth();
+    
+    if (isOutsideTrip || isOutsideMonth) {
+      return {
+        date,
+        locations: [],
+        cellType: 'single' as const,
+        isOutsideTrip,
+        isOutsideMonth
+      };
+    }
+    
+    // Find locations that include this date
+    const locationsOnDate = trip.locations.filter(location => {
+      const locationStart = new Date(location.date);
+      const locationEnd = location.endDate ? new Date(location.endDate) : locationStart;
+      
+      // For calendar purposes, include the location if the calendar date falls within the period
+      // This means start date <= calendar date < end date + 1 day
+      // We normalize to start of day to handle any time-of-day differences
+      const normalizedLocationStart = new Date(Date.UTC(
+        locationStart.getFullYear(),
+        locationStart.getMonth(), 
+        locationStart.getDate()
+      ));
+      const normalizedLocationEnd = new Date(Date.UTC(
+        locationEnd.getFullYear(),
+        locationEnd.getMonth(), 
+        locationEnd.getDate() + 1  // Add 1 day to make end date inclusive for full day
+      ));
+      
+      return normalizedDate >= normalizedLocationStart && normalizedDate < normalizedLocationEnd;
+    });
+    
+    // Sort locations by start date to ensure correct transition order
+    const sortedLocations = locationsOnDate.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    return {
+      date,
+      locations: sortedLocations,
+      primaryLocation: sortedLocations[0],
+      secondaryLocation: sortedLocations[1],
+      cellType: sortedLocations.length > 1 ? 'transition' : 'single',
+      isOutsideTrip: false,
+      isOutsideMonth: false
+    };
+  });
+}
+
+export function mergeAdjacentCells(calendarDays: CalendarDay[], locationColors: Map<string, string>): CalendarCell[] {
+  const cells: CalendarCell[] = [];
+  
+  // Process calendar days in weekly chunks to maintain grid structure
+  for (let week = 0; week < calendarDays.length; week += 7) {
+    const weekDays = calendarDays.slice(week, Math.min(week + 7, calendarDays.length));
+    
+    let i = 0;
+    while (i < weekDays.length) {
+      const currentDay = weekDays[i];
+      const currentLocation = currentDay.primaryLocation?.name;
+      
+
+      if (!currentLocation || currentDay.isOutsideTrip || currentDay.isOutsideMonth || currentDay.cellType === 'transition') {
+        // Single cell for empty, outside trip, outside month, or transition days
+        cells.push(createSingleCell(currentDay, locationColors));
+        i++;
+        continue;
+      }
+      
+      // Find consecutive days with same location within this week only
+      let mergeEnd = i;
+      while (
+        mergeEnd + 1 < weekDays.length &&
+        weekDays[mergeEnd + 1].primaryLocation?.name === currentLocation &&
+        !weekDays[mergeEnd + 1].isOutsideTrip &&
+        !weekDays[mergeEnd + 1].isOutsideMonth &&
+        weekDays[mergeEnd + 1].cellType !== 'transition'
+      ) {
+        mergeEnd++;
+      }
+      
+      const mergeLength = mergeEnd - i + 1;
+      
+      if (mergeLength > 1) {
+        // Create merged cells
+        for (let j = i; j <= mergeEnd; j++) {
+          const position = j === i ? 'start' : j === mergeEnd ? 'end' : 'middle';
+          cells.push(createMergedCell(
+            weekDays[j],
+            locationColors,
+            mergeLength,
+            position,
+            `${currentLocation}-${week}-${i}`,
+            j === i
+          ));
+        }
+      } else {
+        // Single cell
+        cells.push(createSingleCell(currentDay, locationColors));
+      }
+      
+      i = mergeEnd + 1;
+    }
+  }
+  
+  return cells;
+}
+
+function createSingleCell(day: CalendarDay, locationColors: Map<string, string>): CalendarCell {
+  if (day.isOutsideTrip || day.isOutsideMonth) {
+    return {
+      day,
+      backgroundColor: '#f3f4f6',
+      textColor: '#9ca3af'
+    };
+  }
+  
+  if (day.cellType === 'transition' && day.primaryLocation && day.secondaryLocation) {
+    return createTransitionCell(day, locationColors);
+  }
+  
+  const location = day.primaryLocation;
+  const backgroundColor = location ? locationColors.get(location.name) || '#e5e7eb' : '#e5e7eb';
+  
+  return {
+    day,
+    backgroundColor,
+    textColor: getContrastColor(backgroundColor)
+  };
+}
+
+function createMergedCell(
+  day: CalendarDay,
+  locationColors: Map<string, string>,
+  colspan: number,
+  position: 'start' | 'middle' | 'end',
+  groupId: string,
+  isFirstInGroup: boolean
+): CalendarCell {
+  const location = day.primaryLocation;
+  const backgroundColor = location ? locationColors.get(location.name) || '#e5e7eb' : '#e5e7eb';
+  
+  return {
+    day,
+    backgroundColor,
+    textColor: getContrastColor(backgroundColor),
+    mergeInfo: {
+      colspan: isFirstInGroup ? colspan : 0,
+      position,
+      groupId
+    }
+  };
+}
+
+function createTransitionCell(day: CalendarDay, locationColors: Map<string, string>): CalendarCell {
+  const fromLocation = day.primaryLocation!;  // Earlier start date
+  const toLocation = day.secondaryLocation!;  // Later start date
+  
+  const fromColor = locationColors.get(fromLocation.name) || '#e5e7eb';
+  const toColor = locationColors.get(toLocation.name) || '#e5e7eb';
+  
+  return {
+    day,
+    backgroundColor: 'transparent',
+    textColor: '#000000',
+    diagonalSplit: {
+      topLeft: fromColor,     // Previous location color on top-left  
+      bottomRight: toColor,   // New location color on bottom-right
+      direction: 'A-to-B'
+    }
+  };
+}
+
+export async function generateTripCalendars(trip: Trip): Promise<{
+  monthCalendars: MonthCalendar[];
+  locationColors: Map<string, string>;
+}> {
+  const tripStart = new Date(trip.startDate);
+  const tripEnd = new Date(trip.endDate);
+  const months = getAllMonthsInTrip(tripStart, tripEnd);
+  
+  // Generate location colors first
+  const locationColors = await generateLocationColors(trip.locations);
+  
+  const monthCalendars = months.map(month => {
+    // Calculate location periods for this specific month
+    const calendarDays = calculateLocationPeriodsForMonth(trip, month);
+    
+    // Create merged cells for this month
+    const calendarCells = mergeAdjacentCells(calendarDays, locationColors);
+    
+    // Group cells into weeks (7 cells per week)
+    const weeks: CalendarCell[][] = [];
+    for (let i = 0; i < calendarCells.length; i += 7) {
+      weeks.push(calendarCells.slice(i, i + 7));
+    }
+    
+    return {
+      month,
+      weeks
+    };
+  });
+  
+  return {
+    monthCalendars,
+    locationColors
+  };
+}
+
+export function applyPlanningModeColors(
+  colors: Map<string, string>,
+  locations: Location[],
+  isPublic: (location: Location) => boolean = () => true
+): Map<string, string> {
+  const planningColors = new Map();
+  
+  colors.forEach((color, locationName) => {
+    const location = locations.find(l => l.name === locationName);
+    
+    if (location && !isPublic(location)) {
+      planningColors.set(locationName, muteColor(color, 0.6));
+    } else {
+      planningColors.set(locationName, color);
+    }
+  });
+  
+  return planningColors;
+}

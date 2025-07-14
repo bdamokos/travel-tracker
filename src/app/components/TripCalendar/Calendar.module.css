@@ -1,0 +1,166 @@
+/* Trip Calendar Styles */
+
+.tripCalendar {
+  @apply max-w-full;
+}
+
+.calendarGrid {
+  @apply w-full mx-auto;
+  max-width: 56rem; /* equivalent to max-w-4xl */
+}
+
+/* Calendar Day Cell Styles */
+.calendarCell {
+  height: 5rem; /* h-20 */
+  min-height: 5rem; /* min-h-20 */
+  border: 1px solid #e5e7eb; /* border-gray-200 */
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendarCell:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+.calendarCell.selected {
+  outline: 2px solid #3b82f6; /* ring-2 ring-blue-500 */
+  outline-offset: -2px;
+}
+
+.calendarCell.today {
+  outline: 2px solid #fbbf24; /* ring-2 ring-yellow-400 */
+  outline-offset: -2px;
+}
+
+.calendarCell.outsideTrip {
+  background-color: #f9fafb; /* bg-gray-50 */
+  color: #9ca3af; /* text-gray-400 */
+}
+
+/* Merged cell styling */
+.mergedCell {
+  border: 2px solid #d1d5db; /* border-2 border-gray-300 */
+}
+
+.mergedCell.start {
+  @apply rounded-l-lg;
+}
+
+.mergedCell.end {
+  @apply rounded-r-lg;
+}
+
+.mergedCell.middle {
+  @apply border-l-0 border-r-0;
+}
+
+/* Diagonal transition cell */
+.diagonalCell {
+  @apply relative overflow-hidden;
+}
+
+.diagonalBackground {
+  @apply absolute inset-0;
+}
+
+/* Day number */
+.dayNumber {
+  @apply absolute top-1 left-2 text-sm font-medium z-10;
+  @apply bg-white bg-opacity-80 rounded px-1;
+}
+
+/* Location labels */
+.locationLabel {
+  @apply text-xs font-medium truncate text-center;
+  @apply bg-black bg-opacity-20 rounded px-1 py-0.5;
+}
+
+.locationLabelMerged {
+  @apply text-sm font-semibold text-center px-2;
+  @apply bg-black bg-opacity-20 rounded;
+}
+
+.transitionLabels {
+  @apply text-xs font-medium;
+  @apply bg-white bg-opacity-80 rounded px-1;
+}
+
+/* Location legend */
+.locationLegend {
+  @apply mt-6;
+}
+
+.legendItem {
+  @apply flex items-center space-x-2;
+}
+
+.legendColor {
+  @apply w-4 h-4 rounded border border-gray-300;
+}
+
+/* Selected date info */
+.selectedDateInfo {
+  @apply mt-6 p-4 bg-gray-50 rounded-lg border;
+}
+
+/* Planning mode styles */
+.planningMode .calendarCell {
+  @apply relative;
+}
+
+.planningMode .calendarCell.nonPublic {
+  @apply opacity-60;
+}
+
+.planningMode .calendarCell.nonPublic::after {
+  content: "";
+  @apply absolute inset-0 bg-gray-500 bg-opacity-20 pointer-events-none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .calendarCell {
+    height: 4rem; /* h-16 */
+    min-height: 4rem; /* min-h-16 */
+  }
+  
+  .dayNumber {
+    @apply text-xs;
+  }
+  
+  .locationLabel {
+    @apply text-xs;
+  }
+  
+  .locationLabelMerged {
+    @apply text-xs px-1;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendarCell {
+    height: 3rem; /* h-12 */
+    min-height: 3rem; /* min-h-12 */
+  }
+  
+  .dayNumber {
+    @apply text-xs;
+    top: 0.125rem; /* top-0.5 */
+    left: 0.25rem; /* left-1 */
+  }
+  
+  .locationLabel {
+    @apply text-xs;
+    bottom: 0.125rem; /* bottom-0.5 */
+  }
+  
+  .transitionLabels {
+    @apply text-xs;
+  }
+}

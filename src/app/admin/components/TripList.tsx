@@ -237,7 +237,15 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
                     }}
                     className="flex-1 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-sm text-sm hover:bg-green-600 dark:hover:bg-green-700"
                   >
-                    View
+                    Map
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.open(`/calendars/${trip.id}`, '_blank');
+                    }}
+                    className="flex-1 px-3 py-2 bg-purple-500 dark:bg-purple-600 text-white rounded-sm text-sm hover:bg-purple-600 dark:hover:bg-purple-700"
+                  >
+                    Calendar
                   </button>
                 </div>
               </div>

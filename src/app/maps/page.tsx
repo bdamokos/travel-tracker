@@ -106,11 +106,14 @@ export default async function PublicMapsPage() {
                       </span>
                     </div>
                     
-                    <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
-                      View Map
-                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium">
+                        View Map
+                        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                      
                     </div>
                   </div>
                 </Link>
