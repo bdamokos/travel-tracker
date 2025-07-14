@@ -142,6 +142,46 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     }
   }
 
+  // Helper function to wait for file to be written with proper data
+  const waitForTripDataInFile = async (expectedChanges?: Partial<TripData>, timeoutMs = 5000): Promise<TripData> => {
+    const startTime = Date.now()
+    
+    while (Date.now() - startTime < timeoutMs) {
+      const tripData = readTripDataFromFile()
+      
+      if (tripData) {
+        // If we have expected changes, check them
+        if (expectedChanges) {
+          let matches = true
+          
+          if (expectedChanges.title && tripData.title !== expectedChanges.title) {
+            matches = false
+          }
+          
+          if (expectedChanges.travelData?.locations && tripData.travelData?.locations?.length !== expectedChanges.travelData.locations.length) {
+            matches = false
+          }
+          
+          if (expectedChanges.travelData?.routes && tripData.travelData?.routes?.length !== expectedChanges.travelData.routes.length) {
+            matches = false
+          }
+          
+          if (matches) {
+            return tripData
+          }
+        } else {
+          // No specific expectations, just return the data
+          return tripData
+        }
+      }
+      
+      // Wait a bit before checking again
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    throw new Error(`Timeout waiting for trip data to be written to file system after ${timeoutMs}ms`)
+  }
+
   // Helper function to make API calls
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const url = `${BASE_URL}${endpoint}`
@@ -188,7 +228,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     })
 
     it('should verify trip exists in file system', async () => {
-      const tripData = readTripDataFromFile()
+      const tripData = await waitForTripDataInFile()
       
       expect(tripData).not.toBeNull()
       expect(tripData!.id).toBe(testTripId)
@@ -223,7 +263,9 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     })
 
     it('should verify first location exists and trip is intact', async () => {
-      const tripData = readTripDataFromFile()
+      const tripData = await waitForTripDataInFile({ 
+        travelData: { locations: [TEST_LOCATIONS[0]], routes: [] } 
+      })
       
       // Verify trip still exists
       expect(tripData).not.toBeNull()
@@ -262,7 +304,9 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     })
 
     it('should verify both locations exist and trip is intact', async () => {
-      const tripData = readTripDataFromFile()
+      const tripData = await waitForTripDataInFile({ 
+        travelData: { locations: TEST_LOCATIONS, routes: [] } 
+      })
       
       // Verify trip still exists
       expect(tripData).not.toBeNull()
@@ -336,7 +380,12 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     })
 
     it('should verify route exists with RoutePoints and all previous data intact', async () => {
-      const tripData = readTripDataFromFile()
+      const tripData = await waitForTripDataInFile({ 
+        travelData: { 
+          locations: TEST_LOCATIONS, 
+          routes: [{ ...TEST_ROUTE, routePoints: [] }] // We expect 1 route, exact routePoints will be checked separately
+        } 
+      })
       
       // Verify trip still exists
       expect(tripData).not.toBeNull()

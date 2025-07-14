@@ -194,7 +194,7 @@ export const isExternalApiAvailable = async (): Promise<boolean> => {
       (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = available;
       return available;
     }
-  } catch (error) {
+  } catch {
     // API not available
   }
   
