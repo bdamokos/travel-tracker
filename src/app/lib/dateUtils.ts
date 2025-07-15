@@ -76,3 +76,24 @@ export function shouldHighlightLocation<T extends LocationWithDate>(
   const closestLocation = findClosestLocationToCurrentDate(allLocations);
   return closestLocation?.id === location.id;
 } 
+
+/**
+ * Format a date range for display
+ * If endDate is provided and different from startDate, show as "Start - End"
+ * If endDate is same as startDate or not provided, show only the start date
+ */
+export function formatDateRange(startDate: string | Date, endDate?: string | Date): string {
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : null;
+  
+  if (!end || start.getTime() === end.getTime()) {
+    // Same day or no end date - show only start date
+    return start.toLocaleDateString();
+  }
+  
+  // Different dates - show range
+  const startStr = start.toLocaleDateString();
+  const endStr = end.toLocaleDateString();
+  
+  return `${startStr} - ${endStr}`;
+}

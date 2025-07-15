@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 // import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
+import { formatDateRange } from '../../lib/dateUtils';
 
 interface TravelData {
   id: string;
@@ -14,6 +15,7 @@ interface TravelData {
     name: string;
     coordinates: [number, number];
     date: string;
+    endDate?: string;
     notes?: string;
     instagramPosts?: Array<{
       id: string;
@@ -41,7 +43,6 @@ interface TravelData {
   }>;
   createdAt: string;
 }
-
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
     // Use unified API for both server and client side
@@ -128,7 +129,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
                 <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                   <h3 className="font-medium text-gray-800 dark:text-white">{location.name}</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    {new Date(location.date).toLocaleDateString()}
+                    {formatDateRange(location.date, location.endDate)}
                   </p>
                   {location.notes && (
                     <p className="text-sm text-gray-600 dark:text-gray-300">{location.notes}</p>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
-import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
+import { findClosestLocationToCurrentDate, formatDateRange } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
 
 interface TravelData {
@@ -18,6 +18,7 @@ interface TravelData {
     name: string;
     coordinates: [number, number];
     date: string;
+    endDate?: string;
     notes?: string;
     instagramPosts?: Array<{
       id: string;
@@ -170,7 +171,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         <div style="padding: 8px; max-width: 250px; border-radius: 8px; ${popupStyles}">
           <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 4px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${location.name}</h4>
           <p style="font-size: 14px; margin-bottom: 4px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">
-            ${new Date(location.date).toLocaleDateString()}
+            ${formatDateRange(location.date, location.endDate)}
           </p>
           ${location.notes ? `<p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${location.notes}</p>` : ''}
       `;
