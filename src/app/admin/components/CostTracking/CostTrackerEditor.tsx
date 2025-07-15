@@ -355,13 +355,12 @@ export default function CostTrackerEditor({
       )}
       
       {/* YNAB Mapping Manager Modal */}
-      {showYnabMappings && (
-        <YnabMappingManager
-          costData={costData}
-          onSave={handleYnabMappingsSave}
-          onClose={() => setShowYnabMappings(false)}
-        />
-      )}
+      <YnabMappingManager
+        isOpen={showYnabMappings}
+        costData={costData}
+        onSave={handleYnabMappingsSave}
+        onClose={() => setShowYnabMappings(false)}
+      />
     </div>
   );
 }
