@@ -45,3 +45,4 @@ GITHUB_SYNC_WORKFLOW.md
 .last_github_sync
 sync-from-github.sh
 test-data/*
+.vscode/
