@@ -67,10 +67,9 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
     setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: true } : null);
 
     try {
-      const response = await fetch('/api/travel-data', {
+      const response = await fetch(`/api/travel-data?id=${tripDeleteDialog.tripId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: tripDeleteDialog.tripId }),
       });
 
       if (response.ok) {
