@@ -67,6 +67,7 @@ export default function AccessibleModal({
         document.body.style.overflow = 'unset';
       };
     }
+    return undefined;
   }, [isOpen]);
 
   if (!isOpen) {

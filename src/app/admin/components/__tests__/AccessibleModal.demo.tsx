@@ -23,7 +23,7 @@ export default function AccessibleModalDemo() {
             <span>Size:</span>
             <select
               value={modalSize}
-              onChange={(e) => setModalSize(e.target.value as any)}
+              onChange={(e) => setModalSize(e.target.value as 'sm' | 'md' | 'lg' | 'xl')}
               className="border rounded px-2 py-1"
             >
               <option value="sm">Small</option>

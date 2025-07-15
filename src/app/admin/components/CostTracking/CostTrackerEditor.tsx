@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip } from '../../../types';
+import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip, YnabCategoryMapping } from '../../../types';
 import { calculateCostSummary, generateId, EXPENSE_CATEGORIES } from '../../../lib/costUtils';
 import CostPieCharts from '../CostPieCharts';
 import { ExpenseTravelLookup, createExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
@@ -11,6 +11,8 @@ import CategoryManager from './CategoryManager';
 import ExpenseManager from './ExpenseManager';
 import CountryBreakdownDisplay from './CountryBreakdownDisplay';
 import CostSummaryDashboard from './CostSummaryDashboard';
+import YnabImportForm from '../YnabImportForm';
+import YnabMappingManager from '../YnabMappingManager';
 
 interface CostTrackerEditorProps {
   costData: CostTrackingData;
@@ -67,6 +69,10 @@ export default function CostTrackerEditor({
   
   const [newCategory, setNewCategory] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  
+  // YNAB Import state
+  const [showYnabImport, setShowYnabImport] = useState(false);
+  const [showYnabMappings, setShowYnabMappings] = useState(false);
   
 
   
@@ -175,6 +181,69 @@ export default function CostTrackerEditor({
     }
   };
 
+  // YNAB import handlers
+  const handleYnabImportComplete = async () => {
+    // Reload the cost data to show imported transactions
+    if (costData.id && mode === 'edit') {
+      // Trigger parent component to reload data
+      setShowYnabImport(false);
+      // The parent component should handle reloading the data
+    }
+  };
+
+  const handleYnabMappingsSave = async (mappings: YnabCategoryMapping[]) => {
+    try {
+      // Create new country budgets for any new countries in mappings
+      const newCountries = mappings
+        .filter(m => m.mappingType === 'country' && m.countryName)
+        .map(m => m.countryName!)
+        .filter(country => !costData.countryBudgets.some(b => b.country === country));
+
+      const newBudgets = newCountries.map(country => ({
+        id: generateId(),
+        country: country,
+        // amount omitted - no budget amount set for auto-created budget
+        currency: costData.currency,
+        notes: 'Auto-created from YNAB mapping'
+      }));
+
+      // Update cost data with new mappings and budgets
+      const updatedCostData = {
+        ...costData,
+        countryBudgets: [...costData.countryBudgets, ...newBudgets],
+        ynabImportData: {
+          ...costData.ynabImportData,
+          mappings: mappings,
+          importedTransactionHashes: costData.ynabImportData?.importedTransactionHashes || []
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedCostData),
+      });
+      
+      if (response.ok) {
+        setCostData(updatedCostData);
+        const message = newCountries.length > 0 
+          ? `YNAB mappings saved successfully! Created ${newCountries.length} new country budget(s): ${newCountries.join(', ')}`
+          : 'YNAB mappings saved successfully!';
+        alert(message);
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`Error saving mappings: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error saving YNAB mappings:', error);
+      alert('Error saving YNAB mappings');
+    }
+  };
+
   return (
     <div className="space-y-8 text-gray-900 dark:text-gray-100">
       <BudgetSetup
@@ -211,19 +280,40 @@ export default function CostTrackerEditor({
           getCategories={getCategories}
           ensureCategoriesInitialized={ensureCategoriesInitialized}
         />
-        <ExpenseManager
-          costData={costData}
-          setCostData={setCostData}
-          currentExpense={currentExpense}
-          setCurrentExpense={setCurrentExpense}
-          editingExpenseIndex={editingExpenseIndex}
-          setEditingExpenseIndex={setEditingExpenseIndex}
-          getCategories={getCategories}
-          getExistingCountries={getExistingCountries}
-          travelLookup={travelLookup}
-          onExpenseAdded={handleExpenseAdded}
-          setHasUnsavedChanges={setHasUnsavedChanges}
-        />
+        <div className="space-y-4">
+          {mode === 'edit' && (
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-semibold">Expense Tracking</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowYnabMappings(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                >
+                  Manage YNAB Mappings
+                </button>
+                <button
+                  onClick={() => setShowYnabImport(true)}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
+                >
+                  Import from YNAB
+                </button>
+              </div>
+            </div>
+          )}
+          <ExpenseManager
+            costData={costData}
+            setCostData={setCostData}
+            currentExpense={currentExpense}
+            setCurrentExpense={setCurrentExpense}
+            editingExpenseIndex={editingExpenseIndex}
+            setEditingExpenseIndex={setEditingExpenseIndex}
+            getCategories={getCategories}
+            getExistingCountries={getExistingCountries}
+            travelLookup={travelLookup}
+            onExpenseAdded={handleExpenseAdded}
+            setHasUnsavedChanges={setHasUnsavedChanges}
+          />
+        </div>
 
         {costSummary && (
           <CostSummaryDashboard costSummary={costSummary} costData={costData} />
@@ -252,6 +342,25 @@ export default function CostTrackerEditor({
             </button>
           </div>
         </>
+      )}
+
+      {/* YNAB Import Modal */}
+      {showYnabImport && (
+        <YnabImportForm
+          isOpen={showYnabImport}
+          costData={costData}
+          onImportComplete={handleYnabImportComplete}
+          onClose={() => setShowYnabImport(false)}
+        />
+      )}
+      
+      {/* YNAB Mapping Manager Modal */}
+      {showYnabMappings && (
+        <YnabMappingManager
+          costData={costData}
+          onSave={handleYnabMappingsSave}
+          onClose={() => setShowYnabMappings(false)}
+        />
       )}
     </div>
   );

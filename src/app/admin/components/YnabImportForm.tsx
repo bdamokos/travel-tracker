@@ -8,8 +8,10 @@ import {
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import AriaSelect from './AriaSelect';
+import AccessibleModal from './AccessibleModal';
 
 interface YnabImportFormProps {
+  isOpen: boolean;
   costData: CostTrackingData;
   onImportComplete: () => void;
   onClose: () => void;
@@ -27,7 +29,7 @@ interface TransactionSelection {
   expenseCategory: string;
 }
 
-export default function YnabImportForm({ costData, onImportComplete, onClose }: YnabImportFormProps) {
+export default function YnabImportForm({ isOpen, costData, onImportComplete, onClose }: YnabImportFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -214,18 +216,14 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{getStepTitle()}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
-            >
-              ×
-            </button>
-          </div>
+    <AccessibleModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={getStepTitle()}
+      size="xl"
+      isDismissable={true}
+      isKeyboardDismissDisabled={false}
+    >
 
           {/* Progress indicator */}
           <div className="flex items-center mb-8">
@@ -530,8 +528,6 @@ export default function YnabImportForm({ costData, onImportComplete, onClose }: 
               </div>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+    </AccessibleModal>
   );
 } 
