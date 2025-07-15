@@ -16,6 +16,7 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - Blog post integration
 - Comprehensive travel expense tracking and budget management
 - YNAB (You Need A Budget) integration for importing financial data
+- **Backup Management System** with restoration capabilities and automated cleanup
 - Responsive design for desktop and mobile
 - Server-side data storage
 

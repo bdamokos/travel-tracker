@@ -14,6 +14,7 @@ import {
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
 import { Location, Transportation, BudgetItem, Expense, YnabImportData, JourneyPeriod } from '../types';
+import { backupService } from './backupService';
 
 const DATA_DIR = join(process.cwd(), 'data');
 const BACKUP_DIR = join(DATA_DIR, 'backups');
@@ -26,7 +27,7 @@ async function ensureBackupDir() {
   }
 }
 
-export async function createTripBackup(id: string): Promise<void> {
+export async function createTripBackup(id: string, deletionReason?: string): Promise<void> {
   try {
     await ensureBackupDir();
     
@@ -50,6 +51,22 @@ export async function createTripBackup(id: string): Promise<void> {
     
     await writeFile(backupPath, JSON.stringify(backupData, null, 2));
     console.log(`Created backup for trip ${id} at ${backupPath}`);
+    
+    // Add metadata entry using the new backup service
+    try {
+      const backupType = tripData.costData ? 'cost' : 'trip';
+      await backupService.addBackupMetadata(
+        id,
+        backupType,
+        tripData.title,
+        backupPath,
+        deletionReason || 'trip_deletion'
+      );
+      console.log(`Added backup metadata for trip ${id}`);
+    } catch (metadataError) {
+      console.warn(`Failed to add backup metadata for trip ${id}:`, metadataError);
+      // Don't fail the backup creation if metadata fails
+    }
   } catch (error) {
     console.error(`Failed to create backup for trip ${id}:`, error);
     throw new Error(`Backup creation failed: ${error}`);
