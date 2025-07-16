@@ -54,7 +54,7 @@ export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
  * Migrates from version 1 to version 2 - extracts accommodations from locations
@@ -185,6 +185,71 @@ export function migrateFromV2ToV3(data: UnifiedTripData): UnifiedTripData {
 }
 
 /**
+ * Migrates from version 3 to version 4 - removes cross-trip expense links
+ * This ensures that all expense links only reference expenses that exist within the same trip
+ */
+export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
+  const tripId = data.id;
+  const cleanupLog: string[] = [];
+  
+  // Clean up locations
+  if (data.travelData?.locations) {
+    data.travelData.locations = data.travelData.locations.map(location => ({
+      ...location,
+      costTrackingLinks: (location.costTrackingLinks || []).filter(link => {
+        const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+        const isValid = !!expense; // Expense must exist in same trip
+        if (!isValid) {
+          cleanupLog.push(`Removed invalid expense link ${link.expenseId} from location ${location.id}`);
+        }
+        return isValid;
+      })
+    }));
+  }
+  
+  // Clean up accommodations
+  if (data.accommodations) {
+    data.accommodations = data.accommodations.map(accommodation => ({
+      ...accommodation,
+      costTrackingLinks: (accommodation.costTrackingLinks || []).filter(link => {
+        const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+        const isValid = !!expense;
+        if (!isValid) {
+          cleanupLog.push(`Removed invalid expense link ${link.expenseId} from accommodation ${accommodation.id}`);
+        }
+        return isValid;
+      })
+    }));
+  }
+  
+  // Clean up routes
+  if (data.travelData?.routes) {
+    data.travelData.routes = data.travelData.routes.map(route => ({
+      ...route,
+      costTrackingLinks: (route.costTrackingLinks || []).filter(link => {
+        const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+        const isValid = !!expense;
+        if (!isValid) {
+          cleanupLog.push(`Removed invalid expense link ${link.expenseId} from route ${route.id}`);
+        }
+        return isValid;
+      })
+    }));
+  }
+  
+  // Log cleanup actions
+  if (cleanupLog.length > 0) {
+    console.log(`Trip ${tripId} v3→v4 migration cleanup:`, cleanupLog);
+  }
+  
+  return {
+    ...data,
+    schemaVersion: 4,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
  * Migration handler for schema version updates
  */
 export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
@@ -198,6 +263,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   if (data.schemaVersion < 3) {
     data = migrateFromV2ToV3(data);
+  }
+  if (data.schemaVersion < 4) {
+    data = migrateFromV3ToV4(data);
   }
   
   // Ensure current version
