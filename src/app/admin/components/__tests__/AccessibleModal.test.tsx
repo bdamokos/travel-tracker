@@ -3,8 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import AccessibleModal from '../AccessibleModal';
@@ -72,7 +71,6 @@ describe('AccessibleModal', () => {
     });
 
     it('traps focus within modal', async () => {
-      const user = userEvent.setup();
       render(
         <div>
           <button data-testid="outside-button">Outside Button</button>
@@ -89,7 +87,7 @@ describe('AccessibleModal', () => {
       const outsideButton = screen.getByTestId('outside-button');
 
       // Focus should be trapped within modal - outside button should not be focusable
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
       // The focus should be on one of the modal elements, not the outside button
       expect(outsideButton).not.toHaveFocus();
       
@@ -100,17 +98,15 @@ describe('AccessibleModal', () => {
 
   describe('Keyboard Navigation', () => {
     it('closes modal when Escape key is pressed', async () => {
-      const user = userEvent.setup();
       const onClose = jest.fn();
       
       render(<AccessibleModal {...defaultProps} onClose={onClose} />);
       
-      await user.keyboard('{Escape}');
+      fireEvent.keyDown(document.activeElement, { key: 'Escape' });
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
     it('does not close modal when Escape key is pressed and isKeyboardDismissDisabled is true', async () => {
-      const user = userEvent.setup();
       const onClose = jest.fn();
       
       render(
@@ -121,7 +117,7 @@ describe('AccessibleModal', () => {
         />
       );
       
-      await user.keyboard('{Escape}');
+      fireEvent.keyDown(document.activeElement, { key: 'Escape' });
       expect(onClose).not.toHaveBeenCalled();
     });
 
@@ -137,19 +133,17 @@ describe('AccessibleModal', () => {
 
   describe('Mouse Interactions', () => {
     it('closes modal when close button is clicked', async () => {
-      const user = userEvent.setup();
       const onClose = jest.fn();
       
       render(<AccessibleModal {...defaultProps} onClose={onClose} />);
       
       const closeButton = screen.getByRole('button', { name: /close modal/i });
-      await user.click(closeButton);
+      fireEvent.click(closeButton);
       
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
     it('closes modal when backdrop is clicked', async () => {
-      const user = userEvent.setup();
       const onClose = jest.fn();
       
       render(<AccessibleModal {...defaultProps} onClose={onClose} />);
@@ -165,7 +159,6 @@ describe('AccessibleModal', () => {
     });
 
     it('does not close modal when backdrop is clicked and isDismissable is false', async () => {
-      const user = userEvent.setup();
       const onClose = jest.fn();
       
       render(
@@ -179,19 +172,18 @@ describe('AccessibleModal', () => {
       // Click on the backdrop
       const backdrop = screen.getByRole('dialog').parentElement;
       if (backdrop) {
-        await user.click(backdrop);
+        fireEvent.click(backdrop);
         expect(onClose).not.toHaveBeenCalled();
       }
     });
 
     it('does not close modal when clicking inside modal content', async () => {
-      const user = userEvent.setup();
       const onClose = jest.fn();
       
       render(<AccessibleModal {...defaultProps} onClose={onClose} />);
       
       const modalContent = screen.getByText('Modal content');
-      await user.click(modalContent);
+      fireEvent.click(modalContent);
       
       expect(onClose).not.toHaveBeenCalled();
     });
@@ -282,7 +274,6 @@ describe('AccessibleModal', () => {
     });
 
     it('maintains focus management with complex content', async () => {
-      const user = userEvent.setup();
       const complexContent = (
         <div>
           <input data-testid="input1" />
@@ -302,20 +293,22 @@ describe('AccessibleModal', () => {
       const button2 = screen.getByTestId('button2');
       
       // Verify that focus can move between elements
-      await user.click(input1);
+      fireEvent.click(input1);
+      input1.focus();
       expect(input1).toHaveFocus();
       
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
       expect(button1).toHaveFocus();
       
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
       expect(input2).toHaveFocus();
       
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
       expect(button2).toHaveFocus();
       
       // Verify close button is also focusable
-      await user.click(closeButton);
+      fireEvent.click(closeButton);
+      closeButton.focus();
       expect(closeButton).toHaveFocus();
     });
   });

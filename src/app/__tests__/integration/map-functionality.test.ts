@@ -480,11 +480,67 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     it('should reload trip data via API and verify all data persists', async () => {
       console.log('🔄 Test 4: Reloading trip data via API...')
       
-      const response = await apiCall(`/api/travel-data?id=${testTripId}`)
+      // Create a fresh trip for this test
+      const createResponse = await apiCall('/api/travel-data', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...TEST_TRIP_DATA,
+          locations: [],
+          routes: []
+        })
+      })
+      
+      const createResult = await createResponse.json()
+      const tripId = createResult.id
+      
+      // Add locations
+      const locationsResponse = await apiCall(`/api/travel-data?id=${tripId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          locations: TEST_LOCATIONS,
+          title: TEST_TRIP_DATA.title,
+          description: TEST_TRIP_DATA.description,
+          startDate: TEST_TRIP_DATA.startDate,
+          endDate: TEST_TRIP_DATA.endDate
+        })
+      })
+      
+      expect(locationsResponse.ok).toBe(true)
+      
+      // Add route with RoutePoints
+      const routeData = {
+        id: TEST_ROUTE.id,
+        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        from: TEST_ROUTE.from,
+        to: TEST_ROUTE.to,
+        fromCoordinates: TEST_ROUTE.fromCoords,
+        toCoordinates: TEST_ROUTE.toCoords
+      }
+      
+      const { generateRoutePoints } = await import('../../lib/routeUtils')
+      const routePoints = await generateRoutePoints(routeData)
+      const routeWithPoints = { ...routeData, routePoints }
+      
+      const routeResponse = await apiCall(`/api/travel-data?id=${tripId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          routes: [routeWithPoints],
+          locations: TEST_LOCATIONS,
+          title: TEST_TRIP_DATA.title,
+          description: TEST_TRIP_DATA.description,
+          startDate: TEST_TRIP_DATA.startDate,
+          endDate: TEST_TRIP_DATA.endDate
+        })
+      })
+      
+      expect(routeResponse.ok).toBe(true)
+      
+      // Now test the reload
+      const response = await apiCall(`/api/travel-data?id=${tripId}`)
       const tripData = await response.json()
       
       // Verify trip exists
-      expect(tripData.id).toBe(testTripId)
+      expect(tripData.id).toBe(tripId)
       expect(tripData.title).toBe(TEST_TRIP_DATA.title)
       
       // Verify locations persist
@@ -510,6 +566,12 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       }
       
       console.log('✅ Test 4: All data persisted after API reload')
+      
+      // Cleanup: Remove the test trip
+      const testFilePath = join(DATA_DIR, `trip-${tripId}.json`)
+      if (existsSync(testFilePath)) {
+        unlinkSync(testFilePath)
+      }
     })
   })
 

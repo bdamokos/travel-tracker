@@ -8,8 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest",
-    "test:integration": "JEST_INTEGRATION_TESTS=true jest",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "jest --testEnvironment=jsdom",
+    "test:integration": "JEST_INTEGRATION_TESTS=true jest --testEnvironment=node",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },

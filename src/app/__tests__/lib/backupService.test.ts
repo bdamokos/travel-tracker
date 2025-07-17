@@ -4,7 +4,7 @@
  * These tests work with the actual backup system and existing backup files
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { BackupService, BackupMetadata, BackupMetadataStore } from '../../lib/backupService';
 import { join } from 'path';
 import { writeFile, mkdir, access, readFile, unlink } from 'fs/promises';

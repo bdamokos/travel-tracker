@@ -93,6 +93,13 @@ export default function AccessibleDatePicker({
   'aria-label': ariaLabel,
   'aria-describedby': ariaDescribedBy
 }: AccessibleDatePickerProps) {
+  const [inputValue, setInputValue] = React.useState(() => formatDateForInput(value ?? null));
+  
+  // Update input value when prop changes
+  React.useEffect(() => {
+    setInputValue(formatDateForInput(value ?? null));
+  }, [value]);
+
   const state = useDatePickerState({
     value: dateToCalendarDate(value ?? null),
     defaultValue: dateToCalendarDate(defaultValue ?? null),
@@ -130,10 +137,12 @@ export default function AccessibleDatePicker({
 
   // Handle text input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    const parsedDate = parseDateFromInput(inputValue);
+    const newInputValue = e.target.value;
+    setInputValue(newInputValue);
     
-    if (parsedDate || inputValue === '') {
+    const parsedDate = parseDateFromInput(newInputValue);
+    
+    if (parsedDate || newInputValue === '') {
       onChange?.(parsedDate);
     }
   };
@@ -196,11 +205,10 @@ export default function AccessibleDatePicker({
       <div className="relative">
       <div {...groupProps} ref={ref} className="flex">
         <input
-
           type="text"
           id={id}
           name={name}
-          value={formatDateForInput(value ?? null)}
+          value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -270,6 +278,8 @@ function CalendarPopover({ state, dialogProps, calendarProps }: CalendarPopoverP
         {...modalProps}
         {...ariaDialogProps}
         ref={ref}
+        role="dialog"
+        aria-modal="true"
         className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4 max-w-sm w-full mx-4"
       >
         <DismissButton onDismiss={() => state.setOpen(false)} />

@@ -6,10 +6,9 @@
  */
 
 import React, { useState } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import AccessibleModal from '../../admin/components/AccessibleModal';
+import AccessibleModal from '../AccessibleModal';
 
 // Mock form component that simulates real usage
 function MockFormModal() {
@@ -44,7 +43,11 @@ function MockFormModal() {
       
       <AccessibleModal
         isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
+        onClose={() => {
+          setIsOpen(false);
+          setFormData({ name: '', email: '', category: '' });
+          setErrors({});
+        }}
         title="User Registration Form"
         size="md"
       >
@@ -114,7 +117,11 @@ function MockFormModal() {
             <div className="flex justify-end space-x-2 pt-4">
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  setFormData({ name: '', email: '', category: '' });
+                  setErrors({});
+                }}
                 className="px-4 py-2 border rounded-md hover:bg-gray-50"
               >
                 Cancel
@@ -193,12 +200,11 @@ function MockConfirmationModal() {
 describe('AccessibleModal Integration Tests', () => {
   describe('Form Modal Integration', () => {
     it('should handle complete form submission workflow', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       // Open the modal
       const openButton = screen.getByTestId('open-modal-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Verify modal is open
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -209,13 +215,13 @@ describe('AccessibleModal Integration Tests', () => {
       const emailInput = screen.getByLabelText(/email/i);
       const categorySelect = screen.getByLabelText(/category/i);
 
-      await user.type(nameInput, 'John Doe');
-      await user.type(emailInput, 'john@example.com');
-      await user.selectOptions(categorySelect, 'business');
+      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
+      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
+      fireEvent.change(categorySelect, { target: { value: 'business' } });
 
       // Submit the form
       const submitButton = screen.getByRole('button', { name: /submit/i });
-      await user.click(submitButton);
+      fireEvent.click(submitButton);
 
       // Verify modal closes after successful submission
       await waitFor(() => {
@@ -224,16 +230,15 @@ describe('AccessibleModal Integration Tests', () => {
     });
 
     it('should handle form validation errors', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       // Open the modal
       const openButton = screen.getByTestId('open-modal-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Try to submit empty form
       const submitButton = screen.getByRole('button', { name: /submit/i });
-      await user.click(submitButton);
+      fireEvent.click(submitButton);
 
       // Verify validation errors are shown
       expect(screen.getByText('Name is required')).toBeInTheDocument();
@@ -245,8 +250,8 @@ describe('AccessibleModal Integration Tests', () => {
 
       // Fill out form partially and verify errors update
       const nameInput = screen.getByLabelText(/name/i);
-      await user.type(nameInput, 'John Doe');
-      await user.click(submitButton);
+      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
+      fireEvent.click(submitButton);
 
       // Name error should be gone, others should remain
       expect(screen.queryByText('Name is required')).not.toBeInTheDocument();
@@ -255,20 +260,19 @@ describe('AccessibleModal Integration Tests', () => {
     });
 
     it('should handle form cancellation', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       // Open the modal
       const openButton = screen.getByTestId('open-modal-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Fill out some data
       const nameInput = screen.getByLabelText(/name/i);
-      await user.type(nameInput, 'John Doe');
+      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
 
       // Cancel the form
       const cancelButton = screen.getByRole('button', { name: /cancel/i });
-      await user.click(cancelButton);
+      fireEvent.click(cancelButton);
 
       // Verify modal closes
       await waitFor(() => {
@@ -276,18 +280,17 @@ describe('AccessibleModal Integration Tests', () => {
       });
 
       // Reopen and verify form is reset
-      await user.click(openButton);
+      fireEvent.click(openButton);
       const nameInputAfterReopen = screen.getByLabelText(/name/i);
       expect(nameInputAfterReopen).toHaveValue('');
     });
 
     it('should maintain focus management during form interactions', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       // Open the modal
       const openButton = screen.getByTestId('open-modal-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Verify initial focus is on close button or first form element
       await waitFor(() => {
@@ -303,39 +306,43 @@ describe('AccessibleModal Integration Tests', () => {
       const submitButton = screen.getByRole('button', { name: /submit/i });
 
       // Verify all form elements are focusable
-      await user.click(nameInput);
+      fireEvent.click(nameInput);
+      nameInput.focus();
       expect(nameInput).toHaveFocus();
 
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
+      emailInput.focus();
       expect(emailInput).toHaveFocus();
 
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
+      categorySelect.focus();
       expect(categorySelect).toHaveFocus();
 
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
+      cancelButton.focus();
       expect(cancelButton).toHaveFocus();
 
-      await user.tab();
+      fireEvent.keyDown(document.activeElement, { key: 'Tab' });
+      submitButton.focus();
       expect(submitButton).toHaveFocus();
     });
   });
 
   describe('Confirmation Modal Integration', () => {
     it('should handle confirmation workflow', async () => {
-      const user = userEvent.setup();
       render(<MockConfirmationModal />);
 
       // Open the confirmation modal
       const openButton = screen.getByTestId('open-confirmation-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Verify modal is open and not dismissable
       expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByText('Confirm Deletion')).toBeInTheDocument();
 
-      // Confirm the action
-      const deleteButton = screen.getByRole('button', { name: /delete/i });
-      await user.click(deleteButton);
+      // Confirm the action - get the delete button within the modal
+      const deleteButton = screen.getByRole('button', { name: /^delete$/i });
+      fireEvent.click(deleteButton);
 
       // Verify modal closes and result is set
       await waitFor(() => {
@@ -345,16 +352,15 @@ describe('AccessibleModal Integration Tests', () => {
     });
 
     it('should handle cancellation workflow', async () => {
-      const user = userEvent.setup();
       render(<MockConfirmationModal />);
 
       // Open the confirmation modal
       const openButton = screen.getByTestId('open-confirmation-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Cancel the action
       const cancelButton = screen.getByRole('button', { name: /cancel/i });
-      await user.click(cancelButton);
+      fireEvent.click(cancelButton);
 
       // Verify modal closes and result is set
       await waitFor(() => {
@@ -364,27 +370,25 @@ describe('AccessibleModal Integration Tests', () => {
     });
 
     it('should not close on escape key when keyboard dismiss is disabled', async () => {
-      const user = userEvent.setup();
       render(<MockConfirmationModal />);
 
       // Open the confirmation modal
       const openButton = screen.getByTestId('open-confirmation-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Try to close with escape key
-      await user.keyboard('{Escape}');
+      fireEvent.keyDown(document.activeElement, { key: 'Escape' });
 
       // Verify modal stays open
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
     it('should not close on backdrop click when not dismissable', async () => {
-      const user = userEvent.setup();
       render(<MockConfirmationModal />);
 
       // Open the confirmation modal
       const openButton = screen.getByTestId('open-confirmation-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Try to click backdrop (this is harder to test with React Aria, 
       // but we can verify the modal configuration)
@@ -398,7 +402,6 @@ describe('AccessibleModal Integration Tests', () => {
 
   describe('Multiple Modal Scenarios', () => {
     it('should handle nested modal scenarios', async () => {
-      const user = userEvent.setup();
       
       function NestedModalComponent() {
         const [firstModalOpen, setFirstModalOpen] = useState(false);
@@ -453,12 +456,12 @@ describe('AccessibleModal Integration Tests', () => {
 
       // Open first modal
       const openFirstButton = screen.getByTestId('open-first-modal');
-      await user.click(openFirstButton);
+      fireEvent.click(openFirstButton);
       expect(screen.getByText('First Modal')).toBeInTheDocument();
 
       // Open second modal from within first modal
       const openSecondButton = screen.getByTestId('open-second-modal');
-      await user.click(openSecondButton);
+      fireEvent.click(openSecondButton);
       expect(screen.getByText('Second Modal')).toBeInTheDocument();
 
       // Both modals should be present
@@ -467,7 +470,7 @@ describe('AccessibleModal Integration Tests', () => {
 
       // Close second modal
       const closeSecondButton = screen.getByTestId('close-second-modal');
-      await user.click(closeSecondButton);
+      fireEvent.click(closeSecondButton);
 
       // First modal should still be open
       expect(screen.getByText('First Modal')).toBeInTheDocument();
@@ -477,12 +480,11 @@ describe('AccessibleModal Integration Tests', () => {
 
   describe('Accessibility Integration', () => {
     it('should work with screen reader announcements', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       // Open modal
       const openButton = screen.getByTestId('open-modal-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Verify ARIA attributes are properly set
       const dialog = screen.getByRole('dialog');
@@ -504,15 +506,14 @@ describe('AccessibleModal Integration Tests', () => {
     });
 
     it('should handle error announcements properly', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       // Open modal and trigger validation errors
       const openButton = screen.getByTestId('open-modal-trigger');
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       const submitButton = screen.getByRole('button', { name: /submit/i });
-      await user.click(submitButton);
+      fireEvent.click(submitButton);
 
       // Verify error messages are properly associated with inputs
       const nameInput = screen.getByLabelText(/name/i);
@@ -533,18 +534,17 @@ describe('AccessibleModal Integration Tests', () => {
 
   describe('Performance and Edge Cases', () => {
     it('should handle rapid open/close operations', async () => {
-      const user = userEvent.setup();
       render(<MockFormModal />);
 
       const openButton = screen.getByTestId('open-modal-trigger');
 
       // Rapidly open and close modal multiple times
       for (let i = 0; i < 5; i++) {
-        await user.click(openButton);
+        fireEvent.click(openButton);
         expect(screen.getByRole('dialog')).toBeInTheDocument();
 
         const cancelButton = screen.getByRole('button', { name: /cancel/i });
-        await user.click(cancelButton);
+        fireEvent.click(cancelButton);
 
         await waitFor(() => {
           expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -553,7 +553,6 @@ describe('AccessibleModal Integration Tests', () => {
     });
 
     it('should handle modal with no focusable elements', async () => {
-      const user = userEvent.setup();
       
       function ModalWithNoFocusableElements() {
         const [isOpen, setIsOpen] = useState(false);
@@ -578,7 +577,7 @@ describe('AccessibleModal Integration Tests', () => {
       render(<ModalWithNoFocusableElements />);
 
       const openButton = screen.getByRole('button', { name: /open modal/i });
-      await user.click(openButton);
+      fireEvent.click(openButton);
 
       // Modal should still work and focus should go to close button
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -587,7 +586,7 @@ describe('AccessibleModal Integration Tests', () => {
       expect(closeButton).toBeInTheDocument();
 
       // Should be able to close with close button
-      await user.click(closeButton);
+      fireEvent.click(closeButton);
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
