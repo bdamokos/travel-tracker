@@ -1,0 +1,57 @@
+name: Validate tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint code
+        run: bun run lint
+
+      - name: Build project
+        run: bun run build
+
+      - name: Ensure data directories exist
+        run: |
+          mkdir -p data
+          mkdir -p .next/standalone/data
+
+      - name: Start Next.js server
+        run: node .next/standalone/server.js &
+        env:
+          NODE_ENV: production
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:3000/api/health 2>/dev/null; do sleep 1; done' || echo "Server may not be fully ready, proceeding with tests"
+
+      - name: Run unit tests
+        run: bun run test src/app/__tests__/utils.test.ts
+
+      - name: Run API connectivity test
+        run: bun run test:integration src/app/__tests__/integration/api-connectivity.test.ts
+        env:
+          TEST_API_BASE_URL: http://localhost:3000
+
+      - name: Run integration tests
+        run: bun run test:integration --runInBand
+        env:
+          TEST_API_BASE_URL: http://localhost:3000
+  
