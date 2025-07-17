@@ -46,7 +46,7 @@ describe('AccessibleModal', () => {
 
     it('renders children content', () => {
       const customContent = <div data-testid="custom-content">Custom modal content</div>;
-      render(<AccessibleModal {...defaultProps} children={customContent} />);
+      render(<AccessibleModal {...defaultProps}>{customContent}</AccessibleModal>);
       
       expect(screen.getByTestId('custom-content')).toBeInTheDocument();
     });
@@ -273,7 +273,7 @@ describe('AccessibleModal', () => {
         </div>
       );
       
-      render(<AccessibleModal {...defaultProps} children={complexContent} />);
+      render(<AccessibleModal {...defaultProps}>{complexContent}</AccessibleModal>);
       
       expect(screen.getByTestId('form-input')).toBeInTheDocument();
       expect(screen.getByTestId('form-button')).toBeInTheDocument();
@@ -292,7 +292,7 @@ describe('AccessibleModal', () => {
         </div>
       );
       
-      render(<AccessibleModal {...defaultProps} children={complexContent} />);
+      render(<AccessibleModal {...defaultProps}>{complexContent}</AccessibleModal>);
       
       // Verify all focusable elements are present
       const closeButton = screen.getByRole('button', { name: /close modal/i });

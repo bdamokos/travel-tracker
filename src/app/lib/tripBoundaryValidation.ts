@@ -6,7 +6,7 @@
  */
 
 import { UnifiedTripData } from './dataMigration';
-import { Expense, Location, Transportation, Accommodation, CostTrackingLink } from '../types';
+import { Location, Transportation, Accommodation } from '../types';
 
 /**
  * Validation error types

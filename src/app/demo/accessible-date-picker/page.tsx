@@ -29,9 +29,9 @@ export default function AccessibleDatePickerDemo() {
     const formDataObj = new FormData(e.currentTarget);
     const data: { [key: string]: string } = {};
     
-    for (const [key, value] of formDataObj.entries()) {
+    Array.from(formDataObj.entries()).forEach(([key, value]) => {
       data[key] = value.toString();
-    }
+    });
     
     setFormData(data);
     console.log('Form submitted with data:', data);

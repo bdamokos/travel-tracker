@@ -7,13 +7,13 @@
 
 import { readFile, writeFile, readdir, unlink, access, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { 
-  UnifiedTripData, 
-  isUnifiedFormat, 
+import {
+  UnifiedTripData,
+  isUnifiedFormat,
   migrateToLatestSchema,
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
-import { Location, Transportation, BudgetItem, Expense, YnabImportData, JourneyPeriod } from '../types';
+import { Location, Transportation, BudgetItem, Expense, YnabImportData, JourneyPeriod, Accommodation } from '../types';
 import { backupService } from './backupService';
 
 const DATA_DIR = join(process.cwd(), 'data');
@@ -30,12 +30,12 @@ async function ensureBackupDir() {
 export async function createTripBackup(id: string, deletionReason?: string): Promise<void> {
   try {
     await ensureBackupDir();
-    
+
     const tripData = await loadUnifiedTripData(id);
     if (!tripData) {
       throw new Error(`Trip ${id} not found for backup`);
     }
-    
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupData = {
       ...tripData,
@@ -45,13 +45,13 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
         backupType: 'trip_deletion'
       }
     };
-    
+
     const backupFilename = `deleted-trip-${id}-${timestamp}.json`;
     const backupPath = join(BACKUP_DIR, backupFilename);
-    
+
     await writeFile(backupPath, JSON.stringify(backupData, null, 2));
     console.log(`Created backup for trip ${id} at ${backupPath}`);
-    
+
     // Add metadata entry using the new backup service
     try {
       const backupType = tripData.costData ? 'cost' : 'trip';
@@ -77,12 +77,12 @@ export async function deleteTripWithBackup(id: string): Promise<void> {
   try {
     // Create backup first
     await createTripBackup(id);
-    
+
     // Remove unified trip file
     const unifiedPath = join(DATA_DIR, `trip-${id}.json`);
     await unlink(unifiedPath);
     console.log(`Deleted unified trip file: ${unifiedPath}`);
-    
+
     console.log(`Successfully deleted trip ${id} with backup`);
   } catch (error) {
     console.error(`Failed to delete trip ${id}:`, error);
@@ -99,19 +99,19 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
     const unifiedFilePath = join(DATA_DIR, `trip-${tripId}.json`);
     const unifiedContent = await readFile(unifiedFilePath, 'utf-8');
     const parsed = JSON.parse(unifiedContent);
-    
+
     if (isUnifiedFormat(parsed)) {
       // Apply latest schema migration
       const migratedData = migrateToLatestSchema(parsed);
-      
+
       // Save if migration was applied
       if (migratedData.schemaVersion !== parsed.schemaVersion) {
         await saveUnifiedTripData(migratedData);
       }
-      
+
       return migratedData;
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error loading unified trip data:', error);
@@ -143,13 +143,13 @@ export async function listAllTrips(): Promise<Array<{
   try {
     const files = await readdir(DATA_DIR);
     const trips = new Map<string, { id: string; title: string; startDate: string; endDate: string; createdAt: string; hasTravel: boolean; hasCost: boolean; isUnified: boolean; }>();
-    
+
     // Process unified files only
     const unifiedFiles = files.filter(f => f.startsWith('trip-') && f.endsWith('.json'));
     for (const file of unifiedFiles) {
       const content = await readFile(join(DATA_DIR, file), 'utf-8');
       const data = JSON.parse(content);
-      
+
       if (isUnifiedFormat(data)) {
         trips.set(data.id, {
           id: data.id,
@@ -163,8 +163,8 @@ export async function listAllTrips(): Promise<Array<{
         });
       }
     }
-    
-    return Array.from(trips.values()).sort((a, b) => 
+
+    return Array.from(trips.values()).sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   } catch (error) {
@@ -180,7 +180,7 @@ export async function listAllTrips(): Promise<Array<{
  */
 export async function updateTravelData(tripId: string, travelUpdates: Record<string, unknown>): Promise<UnifiedTripData> {
   const existing = await loadUnifiedTripData(tripId);
-  
+
   const defaultData: UnifiedTripData = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
@@ -191,9 +191,9 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  
+
   const baseData = existing || defaultData;
-  
+
   const updated: UnifiedTripData = {
     ...baseData,
     title: (travelUpdates.title as string) || baseData.title,
@@ -202,27 +202,64 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     endDate: (travelUpdates.endDate as string) || baseData.endDate,
     updatedAt: new Date().toISOString(),
     travelData: {
-      locations: (travelUpdates.locations as Location[]) || baseData.travelData?.locations || [],
+      locations: (() => {
+        const newLocations = travelUpdates.locations as Location[];
+        const existingLocations = baseData.travelData?.locations || [];
+
+        if (!newLocations) return existingLocations;
+
+        // Merge locations, preserving all properties including costTrackingLinks
+        return newLocations.map((newLocation) => {
+          const existingLocation = existingLocations.find(l => l.id === newLocation.id);
+          return {
+            ...existingLocation,
+            ...newLocation,
+            // Ensure costTrackingLinks are properly merged
+            costTrackingLinks: newLocation.costTrackingLinks || existingLocation?.costTrackingLinks || []
+          };
+        });
+      })(),
       routes: (() => {
         const newRoutes = travelUpdates.routes as Transportation[];
         const existingRoutes = baseData.travelData?.routes || [];
-        
+
         if (!newRoutes) return existingRoutes;
-        
-        // Merge routes, preserving routePoints from existing routes when not provided in updates
+
+        // Merge routes, preserving all properties including costTrackingLinks and routePoints
         return newRoutes.map((newRoute) => {
           const existingRoute = existingRoutes.find(r => r.id === newRoute.id);
           return {
+            ...existingRoute,
             ...newRoute,
             // Preserve existing routePoints if not provided in the update
-            routePoints: newRoute.routePoints || existingRoute?.routePoints
+            routePoints: newRoute.routePoints || existingRoute?.routePoints,
+            // Ensure costTrackingLinks are properly merged
+            costTrackingLinks: newRoute.costTrackingLinks || existingRoute?.costTrackingLinks || []
           };
         });
       })(),
       days: (travelUpdates.days as JourneyPeriod[]) || baseData.travelData?.days
-    }
+    },
+    // Preserve accommodations from the updates or existing data
+    accommodations: (() => {
+      const newAccommodations = travelUpdates.accommodations as Accommodation[];
+      const existingAccommodations = baseData.accommodations || [];
+
+      if (!newAccommodations) return existingAccommodations;
+
+      // Merge accommodations, preserving all properties including costTrackingLinks
+      return newAccommodations.map((newAccommodation) => {
+        const existingAccommodation = existingAccommodations.find(a => a.id === newAccommodation.id);
+        return {
+          ...existingAccommodation,
+          ...newAccommodation,
+          // Ensure costTrackingLinks are properly merged
+          costTrackingLinks: newAccommodation.costTrackingLinks || existingAccommodation?.costTrackingLinks || []
+        };
+      });
+    })()
   };
-  
+
   await saveUnifiedTripData(updated);
   return updated;
 }
@@ -232,7 +269,7 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
  */
 export async function updateCostData(tripId: string, costUpdates: Record<string, unknown>): Promise<UnifiedTripData> {
   const existing = await loadUnifiedTripData(tripId);
-  
+
   const defaultData: UnifiedTripData = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
@@ -243,9 +280,9 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  
+
   const baseData = existing || defaultData;
-  
+
   const updated: UnifiedTripData = {
     ...baseData,
     title: (costUpdates.tripTitle as string) || baseData.title,
@@ -260,7 +297,7 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
       ynabImportData: (costUpdates.ynabImportData as YnabImportData) || baseData.costData?.ynabImportData
     }
   };
-  
+
   await saveUnifiedTripData(updated);
   return updated;
 }

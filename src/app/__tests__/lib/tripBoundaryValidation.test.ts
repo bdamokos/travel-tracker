@@ -18,61 +18,7 @@ import {
 } from '../../lib/tripBoundaryValidation';
 import { UnifiedTripData } from '../../lib/dataMigration';
 import { Location, Transportation, Accommodation, Expense } from '../../types';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { describe } from 'node:test';
+import { describe, it, expect } from '@jest/globals';
 
 describe('Trip Boundary Validation', () => {
   // Test data setup
@@ -149,7 +95,7 @@ describe('Trip Boundary Validation', () => {
     });
 
     it('should handle null trip data', () => {
-      const result = validateExpenseBelongsToTrip('expense-1', null as any);
+      const result = validateExpenseBelongsToTrip('expense-1', null as unknown as UnifiedTripData);
       expect(result.isValid).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].type).toBe(ValidationErrorType.INVALID_TRIP_DATA);
@@ -192,7 +138,7 @@ describe('Trip Boundary Validation', () => {
     });
 
     it('should handle null trip data', () => {
-      const result = validateTravelItemBelongsToTrip('location-1', null as any);
+      const result = validateTravelItemBelongsToTrip('location-1', null as unknown as UnifiedTripData);
       expect(result.isValid).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].type).toBe(ValidationErrorType.INVALID_TRIP_DATA);
@@ -298,7 +244,7 @@ describe('Trip Boundary Validation', () => {
     });
 
     it('should handle null trip data', () => {
-      const result = validateAllTripBoundaries(null as any);
+      const result = validateAllTripBoundaries(null as unknown as UnifiedTripData);
       expect(result.isValid).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].type).toBe(ValidationErrorType.INVALID_TRIP_DATA);
@@ -403,7 +349,7 @@ describe('Trip Boundary Validation', () => {
       });
 
       it('should throw error for unknown type', () => {
-        const unknownItem = { id: 'unknown' } as any;
+        const unknownItem = { id: 'unknown' } as unknown as Transportation;
         expect(() => getTravelItemType(unknownItem)).toThrow('Unknown travel item type');
       });
     });

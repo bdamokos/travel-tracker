@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, updateTravelData } from '../../../lib/unifiedDataService';
 import { CostTrackingLink } from '../../../types';
 import { isAdminDomain } from '../../../lib/server-domains';
+import { validateTripBoundary, ValidationErrorType } from '../../../lib/tripBoundaryValidation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,8 +52,40 @@ export async function POST(request: NextRequest) {
       route.costTrackingLinks = route.costTrackingLinks?.filter(link => link.expenseId !== expenseId);
     });
 
-    // If a new travelLinkInfo is provided, add the link
+    // If a new travelLinkInfo is provided, validate and add the link
     if (travelLinkInfo) {
+      // Validate trip boundaries before creating the link
+      const validation = validateTripBoundary(expenseId, travelLinkInfo.id, unifiedData);
+      
+      if (!validation.isValid) {
+        const errorMessages = validation.errors.map(error => error.message);
+        const errorTypes = validation.errors.map(error => error.type);
+        
+        // Return specific error based on validation failure type
+        if (errorTypes.includes(ValidationErrorType.EXPENSE_NOT_FOUND)) {
+          return NextResponse.json({ 
+            error: 'Expense does not belong to this trip',
+            validationErrors: errorMessages,
+            code: 'CROSS_TRIP_EXPENSE'
+          }, { status: 400 });
+        }
+        
+        if (errorTypes.includes(ValidationErrorType.TRAVEL_ITEM_NOT_FOUND)) {
+          return NextResponse.json({ 
+            error: 'Travel item does not belong to this trip',
+            validationErrors: errorMessages,
+            code: 'CROSS_TRIP_TRAVEL_ITEM'
+          }, { status: 400 });
+        }
+        
+        // Generic validation error
+        return NextResponse.json({ 
+          error: 'Trip boundary validation failed',
+          validationErrors: errorMessages,
+          code: 'VALIDATION_FAILED'
+        }, { status: 400 });
+      }
+
       const newLink: CostTrackingLink = {
         expenseId: expenseId,
         description: travelLinkInfo.name // Use the name from TravelLinkInfo as description
