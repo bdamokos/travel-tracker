@@ -89,6 +89,7 @@ export default function RouteManager({
             const coords = await geocodeLocation(locationName);
             return coords;
           }}
+          tripId={travelData.id}
           />
         </div>
 
@@ -122,6 +123,7 @@ export default function RouteManager({
                           const coords = await geocodeLocation(locationName);
                           return coords;
                         }}
+                        tripId={travelData.id}
                       />
                     )}
                   >
@@ -144,6 +146,7 @@ export default function RouteManager({
                               itemName={`${route.from} → ${route.to}`}
                               travelLookup={travelLookup}
                               costData={costData}
+                              tripId={travelData.id}
                             />
                           </div>
                         )}

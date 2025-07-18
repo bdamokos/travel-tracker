@@ -107,6 +107,7 @@ export default function LocationItem({
                 ]}
                 travelLookup={travelLookup}
                 costData={costData}
+                tripId={tripId}
               />
             )}
           </div>

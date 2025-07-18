@@ -265,6 +265,7 @@ export default function LocationForm({
             onLinksChange={(links) => 
               setCurrentLocation((prev: Partial<Location>) => ({ ...prev, costTrackingLinks: links }))
             }
+            tripId={tripId}
           />
         </div>
 

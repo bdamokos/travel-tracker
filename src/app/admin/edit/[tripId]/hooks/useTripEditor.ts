@@ -195,12 +195,36 @@ export function useTripEditor(tripId: string | null) {
         if (costResponse.ok) {
           const costData = await costResponse.json();
           setCostData(costData);
+          
+          // Load unified trip data to get accommodations
+          let accommodations: any[] = [];
+          try {
+            const unifiedResponse = await fetch(`/api/travel-data?id=${tripId}`);
+            if (unifiedResponse.ok) {
+              const unifiedData = await unifiedResponse.json();
+              accommodations = unifiedData.accommodations || [];
+            }
+          } catch (error) {
+            console.warn('Could not load accommodations for travel lookup:', error);
+          }
+          
           // Initialize travel lookup with trip data
+          // Convert TravelRoute[] to Transportation[] for compatibility
+          const transportationRoutes = tripData.routes.map(route => ({
+            id: route.id,
+            type: route.transportType,
+            from: route.from,
+            to: route.to,
+            fromCoordinates: route.fromCoords,
+            toCoordinates: route.toCoords,
+            costTrackingLinks: route.costTrackingLinks
+          }));
+          
           const lookup = new ExpenseTravelLookup(costData.tripId, {
             title: tripData.title,
             locations: tripData.locations,
-            accommodations: tripData.accommodations,
-            routes: tripData.routes
+            accommodations: accommodations,
+            routes: transportationRoutes
           });
           setTravelLookup(lookup);
         } else {

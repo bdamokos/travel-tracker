@@ -182,6 +182,7 @@ export default function LocationAccommodationsManager({
               accommodation={accommodation}
               onSave={handleUpdateAccommodation}
               onCancel={() => setEditingId(null)}
+              tripId={tripId}
             />
           ) : (
             <AccommodationDisplay
@@ -190,6 +191,7 @@ export default function LocationAccommodationsManager({
               onDelete={() => handleDeleteAccommodation(accommodation.id)}
               travelLookup={travelLookup}
               costData={costData}
+              tripId={tripId}
             />
           )}
         </div>
@@ -230,6 +232,7 @@ export default function LocationAccommodationsManager({
               onLinksChange={(links) => 
                 setNewAccommodation(prev => ({ ...prev, costTrackingLinks: links }))
               }
+              tripId={tripId}
             />
 
             <div className="flex gap-2">
@@ -269,13 +272,15 @@ function AccommodationDisplay({
   onEdit, 
   onDelete, 
   travelLookup,
-  costData
+  costData,
+  tripId
 }: {
   accommodation: Accommodation;
   onEdit: () => void;
   onDelete: () => void;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
+  tripId: string;
 }) {
   return (
     <div>
@@ -322,6 +327,7 @@ function AccommodationDisplay({
         itemName={accommodation.name}
         travelLookup={travelLookup}
         costData={costData}
+        tripId={tripId}
       />
     </div>
   );
@@ -331,11 +337,13 @@ function AccommodationDisplay({
 function EditAccommodationForm({
   accommodation,
   onSave,
-  onCancel
+  onCancel,
+  tripId
 }: {
   accommodation: Accommodation;
   onSave: (accommodation: Accommodation) => void;
   onCancel: () => void;
+  tripId: string;
 }) {
   const [editData, setEditData] = useState<Accommodation>(accommodation);
 
@@ -377,6 +385,7 @@ function EditAccommodationForm({
         onLinksChange={(links) => 
           setEditData(prev => ({ ...prev, costTrackingLinks: links }))
         }
+        tripId={tripId}
       />
 
       <div className="flex gap-2">

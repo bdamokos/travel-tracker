@@ -28,11 +28,10 @@ export interface TripData {
 
 export class ExpenseTravelLookup {
   private expenseToTravelMap = new Map<string, TravelLinkInfo>();
-  private tripId: string;
   private tripTitle: string = '';
 
-  constructor(tripId: string, tripData?: TripData) {
-    this.tripId = tripId;
+  constructor(_tripId: string, tripData?: TripData) {
+    // tripId is used for initialization but not stored
     if (tripData) {
       this.buildIndexFromData(tripData);
     }

@@ -15,6 +15,8 @@ interface LinkedExpensesDisplayProps {
   className?: string;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
+  // Optional: explicit trip ID for additional validation
+  tripId?: string;
 }
 
 export default function LinkedExpensesDisplay({
@@ -23,7 +25,8 @@ export default function LinkedExpensesDisplay({
   itemType,
   className = '',
   travelLookup,
-  costData
+  costData,
+  tripId
 }: LinkedExpensesDisplayProps) {
   const [linkedExpenses, setLinkedExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,19 +43,113 @@ export default function LinkedExpensesDisplay({
           setLinkedExpenses([]);
           return;
         }
-        // New: support multiple items
+        // VALIDATION: Ensure travelLookup is properly scoped to the current trip
+        if (tripId && travelLookup && process.env.NODE_ENV === 'development') {
+          // Check if the travel lookup service has any mappings
+          const allMappings = travelLookup.getAllTravelLinks();
+          console.log(`LinkedExpensesDisplay: TravelLookup has ${allMappings.size} mappings for trip ${tripId}`);
+          
+          // Validate that all mappings belong to the expected trip
+          let crossTripMappings = 0;
+          for (const [expenseId, linkInfo] of Array.from(allMappings.entries())) {
+            if (linkInfo.tripTitle && costData.tripTitle && linkInfo.tripTitle !== costData.tripTitle) {
+              crossTripMappings++;
+              console.warn(`LinkedExpensesDisplay: Cross-trip mapping detected - expense ${expenseId} linked to trip "${linkInfo.tripTitle}" but costData is for trip "${costData.tripTitle}"`);
+            }
+          }
+          
+          if (crossTripMappings > 0) {
+            console.error(`LinkedExpensesDisplay: Found ${crossTripMappings} cross-trip mappings! This indicates a data integrity issue.`);
+          }
+        }
+        
+        // Get expense IDs from travel lookup
         let expenseIds: string[] = [];
         if (items && items.length > 0) {
           for (const item of items) {
             const ids = travelLookup.getExpensesForTravelItem(item.itemType, item.itemId);
             expenseIds.push(...ids);
+            
+            // VALIDATION: Log what we're getting for each item (development only)
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`LinkedExpensesDisplay: Item ${item.itemType}:${item.itemId} has ${ids.length} linked expenses:`, ids);
+            }
           }
         } else if (itemType && itemId) {
           expenseIds = travelLookup.getExpensesForTravelItem(itemType, itemId);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`LinkedExpensesDisplay: Item ${itemType}:${itemId} has ${expenseIds.length} linked expenses:`, expenseIds);
+          }
         }
         // Deduplicate
         expenseIds = Array.from(new Set(expenseIds));
-        const expenses = costData.expenses.filter(exp => expenseIds.includes(exp.id));
+        
+        // STRICT TRIP BOUNDARY VALIDATION
+        // First, validate that costData belongs to the expected trip
+        if (tripId && costData.tripId && tripId !== costData.tripId) {
+          console.warn(`LinkedExpensesDisplay: Trip ID mismatch. Expected: ${tripId}, Got: ${costData.tripId}`);
+          setLinkedExpenses([]); // Clear expenses if trip IDs don't match
+          return;
+        }
+        
+        // Filter expenses by the expense IDs from travel lookup
+        let expenses = costData.expenses.filter(exp => expenseIds.includes(exp.id));
+        
+        // STRICT WHITELIST VALIDATION: Only show expenses that we can definitively prove belong to this trip
+        const expectedTripId = tripId || costData.tripId;
+        if (expectedTripId) {
+          expenses = expenses.filter(expense => {
+            // Validate that this expense is actually linked to a travel item in the current trip
+            const travelLink = travelLookup.getTravelLinkForExpense(expense.id);
+            
+            if (!travelLink) {
+              console.warn(`LinkedExpensesDisplay: Expense ${expense.id} has no travel link - excluding from display`);
+              return false;
+            }
+            
+            // Validate that the travel link belongs to the expected trip
+            if (travelLink.tripTitle && costData.tripTitle && travelLink.tripTitle !== costData.tripTitle) {
+              console.warn(`LinkedExpensesDisplay: Expense ${expense.id} belongs to trip "${travelLink.tripTitle}" but we're displaying trip "${costData.tripTitle}" - excluding from display`);
+              return false;
+            }
+            
+            return true;
+          });
+        }
+        
+        // Debug logging (can be removed in production)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('LinkedExpensesDisplay Debug:', {
+            tripId,
+            costDataTripId: costData.tripId,
+            expenseIdsFromLookup: expenseIds,
+            totalExpensesInCostData: costData.expenses.length,
+            expenseIdsInCostData: costData.expenses.map(e => e.id),
+            filteredExpenseCount: expenses.length,
+            filteredExpenseIds: expenses.map(e => e.id)
+          });
+        }
+        
+        // VALIDATION: Log any suspicious activity for debugging
+        if (expenses.length > 0 && expenseIds.length > 0) {
+          const foundExpenseIds = expenses.map(e => e.id);
+          const missingExpenseIds = expenseIds.filter(id => !foundExpenseIds.includes(id));
+          if (missingExpenseIds.length > 0) {
+            console.warn(`LinkedExpensesDisplay: Some expense IDs from travel lookup not found in costData:`, missingExpenseIds);
+          }
+        }
+        
+        // CROSS-TRIP DETECTION: Check if any expenses seem to belong to other trips
+        const suspiciousExpenses = expenses.filter((_expense) => {
+          // This is a heuristic - if we have tripId and the expense description contains other trip names
+          // or if there are other indicators that this expense doesn't belong to this trip
+          return false; // For now, trust the data but this could be enhanced
+        });
+        
+        if (suspiciousExpenses.length > 0) {
+          console.warn(`LinkedExpensesDisplay: Detected potentially cross-trip expenses:`, suspiciousExpenses);
+        }
+        
         // Sort by date
         expenses.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         setLinkedExpenses(expenses);
@@ -63,7 +160,7 @@ export default function LinkedExpensesDisplay({
       }
     }
     loadLinkedExpenses();
-  }, [items, itemId, itemType, travelLookup, costData]);
+  }, [items, itemId, itemType, travelLookup, costData, tripId]);
 
   if (loading) {
     return (

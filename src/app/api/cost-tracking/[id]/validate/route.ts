@@ -4,8 +4,7 @@ import { isAdminDomain } from '../../../../lib/server-domains';
 import { 
   validateTripBoundary, 
   validateExpenseBelongsToTrip, 
-  validateAllTripBoundaries,
-  ValidationErrorType 
+  validateAllTripBoundaries
 } from '../../../../lib/tripBoundaryValidation';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -66,9 +65,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           tripId: cleanId,
           summary: {
             totalErrors: allValidation.errors.length,
-            errorTypes: [...new Set(allValidation.errors.map(e => e.type))],
-            affectedExpenses: [...new Set(allValidation.errors.map(e => e.expenseId).filter(Boolean))],
-            affectedTravelItems: [...new Set(allValidation.errors.map(e => e.itemId).filter(Boolean))]
+            errorTypes: Array.from(new Set(allValidation.errors.map(e => e.type))),
+            affectedExpenses: Array.from(new Set(allValidation.errors.map(e => e.expenseId).filter(Boolean))),
+            affectedTravelItems: Array.from(new Set(allValidation.errors.map(e => e.itemId).filter(Boolean)))
           }
         });
 
@@ -136,9 +135,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       tripId: cleanId,
       summary: {
         totalErrors: validation.errors.length,
-        errorTypes: [...new Set(validation.errors.map(e => e.type))],
-        affectedExpenses: [...new Set(validation.errors.map(e => e.expenseId).filter(Boolean))],
-        affectedTravelItems: [...new Set(validation.errors.map(e => e.itemId).filter(Boolean))]
+        errorTypes: Array.from(new Set(validation.errors.map(e => e.type))),
+        affectedExpenses: Array.from(new Set(validation.errors.map(e => e.expenseId).filter(Boolean))),
+        affectedTravelItems: Array.from(new Set(validation.errors.map(e => e.itemId).filter(Boolean)))
       }
     });
 

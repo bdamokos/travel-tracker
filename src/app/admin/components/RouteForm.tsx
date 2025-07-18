@@ -19,6 +19,7 @@ interface RouteFormProps {
   setEditingRouteIndex: (index: number | null) => void;
   locationOptions: Array<{ name: string; coordinates: [number, number] }>;
   onGeocode?: (locationName: string) => Promise<[number, number]>;
+  tripId?: string; // Add tripId for expense scoping
 }
 
 export default function RouteForm({
@@ -28,6 +29,7 @@ export default function RouteForm({
   editingRouteIndex,
   setEditingRouteIndex,
   locationOptions,
+  tripId,
   onGeocode
 }: RouteFormProps) {
 
@@ -241,6 +243,7 @@ export default function RouteForm({
             onLinksChange={(links) => 
               setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, costTrackingLinks: links }))
             }
+            tripId={tripId}
           />
         </div>
 

@@ -13,6 +13,7 @@ interface RouteInlineEditorProps {
   onCancel: () => void;
   locationOptions: Array<{ name: string; coordinates: [number, number] }>;
   onGeocode?: (locationName: string) => Promise<[number, number]>;
+  tripId?: string; // Add tripId for expense scoping
 }
 
 export default function RouteInlineEditor({
@@ -20,7 +21,8 @@ export default function RouteInlineEditor({
   onSave,
   onCancel,
   locationOptions,
-  onGeocode
+  onGeocode,
+  tripId
 }: RouteInlineEditorProps) {
   const [formData, setFormData] = useState<TravelRoute>({
     ...route
@@ -196,6 +198,7 @@ export default function RouteInlineEditor({
             onLinksChange={(links) => 
               setFormData(prev => ({ ...prev, costTrackingLinks: links }))
             }
+            tripId={tripId}
           />
         </div>
 

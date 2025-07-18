@@ -17,36 +17,34 @@ interface CostTrackingLinksManagerProps {
   currentLinks: CostTrackingLink[];
   onLinksChange: (links: CostTrackingLink[]) => void;
   className?: string;
+  tripId?: string; // Add tripId to scope expenses to current trip
 }
 
 export default function CostTrackingLinksManager({
   currentLinks,
   onLinksChange,
-  className = ''
+  className = '',
+  tripId
 }: CostTrackingLinksManagerProps) {
   const [availableExpenses, setAvailableExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExpenseId, setSelectedExpenseId] = useState('');
   const [linkDescription, setLinkDescription] = useState('');
 
-  // Load available expenses
+  // Load available expenses (scoped to current trip if tripId is provided)
   useEffect(() => {
     async function loadExpenses() {
       try {
-        const response = await fetch('/api/cost-tracking/list');
-        const costEntries = await response.json();
-        
-        const allExpenses: Expense[] = [];
-        
-        // Load detailed data for each cost entry to get expenses
-        for (const entry of costEntries) {
+        if (tripId) {
+          // TRIP ISOLATION: Only load expenses from the current trip
           try {
-            const detailResponse = await fetch(`/api/cost-tracking?id=${entry.id}`);
-            const costData = await detailResponse.json();
+            const response = await fetch(`/api/cost-tracking?id=${tripId}`);
+            const costData = await response.json();
             
+            const tripExpenses: Expense[] = [];
             if (costData.expenses) {
               costData.expenses.forEach((expense: Expense) => {
-                allExpenses.push({
+                tripExpenses.push({
                   id: expense.id,
                   description: expense.description,
                   amount: expense.amount,
@@ -56,14 +54,50 @@ export default function CostTrackingLinksManager({
                 });
               });
             }
+            
+            // Sort by date (newest first)
+            tripExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            setAvailableExpenses(tripExpenses);
           } catch (error) {
-            console.error(`Error loading cost data for ${entry.id}:`, error);
+            console.error(`Error loading expenses for trip ${tripId}:`, error);
+            setAvailableExpenses([]);
           }
+        } else {
+          // LEGACY: Load all expenses from all trips (for backward compatibility)
+          console.warn('CostTrackingLinksManager: No tripId provided, loading expenses from all trips. This may show cross-trip data.');
+          
+          const response = await fetch('/api/cost-tracking/list');
+          const costEntries = await response.json();
+          
+          const allExpenses: Expense[] = [];
+          
+          // Load detailed data for each cost entry to get expenses
+          for (const entry of costEntries) {
+            try {
+              const detailResponse = await fetch(`/api/cost-tracking?id=${entry.id}`);
+              const costData = await detailResponse.json();
+              
+              if (costData.expenses) {
+                costData.expenses.forEach((expense: Expense) => {
+                  allExpenses.push({
+                    id: expense.id,
+                    description: expense.description,
+                    amount: expense.amount,
+                    currency: expense.currency,
+                    date: expense.date,
+                    category: expense.category
+                  });
+                });
+              }
+            } catch (error) {
+              console.error(`Error loading cost data for ${entry.id}:`, error);
+            }
+          }
+          
+          // Sort by date (newest first)
+          allExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setAvailableExpenses(allExpenses);
         }
-        
-        // Sort by date (newest first)
-        allExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setAvailableExpenses(allExpenses);
       } catch (error) {
         console.error('Error loading expenses:', error);
       } finally {
@@ -72,7 +106,7 @@ export default function CostTrackingLinksManager({
     }
     
     loadExpenses();
-  }, []);
+  }, [tripId]);
 
   const handleAddLink = () => {
     if (!selectedExpenseId) return;
