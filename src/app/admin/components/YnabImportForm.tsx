@@ -118,16 +118,18 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     setError(null);
 
     try {
-      const mappingsParam = encodeURIComponent(JSON.stringify(categoryMappings));
-      const url = new URL(`/api/cost-tracking/${costData.id}/ynab-process`, window.location.origin);
-      url.searchParams.set('tempFileId', uploadResult.tempFileId);
-      url.searchParams.set('mappings', mappingsParam);
-      if (showAll) {
-        url.searchParams.set('showAll', 'true');
-      }
-
-      const response = await fetch(url);
-
+      const response = await fetch(`/api/cost-tracking/${costData.id}/ynab-process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'process',
+          tempFileId: uploadResult.tempFileId,
+          mappings: categoryMappings,
+          showAll: showAll
+        })
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to process transactions');
@@ -200,6 +202,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'import',
           tempFileId: uploadResult.tempFileId,
           mappings: categoryMappings,
           selectedTransactions: selectedTransactions

@@ -180,9 +180,14 @@ describe('YNAB Import Filtering Integration', () => {
       ];
 
       // Get processed transactions
-      const processResponse = await apiCall(
-        `/api/cost-tracking/${testCostId}/ynab-process?tempFileId=${tempFileId}&mappings=${encodeURIComponent(JSON.stringify(mappings))}`
-      );
+      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'process',
+          tempFileId: tempFileId,
+          mappings: mappings
+        })
+      });
 
       expect(processResponse.ok).toBe(true);
       const processData = await processResponse.json();
@@ -202,6 +207,7 @@ describe('YNAB Import Filtering Integration', () => {
       const importResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
         method: 'POST',
         body: JSON.stringify({
+          action: 'import',
           tempFileId,
           mappings,
           selectedTransactions
@@ -247,9 +253,14 @@ describe('YNAB Import Filtering Integration', () => {
       ];
 
       // Get processed transactions
-      const processResponse = await apiCall(
-        `/api/cost-tracking/${testCostId}/ynab-process?tempFileId=${tempFileId}&mappings=${encodeURIComponent(JSON.stringify(mappings))}`
-      );
+      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'process',
+          tempFileId: tempFileId,
+          mappings: mappings
+        })
+      });
 
       expect(processResponse.ok).toBe(true);
       const processData = await processResponse.json();
@@ -274,9 +285,15 @@ describe('YNAB Import Filtering Integration', () => {
       ];
 
       // Get processed transactions with showAll=true
-      const processResponse = await apiCall(
-        `/api/cost-tracking/${testCostId}/ynab-process?tempFileId=${tempFileId}&mappings=${encodeURIComponent(JSON.stringify(mappings))}&showAll=true`
-      );
+      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'process',
+          tempFileId: tempFileId,
+          mappings: mappings,
+          showAll: true
+        })
+      });
 
       expect(processResponse.ok).toBe(true);
       const processData = await processResponse.json();
@@ -299,9 +316,13 @@ describe('YNAB Import Filtering Integration', () => {
         }
       ];
 
-      const processResponse = await apiCall(
-        `/api/cost-tracking/${testCostId}/ynab-process?mappings=${encodeURIComponent(JSON.stringify(mappings))}`
-      );
+      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'process',
+          mappings: mappings
+        })
+      });
 
       expect(processResponse.ok).toBe(false);
       expect(processResponse.status).toBe(400);
@@ -310,9 +331,13 @@ describe('YNAB Import Filtering Integration', () => {
     it('should handle missing mappings parameter', async () => {
       const tempFileId = await createTempYnabFile(MOCK_YNAB_TRANSACTIONS);
 
-      const processResponse = await apiCall(
-        `/api/cost-tracking/${testCostId}/ynab-process?tempFileId=${tempFileId}`
-      );
+      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'process',
+          tempFileId: tempFileId
+        })
+      });
 
       expect(processResponse.ok).toBe(false);
       expect(processResponse.status).toBe(400);
@@ -327,9 +352,14 @@ describe('YNAB Import Filtering Integration', () => {
         }
       ];
 
-      const processResponse = await apiCall(
-        `/api/cost-tracking/${testCostId}/ynab-process?tempFileId=invalid&mappings=${encodeURIComponent(JSON.stringify(mappings))}`
-      );
+      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'process',
+          tempFileId: 'invalid',
+          mappings: mappings
+        })
+      });
 
       expect(processResponse.ok).toBe(false);
       expect(processResponse.status).toBe(500);
