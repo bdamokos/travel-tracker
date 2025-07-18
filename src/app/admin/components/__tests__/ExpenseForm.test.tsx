@@ -16,7 +16,13 @@ import { beforeEach } from 'node:test';
 import { describe } from 'node:test';
 
 describe('ExpenseForm', () => {
-  const mockTravelLookup = new ExpenseTravelLookup('test-trip-1');
+  const mockTripData = {
+    title: 'Test Trip',
+    locations: [],
+    accommodations: [],
+    routes: []
+  };
+  const mockTravelLookup = new ExpenseTravelLookup('test-trip-1', mockTripData);
   const mockOnExpenseAdded = jest.fn();
   const mockSetCurrentExpense = jest.fn();
   const mockSetEditingExpenseIndex = jest.fn();

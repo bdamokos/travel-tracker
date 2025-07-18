@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip, YnabCategoryMapping } from '../../../types';
 import { calculateCostSummary, generateId, EXPENSE_CATEGORIES } from '../../../lib/costUtils';
 import CostPieCharts from '../CostPieCharts';
-import { ExpenseTravelLookup, createExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
+import { ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
 import BudgetSetup from './BudgetSetup';
 import CountryBudgetManager from './CountryBudgetManager';
 import CategoryManager from './CategoryManager';
@@ -106,8 +106,21 @@ export default function CostTrackerEditor({
   const initializeTravelLookup = async (tripId: string) => {
     if (!tripId || tripId === '') return;
     try {
-      const lookup = await createExpenseTravelLookup(tripId);
-      setTravelLookup(lookup);
+      // Fetch trip data to provide to the lookup service
+      const response = await fetch(`/api/travel-data?id=${tripId}`);
+      if (response.ok) {
+        const tripData = await response.json();
+        const lookup = new ExpenseTravelLookup(tripId, {
+          title: tripData.title,
+          locations: tripData.locations,
+          accommodations: tripData.accommodations,
+          routes: tripData.routes
+        });
+        setTravelLookup(lookup);
+      } else {
+        console.error('Failed to fetch trip data for travel lookup');
+        setTravelLookup(null);
+      }
     } catch (error) {
       console.error('Failed to initialize travel lookup:', error);
     }

@@ -195,9 +195,13 @@ export function useTripEditor(tripId: string | null) {
         if (costResponse.ok) {
           const costData = await costResponse.json();
           setCostData(costData);
-          // Initialize travel lookup
-          const lookup = new ExpenseTravelLookup(costData.tripId);
-          await lookup.buildIndex();
+          // Initialize travel lookup with trip data
+          const lookup = new ExpenseTravelLookup(costData.tripId, {
+            title: tripData.title,
+            locations: tripData.locations,
+            accommodations: tripData.accommodations,
+            routes: tripData.routes
+          });
           setTravelLookup(lookup);
         } else {
           setCostData(null);
