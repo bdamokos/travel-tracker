@@ -312,6 +312,7 @@ export default function CostTrackerEditor({
             travelLookup={travelLookup}
             onExpenseAdded={handleExpenseAdded}
             setHasUnsavedChanges={setHasUnsavedChanges}
+            tripId={costData.tripId}
           />
         </div>
 

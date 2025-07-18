@@ -7,9 +7,10 @@ import {
   YnabTransaction,
   Expense,
   BudgetItem,
-  ExpenseType
+  ExpenseType,
+  YnabTransactionFilterResult
 } from '@/app/types';
-import { createTransactionHash } from '@/app/lib/ynabUtils';
+import { createTransactionHash, filterNewTransactions, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
 import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Process selected transactions
     const newExpenses: Expense[] = [];
     const newHashes: string[] = [];
+    const importedTransactions: ProcessedYnabTransaction[] = [];
 
     for (const selectedTxn of selectedTransactions) {
       const { transactionHash, expenseCategory } = selectedTxn;
@@ -110,6 +112,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         amount = -parseFloat(inflowStr);
       }
 
+      // Create ProcessedYnabTransaction for tracking
+      const processedTxn: ProcessedYnabTransaction = {
+        originalTransaction: originalTxn,
+        amount: amount,
+        date: convertYnabDateToISO(originalTxn.Date),
+        description: originalTxn.Payee,
+        memo: originalTxn.Memo,
+        mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
+        isGeneralExpense: mapping.mappingType === 'general',
+        hash: transactionHash
+      };
+
       // Convert to our expense format
       const expense: Expense = {
         id: `ynab-${transactionHash}`,
@@ -141,11 +155,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       newExpenses.push(expense);
       newHashes.push(transactionHash);
+      importedTransactions.push(processedTxn);
     }
 
     // Add new expenses to cost data
     costData.expenses.push(...newExpenses);
     costData.ynabImportData.importedTransactionHashes.push(...newHashes);
+    
+    // Update last imported transaction tracking
+    if (importedTransactions.length > 0) {
+      costData.ynabImportData = updateLastImportedTransaction(
+        importedTransactions,
+        costData.ynabImportData
+      );
+    }
     // updatedAt is handled in the unified trip object, not here
 
     // Save updated cost tracking data using unifiedDataService
@@ -197,6 +220,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const url = new URL(request.url);
     const tempFileId = url.searchParams.get('tempFileId');
     const mappingsParam = url.searchParams.get('mappings');
+    const showAll = url.searchParams.get('showAll') === 'true';
 
     if (!tempFileId) {
       return NextResponse.json({ 
@@ -225,6 +249,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const costData = unifiedTrip.costData;
 
     const existingHashes = costData.ynabImportData?.importedTransactionHashes || [];
+    const lastImportedHash = costData.ynabImportData?.lastImportedTransactionHash;
 
     // Process transactions based on mappings
     const processedTransactions: ProcessedYnabTransaction[] = [];
@@ -257,7 +282,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const processedTxn: ProcessedYnabTransaction = {
         originalTransaction: transaction,
         amount: amount,
-        date: transaction.Date,
+        date: convertYnabDateToISO(transaction.Date),
         description: transaction.Payee,
         memo: transaction.Memo,
         mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
@@ -271,19 +296,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    if (processedTransactions.length === 0) {
+    // Filter transactions if not showing all
+    let filteredResult: YnabTransactionFilterResult;
+    if (showAll || !lastImportedHash) {
+      filteredResult = {
+        newTransactions: processedTransactions,
+        filteredCount: 0,
+        lastTransactionFound: false
+      };
+    } else {
+      filteredResult = filterNewTransactions(processedTransactions, lastImportedHash);
+    }
+
+    if (filteredResult.newTransactions.length === 0) {
       return NextResponse.json({
         transactions: [],
         totalCount: 0,
         alreadyImportedCount: tempData.transactions.length,
+        filteredCount: filteredResult.filteredCount,
+        lastImportedTransactionFound: filteredResult.lastTransactionFound,
+        totalTransactions: processedTransactions.length,
         message: 'No transactions available for import. This may be because all categories are mapped to "None" or all transactions have already been imported.'
       });
     }
 
     return NextResponse.json({
-      transactions: processedTransactions,
-      totalCount: processedTransactions.length,
-      alreadyImportedCount: tempData.transactions.length - processedTransactions.length
+      transactions: filteredResult.newTransactions,
+      totalCount: filteredResult.newTransactions.length,
+      alreadyImportedCount: tempData.transactions.length - processedTransactions.length,
+      filteredCount: filteredResult.filteredCount,
+      lastImportedTransactionFound: filteredResult.lastTransactionFound,
+      totalTransactions: processedTransactions.length
     });
 
   } catch (error) {

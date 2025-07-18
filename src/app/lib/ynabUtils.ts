@@ -1,4 +1,4 @@
-import { YnabTransaction } from '@/app/types';
+import { YnabTransaction, ProcessedYnabTransaction, YnabTransactionFilterResult, YnabImportData } from '@/app/types';
 import { createHash } from 'crypto';
 
 export interface YnabParseResult {
@@ -156,6 +156,82 @@ export function extractCategoriesFromYnabFile(fileContent: string): string[] {
   }
 
   return Array.from(categories).sort();
+}
+
+export function filterNewTransactions(
+  transactions: ProcessedYnabTransaction[],
+  lastImportedHash?: string
+): YnabTransactionFilterResult {
+  if (!lastImportedHash) {
+    return {
+      newTransactions: transactions,
+      filteredCount: 0,
+      lastTransactionFound: false
+    };
+  }
+
+  // Sort transactions chronologically
+  const sortedTransactions = [...transactions].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  // Find the last imported transaction
+  const lastImportedIndex = sortedTransactions.findIndex(
+    t => t.hash === lastImportedHash
+  );
+
+  if (lastImportedIndex === -1) {
+    // Last imported transaction not found, return all
+    return {
+      newTransactions: transactions,
+      filteredCount: 0,
+      lastTransactionFound: false
+    };
+  }
+
+  // Return only transactions after the last imported one
+  const newTransactions = sortedTransactions.slice(lastImportedIndex + 1);
+  const filteredCount = lastImportedIndex + 1;
+
+  return {
+    newTransactions,
+    filteredCount,
+    lastTransactionFound: true
+  };
+}
+
+export function updateLastImportedTransaction(
+  importedTransactions: ProcessedYnabTransaction[],
+  existingData: YnabImportData
+): YnabImportData {
+  if (importedTransactions.length === 0) {
+    return existingData;
+  }
+
+  // Find the chronologically latest imported transaction
+  const latestTransaction = importedTransactions.reduce((latest, current) => {
+    return new Date(current.date) > new Date(latest.date) ? current : latest;
+  });
+
+  return {
+    ...existingData,
+    lastImportedTransactionHash: latestTransaction.hash,
+    lastImportedTransactionDate: latestTransaction.date,
+    importedTransactionHashes: [
+      ...existingData.importedTransactionHashes,
+      ...importedTransactions.map(t => t.hash)
+    ]
+  };
+}
+
+export function findLatestTransaction(
+  transactions: ProcessedYnabTransaction[]
+): ProcessedYnabTransaction | null {
+  if (transactions.length === 0) return null;
+  
+  return transactions.reduce((latest, current) => {
+    return new Date(current.date) > new Date(latest.date) ? current : latest;
+  });
 }
 
  

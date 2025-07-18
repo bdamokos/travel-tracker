@@ -14,6 +14,7 @@ interface ExpenseInlineEditorProps {
   categories: string[];
   countryOptions: string[];
   travelLookup: ExpenseTravelLookup | null;
+  tripId: string;
 }
 
 export default function ExpenseInlineEditor({
@@ -22,7 +23,8 @@ export default function ExpenseInlineEditor({
   onCancel,
   categories,
   countryOptions,
-  travelLookup
+  travelLookup,
+  tripId
 }: ExpenseInlineEditorProps) {
   const [formData, setFormData] = useState<Expense>({
     ...expense
@@ -190,6 +192,7 @@ export default function ExpenseInlineEditor({
           </label>
           <TravelItemSelector
             expenseId={formData.id}
+            tripId={tripId}
             travelLookup={travelLookup}
             onReferenceChange={(travelLinkInfo) => {
               setSelectedTravelLinkInfo(travelLinkInfo);

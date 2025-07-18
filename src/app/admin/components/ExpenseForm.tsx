@@ -18,6 +18,7 @@ interface ExpenseFormProps {
   categories: string[];
   countryOptions: string[];
   travelLookup: ExpenseTravelLookup | null;
+  tripId: string;
 }
 
 export default function ExpenseForm({
@@ -29,7 +30,8 @@ export default function ExpenseForm({
   currency,
   categories,
   countryOptions,
-  travelLookup
+  travelLookup,
+  tripId
 }: ExpenseFormProps) {
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
 
@@ -233,6 +235,7 @@ export default function ExpenseForm({
         <div className="md:col-span-2">
           <TravelItemSelector
             expenseId={currentExpense.id!}
+            tripId={tripId}
             travelLookup={travelLookup}
             onReferenceChange={(travelLinkInfo) => {
               setSelectedTravelLinkInfo(travelLinkInfo);

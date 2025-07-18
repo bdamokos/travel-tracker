@@ -21,6 +21,7 @@ interface ExpenseManagerProps {
   travelLookup: ExpenseTravelLookup | null;
   onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => Promise<void>;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
+  tripId: string;
 }
 
 export default function ExpenseManager({
@@ -35,6 +36,7 @@ export default function ExpenseManager({
   travelLookup,
   onExpenseAdded,
   setHasUnsavedChanges,
+  tripId,
 }: ExpenseManagerProps) {
 
   const deleteExpense = (expenseId: string) => {
@@ -73,6 +75,7 @@ export default function ExpenseManager({
         categories={getCategories()}
         countryOptions={getExistingCountries()}
         travelLookup={travelLookup}
+        tripId={tripId}
       />
 
       {costData.expenses.length > 0 && (
@@ -103,6 +106,7 @@ export default function ExpenseManager({
                       categories={getCategories()}
                       countryOptions={getExistingCountries()}
                       travelLookup={travelLookup}
+                      tripId={tripId}
                     />
                   )}
                 >

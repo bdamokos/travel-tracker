@@ -44,6 +44,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   // Step 3: Transaction Selection
   const [processedTransactions, setProcessedTransactions] = useState<ProcessedYnabTransaction[]>([]);
   const [selectedTransactions, setSelectedTransactions] = useState<TransactionSelection[]>([]);
+  const [filteredCount, setFilteredCount] = useState(0);
+  const [lastTransactionFound, setLastTransactionFound] = useState(false);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [totalTransactions, setTotalTransactions] = useState(0);
 
   const availableCountries = costData.countryBudgets.map(b => b.country);
   
@@ -107,7 +111,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     setCategoryMappings(newMappings);
   };
 
-  const handleProceedToTransactions = async () => {
+  const loadTransactions = async (showAll: boolean = false) => {
     if (!uploadResult) return;
 
     setIsLoading(true);
@@ -115,9 +119,14 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
     try {
       const mappingsParam = encodeURIComponent(JSON.stringify(categoryMappings));
-      const response = await fetch(
-        `/api/cost-tracking/${costData.id}/ynab-process?tempFileId=${uploadResult.tempFileId}&mappings=${mappingsParam}`
-      );
+      const url = new URL(`/api/cost-tracking/${costData.id}/ynab-process`, window.location.origin);
+      url.searchParams.set('tempFileId', uploadResult.tempFileId);
+      url.searchParams.set('mappings', mappingsParam);
+      if (showAll) {
+        url.searchParams.set('showAll', 'true');
+      }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -126,6 +135,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
       const result = await response.json();
       setProcessedTransactions(result.transactions);
+      setFilteredCount(result.filteredCount || 0);
+      setLastTransactionFound(result.lastImportedTransactionFound || false);
+      setTotalTransactions(result.totalTransactions || result.transactions.length);
 
       // Handle case where no transactions are available for import
       if (result.transactions.length === 0) {
@@ -147,6 +159,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleProceedToTransactions = async () => {
+    await loadTransactions(false);
   };
 
   const handleTransactionToggle = (hash: string) => {
@@ -440,27 +456,80 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                 Select which transactions to import and assign categories. 
                 Only new transactions (not previously imported) are shown.
               </p>
+
+              {/* Filtering Indicator */}
+              {lastTransactionFound && filteredCount > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Showing {processedTransactions.length} new transactions
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowAllTransactions(!showAllTransactions);
+                        loadTransactions(!showAllTransactions);
+                      }}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+                    >
+                      {showAllTransactions ? 'Hide previously imported' : `Show all ${totalTransactions} transactions`}
+                    </button>
+                  </div>
+                  <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                    {filteredCount} previously imported transactions are hidden
+                  </p>
+                </div>
+              )}
+
+              {/* Empty State for No New Transactions */}
+              {processedTransactions.length === 0 && lastTransactionFound && (
+                <div className="text-center py-8">
+                  <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No new transactions</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    All transactions in this file have already been imported.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowAllTransactions(true);
+                      loadTransactions(true);
+                    }}
+                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+                  >
+                    Show all transactions
+                  </button>
+                </div>
+              )}
               
-              <div className="mb-4">
-                <button
-                  onClick={() => {
-                    if (selectedTransactions.length === processedTransactions.length) {
-                      setSelectedTransactions([]);
-                    } else {
-                      setSelectedTransactions(processedTransactions.map(txn => ({
-                        transactionHash: txn.hash,
-                        expenseCategory: availableCategories[0]
-                      })));
-                    }
-                  }}
-                  className="text-blue-500 hover:text-blue-700 text-sm"
-                >
-                  {selectedTransactions.length === processedTransactions.length ? 'Deselect All' : 'Select All'}
-                </button>
-                <span className="text-gray-500 dark:text-gray-400 text-sm ml-4">
-                  {selectedTransactions.length} of {processedTransactions.length} selected
-                </span>
-              </div>
+              {/* Transaction Selection Controls - Only show when there are transactions */}
+              {processedTransactions.length > 0 && (
+                <>
+                  <div className="mb-4">
+                    <button
+                      onClick={() => {
+                        if (selectedTransactions.length === processedTransactions.length) {
+                          setSelectedTransactions([]);
+                        } else {
+                          setSelectedTransactions(processedTransactions.map(txn => ({
+                            transactionHash: txn.hash,
+                            expenseCategory: availableCategories[0]
+                          })));
+                        }
+                      }}
+                      className="text-blue-500 hover:text-blue-700 text-sm"
+                    >
+                      {selectedTransactions.length === processedTransactions.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm ml-4">
+                      {selectedTransactions.length} of {processedTransactions.length} selected
+                    </span>
+                  </div>
               
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {processedTransactions.map((txn) => {
@@ -511,21 +580,23 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                 })}
               </div>
               
-              <div className="flex justify-between pt-4">
-                <button
-                  onClick={() => setCurrentStep(2)}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleFinalImport}
-                  disabled={isLoading || selectedTransactions.length === 0}
-                  className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50"
-                >
-                  {isLoading ? 'Importing...' : `Import ${selectedTransactions.length} Transactions`}
-                </button>
-              </div>
+                  <div className="flex justify-between pt-4">
+                    <button
+                      onClick={() => setCurrentStep(2)}
+                      className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleFinalImport}
+                      disabled={isLoading || selectedTransactions.length === 0}
+                      className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50"
+                    >
+                      {isLoading ? 'Importing...' : `Import ${selectedTransactions.length} Transactions`}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
     </AccessibleModal>

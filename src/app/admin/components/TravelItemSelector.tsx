@@ -17,6 +17,7 @@ interface TravelItem {
 
 interface TravelItemSelectorProps {
   expenseId: string;
+  tripId: string;
   travelLookup: ExpenseTravelLookup | null;
   onReferenceChange: (travelLinkInfo: TravelLinkInfo | undefined) => void;
   className?: string;
@@ -24,6 +25,7 @@ interface TravelItemSelectorProps {
 
 export default function TravelItemSelector({
   expenseId,
+  tripId,
   travelLookup,
   onReferenceChange,
   className = ''
@@ -46,68 +48,63 @@ export default function TravelItemSelector({
     }
   }, [travelLookup, expenseId]);
 
-  // Load available travel items
+  // Load available travel items from current trip only
   useEffect(() => {
     async function loadTravelItems() {
+      if (!tripId) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const response = await fetch('/api/travel-data/list');
-        const trips = await response.json();
+        const response = await fetch(`/api/travel-data?id=${tripId}`);
+        const tripData = await response.json();
         
         const allItems: TravelItem[] = [];
         
-        // Load detailed data for each trip to get locations, routes, and accommodations
-        for (const trip of trips) {
-          try {
-            const detailResponse = await fetch(`/api/travel-data?id=${trip.id}`);
-            const tripData = await detailResponse.json();
-            
-            // Add locations
-            if (tripData.locations) {
-              tripData.locations.forEach((location: Location) => {
-                allItems.push({
-                  id: location.id,
-                  type: 'location',
-                  name: location.name,
-                  description: location.notes || '',
-                  date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date,
-                  tripTitle: trip.title
-                });
-              });
-            }
-            
-            // Add routes
-            if (tripData.routes) {
-              tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: Date }) => {
-                allItems.push({
-                  id: route.id,
-                  type: 'route',
-                  name: `${route.from} → ${route.to}`,
-                  description: `${route.transportType} transport`,
-                  date: route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date,
-                  tripTitle: trip.title
-                });
-              });
-            }
-            
-            // Add accommodations from unified trip data
-            if (tripData.accommodations) {
-              tripData.accommodations.forEach((accommodation: Accommodation) => {
-                // Find the location for this accommodation
-                const location = allItems.find(item => item.type === 'location' && item.id === accommodation.locationId);
-                allItems.push({
-                  id: accommodation.id,
-                  type: 'accommodation',
-                  name: accommodation.name,
-                  description: accommodation.accommodationData?.substring(0, 100) || '',
-                  date: location?.date || '',
-                  tripTitle: trip.title,
-                  locationName: location?.name
-                });
-              });
-            }
-          } catch (error) {
-            console.error(`Error loading trip details for ${trip.id}:`, error);
-          }
+        // Add locations
+        if (tripData.locations) {
+          tripData.locations.forEach((location: Location) => {
+            allItems.push({
+              id: location.id,
+              type: 'location',
+              name: location.name,
+              description: location.notes || '',
+              date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date,
+              tripTitle: tripData.title
+            });
+          });
+        }
+        
+        // Add routes
+        if (tripData.routes) {
+          tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: Date }) => {
+            allItems.push({
+              id: route.id,
+              type: 'route',
+              name: `${route.from} → ${route.to}`,
+              description: `${route.transportType} transport`,
+              date: route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date,
+              tripTitle: tripData.title
+            });
+          });
+        }
+        
+        // Add accommodations from unified trip data
+        if (tripData.accommodations) {
+          tripData.accommodations.forEach((accommodation: Accommodation) => {
+            // Find the location for this accommodation
+            const location = allItems.find(item => item.type === 'location' && item.id === accommodation.locationId);
+            allItems.push({
+              id: accommodation.id,
+              type: 'accommodation',
+              name: accommodation.name,
+              description: accommodation.accommodationData?.substring(0, 100) || '',
+              date: location?.date || '',
+              tripTitle: tripData.title,
+              locationName: location?.name
+            });
+          });
         }
         
         // Sort by date
@@ -121,7 +118,7 @@ export default function TravelItemSelector({
     }
     
     loadTravelItems();
-  }, []);
+  }, [tripId]);
 
   const handleTypeChange = (type: string) => {
     setSelectedType(type as 'location' | 'accommodation' | 'route' | '');
@@ -213,8 +210,8 @@ export default function TravelItemSelector({
             options={filteredItems.map(item => ({
               value: item.id,
               label: item.type === 'accommodation' ? 
-                `${item.name} (in ${item.locationName}) - ${item.tripTitle} (${item.date})` :
-                `${item.name} - ${item.tripTitle} (${item.date})`
+                `${item.name} (in ${item.locationName}) - ${item.date}` :
+                `${item.name} - ${item.date}`
             }))}
             placeholder={`Select ${selectedType}...`}
           />

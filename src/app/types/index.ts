@@ -271,6 +271,15 @@ export type YnabCategoryMapping = {
 export type YnabImportData = {
   mappings: YnabCategoryMapping[];
   importedTransactionHashes: string[]; // to prevent duplicates
+  lastImportedTransactionHash?: string; // NEW: track last imported transaction
+  lastImportedTransactionDate?: string; // NEW: for additional filtering context
+};
+
+// Add filtering response type
+export type YnabTransactionFilterResult = {
+  newTransactions: ProcessedYnabTransaction[];
+  filteredCount: number;
+  lastTransactionFound: boolean;
 };
 
 export type ProcessedYnabTransaction = {
