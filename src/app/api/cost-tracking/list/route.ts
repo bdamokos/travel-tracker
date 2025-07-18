@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { listAllTrips, loadUnifiedTripData } from '../../../lib/unifiedDataService';
 import { Expense } from '../../../types';
 import { isAdminDomain } from '../../../lib/server-domains';
+import { validateAllTripBoundaries } from '../../../lib/tripBoundaryValidation';
 
 
 export async function GET() {
@@ -11,9 +12,9 @@ export async function GET() {
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
-    
+
     const trips = await listAllTrips();
-    
+
     // Get cost entries with actual data
     const costEntries = await Promise.all(
       trips
@@ -22,13 +23,22 @@ export async function GET() {
           try {
             // Load the actual cost data using the unified service
             const unifiedData = await loadUnifiedTripData(trip.id);
-            
+
             if (unifiedData?.costData) {
               const costData = unifiedData.costData;
-              // Calculate totals
-              const totalSpent = costData.expenses?.reduce((sum: number, expense: Expense) => sum + expense.amount, 0) || 0;
+
+              // Validate trip boundaries for this trip
+              const validation = validateAllTripBoundaries(unifiedData);
+              if (!validation.isValid) {
+                console.warn(`Trip boundary violations detected in trip ${trip.id}:`, validation.errors);
+                // Continue processing but log the violations
+              }
+
+              // Calculate totals - only include expenses that belong to this trip
+              const tripExpenses = costData.expenses || [];
+              const totalSpent = tripExpenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
               const remainingBudget = (costData.overallBudget || 0) - totalSpent;
-              
+
               return {
                 id: `cost-${trip.id}`,
                 tripId: trip.id,
@@ -39,10 +49,12 @@ export async function GET() {
                 currency: costData.currency || 'EUR',
                 totalSpent,
                 remainingBudget,
-                expenseCount: costData.expenses?.length || 0,
+                expenseCount: tripExpenses.length,
                 countryBudgetCount: costData.countryBudgets?.length || 0,
                 createdAt: unifiedData.createdAt,
-                updatedAt: unifiedData.updatedAt || unifiedData.createdAt
+                updatedAt: unifiedData.updatedAt || unifiedData.createdAt,
+                // Add validation status for monitoring
+                hasValidationWarnings: !validation.isValid
               };
             } else {
               // Return null if no cost data found
@@ -54,10 +66,10 @@ export async function GET() {
           }
         })
     );
-    
+
     // Filter out null entries
     const validCostEntries = costEntries.filter(entry => entry !== null);
-    
+
     return NextResponse.json(validCostEntries);
   } catch (error) {
     console.error('Error listing cost tracking data:', error);

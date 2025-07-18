@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateCostData, loadUnifiedTripData } from '../../lib/unifiedDataService';
 import { isAdminDomain } from '../../lib/server-domains';
+import { validateAllTripBoundaries } from '../../lib/tripBoundaryValidation';
 
 
 export async function POST(request: NextRequest) {
@@ -75,7 +76,15 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Validate trip boundaries
+    const validation = validateAllTripBoundaries(unifiedData);
+    if (!validation.isValid) {
+      console.warn(`Trip boundary violations detected in trip ${cleanId}:`, validation.errors);
+      // Continue processing but log the violations
+    }
+    
     // Extract cost data in legacy format for backward compatibility
+    // Ensure all expenses belong to this trip (they should due to unified data structure)
     const costData = {
       id: `cost-${cleanId}`,
       tripId: cleanId,
@@ -85,10 +94,12 @@ export async function GET(request: NextRequest) {
       overallBudget: unifiedData.costData.overallBudget,
       currency: unifiedData.costData.currency,
       countryBudgets: unifiedData.costData.countryBudgets,
-      expenses: unifiedData.costData.expenses,
+      expenses: unifiedData.costData.expenses, // These are already trip-scoped by design
       ynabImportData: unifiedData.costData.ynabImportData,
       createdAt: unifiedData.createdAt,
-      updatedAt: unifiedData.updatedAt
+      updatedAt: unifiedData.updatedAt,
+      // Add validation status for monitoring
+      hasValidationWarnings: !validation.isValid
     };
     
     return NextResponse.json(costData);
@@ -126,6 +137,13 @@ export async function PUT(request: NextRequest) {
     
     // Use unified data service to update cost data
     const unifiedData = await updateCostData(cleanId, updatedData);
+    
+    // Validate trip boundaries after update
+    const validation = validateAllTripBoundaries(unifiedData);
+    if (!validation.isValid) {
+      console.warn(`Trip boundary violations detected in trip ${cleanId}:`, validation.errors);
+      // Log warnings but don't fail the request - this is for monitoring
+    }
     
     // Extract legacy format for response
     const legacyData = {

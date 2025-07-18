@@ -15,6 +15,7 @@ import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
+import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 
 // Type guard for customCategories
 function hasCustomCategories(obj: unknown): obj is { customCategories: string[] } {
@@ -303,7 +304,7 @@ async function handleImportTransactions(
   // updatedAt is handled in the unified trip object, not here
 
   // Save updated cost tracking data using unifiedDataService
-  await updateCostData(id.replace(/^cost-/, ''), {
+  const updatedUnifiedData = await updateCostData(id.replace(/^cost-/, ''), {
     overallBudget: costData.overallBudget,
     currency: costData.currency,
     countryBudgets: costData.countryBudgets,
@@ -316,6 +317,13 @@ async function handleImportTransactions(
     createdAt: unifiedTrip.createdAt,
     updatedAt: new Date().toISOString()
   });
+
+  // Validate trip boundaries after YNAB import
+  const validation = validateAllTripBoundaries(updatedUnifiedData);
+  if (!validation.isValid) {
+    console.warn(`Trip boundary violations detected after YNAB import in trip ${id}:`, validation.errors);
+    // Log warnings but don't fail the import - this is for monitoring
+  }
 
   // Clean up temporary file
   await cleanupTempFile(tempFileId);
