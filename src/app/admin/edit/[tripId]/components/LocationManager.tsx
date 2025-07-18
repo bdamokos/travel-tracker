@@ -32,6 +32,7 @@ interface TravelRoute {
 }
 
 interface LocationManagerProps {
+  tripId: string; // Add tripId for expense scoping
   travelData: TravelData;
   setTravelData: React.Dispatch<React.SetStateAction<TravelData>>;
   setHasUnsavedChanges: (value: boolean) => void;
@@ -56,6 +57,7 @@ interface LocationManagerProps {
 }
 
 export default function LocationManager({
+  tripId,
   travelData,
   setTravelData,
   setHasUnsavedChanges,
@@ -99,7 +101,7 @@ export default function LocationManager({
       {/* Add Location Form Section */}
       <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 mb-6">
         <LocationForm
-          tripId={travelData.id || ''}
+          tripId={tripId}
           currentLocation={currentLocation}
           setCurrentLocation={setCurrentLocation}
           onLocationAdded={handleLocationAdded}
@@ -116,7 +118,7 @@ export default function LocationManager({
       
       <LocationList
         locations={travelData.locations}
-        tripId={travelData.id || ''}
+        tripId={tripId}
         travelLookup={travelLookup}
         costData={costData}
         selectedLocationForPosts={selectedLocationForPosts}
