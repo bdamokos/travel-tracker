@@ -69,10 +69,10 @@ describe('Cost Tracking Validation Manual Test', () => {
   afterAll(async () => {
     // Clean up test data
     try {
-      const fs = require('fs/promises');
-      const path = require('path');
-      const dataPath = path.join(process.cwd(), 'data', `trip-${testTripId}.json`);
-      await fs.unlink(dataPath);
+      const { unlink: fsUnlink } = await import('fs/promises');
+      const { join } = await import('path');
+      const dataPath = join(process.cwd(), 'data', `trip-${testTripId}.json`);
+      await fsUnlink(dataPath);
     } catch (error) {
       // Ignore cleanup errors
     }
@@ -225,10 +225,10 @@ describe('Cost Tracking Validation Manual Test', () => {
     } finally {
       // Clean up second trip
       try {
-        const fs = require('fs/promises');
-        const path = require('path');
-        const dataPath = path.join(process.cwd(), 'data', `trip-${trip2Id}.json`);
-        await fs.unlink(dataPath);
+        const { unlink: fsUnlink2 } = await import('fs/promises');
+        const { join: pathJoin } = await import('path');
+        const dataPath = pathJoin(process.cwd(), 'data', `trip-${trip2Id}.json`);
+        await fsUnlink2(dataPath);
       } catch (error) {
         // Ignore cleanup errors
       }

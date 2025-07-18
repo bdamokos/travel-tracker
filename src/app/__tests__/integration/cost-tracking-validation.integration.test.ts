@@ -9,7 +9,7 @@ import { POST as ynabProcessPOST } from '../../api/cost-tracking/[id]/ynab-proce
 import { POST as validatePOST, GET as validateGET } from '../../api/cost-tracking/[id]/validate/route';
 import { loadUnifiedTripData, updateCostData } from '../../lib/unifiedDataService';
 import { UnifiedTripData } from '../../lib/dataMigration';
-import { Expense, BudgetItem, YnabCategoryMapping } from '../../types';
+import { Expense, BudgetItem, YnabCategoryMapping, YnabTransaction } from '../../types';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 
@@ -184,7 +184,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
   });
 
   describe('YNAB Process Endpoint', () => {
-    const createTempYnabFile = async (transactions: any[]) => {
+    const createTempYnabFile = async (transactions: YnabTransaction[]) => {
       const tempFileId = `temp-ynab-${mockTripId}-${Date.now()}`;
       const tempFilePath = join(process.cwd(), 'data', `${tempFileId}.json`);
       await writeFile(tempFilePath, JSON.stringify({
@@ -198,7 +198,8 @@ describe('Cost Tracking API Validation Integration Tests', () => {
     afterEach(async () => {
       // Clean up temp files
       try {
-        const tempFiles = await require('fs/promises').readdir(join(process.cwd(), 'data'));
+        const { readdir } = await import('fs/promises');
+        const tempFiles = await readdir(join(process.cwd(), 'data'));
         for (const file of tempFiles) {
           if (file.startsWith('temp-ynab-')) {
             await unlink(join(process.cwd(), 'data', file));

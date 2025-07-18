@@ -60,7 +60,7 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
         location: {
           origin: 'https://example.com'
         }
-      } as any;
+      } as Window & typeof globalThis;
 
       const mockTripData = {
         title: 'Test Trip',

@@ -249,6 +249,7 @@ export default function TripEditorPage() {
               deleteRoute={deleteRoute}
               recalculateRoutePoints={recalculateRoutePoints}
               generateMap={generateMap}
+              tripId={tripId}
               />
             </section>
 

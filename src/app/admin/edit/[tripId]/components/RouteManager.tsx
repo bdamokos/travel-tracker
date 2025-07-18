@@ -50,6 +50,7 @@ interface RouteManagerProps {
   deleteRoute: (index: number) => void;
   recalculateRoutePoints: (index: number) => void;
   generateMap: () => void;
+  tripId: string; // Add tripId for expense scoping
 }
 
 export default function RouteManager({
@@ -67,6 +68,7 @@ export default function RouteManager({
   deleteRoute,
   recalculateRoutePoints,
   generateMap,
+  tripId,
 }: RouteManagerProps) {
   return (
     <>
@@ -89,7 +91,7 @@ export default function RouteManager({
             const coords = await geocodeLocation(locationName);
             return coords;
           }}
-          tripId={travelData.id}
+          tripId={tripId}
           />
         </div>
 
@@ -123,7 +125,7 @@ export default function RouteManager({
                           const coords = await geocodeLocation(locationName);
                           return coords;
                         }}
-                        tripId={travelData.id}
+                        tripId={tripId}
                       />
                     )}
                   >
@@ -146,7 +148,7 @@ export default function RouteManager({
                               itemName={`${route.from} → ${route.to}`}
                               travelLookup={travelLookup}
                               costData={costData}
-                              tripId={travelData.id}
+                              tripId={tripId}
                             />
                           </div>
                         )}

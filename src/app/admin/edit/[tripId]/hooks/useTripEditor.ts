@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
 import { calculateSmartDurations } from '@/app/lib/durationUtils';
-import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Transportation } from '@/app/types';
+import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Transportation, Accommodation } from '@/app/types';
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
@@ -197,7 +197,7 @@ export function useTripEditor(tripId: string | null) {
           setCostData(costData);
           
           // Load unified trip data to get accommodations
-          let accommodations: any[] = [];
+          let accommodations: Accommodation[] = [];
           try {
             const unifiedResponse = await fetch(`/api/travel-data?id=${tripId}`);
             if (unifiedResponse.ok) {
