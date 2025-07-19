@@ -77,43 +77,44 @@ export default function CostTrackingPage() {
     }
   }, [isAuthorized]);
 
-  // Load cost tracking data if editing existing
-  useEffect(() => {
-    const loadCostData = async () => {
-      if (!isNewCostTracker && costId && isAuthorized) {
-        try {
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-          const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costId}`);
+  // Function to load cost tracking data
+  const loadCostData = useCallback(async () => {
+    if (!isNewCostTracker && costId && isAuthorized) {
+      try {
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+        const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costId}`);
+        
+        if (response.ok) {
+          const data = await response.json();
           
-          if (response.ok) {
-            const data = await response.json();
-            
-            const migratedData = {
-              ...data,
-              expenses: data.expenses.map((expense: { expenseType?: string; [key: string]: unknown }) => ({
-                ...expense,
-                expenseType: expense.expenseType || 'actual'
-              }))
-            };
-            
-            setCostData(migratedData);
-            setHasUnsavedChanges(false);
-          } else {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            console.error('Error response:', response.status, errorData);
-            alert(`Error loading cost entry: ${errorData.error || 'Unknown error'}`);
-            router.push('/admin');
-          }
-        } catch (error) {
-          console.error('Error loading cost entry:', error);
-          alert('Error loading cost entry');
+          const migratedData = {
+            ...data,
+            expenses: data.expenses.map((expense: { expenseType?: string; [key: string]: unknown }) => ({
+              ...expense,
+              expenseType: expense.expenseType || 'actual'
+            }))
+          };
+          
+          setCostData(migratedData);
+          setHasUnsavedChanges(false);
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          console.error('Error response:', response.status, errorData);
+          alert(`Error loading cost entry: ${errorData.error || 'Unknown error'}`);
           router.push('/admin');
         }
+      } catch (error) {
+        console.error('Error loading cost entry:', error);
+        alert('Error loading cost entry');
+        router.push('/admin');
       }
-    };
-
-    loadCostData();
+    }
   }, [costId, isNewCostTracker, isAuthorized, router]);
+
+  // Load cost tracking data if editing existing
+  useEffect(() => {
+    loadCostData();
+  }, [loadCostData]);
 
   // Auto-save function for existing cost trackers
   const autoSaveCostData = useCallback(async () => {
@@ -260,6 +261,7 @@ export default function CostTrackingPage() {
             mode={isNewCostTracker ? 'create' : 'edit'}
             autoSaving={autoSaving}
             setHasUnsavedChanges={setHasUnsavedChanges}
+            onRefreshData={loadCostData}
           />
         </div>
       </div>

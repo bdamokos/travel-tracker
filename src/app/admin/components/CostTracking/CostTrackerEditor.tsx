@@ -25,6 +25,7 @@ interface CostTrackerEditorProps {
   mode: 'create' | 'edit';
   autoSaving: boolean;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
+  onRefreshData?: () => Promise<void>;
 }
 
 export default function CostTrackerEditor({
@@ -37,6 +38,7 @@ export default function CostTrackerEditor({
   mode,
   autoSaving,
   setHasUnsavedChanges,
+  onRefreshData,
 }: CostTrackerEditorProps) {
   const [currentBudget, setCurrentBudget] = useState<Partial<BudgetItem>>({
     country: '',
@@ -198,13 +200,19 @@ export default function CostTrackerEditor({
 
   // YNAB import handlers
   const handleYnabImportComplete = async () => {
-    // Reload the cost data to show imported transactions
-    if (costData.id && mode === 'edit') {
-      // Trigger parent component to reload data
-      setShowYnabImport(false);
-      // The parent component should handle reloading the data
+    // Close the import modal
+    setShowYnabImport(false);
+    
+    // Refresh the cost data to show newly imported expenses
+    if (onRefreshData) {
+      try {
+        await onRefreshData();
+      } catch (error) {
+        console.error('Error refreshing data after YNAB import:', error);
+        // Still show success since import completed, just refresh failed
+      }
     }
-  };
+  };;
 
   const handleYnabMappingsSave = async (mappings: YnabCategoryMapping[]) => {
     try {
