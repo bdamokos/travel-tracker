@@ -405,8 +405,8 @@ describe('Trip Data Isolation - Comprehensive Integration Tests', () => {
                 const costData1 = await costResponse1.json();
                 expect(costData1.tripId).toBe(testTripId1);
                 // Verify no cross-contamination - should only have its own expenses
-                const hasOwnExpense = costData1.expenses.some((exp: any) => exp.id === testExpenseId1);
-                const hasCrossExpense = costData1.expenses.some((exp: any) => exp.id === testExpenseId2);
+                const hasOwnExpense = costData1.expenses.some((exp: { id: string }) => exp.id === testExpenseId1);
+                const hasCrossExpense = costData1.expenses.some((exp: { id: string }) => exp.id === testExpenseId2);
                 expect(hasOwnExpense).toBe(true);
                 expect(hasCrossExpense).toBe(false);
             }
@@ -416,8 +416,8 @@ describe('Trip Data Isolation - Comprehensive Integration Tests', () => {
                 const costData2 = await costResponse2.json();
                 expect(costData2.tripId).toBe(testTripId2);
                 // Verify no cross-contamination - should only have its own expenses
-                const hasOwnExpense = costData2.expenses.some((exp: any) => exp.id === testExpenseId2);
-                const hasCrossExpense = costData2.expenses.some((exp: any) => exp.id === testExpenseId1);
+                const hasOwnExpense = costData2.expenses.some((exp: { id: string }) => exp.id === testExpenseId2);
+                const hasCrossExpense = costData2.expenses.some((exp: { id: string }) => exp.id === testExpenseId1);
                 expect(hasOwnExpense).toBe(true);
                 expect(hasCrossExpense).toBe(false);
             }

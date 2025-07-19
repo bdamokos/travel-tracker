@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip, YnabCategoryMapping } from '../../../types';
+import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip, YnabCategoryMapping, YnabConfig } from '../../../types';
 import { calculateCostSummary, generateId, EXPENSE_CATEGORIES } from '../../../lib/costUtils';
 import CostPieCharts from '../CostPieCharts';
 import { ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
@@ -13,6 +13,7 @@ import CountryBreakdownDisplay from './CountryBreakdownDisplay';
 import CostSummaryDashboard from './CostSummaryDashboard';
 import YnabImportForm from '../YnabImportForm';
 import YnabMappingManager from '../YnabMappingManager';
+import YnabSetup from '../YnabSetup';
 
 interface CostTrackerEditorProps {
   costData: CostTrackingData;
@@ -73,6 +74,7 @@ export default function CostTrackerEditor({
   // YNAB Import state
   const [showYnabImport, setShowYnabImport] = useState(false);
   const [showYnabMappings, setShowYnabMappings] = useState(false);
+  const [showYnabSetup, setShowYnabSetup] = useState(false);
   
 
   
@@ -257,6 +259,44 @@ export default function CostTrackerEditor({
     }
   };
 
+  const handleYnabConfigSaved = async (config: YnabConfig) => {
+    try {
+      // Update cost data with YNAB configuration
+      const updatedCostData = {
+        ...costData,
+        ynabConfig: config,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Save to backend if in edit mode
+      if (mode === 'edit' && costData.id) {
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+        const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedCostData),
+        });
+        
+        if (response.ok) {
+          setCostData(updatedCostData);
+          alert('YNAB configuration saved successfully!');
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          alert(`Error saving YNAB configuration: ${errorData.error || 'Unknown error'}`);
+        }
+      } else {
+        // For create mode, just update local state
+        setCostData(updatedCostData);
+        alert('YNAB configuration saved! Remember to save your cost tracker to persist the configuration.');
+      }
+    } catch (error) {
+      console.error('Error saving YNAB configuration:', error);
+      alert('Error saving YNAB configuration');
+    }
+  };
+
   return (
     <div className="space-y-8 text-gray-900 dark:text-gray-100">
       <BudgetSetup
@@ -298,6 +338,12 @@ export default function CostTrackerEditor({
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">Expense Tracking</h3>
               <div className="flex gap-2">
+                <button
+                  onClick={() => setShowYnabSetup(true)}
+                  className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 text-sm"
+                >
+                  Setup YNAB API
+                </button>
                 <button
                   onClick={() => setShowYnabMappings(true)}
                   className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
@@ -367,6 +413,15 @@ export default function CostTrackerEditor({
           onClose={() => setShowYnabImport(false)}
         />
       )}
+      
+      {/* YNAB Setup Modal */}
+      <YnabSetup
+        isOpen={showYnabSetup}
+        costTrackerId={costData.id}
+        existingConfig={costData.ynabConfig}
+        onConfigSaved={handleYnabConfigSaved}
+        onClose={() => setShowYnabSetup(false)}
+      />
       
       {/* YNAB Mapping Manager Modal */}
       <YnabMappingManager

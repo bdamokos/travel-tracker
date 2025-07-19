@@ -189,6 +189,7 @@ export type CostTrackingData = {
   expenses: Expense[];
   customCategories?: string[]; // User-defined expense categories (optional for backwards compatibility)
   ynabImportData?: YnabImportData; // YNAB import configuration and history
+  ynabConfig?: YnabConfig; // YNAB API configuration for direct integration
   createdAt: string;
   updatedAt?: string;
 };
@@ -274,6 +275,106 @@ export type YnabImportData = {
   lastImportedTransactionHash?: string; // NEW: track last imported transaction
   lastImportedTransactionDate?: string; // NEW: for additional filtering context
 };
+
+// Extended CategoryMapping with YNAB API support
+export interface CategoryMapping {
+  ynabCategoryId?: string;
+  ynabCategoryName?: string;
+  mappingType: 'country' | 'general' | 'none';
+  countryName?: string;
+}
+
+// YNAB API configuration - scoped to specific cost tracker
+export interface YnabConfig {
+  costTrackerId: string; // CRITICAL: Scope to specific cost tracker for data isolation
+  apiKey: string;
+  selectedBudgetId: string;
+  selectedBudgetName: string;
+  currency: string;
+  lastCategorySync?: Date;
+  categoryServerKnowledge?: number;
+  lastTransactionSync?: Date;
+  lastTransactionImport?: Date;
+  transactionServerKnowledge?: number;
+}
+
+// YNAB API Budget from SDK
+export interface YnabBudget {
+  id: string;
+  name: string;
+  last_modified_on: string;
+  first_month: string;
+  last_month: string;
+  currency_format: {
+    iso_code: string;
+    example_format: string;
+    decimal_digits: number;
+    decimal_separator: string;
+    symbol_first: boolean;
+    group_separator: string;
+    currency_symbol: string;
+    display_symbol: boolean;
+  };
+}
+
+// YNAB API Category from SDK
+export interface YnabCategory {
+  id: string;
+  category_group_id: string;
+  category_group_name: string;
+  name: string;
+  hidden: boolean;
+  original_category_group_id?: string;
+  note?: string;
+  budgeted: number;
+  activity: number;
+  balance: number;
+  goal_type?: string;
+  goal_day?: number;
+  goal_cadence?: number;
+  goal_creation_month?: string;
+  goal_target?: number;
+  goal_target_month?: string;
+  goal_percentage_complete?: number;
+  goal_months_to_budget?: number;
+  goal_under_funded?: number;
+  goal_overall_funded?: number;
+  goal_overall_left?: number;
+  deleted: boolean;
+}
+
+// YNAB API Transaction from SDK (simplified)
+export interface YnabApiTransaction {
+  id: string;
+  date: string;
+  amount: number; // in milliunits
+  memo?: string;
+  cleared: string;
+  approved: boolean;
+  flag_color?: string;
+  flag_name?: string;
+  account_id: string;
+  account_name: string;
+  payee_id?: string;
+  payee_name?: string;
+  category_id?: string;
+  category_name?: string;
+  transfer_account_id?: string;
+  transfer_transaction_id?: string;
+  matched_transaction_id?: string;
+  import_id?: string;
+  import_payee_name?: string;
+  import_payee_name_original?: string;
+  debt_transaction_type?: string;
+  deleted: boolean;
+}
+
+// YNAB API Error Response
+export interface YnabApiError {
+  id: string;
+  name: string;
+  detail: string;
+}
 
 // Add filtering response type
 export type YnabTransactionFilterResult = {
