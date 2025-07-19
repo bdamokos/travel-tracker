@@ -131,16 +131,31 @@ export function parseAccommodationData(accommodationData: string): ParsedAccommo
         if (!trimmedLine) continue;
         
         if (inMultiline) {
-          if (trimmedLine.startsWith(' ') || trimmedLine.startsWith('\t')) {
-            multilineValue += '\n' + trimmedLine.replace(/^[\s]+/, '');
+          // Check if line is indented (part of multiline value)
+          if (line.startsWith(' ') || line.startsWith('	')) {
+            multilineValue += '\n' + trimmedLine;
           } else {
+            // End of multiline value, save it and process this line as new key-value
             parsed[currentKey] = multilineValue.trim();
             inMultiline = false;
             multilineValue = '';
+            // Continue processing this line as a new key-value pair
+            const colonIndex = trimmedLine.indexOf(':');
+            if (colonIndex > 0) {
+              const key = trimmedLine.substring(0, colonIndex).trim();
+              const value = trimmedLine.substring(colonIndex + 1).trim();
+              
+              if (value === '|' || value === '>') {
+                // New multiline value
+                currentKey = key;
+                inMultiline = true;
+                multilineValue = '';
+              } else {
+                parsed[key] = value;
+              }
+            }
           }
-        }
-        
-        if (!inMultiline) {
+        } else {
           const colonIndex = trimmedLine.indexOf(':');
           if (colonIndex > 0) {
             const key = trimmedLine.substring(0, colonIndex).trim();

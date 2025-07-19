@@ -27,6 +27,8 @@ import {
   EXPENSE_CATEGORIES
 } from '../lib/costUtils';
 
+import { parseAccommodationData } from '../lib/privacyUtils';
+
 import { parseYnabFile } from '../lib/ynabUtils';
 import { CostTrackingData, Expense, BudgetItem } from '../types';
 
@@ -277,6 +279,69 @@ Some	Invalid	Data`;
       expect(id1).not.toBe(id2);
       expect(typeof id1).toBe('string');
       expect(id1.length).toBeGreaterThan(10); // Should be reasonable length
+    });
+  });
+
+  describe('Accommodation Data Parsing', () => {
+    it('should parse multi-line YAML notes correctly', () => {
+      const testYaml = `---
+name: Test Hotel
+address: 123 Main St
+notes: |
+  This is a multi-line note.
+  It should preserve all lines.
+  Including this third line.
+website: https://example.com
+---`;
+
+      const result = parseAccommodationData(testYaml);
+      
+      expect(result.isStructured).toBe(true);
+      expect(result.data).not.toBeNull();
+      expect(result.data?.name).toBe('Test Hotel');
+      expect(result.data?.address).toBe('123 Main St');
+      expect(result.data?.website).toBe('https://example.com');
+      
+      // Test that multi-line notes are preserved
+      expect(result.data?.notes).toBeDefined();
+      const noteLines = result.data?.notes?.split('\n') || [];
+      expect(noteLines.length).toBe(3);
+      expect(noteLines[0]).toBe('This is a multi-line note.');
+      expect(noteLines[1]).toBe('It should preserve all lines.');
+      expect(noteLines[2]).toBe('Including this third line.');
+    });
+
+    it('should handle YAML with multi-line notes followed by additional keys', () => {
+      const testYaml = `---
+name: Hotel with Complex Notes
+notes: |
+  First line of notes
+  Second line of notes
+phone: +1-555-0123
+checkin: 15:00
+---`;
+
+      const result = parseAccommodationData(testYaml);
+      
+      expect(result.isStructured).toBe(true);
+      expect(result.data?.name).toBe('Hotel with Complex Notes');
+      expect(result.data?.phone).toBe('+1-555-0123');
+      expect(result.data?.checkin).toBe('15:00');
+      
+      const noteLines = result.data?.notes?.split('\n') || [];
+      expect(noteLines.length).toBe(2);
+      expect(noteLines[0]).toBe('First line of notes');
+      expect(noteLines[1]).toBe('Second line of notes');
+    });
+
+    it('should handle non-YAML accommodation data as plain text', () => {
+      const plainText = 'Just some plain text accommodation notes';
+      
+      const result = parseAccommodationData(plainText);
+      
+      expect(result.isStructured).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.rawText).toBe(plainText);
     });
   });
 });
