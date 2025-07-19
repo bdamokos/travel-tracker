@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { YnabCategoryMapping, CostTrackingData } from '@/app/types';
+import { YnabCategoryMapping, CostTrackingData, YnabCategory } from '@/app/types';
 import { extractCategoriesFromYnabFile } from '@/app/lib/ynabUtils';
 import JSZip from 'jszip';
 import AriaSelect from './AriaSelect';
@@ -85,6 +85,12 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
     countryName: ''
   });
 
+  // YNAB API integration state
+  const [ynabCategories, setYnabCategories] = useState<YnabCategory[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null);
+  const [lastCategorySync, setLastCategorySync] = useState<Date | null>(null);
+
   const availableCountries = costData.countryBudgets.map(b => b.country);
 
   useEffect(() => {
@@ -141,6 +147,67 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
     }
   };
 
+  // Load categories from YNAB API
+  const handleLoadCategoriesFromApi = async () => {
+    if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
+      alert('YNAB API configuration not found. Please setup YNAB API first.');
+      return;
+    }
+
+    setIsLoadingCategories(true);
+    setCategoryLoadError(null);
+
+    try {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const params = new URLSearchParams({
+        apiKey: costData.ynabConfig.apiKey,
+        budgetId: costData.ynabConfig.selectedBudgetId,
+        ...(costData.ynabConfig.categoryServerKnowledge && {
+          serverKnowledge: costData.ynabConfig.categoryServerKnowledge.toString()
+        })
+      });
+      
+      const response = await fetch(`${baseUrl}/api/ynab/categories?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to load categories' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load categories`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.categories) {
+        setYnabCategories(result.categories);
+        setLastCategorySync(new Date());
+        
+        // Extract category names for the extracted categories list
+        const categoryNames = result.categories.map((cat: YnabCategory) => `${cat.category_group_name}: ${cat.name}`);
+        setExtractedCategories(categoryNames);
+        
+        // Show success message with sync info
+        const existingCategoryNames = new Set(mappings.map(m => m.ynabCategory?.trim()));
+        const unmappedCategories = categoryNames.filter((category: string) => !existingCategoryNames.has(category?.trim()));
+        const alreadyMappedCount = categoryNames.length - unmappedCategories.length;
+        
+        alert(`Loaded ${categoryNames.length} categories from YNAB API. ${alreadyMappedCount} already mapped, ${unmappedCategories.length} unmapped categories found.\n\nIMPORTANT: Click "Save Mappings" to save these mappings before importing transactions.`);
+      } else {
+        throw new Error('Invalid response format from YNAB API');
+      }
+    } catch (error) {
+      console.error('Error loading YNAB categories:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load categories from YNAB API';
+      setCategoryLoadError(errorMessage);
+      alert(`Error loading categories: ${errorMessage}`);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
   const handleAddMapping = () => {
     if (!newMapping.ynabCategory.trim()) {
       alert('Please enter a YNAB category name');
@@ -152,8 +219,18 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
       return;
     }
 
+    // Find the corresponding YNAB category ID if we have API-loaded categories
+    let ynabCategoryId: string | undefined;
+    if (ynabCategories.length > 0) {
+      const selectedCategory = ynabCategories.find(cat => 
+        `${cat.category_group_name}: ${cat.name}` === newMapping.ynabCategory.trim()
+      );
+      ynabCategoryId = selectedCategory?.id;
+    }
+
     const mapping: YnabCategoryMapping = {
       ynabCategory: newMapping.ynabCategory.trim(),
+      ynabCategoryId: ynabCategoryId, // Include the YNAB category ID for API calls
       mappingType: newMapping.mappingType,
       countryName: newMapping.mappingType === 'country' ? newMapping.countryName.trim() : undefined
     };
@@ -177,6 +254,14 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
       newMappings[index].countryName = value;
     } else if (field === 'ynabCategory') {
       newMappings[index].ynabCategory = value;
+      
+      // Update the corresponding YNAB category ID if we have API-loaded categories
+      if (ynabCategories.length > 0) {
+        const selectedCategory = ynabCategories.find(cat => 
+          `${cat.category_group_name}: ${cat.name}` === value
+        );
+        newMappings[index].ynabCategoryId = selectedCategory?.id;
+      }
     }
     setMappings(newMappings);
   };
@@ -190,11 +275,23 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
       cat => !mappings.some(m => m.ynabCategory === cat)
     );
 
-    const newMappings = unmappedCategories.map(category => ({
-      ynabCategory: category,
-      mappingType: mappingType,
-      countryName: mappingType === 'country' ? defaultCountry : undefined
-    }));
+    const newMappings = unmappedCategories.map(category => {
+      // Find the corresponding YNAB category ID if we have API-loaded categories
+      let ynabCategoryId: string | undefined;
+      if (ynabCategories.length > 0) {
+        const selectedCategory = ynabCategories.find(cat => 
+          `${cat.category_group_name}: ${cat.name}` === category
+        );
+        ynabCategoryId = selectedCategory?.id;
+      }
+
+      return {
+        ynabCategory: category,
+        ynabCategoryId: ynabCategoryId, // Include the YNAB category ID for API calls
+        mappingType: mappingType,
+        countryName: mappingType === 'country' ? defaultCountry : undefined
+      };
+    });
 
     setMappings(prev => [...prev, ...newMappings]);
     alert(`Added ${newMappings.length} new mappings as ${mappingType === 'none' ? 'non-travel' : mappingType} expenses.`);
@@ -297,6 +394,73 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
           </div>
         )}
       </div>
+
+      {/* YNAB API Category Loading */}
+      {costData.ynabConfig?.apiKey && (
+        <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-700 rounded-lg p-4 mb-6">
+          <h3 className="text-lg font-semibold mb-3 text-purple-800 dark:text-purple-200">Load Categories from YNAB API</h3>
+          <p className="text-sm text-purple-700 dark:text-purple-300 mb-4">
+            Load categories directly from your connected YNAB budget: <strong>{costData.ynabConfig.selectedBudgetName}</strong>
+          </p>
+          
+          <div className="flex items-center gap-4 mb-3">
+            <button
+              onClick={handleLoadCategoriesFromApi}
+              disabled={isLoadingCategories}
+              className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+            >
+              {isLoadingCategories ? 'Loading Categories...' : 'Load from YNAB API'}
+            </button>
+            
+            {lastCategorySync && (
+              <>
+                <button
+                  onClick={handleLoadCategoriesFromApi}
+                  disabled={isLoadingCategories}
+                  className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-sm"
+                >
+                  {isLoadingCategories ? 'Refreshing...' : 'Refresh Categories'}
+                </button>
+                <span className="text-sm text-purple-600 dark:text-purple-300">
+                  Last sync: {lastCategorySync.toLocaleTimeString()}
+                </span>
+              </>
+            )}
+          </div>
+
+          {categoryLoadError && (
+            <div className="mb-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-700 rounded-md">
+              <p className="text-sm text-red-800 dark:text-red-200 font-medium">
+                ❌ Error loading categories
+              </p>
+              <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                {categoryLoadError}
+              </p>
+            </div>
+          )}
+
+          {ynabCategories.length > 0 && (
+            <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-700 rounded-md">
+              <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                ✓ Loaded {ynabCategories.length} categories from YNAB API
+              </p>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                Categories include: {ynabCategories.slice(0, 3).map(cat => `${cat.category_group_name}: ${cat.name}`).join(', ')}
+                {ynabCategories.length > 3 && ` and ${ynabCategories.length - 3} more...`}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!costData.ynabConfig?.apiKey && (
+        <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+          <h3 className="text-lg font-semibold mb-2 text-yellow-800 dark:text-yellow-200">YNAB API Not Configured</h3>
+          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+            To load categories directly from YNAB, please setup your YNAB API connection first using the "Setup YNAB API" button in the cost tracker.
+          </p>
+        </div>
+      )}
 
       {/* Add New Mapping */}
       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">

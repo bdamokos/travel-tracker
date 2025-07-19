@@ -200,8 +200,8 @@ export class YnabApiClient {
   /**
    * Convert YNAB milliunits to currency amount
    */
-  static convertMilliUnitsToCurrency(milliunits: number, decimalDigits: number = 2): number {
-    return milliunits / Math.pow(10, decimalDigits + 3);
+  static convertMilliUnitsToCurrency(milliunits: number): number {
+    return milliunits / 1000;
   }
 
   /**
@@ -268,8 +268,8 @@ export const ynabUtils = {
   /**
    * Convert milliunits to display currency
    */
-  milliunitsToAmount: (milliunits: number, decimalDigits: number = 2): number => {
-    return YnabApiClient.convertMilliUnitsToCurrency(milliunits, decimalDigits);
+  milliunitsToAmount: (milliunits: number): number => {
+    return YnabApiClient.convertMilliUnitsToCurrency(milliunits);
   },
 
   /**

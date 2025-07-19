@@ -265,6 +265,7 @@ export type YnabTransaction = {
 
 export type YnabCategoryMapping = {
   ynabCategory: string;
+  ynabCategoryId?: string; // YNAB API category ID for API-based imports
   mappingType: 'country' | 'general' | 'none';
   countryName?: string; // if mappingType === 'country'
 };

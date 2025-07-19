@@ -4,7 +4,8 @@ import { useState, useRef } from 'react';
 import { 
   YnabCategoryMapping, 
   ProcessedYnabTransaction, 
-  CostTrackingData 
+  CostTrackingData,
+  YnabCategory
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import AriaSelect from './AriaSelect';
@@ -30,13 +31,18 @@ interface TransactionSelection {
 }
 
 export default function YnabImportForm({ isOpen, costData, onImportComplete, onClose }: YnabImportFormProps) {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0); // Start with method selection
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Step 1: Upload
+  // Step 0: Method Selection
+  const [importMethod, setImportMethod] = useState<'file' | 'api' | null>(null);
+  const [syncMode, setSyncMode] = useState<'last-sync' | 'last-import' | 'all'>('last-sync');
+  
+  // Step 1: Upload (file method) or API Category Loading
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [, setYnabCategories] = useState<YnabCategory[]>([]);
   
   // Step 2: Category Mapping
   const [categoryMappings, setCategoryMappings] = useState<YnabCategoryMapping[]>([]);
@@ -48,11 +54,88 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   const [lastTransactionFound, setLastTransactionFound] = useState(false);
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
+  const [lastServerKnowledge, setLastServerKnowledge] = useState<number>(0);
 
   const availableCountries = costData.countryBudgets.map(b => b.country);
   
   // Use the app's standard categories - either custom or the default EXPENSE_CATEGORIES
   const availableCategories = costData.customCategories || [...EXPENSE_CATEGORIES];
+
+  // Helper function to determine sinceDate based on sync mode
+  const getSinceDateForSyncMode = (mode: 'last-sync' | 'last-import' | 'all', ynabConfig?: { lastTransactionSync?: Date; lastTransactionImport?: Date }) => {
+    if (mode === 'all') return undefined;
+    if (mode === 'last-sync' && ynabConfig?.lastTransactionSync) {
+      return ynabConfig.lastTransactionSync;
+    }
+    if (mode === 'last-import' && ynabConfig?.lastTransactionImport) {
+      return ynabConfig.lastTransactionImport;
+    }
+    return undefined; // No date filtering if no previous sync/import found
+  };
+
+  // Load categories from YNAB API for mapping
+  const handleLoadCategoriesFromApi = async () => {
+    if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
+      setError('YNAB API configuration not found. Please setup YNAB API first.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const params = new URLSearchParams({
+        apiKey: costData.ynabConfig.apiKey,
+        budgetId: costData.ynabConfig.selectedBudgetId,
+        ...(costData.ynabConfig.categoryServerKnowledge && {
+          serverKnowledge: costData.ynabConfig.categoryServerKnowledge.toString()
+        })
+      });
+      
+      const response = await fetch(`${baseUrl}/api/ynab/categories?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to load categories' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load categories`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.categories) {
+        setYnabCategories(result.categories);
+        
+        // Initialize category mappings with existing ones if available
+        const existingMappings = costData.ynabImportData?.mappings || [];
+        const newMappings: YnabCategoryMapping[] = result.categories.map((category: YnabCategory) => {
+          const categoryName = `${category.category_group_name}: ${category.name}`;
+          const existing = existingMappings.find(m => m.ynabCategory === categoryName);
+          return existing || {
+            ynabCategory: categoryName,
+            ynabCategoryId: category.id,
+            mappingType: 'none',
+            countryName: undefined
+          };
+        });
+
+        setCategoryMappings(newMappings);
+        setCurrentStep(2); // Skip to mapping step
+      } else {
+        throw new Error('Invalid response format from YNAB API');
+      }
+    } catch (error) {
+      console.error('Error loading YNAB categories:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load categories from YNAB API';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -111,7 +194,90 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     setCategoryMappings(newMappings);
   };
 
+  // Load transactions from API directly
+  const loadTransactionsFromApi = async () => {
+    if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
+      setError('YNAB API configuration not found. Please setup YNAB API first.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      
+      const response = await fetch(`${baseUrl}/api/ynab/transactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey: costData.ynabConfig.apiKey,
+          budgetId: costData.ynabConfig.selectedBudgetId,
+          categoryMappings: categoryMappings.map(mapping => ({
+            ynabCategoryId: mapping.ynabCategoryId,
+            mappingType: mapping.mappingType,
+            countryName: mapping.countryName
+          })),
+          sinceDate: getSinceDateForSyncMode(syncMode, costData.ynabConfig),
+          serverKnowledge: syncMode === 'all' ? undefined : costData.ynabConfig.transactionServerKnowledge
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to load transactions' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load transactions`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setProcessedTransactions(result.transactions);
+        setTotalTransactions(result.totalCount || result.transactions.length);
+        setLastServerKnowledge(result.serverKnowledge || 0);
+
+        // Handle case where no transactions are available for import
+        if (result.transactions.length === 0) {
+          const message = result.message || 'No transactions available for import.';
+          
+          // If the message indicates no categories are mapped, provide helpful guidance
+          if (message.includes('No categories mapped')) {
+            alert(`${message}\n\nTo fix this:\n1. Go back and open "YNAB Category Mappings"\n2. Load categories from YNAB API\n3. Set up your category mappings\n4. Click "Save Mappings"\n5. Then return to import transactions`);
+            // Go back to method selection to start over
+            setCurrentStep(0);
+          } else {
+            alert(message);
+          }
+          return;
+        }
+
+        // Initialize selected transactions with all available ones
+        const initialSelections: TransactionSelection[] = result.transactions.map((txn: ProcessedYnabTransaction) => ({
+          transactionHash: txn.hash,
+          expenseCategory: availableCategories[0] // Default to first available category
+        }));
+
+        setSelectedTransactions(initialSelections);
+        setCurrentStep(3);
+      } else {
+        throw new Error('Invalid response format from YNAB API');
+      }
+    } catch (error) {
+      console.error('Error loading YNAB transactions:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load transactions from YNAB API';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadTransactions = async (showAll: boolean = false) => {
+    if (importMethod === 'api') {
+      await loadTransactionsFromApi();
+      return;
+    }
+
     if (!uploadResult) return;
 
     setIsLoading(true);
@@ -190,34 +356,94 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   };
 
   const handleFinalImport = async () => {
-    if (!uploadResult) return;
-
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/cost-tracking/${costData.id}/ynab-process`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'import',
-          tempFileId: uploadResult.tempFileId,
-          mappings: categoryMappings,
-          selectedTransactions: selectedTransactions
-        }),
-      });
+      let response: Response;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to import transactions');
+      if (importMethod === 'api') {
+        // API-based import: send transactions directly to cost tracking API
+        const expensesToAdd = selectedTransactions.map(selection => {
+          const transaction = processedTransactions.find(t => t.hash === selection.transactionHash);
+          if (!transaction) throw new Error(`Transaction not found: ${selection.transactionHash}`);
+
+          return {
+            id: Date.now().toString(36) + Math.random().toString(36).substring(2),
+            date: new Date(transaction.date),
+            amount: transaction.amount,
+            currency: costData.currency, // Use the trip's currency
+            category: selection.expenseCategory,
+            description: transaction.description,
+            country: transaction.isGeneralExpense ? 'General' : transaction.mappedCountry,
+            notes: transaction.memo || '',
+            isGeneralExpense: transaction.isGeneralExpense,
+            expenseType: 'actual',
+            source: 'ynab-api',
+            hash: transaction.hash
+          };
+        });
+
+        response = await fetch(`/api/cost-tracking?id=${costData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            expenses: [...(costData.expenses || []), ...expensesToAdd],
+            ynabImportData: {
+              ...costData.ynabImportData,
+              mappings: categoryMappings,
+              lastImportDate: new Date().toISOString(),
+              lastImportedTransactionHashes: selectedTransactions.map(s => s.transactionHash)
+            },
+            ynabConfig: {
+              ...costData.ynabConfig,
+              lastTransactionImport: new Date(),
+              transactionServerKnowledge: lastServerKnowledge
+            }
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to import transactions');
+        }
+
+        alert(`Successfully imported ${expensesToAdd.length} transactions!`);
+        onImportComplete();
+        onClose();
+
+      } else {
+        // File-based import: use existing ynab-process endpoint
+        if (!uploadResult) {
+          throw new Error('Upload result not found for file-based import');
+        }
+
+        response = await fetch(`/api/cost-tracking/${costData.id}/ynab-process`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'import',
+            tempFileId: uploadResult.tempFileId,
+            mappings: categoryMappings,
+            selectedTransactions: selectedTransactions
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to import transactions');
+        }
+
+        const result = await response.json();
+        alert(`Successfully imported ${result.importedCount} transactions!`);
+        onImportComplete();
+        onClose();
       }
 
-      const result = await response.json();
-      alert(`Successfully imported ${result.importedCount} transactions!`);
-      onImportComplete();
-      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import transactions');
     } finally {
@@ -227,7 +453,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 1: return 'Upload YNAB Export';
+      case 0: return 'Choose Import Method';
+      case 1: return importMethod === 'file' ? 'Upload YNAB Export' : 'Load from YNAB API';
       case 2: return 'Map Categories';
       case 3: return 'Select Transactions';
       default: return 'YNAB Import';
@@ -246,12 +473,12 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
           {/* Progress indicator */}
           <div className="flex items-center mb-8">
-            {[1, 2, 3].map((step) => (
+            {[0, 1, 2, 3].map((step) => (
               <div key={step} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step <= currentStep ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
                 }`}>
-                  {step}
+                  {step + 1}
                 </div>
                 {step < 3 && (
                   <div className={`w-16 h-1 mx-2 ${
@@ -268,8 +495,142 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             </div>
           )}
 
-          {/* Step 1: Upload */}
-          {currentStep === 1 && (
+          {/* Step 0: Method Selection */}
+          {currentStep === 0 && (
+            <div className="space-y-6">
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Choose how you'd like to import transactions from YNAB. You can either upload a file export or load transactions directly from your YNAB account via the API.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* File Upload Method */}
+                <div 
+                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all duration-200 ${
+                    importMethod === 'file' 
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
+                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700'
+                  }`}
+                  onClick={() => setImportMethod('file')}
+                >
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="radio"
+                      name="import-method"
+                      value="file"
+                      checked={importMethod === 'file'}
+                      onChange={() => setImportMethod('file')}
+                      className="mr-3"
+                    />
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Upload YNAB Export File</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                    Upload a .tsv or .zip export file from YNAB. This method works offline and gives you full control over which transactions to import.
+                  </p>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    ✓ Works without API setup<br />
+                    ✓ Process historical data<br />
+                    ✓ Full transaction control
+                  </div>
+                </div>
+
+                {/* API Method */}
+                <div 
+                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all duration-200 ${
+                    importMethod === 'api' 
+                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950' 
+                      : costData.ynabConfig?.apiKey
+                        ? 'border-gray-300 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
+                  }`}
+                  onClick={() => costData.ynabConfig?.apiKey && setImportMethod('api')}
+                >
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="radio"
+                      name="import-method"
+                      value="api"
+                      checked={importMethod === 'api'}
+                      onChange={() => setImportMethod('api')}
+                      disabled={!costData.ynabConfig?.apiKey}
+                      className="mr-3"
+                    />
+                    <h3 className={`text-lg font-semibold ${
+                      costData.ynabConfig?.apiKey 
+                        ? 'text-gray-800 dark:text-gray-100' 
+                        : 'text-gray-400 dark:text-gray-500'
+                    }`}>
+                      Load from YNAB API
+                    </h3>
+                  </div>
+                  {costData.ynabConfig?.apiKey ? (
+                    <>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                        Load transactions directly from your connected YNAB budget: <strong>{costData.ynabConfig.selectedBudgetName}</strong>
+                      </p>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        ✓ Real-time data sync<br />
+                        ✓ Automatic categorization<br />
+                        ✓ Delta sync support
+                      </div>
+                      {importMethod === 'api' && (
+                        <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-700">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Sync Mode
+                          </label>
+                          <AriaSelect
+                            id="sync-mode-select"
+                            value={syncMode}
+                            onChange={(value) => setSyncMode(value as 'last-sync' | 'last-import' | 'all')}
+                            options={[
+                              { value: 'last-sync', label: 'Since Last Sync (Recommended)' },
+                              { value: 'last-import', label: 'Since Last Import (Error Recovery)' },
+                              { value: 'all', label: 'All Transactions (Full Sync)' }
+                            ]}
+                            placeholder="Select sync mode"
+                            className="text-sm"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {syncMode === 'last-sync' && 'Load only new transactions since the last API sync'}
+                            {syncMode === 'last-import' && 'Load transactions since the last successful import (for error recovery)'}
+                            {syncMode === 'all' && 'Load all transactions (may include previously imported items)'}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">
+                        API access not configured. Please set up your YNAB API connection first.
+                      </p>
+                      <div className="text-sm text-gray-400 dark:text-gray-500">
+                        ⚠ Requires YNAB API setup<br />
+                        ⚠ Configure in cost tracker settings
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button
+                  onClick={() => {
+                    if (importMethod === 'file') {
+                      setCurrentStep(1);
+                    } else if (importMethod === 'api') {
+                      handleLoadCategoriesFromApi();
+                    }
+                  }}
+                  disabled={!importMethod}
+                  className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Upload/API Loading */}
+          {currentStep === 1 && importMethod === 'file' && (
             <div className="space-y-4">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
                 Upload your YNAB export file (.tsv format) or YNAB export zip file (.zip format). The system will automatically extract the transaction register from zip files.
@@ -436,7 +797,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
               <div className="flex justify-between pt-4">
                 <button
-                  onClick={() => setCurrentStep(1)}
+                  onClick={() => setCurrentStep(importMethod === 'file' ? 1 : 0)}
                   className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
                 >
                   Back

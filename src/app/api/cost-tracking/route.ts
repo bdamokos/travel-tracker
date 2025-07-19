@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
       countryBudgets: unifiedData.costData.countryBudgets,
       expenses: unifiedData.costData.expenses, // These are already trip-scoped by design
       ynabImportData: unifiedData.costData.ynabImportData,
+      ynabConfig: unifiedData.costData.ynabConfig, // Include YNAB API configuration
       createdAt: unifiedData.createdAt,
       updatedAt: unifiedData.updatedAt,
       // Add validation status for monitoring

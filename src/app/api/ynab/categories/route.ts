@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         categories: result.categories.map(category => ({
           id: category.id,
           name: category.name,
-          categoryGroupName: category.category_group_name,
+          category_group_name: category.category_group_name,
           hidden: category.hidden,
           balance: YnabApiClient.convertMilliUnitsToCurrency(category.balance),
           budgeted: YnabApiClient.convertMilliUnitsToCurrency(category.budgeted),

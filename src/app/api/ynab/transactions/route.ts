@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
         success: true,
         transactions: [],
         serverKnowledge: serverKnowledge || 0,
-        message: 'No categories mapped for transaction retrieval'
+        message: 'No categories mapped for transaction retrieval. Please use "YNAB Category Mappings" to map categories first, then save the mappings before importing transactions.'
       });
     }
 

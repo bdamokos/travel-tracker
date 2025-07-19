@@ -41,6 +41,7 @@ export interface UnifiedTripData {
     countryBudgets: CostTrackingData['countryBudgets'];
     expenses: CostTrackingData['expenses'];
     ynabImportData?: CostTrackingData['ynabImportData'];
+    ynabConfig?: CostTrackingData['ynabConfig']; // YNAB API configuration for direct integration
   };
 }
 

@@ -13,7 +13,7 @@ import {
   migrateToLatestSchema,
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
-import { Location, Transportation, BudgetItem, Expense, YnabImportData, JourneyPeriod, Accommodation } from '../types';
+import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '../types';
 import { backupService } from './backupService';
 
 const DATA_DIR = join(process.cwd(), 'data');
@@ -294,7 +294,8 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
       currency: (costUpdates.currency as string) || baseData.costData?.currency || 'EUR',
       countryBudgets: (costUpdates.countryBudgets as BudgetItem[]) || baseData.costData?.countryBudgets || [],
       expenses: (costUpdates.expenses as Expense[]) || baseData.costData?.expenses || [],
-      ynabImportData: (costUpdates.ynabImportData as YnabImportData) || baseData.costData?.ynabImportData
+      ynabImportData: (costUpdates.ynabImportData as YnabImportData) || baseData.costData?.ynabImportData,
+      ynabConfig: (costUpdates.ynabConfig as YnabConfig) || baseData.costData?.ynabConfig // YNAB API configuration
     }
   };
 
