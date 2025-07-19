@@ -98,7 +98,7 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
     // Load unified file
     const unifiedFilePath = join(DATA_DIR, `trip-${tripId}.json`);
     const unifiedContent = await readFile(unifiedFilePath, 'utf-8');
-    const parsed = JSON.parse(unifiedContent);
+    const parsed = JSON.parse(unifiedContent, dateReviver);
 
     if (isUnifiedFormat(parsed)) {
       // Apply latest schema migration
@@ -306,3 +306,12 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
 /**
  * Cleans up legacy files after successful migration
  */
+
+const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+function dateReviver(key: string, value: any): any {
+  if (typeof value === 'string' && isoDateRegex.test(value)) {
+    return new Date(value);
+  }
+  return value;
+}
