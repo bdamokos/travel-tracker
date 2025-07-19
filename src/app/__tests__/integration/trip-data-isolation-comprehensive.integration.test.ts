@@ -10,7 +10,7 @@
  * Requirements: 5.4, 6.5
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '../../lib/dataMigration';
 import { ExpenseTravelLookup, TripData } from '../../lib/expenseTravelLookup';
 import { validateTripBoundary } from '../../lib/tripBoundaryValidation';
@@ -365,7 +365,7 @@ describe('Trip Data Isolation - Comprehensive Integration Tests', () => {
                 }
             };
 
-            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+            const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
             // Perform migration
             const migratedData = migrateToLatestSchema(v3DataWithCrossTripLinks);
