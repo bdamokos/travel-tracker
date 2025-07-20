@@ -7,7 +7,7 @@ import { useShadowTripEditor } from './hooks/useShadowTripEditor';
 import TripMetadataForm from '../../edit/[tripId]/components/TripMetadataForm';
 import LocationManager from '../../edit/[tripId]/components/LocationManager';
 import RouteManager from '../../edit/[tripId]/components/RouteManager';
-import AccommodationManager from '../../edit/[tripId]/components/AccommodationManager';
+
 
 export default function ShadowPlannerPage() {
   const params = useParams();
@@ -362,34 +362,7 @@ export default function ShadowPlannerPage() {
             </div>
           </div>
 
-          {/* Accommodation Manager */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Shadow Accommodations
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Plan future stays and lodging
-              </p>
-            </div>
-            <div className="p-6">
-              {travelData && (
-                <AccommodationManager
-                  travelData={travelData}
-                  setTravelData={(newData) => {
-                    if (typeof newData === 'function') {
-                      setTravelData(prev => prev ? newData(prev) : prev);
-                    } else {
-                      setTravelData(newData);
-                    }
-                  }}
-                  setHasUnsavedChanges={setHasUnsavedChanges}
-                  travelLookup={travelLookup}
-                  costData={costData}
-                />
-              )}
-            </div>
-          </div>
+
         </div>
       </div>
 

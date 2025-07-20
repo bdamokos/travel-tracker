@@ -22,6 +22,8 @@ export type Accommodation = {
   costTrackingLinks?: CostTrackingLink[];
   createdAt: string;
   updatedAt?: string;
+  // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
+  isReadOnly?: boolean;
 };
 
 // Location type for storing geographical coordinates and related information

@@ -124,6 +124,24 @@ export function useShadowTripEditor(tripId: string) {
         const realRoutes = data.travelData?.routes || [];
         const shadowRoutes = data.shadowData?.shadowRoutes || [];
         
+        // Merge real accommodations with shadow accommodations first
+        const realAccommodations = data.accommodations || [];
+        const shadowAccommodations = data.shadowData?.shadowAccommodations || [];
+        
+        const mergedAccommodations = [
+          ...realAccommodations.map((acc: Accommodation) => ({
+            ...acc,
+            name: `📍 ${acc.name}`, // Mark real accommodations with icon
+            isReadOnly: true
+          })),
+          ...shadowAccommodations.map((acc: Accommodation) => ({
+            ...acc,
+            isReadOnly: false
+          }))
+        ];
+        
+        setAccommodations(mergedAccommodations);
+        
         const shadowTravelData: TravelData = {
           title: data.title,
           description: data.description,
@@ -132,19 +150,35 @@ export function useShadowTripEditor(tripId: string) {
           // Combine real locations with shadow locations for editing
           // Real locations are shown as read-only context, shadow locations are editable
           locations: [
-            ...realLocations.map((loc: Location) => ({
-              ...loc,
-              id: loc.id,
-              name: `📍 ${loc.name}`, // Mark real locations with icon
-              date: new Date(loc.date),
-              // Mark as read-only by adding a flag we can check in the editor
-              isReadOnly: true
-            })),
-            ...shadowLocations.map((loc: Location) => ({
-              ...loc,
-              date: new Date(loc.date || new Date()),
-              isReadOnly: false
-            }))
+            ...realLocations.map((loc: Location) => {
+              // Find accommodations that belong to this location
+              const locationAccommodations = mergedAccommodations.filter(acc => acc.locationId === loc.id);
+              const accommodationIds = locationAccommodations.map(acc => acc.id);
+              
+              return {
+                ...loc,
+                id: loc.id,
+                name: `📍 ${loc.name}`, // Mark real locations with icon
+                date: new Date(loc.date),
+                // Mark as read-only by adding a flag we can check in the editor
+                isReadOnly: true,
+                // Include accommodation IDs so AccommodationManager can find them
+                accommodationIds: accommodationIds.length > 0 ? accommodationIds : loc.accommodationIds || []
+              };
+            }),
+            ...shadowLocations.map((loc: Location) => {
+              // Find accommodations that belong to this location
+              const locationAccommodations = mergedAccommodations.filter(acc => acc.locationId === loc.id);
+              const accommodationIds = locationAccommodations.map(acc => acc.id);
+              
+              return {
+                ...loc,
+                date: new Date(loc.date || new Date()),
+                isReadOnly: false,
+                // Include accommodation IDs so AccommodationManager can find them
+                accommodationIds: accommodationIds.length > 0 ? accommodationIds : loc.accommodationIds || []
+              };
+            })
           ],
           // Combine real routes with shadow routes  
           routes: [
@@ -170,7 +204,6 @@ export function useShadowTripEditor(tripId: string) {
         };
         
         setTravelData(shadowTravelData);
-        setAccommodations(data.shadowData?.shadowAccommodations || []);
         
         // Load cost data for expense linking
         try {
@@ -235,7 +268,7 @@ export function useShadowTripEditor(tripId: string) {
               routePoints: route.routePoints,
               costTrackingLinks: route.costTrackingLinks || []
             })),
-          shadowAccommodations: accommodations
+          shadowAccommodations: accommodations.filter(acc => !acc.isReadOnly)
         };
 
         const response = await fetch(`/api/shadow-trips/${tripId}`, {
