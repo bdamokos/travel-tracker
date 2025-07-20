@@ -396,6 +396,17 @@ export type ProcessedYnabTransaction = {
   expenseType?: ExpenseType; // Optional expense type, defaults to 'actual'
 };
 
+// Shadow Trip Planning Types
+export interface ShadowTrip {
+  id: string;
+  basedOn: string; // ID of the real Trip this shadows
+  shadowLocations: Location[];
+  shadowRoutes: Transportation[];
+  shadowAccommodations: Accommodation[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -408,6 +419,7 @@ export interface Trip {
   accommodations: Accommodation[];
   travelLinks?: TravelLink[];
   costTrackingId?: string;
+  shadowTripId?: string; // Link to corresponding shadow trip
   schemaVersion?: number;
   createdAt?: string;
   updatedAt?: string;

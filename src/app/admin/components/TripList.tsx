@@ -86,9 +86,14 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
     }
   };
 
-  // Get map URL
+  // Get map URL with planning mode
   const getMapUrl = (tripId: string) => {
-    return `/map/${tripId}`;
+    return `/map/${tripId}?planningMode=true`;
+  };
+
+  // Get calendar URL with planning mode
+  const getCalendarUrl = (tripId: string) => {
+    return `/calendars/${tripId}?planningMode=true`;
   };
 
   return (
@@ -230,6 +235,13 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
                     Edit
                   </button>
                   <button
+                    onClick={() => router.push(`/admin/shadow-planner/${trip.id}`)}
+                    className="flex-1 px-3 py-2 bg-orange-500 dark:bg-orange-600 text-white rounded-sm text-sm hover:bg-orange-600 dark:hover:bg-orange-700"
+                    title="Plan future parts of this trip"
+                  >
+                    Shadow
+                  </button>
+                  <button
                     onClick={() => {
                       const mapUrl = getMapUrl(trip.id);
                       window.open(mapUrl, '_blank');
@@ -240,7 +252,7 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
                   </button>
                   <button
                     onClick={() => {
-                      window.open(`/calendars/${trip.id}`, '_blank');
+                      window.open(getCalendarUrl(trip.id), '_blank');
                     }}
                     className="flex-1 px-3 py-2 bg-purple-500 dark:bg-purple-600 text-white rounded-sm text-sm hover:bg-purple-600 dark:hover:bg-purple-700"
                   >
