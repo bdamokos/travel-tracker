@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Location, Transportation, Accommodation } from '../../types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
+import { useExpenseLinks } from '../../hooks/useExpenseLinks';
 import AriaSelect from './AriaSelect';
 
 interface TravelItem {
@@ -18,7 +19,8 @@ interface TravelItem {
 interface TravelItemSelectorProps {
   expenseId: string;
   tripId: string;
-  travelLookup: ExpenseTravelLookup | null;
+  // Legacy prop - kept for backward compatibility but not used
+  travelLookup?: ExpenseTravelLookup | null;
   onReferenceChange: (travelLinkInfo: TravelLinkInfo | undefined) => void;
   className?: string;
 }
@@ -26,7 +28,6 @@ interface TravelItemSelectorProps {
 export default function TravelItemSelector({
   expenseId,
   tripId,
-  travelLookup,
   onReferenceChange,
   className = ''
 }: TravelItemSelectorProps) {
@@ -36,17 +37,20 @@ export default function TravelItemSelector({
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
 
-  // Load current reference values
+  // Use our new SWR hooks for real-time data
+  const { expenseLinks } = useExpenseLinks(tripId);
+
+  // Load current reference values using SWR data
   useEffect(() => {
-    if (travelLookup && expenseId) {
-      const currentLink = travelLookup.getTravelLinkForExpense(expenseId);
+    if (expenseId && expenseLinks.length > 0) {
+      const currentLink = expenseLinks.find(link => link.expenseId === expenseId);
       if (currentLink) {
-        setSelectedType(currentLink.type);
-        setSelectedItem(currentLink.id);
-        setDescription(currentLink.name);
+        setSelectedType(currentLink.travelItemType);
+        setSelectedItem(currentLink.travelItemId);
+        setDescription(currentLink.description || '');
       }
     }
-  }, [travelLookup, expenseId]);
+  }, [expenseLinks, expenseId]);
 
   // Load available travel items from current trip only
   useEffect(() => {

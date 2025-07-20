@@ -140,6 +140,7 @@ export default function LocationAccommodationsManager({
               <AccommodationReadOnlyDisplay
                 key={accommodation.id}
                 accommodation={accommodation}
+                tripId={tripId}
                 travelLookup={travelLookup}
                 costData={costData}
               />
@@ -189,8 +190,6 @@ export default function LocationAccommodationsManager({
               accommodation={accommodation}
               onEdit={() => setEditingId(accommodation.id)}
               onDelete={() => handleDeleteAccommodation(accommodation.id)}
-              travelLookup={travelLookup}
-              costData={costData}
               tripId={tripId}
             />
           )}
@@ -268,15 +267,11 @@ function AccommodationDisplay({
   accommodation, 
   onEdit, 
   onDelete, 
-  travelLookup,
-  costData,
   tripId
 }: {
   accommodation: Accommodation;
   onEdit: () => void;
   onDelete: () => void;
-  travelLookup: ExpenseTravelLookup | null;
-  costData: CostTrackingData | null;
   tripId: string;
 }) {
   return (
@@ -322,8 +317,6 @@ function AccommodationDisplay({
         itemId={accommodation.id}
         itemType="accommodation"
         itemName={accommodation.name}
-        travelLookup={travelLookup}
-        costData={costData}
         tripId={tripId}
       />
     </div>

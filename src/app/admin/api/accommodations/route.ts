@@ -121,10 +121,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
     }
     
-    // Update accommodation
+    // Update accommodation - exclude costTrackingLinks as they're managed by the new SWR system
+    const { costTrackingLinks, ...accommodationData } = body;
     tripData.accommodations[index] = {
       ...tripData.accommodations[index],
-      ...body,
+      ...accommodationData,
       updatedAt: new Date().toISOString()
     };
     

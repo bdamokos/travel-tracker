@@ -6,9 +6,13 @@ import { parseAccommodationData } from '../../lib/privacyUtils';
 import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 import { CostTrackingData } from '../../types';
 import { formatCurrency } from '../../lib/costUtils';
+import { useExpenseLinksForTravelItem } from '../../hooks/useExpenseLinks';
+import { useExpenses } from '../../hooks/useExpenses';
 
 interface AccommodationReadOnlyDisplayProps {
   accommodation: Accommodation;
+  tripId: string;
+  // Legacy props - kept for backward compatibility but not used
   travelLookup?: ExpenseTravelLookup | null;
   costData?: CostTrackingData | null;
   className?: string;
@@ -16,15 +20,19 @@ interface AccommodationReadOnlyDisplayProps {
 
 export default function AccommodationReadOnlyDisplay({
   accommodation,
-  travelLookup,
-  costData,
+  tripId,
   className = ''
 }: AccommodationReadOnlyDisplayProps) {
   const parsedData = parseAccommodationData(accommodation.accommodationData || '');
   
-  // Calculate linked expenses total
-  const linkedExpenseIds = travelLookup?.getExpensesForTravelItem('accommodation', accommodation.id) || [];
-  const linkedExpenses = costData?.expenses.filter(exp => linkedExpenseIds.includes(exp.id)) || [];
+  // Use our new SWR hooks for real-time data
+  const { expenseLinks } = useExpenseLinksForTravelItem(tripId, accommodation.id);
+  const { expenses } = useExpenses(tripId);
+  
+  // Calculate linked expenses total using SWR data
+  const linkedExpenses = expenses.filter(expense => 
+    expenseLinks.some(link => link.expenseId === expense.id)
+  );
   const totalLinkedCost = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const renderStructuredData = () => {
@@ -129,7 +137,7 @@ export default function AccommodationReadOnlyDisplay({
       {totalLinkedCost > 0 && (
         <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
           <div className="text-sm text-gray-700 dark:text-gray-300">
-            💰 Linked Expenses: {formatCurrency(totalLinkedCost, costData?.currency || 'EUR')}
+            💰 Linked Expenses: {formatCurrency(totalLinkedCost, linkedExpenses[0]?.currency || 'EUR')}
             {linkedExpenses.length > 1 && (
               <span className="text-xs text-gray-500 ml-2">({linkedExpenses.length} items)</span>
             )}

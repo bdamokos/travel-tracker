@@ -208,14 +208,15 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
         if (!newLocations) return existingLocations;
 
-        // Merge locations, preserving all properties including costTrackingLinks
+        // Merge locations, preserving existing costTrackingLinks (managed by SWR system)
         return newLocations.map((newLocation) => {
           const existingLocation = existingLocations.find(l => l.id === newLocation.id);
+          const { costTrackingLinks: _, ...locationWithoutLinks } = newLocation;
           return {
             ...existingLocation,
-            ...newLocation,
-            // Ensure costTrackingLinks are properly merged
-            costTrackingLinks: newLocation.costTrackingLinks || existingLocation?.costTrackingLinks || []
+            ...locationWithoutLinks,
+            // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
+            costTrackingLinks: existingLocation?.costTrackingLinks || []
           };
         });
       })(),
@@ -225,16 +226,17 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
         if (!newRoutes) return existingRoutes;
 
-        // Merge routes, preserving all properties including costTrackingLinks and routePoints
+        // Merge routes, preserving existing costTrackingLinks (managed by SWR system) and routePoints
         return newRoutes.map((newRoute) => {
           const existingRoute = existingRoutes.find(r => r.id === newRoute.id);
+          const { costTrackingLinks: _, ...routeWithoutLinks } = newRoute;
           return {
             ...existingRoute,
-            ...newRoute,
+            ...routeWithoutLinks,
             // Preserve existing routePoints if not provided in the update
             routePoints: newRoute.routePoints || existingRoute?.routePoints,
-            // Ensure costTrackingLinks are properly merged
-            costTrackingLinks: newRoute.costTrackingLinks || existingRoute?.costTrackingLinks || []
+            // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
+            costTrackingLinks: existingRoute?.costTrackingLinks || []
           };
         });
       })(),
@@ -247,14 +249,15 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
       if (!newAccommodations) return existingAccommodations;
 
-      // Merge accommodations, preserving all properties including costTrackingLinks
+      // Merge accommodations, preserving existing costTrackingLinks (managed by SWR system)
       return newAccommodations.map((newAccommodation) => {
         const existingAccommodation = existingAccommodations.find(a => a.id === newAccommodation.id);
+        const { costTrackingLinks: _, ...accommodationWithoutLinks } = newAccommodation;
         return {
           ...existingAccommodation,
-          ...newAccommodation,
-          // Ensure costTrackingLinks are properly merged
-          costTrackingLinks: newAccommodation.costTrackingLinks || existingAccommodation?.costTrackingLinks || []
+          ...accommodationWithoutLinks,
+          // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
+          costTrackingLinks: existingAccommodation?.costTrackingLinks || []
         };
       });
     })()

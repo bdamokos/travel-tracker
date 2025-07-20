@@ -72,6 +72,11 @@ async function linkExpenseMutation(_url: string, { arg }: { arg: LinkExpenseRequ
 
   const result = await response.json();
   
+  // For 409 Conflict (duplicate link), return the result with error info instead of throwing
+  if (response.status === 409 && result.error === 'DUPLICATE_LINK') {
+    return result; // Return the result with duplicate link information
+  }
+  
   if (!response.ok) {
     const error = new Error(result.error || 'Failed to link expense') as Error & { status: number; info: unknown };
     error.status = response.status;

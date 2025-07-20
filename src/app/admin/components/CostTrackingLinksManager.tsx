@@ -4,6 +4,7 @@ import { useState } from 'react';
 import AriaSelect from './AriaSelect';
 import { useExpenses } from '../../hooks/useExpenses';
 import { 
+  useExpenseLinks,
   useExpenseLinksForTravelItem, 
   useLinkExpense, 
   useUnlinkExpense,
@@ -29,6 +30,7 @@ export default function CostTrackingLinksManager({
   // SWR hooks for data
   const { expenses, isLoading: expensesLoading } = useExpenses(tripId);
   const { expenseLinks, isLoading: linksLoading, mutate: mutateLinks } = useExpenseLinksForTravelItem(tripId, travelItemId);
+  const { mutate: mutateAllLinks } = useExpenseLinks(tripId); // Global mutate for cache invalidation
   
   // SWR mutation hooks
   const { trigger: linkExpense, isMutating: isLinking } = useLinkExpense();
@@ -42,7 +44,7 @@ export default function CostTrackingLinksManager({
     if (!selectedExpenseId || isMutating) return;
 
     try {
-      await linkExpense({
+      const result = await linkExpense({
         tripId,
         expenseId: selectedExpenseId,
         travelItemId,
@@ -50,17 +52,9 @@ export default function CostTrackingLinksManager({
         description: linkDescription || undefined
       });
 
-      // Success - clear form and refresh data
-      setSelectedExpenseId('');
-      setLinkDescription('');
-      mutateLinks(); // Refresh the links data
-
-    } catch (error: unknown) {
-      console.error('Error linking expense:', error);
-      
-      const errorWithInfo = error as { info?: { error: string; existingLink?: { travelItemId: string; travelItemName: string; travelItemType: string } } };
-      if (errorWithInfo.info?.error === 'DUPLICATE_LINK' && errorWithInfo.info?.existingLink) {
-        const existingLink = errorWithInfo.info.existingLink;
+      // Check if the result indicates a duplicate link
+      if (result.error === 'DUPLICATE_LINK' && result.existingLink) {
+        const existingLink = result.existingLink;
         const itemTypeLabel = existingLink.travelItemType === 'location' ? 'location' : 
                              existingLink.travelItemType === 'accommodation' ? 'accommodation' : 'route';
         
@@ -86,16 +80,28 @@ export default function CostTrackingLinksManager({
             // Success - clear form and refresh data
             setSelectedExpenseId('');
             setLinkDescription('');
-            mutateLinks(); // Refresh the links data
+            // Invalidate both local and global caches for move operations
+            await Promise.all([mutateLinks(), mutateAllLinks()]);
             
           } catch (moveError) {
             console.error('Error moving expense link:', moveError);
             alert(`Failed to move expense link: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);
           }
         }
-      } else {
-        alert(`Failed to link expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return; // Exit early for duplicate link case
       }
+
+      // Success - no duplicate, link was created
+      if (result.success) {
+        setSelectedExpenseId('');
+        setLinkDescription('');
+        // Invalidate both local and global caches
+        await Promise.all([mutateLinks(), mutateAllLinks()]);
+      }
+
+    } catch (error: unknown) {
+      console.error('Error linking expense:', error);
+      alert(`Failed to link expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -109,7 +115,8 @@ export default function CostTrackingLinksManager({
         travelItemId
       });
 
-      mutateLinks(); // Refresh the links data
+      // Invalidate both local and global caches
+      await Promise.all([mutateLinks(), mutateAllLinks()]);
       
     } catch (error) {
       console.error('Error unlinking expense:', error);
