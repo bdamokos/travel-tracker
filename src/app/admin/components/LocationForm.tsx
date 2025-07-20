@@ -261,11 +261,9 @@ export default function LocationForm({
         {/* Location-Level Cost Tracking Links */}
         <div className="md:col-span-2">
           <CostTrackingLinksManager
-            currentLinks={currentLocation.costTrackingLinks || []}
-            onLinksChange={(links) => 
-              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, costTrackingLinks: links }))
-            }
             tripId={tripId}
+            travelItemId={currentLocation.id || 'temp-location'}
+            travelItemType="location"
           />
         </div>
 

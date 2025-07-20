@@ -110,7 +110,13 @@ export default function ExpenseForm({
             id="expense-date"
             name="date"
             type="date"
-            defaultValue={currentExpense.date instanceof Date ? currentExpense.date.toISOString().split('T')[0] : (currentExpense.date || '')}
+            defaultValue={
+              currentExpense.date instanceof Date 
+                ? currentExpense.date.toISOString().split('T')[0] 
+                : typeof currentExpense.date === 'string' && currentExpense.date
+                  ? new Date(currentExpense.date).toISOString().split('T')[0]
+                  : ''
+            }
             required
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />

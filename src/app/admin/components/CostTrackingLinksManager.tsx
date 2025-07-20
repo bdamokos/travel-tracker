@@ -1,148 +1,132 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CostTrackingLink } from '../../types';
+import { useState } from 'react';
 import AriaSelect from './AriaSelect';
-
-interface Expense {
-  id: string;
-  description: string;
-  amount: number;
-  currency: string;
-  date: string;
-  category: string;
-}
+import { useExpenses } from '../../hooks/useExpenses';
+import { 
+  useExpenseLinksForTravelItem, 
+  useLinkExpense, 
+  useUnlinkExpense,
+  useMoveExpenseLink 
+} from '../../hooks/useExpenseLinks';
 
 interface CostTrackingLinksManagerProps {
-  currentLinks: CostTrackingLink[];
-  onLinksChange: (links: CostTrackingLink[]) => void;
+  tripId: string;
+  travelItemId: string;
+  travelItemType: 'location' | 'accommodation' | 'route';
   className?: string;
-  tripId?: string; // Add tripId to scope expenses to current trip
 }
 
 export default function CostTrackingLinksManager({
-  currentLinks,
-  onLinksChange,
-  className = '',
-  tripId
+  tripId,
+  travelItemId,
+  travelItemType,
+  className = ''
 }: CostTrackingLinksManagerProps) {
-  const [availableExpenses, setAvailableExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedExpenseId, setSelectedExpenseId] = useState('');
   const [linkDescription, setLinkDescription] = useState('');
 
-  // Load available expenses (scoped to current trip if tripId is provided)
-  useEffect(() => {
-    async function loadExpenses() {
-      try {
-        if (tripId) {
-          // TRIP ISOLATION: Only load expenses from the current trip
+  // SWR hooks for data
+  const { expenses, isLoading: expensesLoading } = useExpenses(tripId);
+  const { expenseLinks, isLoading: linksLoading, mutate: mutateLinks } = useExpenseLinksForTravelItem(tripId, travelItemId);
+  
+  // SWR mutation hooks
+  const { trigger: linkExpense, isMutating: isLinking } = useLinkExpense();
+  const { trigger: unlinkExpense, isMutating: isUnlinking } = useUnlinkExpense();
+  const { trigger: moveExpenseLink, isMutating: isMoving } = useMoveExpenseLink();
+
+  const isLoading = expensesLoading || linksLoading;
+  const isMutating = isLinking || isUnlinking || isMoving;
+
+  const handleAddLink = async () => {
+    if (!selectedExpenseId || isMutating) return;
+
+    try {
+      await linkExpense({
+        tripId,
+        expenseId: selectedExpenseId,
+        travelItemId,
+        travelItemType,
+        description: linkDescription || undefined
+      });
+
+      // Success - clear form and refresh data
+      setSelectedExpenseId('');
+      setLinkDescription('');
+      mutateLinks(); // Refresh the links data
+
+    } catch (error: unknown) {
+      console.error('Error linking expense:', error);
+      
+      const errorWithInfo = error as { info?: { error: string; existingLink?: { travelItemId: string; travelItemName: string; travelItemType: string } } };
+      if (errorWithInfo.info?.error === 'DUPLICATE_LINK' && errorWithInfo.info?.existingLink) {
+        const existingLink = errorWithInfo.info.existingLink;
+        const itemTypeLabel = existingLink.travelItemType === 'location' ? 'location' : 
+                             existingLink.travelItemType === 'accommodation' ? 'accommodation' : 'route';
+        
+        const proceed = confirm(
+          `⚠️ DUPLICATE LINK WARNING\n\n` +
+          `This expense is already linked to:\n` +
+          `${itemTypeLabel.toUpperCase()}: "${existingLink.travelItemName}"\n\n` +
+          `Do you want to move the link to this ${travelItemType} instead?\n\n` +
+          `(This will remove the link from "${existingLink.travelItemName}" and add it here)`
+        );
+        
+        if (proceed) {
           try {
-            const response = await fetch(`/api/cost-tracking?id=${tripId}`);
-            const costData = await response.json();
+            await moveExpenseLink({
+              tripId,
+              expenseId: selectedExpenseId,
+              fromTravelItemId: existingLink.travelItemId,
+              toTravelItemId: travelItemId,
+              toTravelItemType: travelItemType,
+              description: linkDescription || undefined
+            });
+
+            // Success - clear form and refresh data
+            setSelectedExpenseId('');
+            setLinkDescription('');
+            mutateLinks(); // Refresh the links data
             
-            const tripExpenses: Expense[] = [];
-            if (costData.expenses) {
-              costData.expenses.forEach((expense: Expense) => {
-                tripExpenses.push({
-                  id: expense.id,
-                  description: expense.description,
-                  amount: expense.amount,
-                  currency: expense.currency,
-                  date: expense.date,
-                  category: expense.category
-                });
-              });
-            }
-            
-            // Sort by date (newest first)
-            tripExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setAvailableExpenses(tripExpenses);
-          } catch (error) {
-            console.error(`Error loading expenses for trip ${tripId}:`, error);
-            setAvailableExpenses([]);
+          } catch (moveError) {
+            console.error('Error moving expense link:', moveError);
+            alert(`Failed to move expense link: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);
           }
-        } else {
-          // LEGACY: Load all expenses from all trips (for backward compatibility)
-          console.warn('CostTrackingLinksManager: No tripId provided, loading expenses from all trips. This may show cross-trip data.');
-          
-          const response = await fetch('/api/cost-tracking/list');
-          const costEntries = await response.json();
-          
-          const allExpenses: Expense[] = [];
-          
-          // Load detailed data for each cost entry to get expenses
-          for (const entry of costEntries) {
-            try {
-              const detailResponse = await fetch(`/api/cost-tracking?id=${entry.id}`);
-              const costData = await detailResponse.json();
-              
-              if (costData.expenses) {
-                costData.expenses.forEach((expense: Expense) => {
-                  allExpenses.push({
-                    id: expense.id,
-                    description: expense.description,
-                    amount: expense.amount,
-                    currency: expense.currency,
-                    date: expense.date,
-                    category: expense.category
-                  });
-                });
-              }
-            } catch (error) {
-              console.error(`Error loading cost data for ${entry.id}:`, error);
-            }
-          }
-          
-          // Sort by date (newest first)
-          allExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setAvailableExpenses(allExpenses);
         }
-      } catch (error) {
-        console.error('Error loading expenses:', error);
-      } finally {
-        setLoading(false);
+      } else {
+        alert(`Failed to link expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-    
-    loadExpenses();
-  }, [tripId]);
-
-  const handleAddLink = () => {
-    if (!selectedExpenseId) return;
-
-    const selectedExpense = availableExpenses.find(e => e.id === selectedExpenseId);
-    if (!selectedExpense) return;
-
-    // Check if link already exists
-    if (currentLinks.some(link => link.expenseId === selectedExpenseId)) {
-      alert('This expense is already linked!');
-      return;
-    }
-
-    const baseLink = {
-      expenseId: selectedExpenseId
-    };
-
-    // Only include description if it has a value
-    const newLink: CostTrackingLink = linkDescription 
-      ? { ...baseLink, description: linkDescription }
-      : baseLink;
-
-    onLinksChange([...currentLinks, newLink]);
-    setSelectedExpenseId('');
-    setLinkDescription('');
   };
 
-  const handleRemoveLink = (expenseId: string) => {
-    onLinksChange(currentLinks.filter(link => link.expenseId !== expenseId));
+  const handleRemoveLink = async (expenseId: string) => {
+    if (isMutating) return;
+
+    try {
+      await unlinkExpense({
+        tripId,
+        expenseId,
+        travelItemId
+      });
+
+      mutateLinks(); // Refresh the links data
+      
+    } catch (error) {
+      console.error('Error unlinking expense:', error);
+      alert(`Failed to unlink expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const getExpenseById = (expenseId: string) => {
-    return availableExpenses.find(e => e.id === expenseId);
+    return expenses.find(e => e.id === expenseId);
   };
 
-  if (loading) {
+  // Filter out expenses that are already linked to this travel item
+  const availableToLink = expenses.filter(expense => 
+    !expenseLinks.some(link => link.expenseId === expense.id)
+  );
+
+  if (isLoading) {
     return (
       <div className={`text-sm text-gray-500 dark:text-gray-400 ${className}`}>
         Loading expenses...
@@ -150,22 +134,20 @@ export default function CostTrackingLinksManager({
     );
   }
 
-  // Filter out already linked expenses
-  const availableToLink = availableExpenses.filter(expense => 
-    !currentLinks.some(link => link.expenseId === expense.id)
-  );
-
   return (
     <div className={`space-y-3 ${className}`}>
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           💰 Linked Expenses
+          {isMutating && (
+            <span className="ml-2 text-xs text-blue-500">🔄 Updating...</span>
+          )}
         </label>
         
         {/* Current Links */}
-        {currentLinks.length > 0 && (
+        {expenseLinks.length > 0 && (
           <div className="space-y-2 mb-3">
-            {currentLinks.map(link => {
+            {expenseLinks.map(link => {
               const expense = getExpenseById(link.expenseId);
               if (!expense) return null;
               
@@ -188,7 +170,8 @@ export default function CostTrackingLinksManager({
                   <button
                     type="button"
                     onClick={() => handleRemoveLink(link.expenseId)}
-                    className="text-red-500 hover:text-red-700 text-xs ml-2"
+                    disabled={isMutating}
+                    className="text-red-500 hover:text-red-700 text-xs ml-2 disabled:opacity-50"
                   >
                     Remove
                   </button>
@@ -209,11 +192,14 @@ export default function CostTrackingLinksManager({
                 id="expense-select"
                 value={selectedExpenseId}
                 onChange={(value) => setSelectedExpenseId(value)}
-                className="w-full px-2 py-1 text-sm"
-                options={availableToLink.map(expense => ({
-                  value: expense.id,
-                  label: `${expense.description} - ${expense.amount} ${expense.currency} (${expense.date})`
-                }))}
+                className={`w-full px-2 py-1 text-sm ${isMutating ? 'opacity-50 pointer-events-none' : ''}`}
+                options={availableToLink.map(expense => {
+                  const baseLabel = `${expense.description} - ${expense.amount} ${expense.currency} (${expense.date})`;
+                  return {
+                    value: expense.id,
+                    label: baseLabel
+                  };
+                })}
                 placeholder="Choose an expense..."
               />
             </div>
@@ -228,7 +214,8 @@ export default function CostTrackingLinksManager({
                   value={linkDescription}
                   onChange={(e) => setLinkDescription(e.target.value)}
                   placeholder="e.g., Hotel booking, Activity fee"
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isMutating}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                 />
               </div>
             )}
@@ -236,23 +223,23 @@ export default function CostTrackingLinksManager({
             <button
               type="button"
               onClick={handleAddLink}
-              disabled={!selectedExpenseId}
+              disabled={!selectedExpenseId || isMutating}
               className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              Link Expense
+              {isMutating ? 'Linking...' : 'Link Expense'}
             </button>
           </div>
         )}
 
-        {availableToLink.length === 0 && currentLinks.length === 0 && (
+        {availableToLink.length === 0 && expenseLinks.length === 0 && (
           <div className="text-sm text-gray-500 dark:text-gray-400">
             No expenses available to link. Create some expenses in the Cost Tracker first.
           </div>
         )}
 
-        {availableToLink.length === 0 && currentLinks.length > 0 && (
+        {availableToLink.length === 0 && expenseLinks.length > 0 && (
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            All available expenses are already linked.
+            All available expenses are already linked to this {travelItemType}.
           </div>
         )}
       </div>

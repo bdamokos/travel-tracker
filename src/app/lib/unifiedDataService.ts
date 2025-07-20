@@ -309,7 +309,7 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
 
 const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-function dateReviver(key: string, value: any): any {
+function dateReviver(_key: string, value: unknown): unknown {
   if (typeof value === 'string' && isoDateRegex.test(value)) {
     return new Date(value);
   }

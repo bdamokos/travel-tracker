@@ -227,13 +227,10 @@ export default function LocationAccommodationsManager({
               }
             />
 
-            <CostTrackingLinksManager
-              currentLinks={newAccommodation.costTrackingLinks}
-              onLinksChange={(links) => 
-                setNewAccommodation(prev => ({ ...prev, costTrackingLinks: links }))
-              }
-              tripId={tripId}
-            />
+            {/* Cost tracking is only available for saved accommodations */}
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2 bg-gray-100 dark:bg-gray-600 rounded">
+              💡 Expense linking will be available after saving this accommodation
+            </div>
 
             <div className="flex gap-2">
               <button
@@ -381,11 +378,9 @@ function EditAccommodationForm({
       />
 
       <CostTrackingLinksManager
-        currentLinks={editData.costTrackingLinks || []}
-        onLinksChange={(links) => 
-          setEditData(prev => ({ ...prev, costTrackingLinks: links }))
-        }
         tripId={tripId}
+        travelItemId={editData.id || 'temp-accommodation'}
+        travelItemType="accommodation"
       />
 
       <div className="flex gap-2">

@@ -193,13 +193,17 @@ export default function RouteInlineEditor({
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
             Cost Tracking Links
           </label>
-          <CostTrackingLinksManager
-            currentLinks={formData.costTrackingLinks || []}
-            onLinksChange={(links) => 
-              setFormData(prev => ({ ...prev, costTrackingLinks: links }))
-            }
-            tripId={tripId}
-          />
+          {tripId ? (
+            <CostTrackingLinksManager
+              tripId={tripId}
+              travelItemId={formData.id}
+              travelItemType="route"
+            />
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2 bg-gray-100 dark:bg-gray-600 rounded">
+              💡 Expense linking will be available with valid trip ID
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

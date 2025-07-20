@@ -178,11 +178,9 @@ export default function LocationInlineEditor({
             Cost Tracking Links
           </label>
           <CostTrackingLinksManager
-            currentLinks={formData.costTrackingLinks || []}
-            onLinksChange={(links) => 
-              setFormData(prev => ({ ...prev, costTrackingLinks: links }))
-            }
             tripId={tripId}
+            travelItemId={formData.id}
+            travelItemType="location"
           />
         </div>
 

@@ -238,13 +238,17 @@ export default function RouteForm({
 
         {/* Cost Tracking Links */}
         <div className="md:col-span-2">
-          <CostTrackingLinksManager
-            currentLinks={currentRoute.costTrackingLinks || []}
-            onLinksChange={(links) => 
-              setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, costTrackingLinks: links }))
-            }
-            tripId={tripId}
-          />
+          {tripId ? (
+            <CostTrackingLinksManager
+              tripId={tripId}
+              travelItemId={currentRoute.id || 'temp-route'}
+              travelItemType="route"
+            />
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2 bg-gray-100 dark:bg-gray-600 rounded">
+              💡 Expense linking will be available after saving this route
+            </div>
+          )}
         </div>
 
         <div className="flex items-end gap-2">
