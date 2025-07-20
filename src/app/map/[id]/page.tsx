@@ -93,9 +93,9 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
                 fromCoords: (route as Transportation & { fromCoords?: [number, number] }).fromCoords || [0, 0],
                 toCoords: (route as Transportation & { toCoords?: [number, number] }).toCoords || [0, 0],
                 transportType: route.type,
-                date: route.departureTime || route.date || '',
-                duration: route.duration,
-                notes: route.notes || route.privateNotes,
+                date: route.departureTime || '',
+                duration: '',
+                notes: route.privateNotes || '',
                 routePoints: route.routePoints,
               })),
               ...(shadowData.shadowData?.shadowRoutes || []).map((route: Transportation) => ({

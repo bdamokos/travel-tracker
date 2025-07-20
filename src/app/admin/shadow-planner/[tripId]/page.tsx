@@ -65,6 +65,7 @@ export default function ShadowPlannerPage() {
     deleteLocation,
     deleteRoute,
     recalculateRoutePoints,
+    geocodeLocation,
   } = useShadowTripEditor(tripId);
 
   // Toast Notification Component
@@ -290,9 +291,9 @@ export default function ShadowPlannerPage() {
                   travelLookup={travelLookup}
                   costData={costData}
                   handleLocationAdded={handleLocationAdded}
-                  geocodeLocation={async (_locationName: string) => {
-                    // For shadow trips, just return default coordinates
-                    return [0, 0] as [number, number];
+                  geocodeLocation={async (locationName: string) => {
+                    const result = await geocodeLocation(locationName);
+                    return result || [0, 0] as [number, number];
                   }}
                   deleteLocation={deleteLocation}
                   addInstagramPost={(_index) => {
@@ -343,9 +344,9 @@ export default function ShadowPlannerPage() {
                 handleRouteAdded={async (route) => {
                   handleRouteAdded(route);
                 }}
-                geocodeLocation={async (_locationName: string) => {
-                  // For shadow trips, just return default coordinates
-                  return [0, 0] as [number, number];
+                geocodeLocation={async (locationName: string) => {
+                  const result = await geocodeLocation(locationName);
+                  return result || [0, 0] as [number, number];
                 }}
                 deleteRoute={deleteRoute}
                 recalculateRoutePoints={(_index) => {

@@ -6,6 +6,7 @@ import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Accommodati
 import { cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 
 export function useShadowTripEditor(tripId: string) {
   const [loading, setLoading] = useState(true);
@@ -117,20 +118,55 @@ export function useShadowTripEditor(tripId: string) {
         const data = await response.json();
         
         // Transform UnifiedTripData to TravelData format
+        // Merge real trip data with shadow data for editing
+        const realLocations = data.travelData?.locations || [];
+        const shadowLocations = data.shadowData?.shadowLocations || [];
+        const realRoutes = data.travelData?.routes || [];
+        const shadowRoutes = data.shadowData?.shadowRoutes || [];
+        
         const shadowTravelData: TravelData = {
           title: data.title,
           description: data.description,
           startDate: new Date(data.startDate),
           endDate: new Date(data.endDate),
-          // Start with shadow locations and routes, not the real ones
-          locations: data.shadowData?.shadowLocations || [],
-          routes: data.shadowData?.shadowRoutes?.map((route: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-            ...route,
-            transportType: route.type, // Map type to transportType
-            date: new Date(route.departureTime || route.date || new Date()),
-            fromCoords: route.fromCoords || [0, 0],
-            toCoords: route.toCoords || [0, 0],
-          })) || []
+          // Combine real locations with shadow locations for editing
+          // Real locations are shown as read-only context, shadow locations are editable
+          locations: [
+            ...realLocations.map((loc: Location) => ({
+              ...loc,
+              id: loc.id,
+              name: `📍 ${loc.name}`, // Mark real locations with icon
+              date: new Date(loc.date),
+              // Mark as read-only by adding a flag we can check in the editor
+              isReadOnly: true
+            })),
+            ...shadowLocations.map((loc: Location) => ({
+              ...loc,
+              date: new Date(loc.date || new Date()),
+              isReadOnly: false
+            }))
+          ],
+          // Combine real routes with shadow routes  
+          routes: [
+            ...realRoutes.map((route: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+              ...route,
+              transportType: route.type || route.transportType,
+              date: new Date(route.departureTime || route.date || new Date()),
+              fromCoords: route.fromCoords || [0, 0],
+              toCoords: route.toCoords || [0, 0],
+              from: `📍 ${route.from}`, // Mark real routes
+              to: `📍 ${route.to}`,
+              isReadOnly: true
+            })),
+            ...shadowRoutes.map((route: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+              ...route,
+              transportType: route.type || route.transportType,
+              date: new Date(route.departureTime || route.date || new Date()),
+              fromCoords: route.fromCoords || [0, 0],
+              toCoords: route.toCoords || [0, 0],
+              isReadOnly: false
+            }))
+          ]
         };
         
         setTravelData(shadowTravelData);
@@ -181,21 +217,24 @@ export function useShadowTripEditor(tripId: string) {
         setAutoSaving(true);
         
         // Transform TravelData back to shadow format
+        // Only save actual shadow data (exclude read-only real trip data)
         const shadowData = {
-          shadowLocations: travelData.locations,
-          shadowRoutes: travelData.routes.map((route: TravelRoute) => ({
-            id: route.id,
-            from: route.from,
-            to: route.to,
-            type: route.transportType,
-            departureTime: route.date?.toISOString(),
-            privateNotes: route.privateNotes,
-            notes: route.notes,
-            fromCoords: route.fromCoords,
-            toCoords: route.toCoords,
-            routePoints: route.routePoints,
-            costTrackingLinks: route.costTrackingLinks || []
-          })),
+          shadowLocations: travelData.locations.filter(loc => !loc.isReadOnly),
+          shadowRoutes: travelData.routes
+            .filter(route => !route.isReadOnly)
+            .map((route: TravelRoute) => ({
+              id: route.id,
+              from: route.from,
+              to: route.to,
+              type: route.transportType,
+              departureTime: route.date?.toISOString(),
+              privateNotes: route.privateNotes,
+              notes: route.notes,
+              fromCoords: route.fromCoords,
+              toCoords: route.toCoords,
+              routePoints: route.routePoints,
+              costTrackingLinks: route.costTrackingLinks || []
+            })),
           shadowAccommodations: accommodations
         };
 
@@ -358,9 +397,13 @@ export function useShadowTripEditor(tripId: string) {
     window.open(`${url}?planningMode=true`, '_blank');
   }, [tripId]);
 
-  const geocodeLocation = useCallback(async (): Promise<[number, number] | null> => {
-    // Simple geocoding placeholder - in real implementation would use a geocoding API
-    return [0, 0];
+  const geocodeLocation = useCallback(async (locationName: string): Promise<[number, number] | null> => {
+    try {
+      return await geocodeLocationService(locationName);
+    } catch (error) {
+      console.error('Geocoding error in shadow planner:', error);
+      return null;
+    }
   }, []);
 
   const calculateSmartDurations = useCallback(() => {

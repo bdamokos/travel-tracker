@@ -44,6 +44,8 @@ export type Location = {
   isAccommodationPublic?: boolean;
   // Cost tracking integration (for location-level expenses)
   costTrackingLinks?: CostTrackingLink[];
+  // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
+  isReadOnly?: boolean;
 };
 
 // Transportation type for route segments
@@ -79,6 +81,8 @@ export interface TravelRoute {
   costTrackingLinks?: CostTrackingLink[];
   // Pre-generated route points for better performance
   routePoints?: [number, number][];
+  // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
+  isReadOnly?: boolean;
 }
 
 // Travel data structure for a complete trip
