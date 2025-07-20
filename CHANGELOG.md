@@ -6,15 +6,20 @@
 
 **Implemented enhancements:**
 
+- Implement YNAB API support in addition to manual import [\#41](https://github.com/bdamokos/travel-tracker/issues/41)
 - Remember last imported YNAB transaction [\#39](https://github.com/bdamokos/travel-tracker/issues/39)
 - Public map should show periods for locations [\#32](https://github.com/bdamokos/travel-tracker/issues/32)
 - Calendar Interface: Location Timeline View with Visual Periods [\#31](https://github.com/bdamokos/travel-tracker/issues/31)
+- Warn user when linking an already-linked expense [\#23](https://github.com/bdamokos/travel-tracker/issues/23)
 - Migrate date fields from string to TypeScript Date type [\#22](https://github.com/bdamokos/travel-tracker/issues/22)
 - Refactor accommodation display system: consolidate dual accommodation systems and improve UX [\#19](https://github.com/bdamokos/travel-tracker/issues/19)
 
 **Fixed bugs:**
 
+- YNAB API imported transactions do not save the date correctly [\#43](https://github.com/bdamokos/travel-tracker/issues/43)
+- YAML parser for accommodation notes should handle new lines [\#42](https://github.com/bdamokos/travel-tracker/issues/42)
 - Deletion through the admin interface fails [\#38](https://github.com/bdamokos/travel-tracker/issues/38)
+- Location-linked expenses not displayed in read-only mode without page reload [\#20](https://github.com/bdamokos/travel-tracker/issues/20)
 - New trip is not saved until a location is added \(no autosave for metadata only\) [\#18](https://github.com/bdamokos/travel-tracker/issues/18)
 
 **Closed issues:**
