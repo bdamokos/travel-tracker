@@ -38,7 +38,7 @@
     "date-fns": "^4.1.0",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
-    "next": "^15.3.5",
+    "next": "^15.4.2",
     "pick-distinct-colors": "^0.2.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
