@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 // import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange } from '../../lib/dateUtils';
@@ -102,20 +103,20 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
                 id: route.id,
                 from: `🔮 ${route.from}`,
                 to: `🔮 ${route.to}`,
-                fromCoords: [0, 0] as [number, number],
-                toCoords: [0, 0] as [number, number],
+                fromCoords: route.fromCoordinates || [0, 0] as [number, number],
+                toCoords: route.toCoordinates || [0, 0] as [number, number],
                 transportType: route.type,
                 date: route.departureTime || '',
                 duration: '',
                 notes: route.privateNotes,
-                routePoints: undefined,
+                routePoints: route.routePoints,
               }))
             ]
           };
           
           return transformedData;
         }
-      } catch (shadowError) {
+      } catch {
         console.log('Shadow data not available, falling back to regular data');
       }
     }
@@ -151,15 +152,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-export default async function MapPage({ params, searchParams }: { 
+export default async function MapPage({ params }: { 
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
-  const search = await searchParams;
   
-  // Check if this is admin mode (either by domain or planningMode param)
-  const isAdmin = search?.planningMode === 'true';
+  // Check if this is admin mode based on domain
+  const headersList = await headers();
+  const host = headersList.get('host');
+  const isAdmin = Boolean(host?.includes('tt-admin') || host?.includes('localhost'));
   
   const travelData = await getTravelData(id, isAdmin);
   

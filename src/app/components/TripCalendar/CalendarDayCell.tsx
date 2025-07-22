@@ -22,17 +22,27 @@ export default function CalendarDayCell({
     return null;
   }
 
+  // Check if this is a shadow location
+  const isShadowLocation = day.primaryLocation?.name.startsWith('🔮') || day.secondaryLocation?.name.startsWith('🔮');
+
   const baseClasses = `
     h-20 min-h-20 border border-gray-200 cursor-pointer relative overflow-hidden
     transition-all duration-200 hover:shadow-md
     ${isSelected ? 'ring-2 ring-blue-500' : ''}
     ${isToday ? 'ring-2 ring-yellow-400' : ''}
+    ${isShadowLocation ? 'shadow-inner' : ''}
   `.trim();
 
   const cellStyle: React.CSSProperties = {
     backgroundColor: diagonalSplit ? 'transparent' : backgroundColor,
     color: textColor,
-    gridColumn: mergeInfo?.colspan ? `span ${mergeInfo.colspan}` : undefined
+    gridColumn: mergeInfo?.colspan ? `span ${mergeInfo.colspan}` : undefined,
+    // Add subtle border pattern for shadow cells
+    ...(isShadowLocation && !diagonalSplit ? {
+      borderStyle: 'dashed',
+      borderWidth: '2px',
+      borderColor: 'rgba(59, 130, 246, 0.5)' // Blue dashed border for shadow locations
+    } : {})
   };
 
   // Diagonal split background for transition days
@@ -58,6 +68,11 @@ export default function CalendarDayCell({
           className="absolute inset-0"
           style={diagonalStyle}
         />
+      )}
+      
+      {/* Shadow overlay indicator for shadow locations */}
+      {isShadowLocation && (
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 to-purple-100/20 pointer-events-none" />
       )}
       
       {/* Day number */}

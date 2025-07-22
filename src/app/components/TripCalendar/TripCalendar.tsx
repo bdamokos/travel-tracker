@@ -91,8 +91,20 @@ export default function TripCalendar({
           {new Date(trip.startDate).getDate()}/{new Date(trip.startDate).getMonth() + 1}/{new Date(trip.startDate).getFullYear()} - {new Date(trip.endDate).getDate()}/{new Date(trip.endDate).getMonth() + 1}/{new Date(trip.endDate).getFullYear()}
         </p>
         {planningMode && (
-          <div className="mt-2 text-sm text-orange-600 font-medium">
-            Planning Mode - Muted colors indicate non-public locations
+          <div className="mt-2 space-y-1">
+            <div className="text-sm text-orange-600 font-medium">
+              Planning Mode Active - Showing shadow planning data
+            </div>
+            <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-blue-300 border border-solid rounded"></div>
+                <span>Real locations</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-blue-200 border-2 border-dashed border-blue-400 rounded"></div>
+                <span>🔮 Shadow planning locations</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -123,15 +135,20 @@ export default function TripCalendar({
       <div className="location-legend mt-6 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
         <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Locations</h3>
         <div className="flex flex-wrap gap-3">
-          {Array.from(calendarData.locationColors.entries()).map(([locationName, color]) => (
-            <div key={locationName} className="flex items-center space-x-2">
-              <div 
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: color }}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">{locationName}</span>
-            </div>
-          ))}
+          {Array.from(calendarData.locationColors.entries()).map(([locationName, color]) => {
+            const isShadowLocation = locationName.startsWith('🔮');
+            return (
+              <div key={locationName} className="flex items-center space-x-2">
+                <div 
+                  className={`w-4 h-4 rounded ${isShadowLocation ? 'border-2 border-dashed border-blue-400' : ''}`}
+                  style={{ backgroundColor: color }}
+                />
+                <span className={`text-sm ${isShadowLocation ? 'font-medium text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}>
+                  {locationName}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
       

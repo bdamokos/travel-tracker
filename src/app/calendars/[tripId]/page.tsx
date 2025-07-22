@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { TripCalendar } from '@/app/components/TripCalendar';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
@@ -58,7 +59,7 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
           ]
         };
       }
-    } catch (error) {
+    } catch {
       console.log('Shadow data not available, falling back to regular data');
     }
   }
@@ -67,12 +68,13 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
   return await loadUnifiedTripData(tripId);
 }
 
-export default async function TripCalendarPage({ params, searchParams }: CalendarPageProps) {
+export default async function TripCalendarPage({ params }: CalendarPageProps) {
   const { tripId } = await params;
-  const search = await searchParams;
   
-  // Check if this is admin mode
-  const isAdmin = search?.planningMode === 'true';
+  // Check if this is admin mode based on domain
+  const headersList = await headers();
+  const host = headersList.get('host');
+  const isAdmin = Boolean(host?.includes('tt-admin') || host?.includes('localhost'));
   
   try {
     const tripData = await loadTripDataWithShadow(tripId, isAdmin);

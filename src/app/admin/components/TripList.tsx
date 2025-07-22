@@ -91,9 +91,9 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
     return `/map/${tripId}?planningMode=true`;
   };
 
-  // Get calendar URL with planning mode
+  // Get calendar URL - admin domain will automatically show shadow data
   const getCalendarUrl = (tripId: string) => {
-    return `/calendars/${tripId}?planningMode=true`;
+    return `/calendars/${tripId}`;
   };
 
   return (

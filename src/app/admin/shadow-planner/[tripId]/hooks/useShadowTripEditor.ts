@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
-import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Accommodation } from '@/app/types';
+import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Accommodation, Transportation } from '@/app/types';
 import { cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
+import { generateRoutePoints } from '@/app/lib/routeUtils';
 
 export function useShadowTripEditor(tripId: string) {
   const [loading, setLoading] = useState(true);
@@ -262,9 +263,8 @@ export function useShadowTripEditor(tripId: string) {
               type: route.transportType,
               departureTime: route.date?.toISOString(),
               privateNotes: route.privateNotes,
-              notes: route.notes,
-              fromCoords: route.fromCoords,
-              toCoords: route.toCoords,
+              fromCoordinates: route.fromCoords,
+              toCoordinates: route.toCoords,
               routePoints: route.routePoints,
               costTrackingLinks: route.costTrackingLinks || []
             })),
@@ -420,14 +420,50 @@ export function useShadowTripEditor(tripId: string) {
   }, []);
 
   // Utility functions
-  const recalculateRoutePoints = useCallback(async () => {
-    // For shadow trips, we don't need to recalculate route points
-    showNotification('Route points will be calculated when trip becomes active', 'info');
-  }, []);
+  const recalculateRoutePoints = useCallback(async (index: number) => {
+    if (!travelData || !travelData.routes[index]) return;
+    
+    const route = travelData.routes[index];
+    
+    try {
+      // Create transportation object for route generation
+      const transportation: Transportation = {
+        id: route.id,
+        type: route.transportType,
+        from: route.from,
+        to: route.to,
+        fromCoordinates: route.fromCoords,
+        toCoordinates: route.toCoords
+      };
+      
+      console.log(`[recalculateRoutePoints] Regenerating route points for ${route.from} → ${route.to}`);
+      const routePoints = await generateRoutePoints(transportation);
+      
+      // Update the route with new route points
+      setTravelData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          routes: prev.routes.map((r, i) => 
+            i === index ? { ...r, routePoints } : r
+          )
+        };
+      });
+      
+      setHasUnsavedChanges(true);
+      console.log(`[recalculateRoutePoints] Successfully regenerated ${routePoints.length} route points`);
+      
+      // Show success notification
+      showNotification('Route points recalculated successfully', 'success');
+    } catch (error) {
+      console.error('Failed to recalculate route points:', error);
+      showNotification('Failed to recalculate route points', 'error');
+    }
+  }, [travelData]);
 
   const generateMap = useCallback(() => {
     const url = getMapUrl(tripId);
-    window.open(`${url}?planningMode=true`, '_blank');
+    window.open(url, '_blank');
   }, [tripId]);
 
   const geocodeLocation = useCallback(async (locationName: string): Promise<[number, number] | null> => {

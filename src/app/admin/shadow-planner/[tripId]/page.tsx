@@ -349,13 +349,13 @@ export default function ShadowPlannerPage() {
                   return result || [0, 0] as [number, number];
                 }}
                 deleteRoute={deleteRoute}
-                recalculateRoutePoints={(_index) => {
-                  // For shadow trips, just stub this out
-                  recalculateRoutePoints();
+                recalculateRoutePoints={(index) => {
+                  // Call the actual recalculateRoutePoints with the index
+                  recalculateRoutePoints(index);
                 }}
                 generateMap={() => {
-                  // Open map in planning mode for shadow trips
-                  const url = `/map/${tripId}?planningMode=true`;
+                  // Open map for shadow trips - admin domain will show shadow data automatically
+                  const url = `/map/${tripId}`;
                   window.open(url, '_blank');
                 }}
               />

@@ -92,6 +92,29 @@ export function muteColor(hexColor: string, opacity: number = 0.6): string {
   return `#${mutedR.toString(16).padStart(2, '0')}${mutedG.toString(16).padStart(2, '0')}${mutedB.toString(16).padStart(2, '0')}`;
 }
 
+export function applyShadowStyling(hexColor: string): string {
+  // Convert to RGB
+  const color = hexColor.replace('#', '');
+  const r = parseInt(color.slice(0, 2), 16);
+  const g = parseInt(color.slice(2, 4), 16);
+  const b = parseInt(color.slice(4, 6), 16);
+  
+  // Apply shadow styling: mute the color and add a blue tint
+  const opacity = 0.5; // More muted than regular muted colors
+  const blueTint = 30; // Add blue tint for shadow effect
+  
+  const shadowR = Math.round((r + (255 - r) * (1 - opacity)) * 0.9);
+  const shadowG = Math.round((g + (255 - g) * (1 - opacity)) * 0.9);
+  const shadowB = Math.round((b + (255 - b) * (1 - opacity)) * 0.9 + blueTint);
+  
+  // Ensure values stay within 0-255 range
+  const clampedR = Math.min(255, Math.max(0, shadowR));
+  const clampedG = Math.min(255, Math.max(0, shadowG));
+  const clampedB = Math.min(255, Math.max(0, shadowB));
+  
+  return `#${clampedR.toString(16).padStart(2, '0')}${clampedG.toString(16).padStart(2, '0')}${clampedB.toString(16).padStart(2, '0')}`;
+}
+
 export function generateDateRange(startDate: string | Date, endDate: string | Date): Date[] {
   const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
   const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
@@ -367,9 +390,18 @@ export function applyPlanningModeColors(
   colors.forEach((color, locationName) => {
     const location = locations.find(l => l.name === locationName);
     
-    if (location && !isPublic(location)) {
+    // Check if this is a shadow location (prefixed with 🔮)
+    const isShadowLocation = locationName.startsWith('🔮');
+    
+    if (isShadowLocation) {
+      // Apply distinct styling for shadow locations - make them more muted with a slight blue tint
+      const shadowColor = applyShadowStyling(color);
+      planningColors.set(locationName, shadowColor);
+    } else if (location && !isPublic(location)) {
+      // Apply muted color for non-public real locations
       planningColors.set(locationName, muteColor(color, 0.6));
     } else {
+      // Keep original color for public real locations
       planningColors.set(locationName, color);
     }
   });
