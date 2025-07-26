@@ -46,6 +46,8 @@ export type Location = {
   isAccommodationPublic?: boolean;
   // Cost tracking integration (for location-level expenses)
   costTrackingLinks?: CostTrackingLink[];
+  // Wikipedia reference - can be article title or Wikidata identifier (Q123456)
+  wikipediaRef?: string;
   // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
   isReadOnly?: boolean;
 };
