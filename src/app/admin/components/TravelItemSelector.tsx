@@ -23,13 +23,15 @@ interface TravelItemSelectorProps {
   travelLookup?: ExpenseTravelLookup | null;
   onReferenceChange: (travelLinkInfo: TravelLinkInfo | undefined) => void;
   className?: string;
+  initialValue?: TravelLinkInfo;
 }
 
 export default function TravelItemSelector({
   expenseId,
   tripId,
   onReferenceChange,
-  className = ''
+  className = '',
+  initialValue
 }: TravelItemSelectorProps) {
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,8 +42,17 @@ export default function TravelItemSelector({
   // Use our new SWR hooks for real-time data
   const { expenseLinks } = useExpenseLinks(tripId);
 
-  // Load current reference values using SWR data
+  // Load current reference values using SWR data or initialValue
   useEffect(() => {
+    // First, try to use initialValue if provided
+    if (initialValue) {
+      setSelectedType(initialValue.type);
+      setSelectedItem(initialValue.id);
+      setDescription(initialValue.name || '');
+      return;
+    }
+
+    // Fallback to SWR data
     if (expenseId && expenseLinks.length > 0) {
       const currentLink = expenseLinks.find(link => link.expenseId === expenseId);
       if (currentLink) {
@@ -50,7 +61,7 @@ export default function TravelItemSelector({
         setDescription(currentLink.description || '');
       }
     }
-  }, [expenseLinks, expenseId]);
+  }, [expenseLinks, expenseId, initialValue]);
 
   // Load available travel items from current trip only
   useEffect(() => {

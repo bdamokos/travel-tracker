@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData, updateTravelData } from '../../../lib/unifiedDataService';
+import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
 import { CostTrackingLink } from '../../../types';
 import { isAdminDomain } from '../../../lib/server-domains';
 import { validateTripBoundary, ValidationErrorType } from '../../../lib/tripBoundaryValidation';
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await updateTravelData(tripId, unifiedData as unknown as Record<string, unknown>);
+    await saveUnifiedTripData(unifiedData);
 
     return NextResponse.json({ success: true });
   } catch (error) {

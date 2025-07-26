@@ -4,7 +4,7 @@
  * Handles unified data model and schema migrations
  */
 
-import { Journey, CostTrackingData, Location, Transportation, Accommodation } from '../types';
+import { Journey, CostTrackingData, Location, Transportation, Accommodation, Expense } from '../types';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -55,7 +55,7 @@ export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * Migrates from version 1 to version 2 - extracts accommodations from locations
@@ -251,6 +251,144 @@ export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
 }
 
 /**
+ * Migrate from schema v4 to v5 - Synchronize travelReference and costTrackingLinks
+ * This migration ensures that:
+ * 1. All expenses with travelReference have corresponding costTrackingLinks in travel items
+ * 2. All costTrackingLinks have corresponding travelReference in expenses
+ */
+export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
+  const tripId = data.id;
+  const syncLog: string[] = [];
+  
+  // Helper function to get travel item by type and ID
+  const getTravelItem = (type: string, id: string) => {
+    switch (type) {
+      case 'location':
+        return data.travelData?.locations?.find(l => l.id === id);
+      case 'accommodation':
+        return data.accommodations?.find(a => a.id === id);
+      case 'route':
+        return data.travelData?.routes?.find(r => r.id === id);
+      default:
+        return undefined;
+    }
+  };
+  
+  // Step 1: Add missing costTrackingLinks based on travelReference in expenses
+  if (data.costData?.expenses) {
+    data.costData.expenses.forEach(expense => {
+      if (expense.travelReference) {
+        const { type, locationId, accommodationId, routeId, description } = expense.travelReference;
+        const travelItemId = locationId || accommodationId || routeId;
+        
+        if (travelItemId) {
+          const travelItem = getTravelItem(type, travelItemId);
+          if (travelItem) {
+            // Initialize costTrackingLinks array if it doesn't exist
+            if (!travelItem.costTrackingLinks) {
+              travelItem.costTrackingLinks = [];
+            }
+            
+            // Check if link already exists
+            const existingLink = travelItem.costTrackingLinks.find(link => link.expenseId === expense.id);
+            if (!existingLink) {
+              // Add the missing link
+              travelItem.costTrackingLinks.push({
+                expenseId: expense.id,
+                description: description || expense.description || ''
+              });
+              syncLog.push(`Added missing costTrackingLink for expense ${expense.id} to ${type} ${travelItemId}`);
+            }
+          } else {
+            syncLog.push(`Warning: Expense ${expense.id} references non-existent ${type} ${travelItemId}`);
+          }
+        }
+      }
+    });
+  }
+  
+  // Step 2: Add missing travelReference based on costTrackingLinks
+  // (This step ensures bidirectional consistency in case costTrackingLinks exist without travelReference)
+  const addTravelReference = (expense: Expense, travelItemType: 'location' | 'accommodation' | 'route', travelItemId: string, travelItemName: string) => {
+    if (!expense.travelReference) {
+      expense.travelReference = {
+        type: travelItemType,
+        description: travelItemName
+      };
+      
+      // Set the appropriate ID field based on type
+      switch (travelItemType) {
+        case 'location':
+          expense.travelReference.locationId = travelItemId;
+          break;
+        case 'accommodation':
+          expense.travelReference.accommodationId = travelItemId;
+          break;
+        case 'route':
+          expense.travelReference.routeId = travelItemId;
+          break;
+      }
+      
+      syncLog.push(`Added missing travelReference for expense ${expense.id} to ${travelItemType} ${travelItemId}`);
+    }
+  };
+  
+  // Check locations
+  if (data.travelData?.locations) {
+    data.travelData.locations.forEach(location => {
+      if (location.costTrackingLinks) {
+        location.costTrackingLinks.forEach(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          if (expense) {
+            addTravelReference(expense, 'location', location.id, location.name);
+          }
+        });
+      }
+    });
+  }
+  
+  // Check accommodations
+  if (data.accommodations) {
+    data.accommodations.forEach(accommodation => {
+      if (accommodation.costTrackingLinks) {
+        accommodation.costTrackingLinks.forEach(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          if (expense) {
+            addTravelReference(expense, 'accommodation', accommodation.id, accommodation.name);
+          }
+        });
+      }
+    });
+  }
+  
+  // Check routes
+  if (data.travelData?.routes) {
+    data.travelData.routes.forEach(route => {
+      if (route.costTrackingLinks) {
+        route.costTrackingLinks.forEach(link => {
+          const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
+          if (expense) {
+            const routeName = `${route.from} → ${route.to}`;
+            addTravelReference(expense, 'route', route.id, routeName);
+          }
+        });
+      }
+    });
+  }
+  
+  // Log synchronization actions
+  if (syncLog.length > 0) {
+    console.log(`Trip ${tripId} v4→v5 migration synchronization:`, syncLog);
+  }
+  
+  return {
+    ...data,
+    schemaVersion: 5,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
  * Migration handler for schema version updates
  */
 export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
@@ -267,6 +405,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   if (data.schemaVersion < 4) {
     data = migrateFromV3ToV4(data);
+  }
+  if (data.schemaVersion < 5) {
+    data = migrateFromV4ToV5(data);
   }
   
   // Ensure current version

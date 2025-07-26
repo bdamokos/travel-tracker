@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TravelItemSelector from './TravelItemSelector';
 import AriaSelect from './AriaSelect';
 import { Expense, ExpenseType } from '../../types';
@@ -34,6 +34,33 @@ export default function ExpenseForm({
   tripId
 }: ExpenseFormProps) {
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+
+  // Load existing travel link when editing an expense
+  useEffect(() => {
+    if (editingExpenseIndex !== null && currentExpense.id && tripId) {
+      // Fetch existing links for this expense
+      fetch(`/api/travel-data/${tripId}/expense-links`)
+        .then(response => response.json())
+        .then((links: Array<{expenseId: string, travelItemId: string, travelItemName: string, travelItemType: string}>) => {
+          const existingLink = links.find(link => link.expenseId === currentExpense.id);
+          if (existingLink) {
+            setSelectedTravelLinkInfo({
+              id: existingLink.travelItemId,
+              name: existingLink.travelItemName,
+              type: existingLink.travelItemType as 'location' | 'accommodation' | 'route'
+            });
+          } else {
+            setSelectedTravelLinkInfo(undefined);
+          }
+        })
+        .catch(error => {
+          console.error('Error loading existing travel link:', error);
+          setSelectedTravelLinkInfo(undefined);
+        });
+    } else {
+      setSelectedTravelLinkInfo(undefined);
+    }
+  }, [editingExpenseIndex, currentExpense.id, tripId]);
 
   // React 19 Action for adding/updating expenses
   async function submitExpenseAction(formData: FormData) {
@@ -243,6 +270,7 @@ export default function ExpenseForm({
             expenseId={currentExpense.id!}
             tripId={tripId}
             travelLookup={travelLookup}
+            initialValue={selectedTravelLinkInfo}
             onReferenceChange={(travelLinkInfo) => {
               setSelectedTravelLinkInfo(travelLinkInfo);
               setCurrentExpense({

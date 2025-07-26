@@ -176,24 +176,76 @@ export default function CostTrackerEditor({
 
     if (travelLinkInfo) {
       try {
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        const response = await fetch(`${baseUrl}/api/travel-data/update-links`, {
+        // Use the same expense linking API as the trip editor for bidirectional linking
+        const response = await fetch('/api/travel-data/expense-links', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             tripId: costData.tripId,
-            travelLinkInfo,
             expenseId: expense.id,
+            travelItemId: travelLinkInfo.id,
+            travelItemType: travelLinkInfo.type,
+            description: travelLinkInfo.name,
           }),
         });
 
         if (!response.ok) {
-          console.error('Failed to update travel links', await response.json());
+          const result = await response.json();
+          console.error('Failed to link expense to travel item:', result);
+          
+          // Handle duplicate link case
+          if (response.status === 409 && result.error === 'DUPLICATE_LINK' && result.existingLink) {
+            const existingLink = result.existingLink;
+            const itemTypeLabel = existingLink.travelItemType === 'location' ? 'location' : 
+                                 existingLink.travelItemType === 'accommodation' ? 'accommodation' : 'route';
+            
+            const proceed = confirm(
+              `⚠️ DUPLICATE LINK WARNING
+
+` +
+              `This expense is already linked to:
+` +
+              `${itemTypeLabel.toUpperCase()}: "${existingLink.travelItemName}"
+
+` +
+              `Do you want to move the link to "${travelLinkInfo.name}" instead?
+
+` +
+              `(This will remove the link from "${existingLink.travelItemName}" and add it to "${travelLinkInfo.name}")`
+            );
+            
+            if (proceed) {
+              // Use the move API endpoint
+              const moveResponse = await fetch('/api/travel-data/expense-links/move', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  tripId: costData.tripId,
+                  expenseId: expense.id,
+                  fromTravelItemId: existingLink.travelItemId,
+                  toTravelItemId: travelLinkInfo.id,
+                  toTravelItemType: travelLinkInfo.type,
+                  description: travelLinkInfo.name,
+                }),
+              });
+              
+              if (!moveResponse.ok) {
+                const moveResult = await moveResponse.json();
+                console.error('Failed to move expense link:', moveResult);
+                alert(`Failed to move expense link: ${moveResult.error || 'Unknown error'}`);
+              }
+            }
+          } else {
+            alert(`Failed to link expense: ${result.error || 'Unknown error'}`);
+          }
         }
       } catch (error) {
-        console.error('Error updating travel links:', error);
+        console.error('Error linking expense to travel item:', error);
+        alert(`Failed to link expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   };
