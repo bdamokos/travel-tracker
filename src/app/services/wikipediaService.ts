@@ -271,7 +271,7 @@ class WikipediaService {
       attribution: {
         text: 'Source: Wikipedia',
         url: apiResponse.content_urls.desktop.page,
-        license: 'CC BY-SA 3.0',
+        license: 'CC BY-SA 4.0',
         imageDisclaimer: 'Image licensing: verify on Wikipedia',
       },
       coordinates: apiResponse.coordinates ? 

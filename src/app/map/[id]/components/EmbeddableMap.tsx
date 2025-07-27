@@ -6,8 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
-import { LocationPopupModal } from '../../../components/LocationPopup';
-import { useLocationPopup } from '../../../hooks/useLocationPopup';
+import { formatDateRange } from '../../../lib/dateUtils';
 
 interface TravelData {
   id: string;
@@ -53,15 +52,87 @@ interface EmbeddableMapProps {
   travelData: TravelData;
 }
 
+// Function to generate popup HTML with Wikipedia data
+const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?: {
+  title: string;
+  extract: string;
+  thumbnail?: { source: string };
+  url: string;
+}) => {
+  const isDarkMode = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const popupStyles = isDarkMode 
+    ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
+    : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
+  
+  let popupContent = `
+    <div style="padding: 12px; max-width: 400px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${location.name}</h4>
+      <p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">
+        ${formatDateRange(location.date, location.endDate)}
+      </p>
+      ${location.notes ? `<p style="font-size: 14px; margin-bottom: 12px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${location.notes}</p>` : ''}
+  `;
+  
+  // Add Wikipedia section
+  if (wikipediaData) {
+    popupContent += `
+      <div style="margin-bottom: 12px; padding-top: 8px; border-top: 1px solid ${isDarkMode ? '#4b5563' : '#d1d5db'};">
+        
+        <div style="display: flex; gap: 8px;">
+          ${wikipediaData.thumbnail ? `<img src="${wikipediaData.thumbnail.source}" alt="${wikipediaData.title}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" />` : ''}
+          <div style="flex: 1;">
+            <p style="font-size: 13px; line-height: 1.4; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${wikipediaData.extract}</p>
+            <a href="${wikipediaData.url}" target="_blank" style="color: #3b82f6; font-size: 12px; text-decoration: underline;">Read more on Wikipedia</a>
+          </div>
+        </div>
+        <p style="font-size: 10px; margin-top: 6px; ${isDarkMode ? 'color: #6b7280;' : 'color: #9ca3af;'}">Source: Wikipedia • under Creative Commons BY-SA 4.0 license</p>
+      </div>
+    `;
+  }
+  
+  // Add Instagram posts
+  if (location.instagramPosts && location.instagramPosts.length > 0) {
+    popupContent += `
+      <div style="margin-bottom: 8px;">
+        <strong style="font-size: 12px; ${isDarkMode ? 'color: #f472b6;' : 'color: #ec4899;'}">📷 Instagram:</strong>
+        ${location.instagramPosts.map(post => `
+          <div style="margin-top: 2px;">
+            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
+              ${post.caption || 'View Post'}
+            </a>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Add blog posts
+  if (location.blogPosts && location.blogPosts.length > 0) {
+    popupContent += `
+      <div style="margin-bottom: 8px;">
+        <strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>
+        ${location.blogPosts.map(post => `
+          <div style="margin-top: 2px;">
+            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
+              ${post.title}
+            </a>
+            ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${post.excerpt}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  popupContent += '</div>';
+  return popupContent;
+};
+
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
-  
-  // Location popup state
-  const { isOpen, data, openPopup, closePopup } = useLocationPopup();
   
   // Simplified - no more client-side route generation
   
@@ -165,7 +236,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }))
     );
     
-    travelData.locations.forEach((location) => {
+    travelData.locations.forEach(async (location) => {
       // Determine if this location should be highlighted
       const isHighlighted = closestLocation?.id === location.id;
       
@@ -175,34 +246,30 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         markerOptions.icon = highlightedIcon;
       }
       
+      // Generate initial popup content without Wikipedia data
+      const initialPopupContent = generatePopupHTML(location);
+      
       const marker = L.marker(location.coordinates, markerOptions)
         .addTo(map)
-        .on('click', () => {
-          // Create a journey day object for the popup
-          const journeyDay = {
-            id: `${location.id}-${location.date}`,
-            date: new Date(location.date),
-            title: location.name,
-            locations: [{
-              ...location,
-              date: new Date(location.date),
-              endDate: location.endDate ? new Date(location.endDate) : undefined,
-              // Convert endDate to departureTime for consistency with other components
-              departureTime: location.endDate || undefined,
-              arrivalTime: undefined // Not available in embeddable map data
-            }],
-            transportation: undefined
-          };
-          
-          // Open the rich popup modal
-          openPopup({
-            ...location,
-            date: new Date(location.date),
-            endDate: location.endDate ? new Date(location.endDate) : undefined,
-            departureTime: location.endDate || undefined,
-            arrivalTime: undefined
-          }, journeyDay, travelData.id);
+        .bindPopup(initialPopupContent, {
+          maxWidth: 400,
+          className: 'wikipedia-popup'
         });
+      
+      // Fetch Wikipedia data asynchronously
+      try {
+        const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}`);
+        if (response.ok) {
+          const wikipediaResponse = await response.json();
+          if (wikipediaResponse.success && wikipediaResponse.data) {
+            // Update popup content with Wikipedia data
+            const updatedPopupContent = generatePopupHTML(location, wikipediaResponse.data);
+            marker.setPopupContent(updatedPopupContent);
+          }
+        }
+      } catch (_error) {
+        console.log('Wikipedia data not available for', location.name);
+      }
       
       markers.push(marker);
     });
@@ -258,7 +325,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon, openPopup]);
+  }, [travelData, L, isClient, highlightedIcon]);
 
   if (!isClient) {
     return (
@@ -272,20 +339,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   }
 
   return (
-    <>
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-        style={{ minHeight: '400px' }}
-      />
-      
-      {/* Location Popup Modal */}
-      <LocationPopupModal
-        isOpen={isOpen}
-        onClose={closePopup}
-        data={data}
-      />
-    </>
+    <div
+      ref={containerRef}
+      className="h-full w-full"
+      style={{ minHeight: '400px' }}
+    />
   );
 };
 

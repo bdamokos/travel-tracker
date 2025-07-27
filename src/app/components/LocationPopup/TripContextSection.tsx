@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { Location, JourneyDay } from '../../types';
+import { formatDateRange } from '../../lib/dateUtils';
 
 interface TripContextSectionProps {
   location: Location;
@@ -29,23 +30,12 @@ export default function TripContextSection({
         
         <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
           <p>
-            <span className="font-medium">Date:</span> {new Date(day.date).toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
+            <span className="font-medium">Stay:</span> {formatDateRange(day.date, location.endDate)}
           </p>
           
           {location.arrivalTime && (
             <p>
               <span className="font-medium">Arrival:</span> {location.arrivalTime}
-            </p>
-          )}
-          
-          {location.departureTime && (
-            <p>
-              <span className="font-medium">Departure:</span> {location.departureTime}
             </p>
           )}
           

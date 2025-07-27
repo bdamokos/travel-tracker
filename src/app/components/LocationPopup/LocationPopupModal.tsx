@@ -47,6 +47,7 @@ export default function LocationPopupModal({
       title={location.name}
       size="md"
       className="max-w-2xl"
+      showOverlay={false}
     >
       <div className="space-y-6">
         {/* Trip Context Section */}

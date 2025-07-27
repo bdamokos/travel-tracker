@@ -30,10 +30,10 @@ export default function WikipediaSection({
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
-      <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+      {/* <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
         <span className="mr-2">🌍</span>
         About {location.name}
-      </h4>
+      </h4> */}
 
       {loading && (
         <div className="flex items-center justify-center py-8">

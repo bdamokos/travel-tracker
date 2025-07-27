@@ -16,6 +16,7 @@ interface AccessibleModalProps {
   className?: string;
   isDismissable?: boolean;
   isKeyboardDismissDisabled?: boolean;
+  showOverlay?: boolean;
 }
 
 export default function AccessibleModal({
@@ -26,7 +27,8 @@ export default function AccessibleModal({
   size = 'lg',
   className = '',
   isDismissable = true,
-  isKeyboardDismissDisabled = false
+  isKeyboardDismissDisabled = false,
+  showOverlay = true
 }: AccessibleModalProps) {
   const ref = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -77,7 +79,7 @@ export default function AccessibleModal({
   return (
     <OverlayContainer>
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        className={`fixed inset-0 flex items-center justify-center p-4 z-50 ${showOverlay ? 'bg-black bg-opacity-50' : ''}`}
         {...underlayProps}
       >
         <FocusScope contain restoreFocus autoFocus>
