@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
-import { findClosestLocationToCurrentDate, formatDateRange } from '../../../lib/dateUtils';
+import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
+import { LocationPopupModal } from '../../../components/LocationPopup';
+import { useLocationPopup } from '../../../hooks/useLocationPopup';
 
 interface TravelData {
   id: string;
@@ -57,6 +59,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
+  
+  // Location popup state
+  const { isOpen, data, openPopup, closePopup } = useLocationPopup();
   
   // Simplified - no more client-side route generation
   
@@ -161,56 +166,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     );
     
     travelData.locations.forEach((location) => {
-      // Build popup content with posts
-      const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const popupStyles = isDarkMode 
-        ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
-        : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
-      
-      let popupContent = `
-        <div style="padding: 8px; max-width: 250px; border-radius: 8px; ${popupStyles}">
-          <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 4px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${location.name}</h4>
-          <p style="font-size: 14px; margin-bottom: 4px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">
-            ${formatDateRange(location.date, location.endDate)}
-          </p>
-          ${location.notes ? `<p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${location.notes}</p>` : ''}
-      `;
-      
-      // Add Instagram posts
-      if (location.instagramPosts && location.instagramPosts.length > 0) {
-        popupContent += `
-          <div style="margin-bottom: 8px;">
-            <strong style="font-size: 12px; ${isDarkMode ? 'color: #f472b6;' : 'color: #ec4899;'}">📷 Instagram:</strong>
-            ${location.instagramPosts.map(post => `
-              <div style="margin-top: 2px;">
-                <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
-                  ${post.caption || 'View Post'}
-                </a>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-      
-      // Add blog posts
-      if (location.blogPosts && location.blogPosts.length > 0) {
-        popupContent += `
-          <div style="margin-bottom: 8px;">
-            <strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>
-            ${location.blogPosts.map(post => `
-              <div style="margin-top: 2px;">
-                <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
-                  ${post.title}
-                </a>
-                ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${post.excerpt}</div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-      
-      popupContent += '</div>';
-      
       // Determine if this location should be highlighted
       const isHighlighted = closestLocation?.id === location.id;
       
@@ -222,7 +177,32 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       
       const marker = L.marker(location.coordinates, markerOptions)
         .addTo(map)
-        .bindPopup(popupContent);
+        .on('click', () => {
+          // Create a journey day object for the popup
+          const journeyDay = {
+            id: `${location.id}-${location.date}`,
+            date: new Date(location.date),
+            title: location.name,
+            locations: [{
+              ...location,
+              date: new Date(location.date),
+              endDate: location.endDate ? new Date(location.endDate) : undefined,
+              // Convert endDate to departureTime for consistency with other components
+              departureTime: location.endDate || undefined,
+              arrivalTime: undefined // Not available in embeddable map data
+            }],
+            transportation: undefined
+          };
+          
+          // Open the rich popup modal
+          openPopup({
+            ...location,
+            date: new Date(location.date),
+            endDate: location.endDate ? new Date(location.endDate) : undefined,
+            departureTime: location.endDate || undefined,
+            arrivalTime: undefined
+          }, journeyDay, travelData.id);
+        });
       
       markers.push(marker);
     });
@@ -278,7 +258,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon]);
+  }, [travelData, L, isClient, highlightedIcon, openPopup]);
 
   if (!isClient) {
     return (
@@ -292,11 +272,20 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full w-full"
-      style={{ minHeight: '400px' }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="h-full w-full"
+        style={{ minHeight: '400px' }}
+      />
+      
+      {/* Location Popup Modal */}
+      <LocationPopupModal
+        isOpen={isOpen}
+        onClose={closePopup}
+        data={data}
+      />
+    </>
   );
 };
 

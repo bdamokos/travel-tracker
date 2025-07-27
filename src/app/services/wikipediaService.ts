@@ -19,7 +19,6 @@ import {
   normalizeLocationName, 
   calculateMatchConfidence,
   validateWikipediaResponse,
-  truncateExtract,
   isCacheExpired,
   getOptimalThumbnailUrl,
   parseWikipediaReference
@@ -262,7 +261,7 @@ class WikipediaService {
   ): StoredWikipediaData {
     return {
       title: apiResponse.title,
-      extract: truncateExtract(apiResponse.extract, 250),
+      extract: apiResponse.extract,
       thumbnail: apiResponse.thumbnail ? {
         source: getOptimalThumbnailUrl(apiResponse.thumbnail.source, 240),
         width: apiResponse.thumbnail.width,
