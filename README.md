@@ -10,8 +10,8 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 
 - Interactive OpenStreetMap display with route visualization
 - Different route styles based on transportation type (air, land, sea)
-- Chronological travel timeline
-- Location markers with popup information
+- Chronological travel timeline and calendar interface
+
 - Instagram post integration
 - Blog post integration
 - Comprehensive travel expense tracking and budget management
@@ -76,12 +76,13 @@ Travel Tracker stores all journey data on the server using API endpoints, ensuri
 5. **Adding Instagram Posts**: Link your Instagram posts to specific days in your journey
 6. **Adding Blog Posts**: Link your blog posts to specific locations in your journey
 
+
 ### Cost Tracking
-7. **Creating a Cost Tracker**: Navigate to the "Cost Tracking" tab in the admin interface
-8. **Setting Budget**: Define your overall trip budget and optional country-specific budgets
-9. **Adding Expenses**: Record individual expenses with categories, amounts, and locations
-10. **YNAB Integration**: Upload YNAB export files to automatically import your financial data
-11. **Analytics**: View spending breakdowns by country, category, and time period
+11. **Creating a Cost Tracker**: Navigate to the "Cost Tracking" tab in the admin interface
+12. **Setting Budget**: Define your overall trip budget and optional country-specific budgets
+13. **Adding Expenses**: Record individual expenses with categories, amounts, and locations
+14. **YNAB Integration**: Upload YNAB export files to automatically import your financial data, or import them using an API key
+15. **Analytics**: View spending breakdowns by country, category, and time period
 
 ## Issues
 This application is written with my specific needs in mind - feel free to fork it and make it your own and contribute back.
