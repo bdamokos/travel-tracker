@@ -47,9 +47,9 @@ export default function WikipediaAttribution({
         )}
 
         {/* Last updated */}
-        <div className="text-gray-400 dark:text-gray-500">
+        {/* <div className="text-gray-400 dark:text-gray-500">
           Data refreshed: {new Date(wikipediaData.lastFetched).toLocaleDateString()}
-        </div>
+        </div> */}
       </div>
     </div>
   );

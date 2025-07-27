@@ -266,8 +266,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
             marker.setPopupContent(updatedPopupContent);
           }
         }
-      } catch (_error) {
-        console.log('Wikipedia data not available for', location.name);
+      } catch (error) {
+        console.error('Failed to fetch Wikipedia data for', location.name, error);
       }
       
       markers.push(marker);

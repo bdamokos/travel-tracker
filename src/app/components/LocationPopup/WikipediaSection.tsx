@@ -18,7 +18,7 @@ interface WikipediaSectionProps {
 }
 
 export default function WikipediaSection({
-  location,
+  
   wikipediaData,
   loading,
   error

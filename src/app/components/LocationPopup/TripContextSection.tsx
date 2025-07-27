@@ -20,18 +20,43 @@ export default function TripContextSection({
   day,
   tripId: _tripId
 }: TripContextSectionProps) {
+  // Check if this is a transition day (multiple locations)
+  const isTransition = day.locations && day.locations.length > 1;
+  const secondaryLocation = isTransition ? day.locations[1] : null;
+
   return (
     <div className="space-y-4">
       {/* Basic Trip Information */}
       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
         <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-          Trip Details
+          {isTransition ? 'Transition Day Details' : 'Trip Details'}
         </h3>
         
         <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-          <p>
-            <span className="font-medium">Stay:</span> {formatDateRange(day.date, location.endDate)}
-          </p>
+          {isTransition ? (
+            <>
+              <p>
+                <span className="font-medium">Departure from:</span> {location.name}
+              </p>
+              <p className="ml-4 text-xs">
+                <span className="font-medium">Stay period:</span> {formatDateRange(location.date, location.endDate)}
+              </p>
+              {secondaryLocation && (
+                <>
+                  <p className="mt-2">
+                    <span className="font-medium">Arrival to:</span> {secondaryLocation.name}
+                  </p>
+                  <p className="ml-4 text-xs">
+                    <span className="font-medium">Stay period:</span> {formatDateRange(secondaryLocation.date, secondaryLocation.endDate)}
+                  </p>
+                </>
+              )}
+            </>
+          ) : (
+            <p>
+              <span className="font-medium">Stay:</span> {formatDateRange(location.date, location.endDate)}
+            </p>
+          )}
           
           {location.arrivalTime && (
             <p>

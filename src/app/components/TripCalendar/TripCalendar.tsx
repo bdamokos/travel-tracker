@@ -94,9 +94,12 @@ export default function TripCalendar({
       const journeyDay = {
         id: `day-${date.getTime()}`,
         date: date,
-        title: selectedCalendarDay.primaryLocation.name,
+        title: selectedCalendarDay.cellType === 'transition' && selectedCalendarDay.secondaryLocation
+          ? `${selectedCalendarDay.primaryLocation.name} → ${selectedCalendarDay.secondaryLocation.name}`
+          : selectedCalendarDay.primaryLocation.name,
         locations: selectedCalendarDay.locations,
-        transportation: undefined
+        transportation: undefined,
+        isTransition: selectedCalendarDay.cellType === 'transition'
       };
       
       openPopup(selectedCalendarDay.primaryLocation, journeyDay, trip.id);
