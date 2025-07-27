@@ -77,11 +77,10 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   if (wikipediaData) {
     popupContent += `
       <div style="margin-bottom: 12px; padding-top: 8px; border-top: 1px solid ${isDarkMode ? '#4b5563' : '#d1d5db'};">
-        
         <div style="display: flex; gap: 8px;">
           ${wikipediaData.thumbnail ? `<img src="${wikipediaData.thumbnail.source}" alt="${wikipediaData.title}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" />` : ''}
           <div style="flex: 1;">
-            <p style="font-size: 13px; line-height: 1.4; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${wikipediaData.extract}</p>
+            <div style="font-size: 13px; line-height: 1.4; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${wikipediaData.extract.trim()}</div>
             <a href="${wikipediaData.url}" target="_blank" style="color: #3b82f6; font-size: 12px; text-decoration: underline;">Read more on Wikipedia</a>
           </div>
         </div>
