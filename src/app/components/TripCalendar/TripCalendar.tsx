@@ -9,6 +9,8 @@ import {
 } from '@/app/lib/calendarUtils';
 import CalendarGrid from './CalendarGrid';
 import styles from './Calendar.module.css';
+import { LocationPopupModal } from '../LocationPopup';
+import { useLocationPopup } from '../../hooks/useLocationPopup';
 
 interface TripCalendarProps {
   trip: Trip;
@@ -25,6 +27,9 @@ export default function TripCalendar({
 }: TripCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
+  
+  // Location popup state
+  const { isOpen, data, openPopup, closePopup } = useLocationPopup();
 
   useEffect(() => {
     setMounted(true);
@@ -65,6 +70,37 @@ export default function TripCalendar({
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
+    
+    // Find the calendar day data for this date from the generated calendar
+    let selectedCalendarDay = null;
+    
+    if (calendarData) {
+      for (const monthCalendar of calendarData.monthCalendars) {
+        for (const week of monthCalendar.weeks) {
+          for (const cell of week) {
+            if (cell.day.date.toDateString() === date.toDateString()) {
+              selectedCalendarDay = cell.day;
+              break;
+            }
+          }
+          if (selectedCalendarDay) break;
+        }
+        if (selectedCalendarDay) break;
+      }
+    }
+    
+    if (selectedCalendarDay && selectedCalendarDay.primaryLocation) {
+      // Create a JourneyDay-like object for the popup
+      const journeyDay = {
+        id: `day-${date.getTime()}`,
+        date: date,
+        title: selectedCalendarDay.primaryLocation.name,
+        locations: selectedCalendarDay.locations,
+        transportation: undefined
+      };
+      
+      openPopup(selectedCalendarDay.primaryLocation, journeyDay, trip.id);
+    }
   };
 
   // Show loading state until mounted and data loaded to prevent hydration issues
@@ -152,15 +188,12 @@ export default function TripCalendar({
         </div>
       </div>
       
-      {/* Selected Date Info */}
-      {selectedDate && (
-        <div className="selected-date-info mt-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">
-            {selectedDate.getDate()}/{selectedDate.getMonth() + 1}/{selectedDate.getFullYear()}
-          </h3>
-          {/* Add selected date details here */}
-        </div>
-      )}
+      {/* Location Popup Modal */}
+      <LocationPopupModal
+        isOpen={isOpen}
+        onClose={closePopup}
+        data={data}
+      />
     </div>
   );
 }

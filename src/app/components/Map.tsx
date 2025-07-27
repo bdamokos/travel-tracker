@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location } from '../types';
 import { generateRoutePointsSync, getRouteStyle } from '../lib/routeUtils';
 import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
+import { LocationPopupModal } from './LocationPopup';
+import { useLocationPopup } from '../hooks/useLocationPopup';
 
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {
@@ -56,6 +58,9 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const mapRef = useRef<L.Map | null>(null);
   const [days, setDays] = useState<JourneyDay[]>([]);
   const [key, setKey] = useState(0);
+  
+  // Location popup state
+  const { isOpen, data, openPopup, closePopup } = useLocationPopup();
   
   // Fix Leaflet icons
   useEffect(() => {
@@ -124,7 +129,9 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     );
   }
   
-      return (
+  return (
+    <>
+    
       <MapContainer
         key={key} // Force re-creation on key change
         className="h-full w-full"
@@ -168,77 +175,27 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 position={location.coordinates}
                 icon={closestLocation?.id === location.id ? createHighlightedIcon() : undefined}
                 eventHandlers={{
-                  click: () => onLocationClick && onLocationClick(location)
+                  click: () => {
+                    // Create a journey day object for the popup
+                    const journeyDay = {
+                      id: day.id,
+                      date: new Date(day.date),
+                      title: location.name,
+                      locations: day.locations,
+                      transportation: day.transportation
+                    };
+                    
+                    // Open the rich popup modal
+                    openPopup(location, journeyDay, journey?.id || 'unknown');
+                    
+                    // Call optional callback
+                    if (onLocationClick) {
+                      onLocationClick(location);
+                    }
+                  }
                 }}
               >
-                <Popup>
-                  <div className="p-2 max-w-xs bg-white dark:bg-gray-800">
-                    <h4 className="font-bold text-gray-900 dark:text-white">{location.name}</h4>
-                    {location.arrivalTime && (
-                      <p className="text-sm text-gray-700 dark:text-gray-300">Arrived at: {location.arrivalTime}</p>
-                    )}
-                    <p className="text-sm text-gray-700 dark:text-gray-300">Date: {new Date(day.date).toLocaleDateString()}</p>
-                    {location.notes && (
-                      <p className="text-sm mt-1 text-gray-700 dark:text-gray-300">{location.notes}</p>
-                    )}
-                    
-                    {/* Display Blog Posts */}
-                    {location.blogPosts && location.blogPosts.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
-                        <h5 className="text-sm font-semibold text-green-700 mb-1">📝 Blog Posts:</h5>
-                        <div className="space-y-1">
-                          {location.blogPosts.map((post, index) => (
-                            <div key={post.id || index}>
-                              <a
-                                href={post.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-green-600 hover:text-green-800 text-sm font-medium underline block"
-                                title={post.title}
-                              >
-                                {post.title.length > 30 ? `${post.title.substring(0, 30)}...` : post.title}
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Display Instagram Posts */}
-                    {location.instagramPosts && location.instagramPosts.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
-                        <h5 className="text-sm font-semibold text-blue-700 mb-1">📸 Instagram:</h5>
-                        <div className="space-y-1">
-                          {location.instagramPosts.map((post, index) => (
-                            <div key={post.id || index}>
-                              <a
-                                href={post.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 text-sm underline block"
-                                title={post.url}
-                              >
-                                View Post {location.instagramPosts!.length > 1 ? `#${index + 1}` : ''}
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Show post count summary */}
-                    {(location.blogPosts?.length || location.instagramPosts?.length) && (
-                      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {location.blogPosts?.length && (
-                          <span className="mr-2">📝 {location.blogPosts.length}</span>
-                        )}
-                        {location.instagramPosts?.length && (
-                          <span>📸 {location.instagramPosts.length}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </Popup>
+                {/* No popup content - using modal instead */}
               </Marker>
             );
           })
@@ -261,6 +218,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         );
       })}
     </MapContainer>
+    
+      {/* Location Popup Modal */}
+      <LocationPopupModal
+        isOpen={isOpen}
+        onClose={closePopup}
+        data={data}
+      />
+    </>
   );
 };
 

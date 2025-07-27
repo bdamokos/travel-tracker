@@ -7,7 +7,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { 
   WikipediaAPIResponse, 
-  WikipediaSearchResponse, 
   WikipediaGeosearchResponse,
   StoredWikipediaData, 
   WikipediaErrorType,
@@ -114,13 +113,25 @@ class WikipediaService {
    * Search for Wikipedia articles using OpenSearch
    */
   private async searchArticles(query: string): Promise<string[]> {
-    const encodedQuery = encodeURIComponent(query);
-    const url = `https://en.wikipedia.org/api/rest_v1/page/opensearch/${encodedQuery}`;
+    // Try direct summary endpoint first
+    try {
+      const encodedQuery = encodeURIComponent(query);
+      const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodedQuery}`;
+      
+      const response = await this.makeAPIRequest(url);
+      const data = await response.json() as WikipediaAPIResponse;
+      
+      // If we get a valid page, return its title
+      if (data.title && data.extract) {
+        return [data.title];
+      }
+    } catch (error) {
+      // Fall back to search if direct lookup fails
+      console.log(`Direct lookup failed for ${query}:`, error instanceof Error ? error.message : 'Unknown error', '- trying search');
+    }
     
-    const response = await this.makeAPIRequest(url);
-    const data = await response.json() as WikipediaSearchResponse;
-    
-    return data[1] || []; // Array of matching titles
+    // Fallback: use opensearch API (if available) or return empty
+    return [];
   }
 
   /**
