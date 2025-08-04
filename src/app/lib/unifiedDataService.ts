@@ -263,6 +263,40 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     })()
   };
 
+  // Fix temp-location references in accommodations
+  // This ensures that when locations are saved with accommodations, 
+  // the accommodations get their locationId updated from "temp-location" to the actual location ID
+  if (updated.accommodations && updated.travelData?.locations) {
+    const tempLocationFixLog: string[] = [];
+    
+    updated.accommodations = updated.accommodations.map(accommodation => {
+      if (accommodation.locationId === 'temp-location') {
+        // Find the location that references this accommodation
+        const parentLocation = updated.travelData?.locations?.find(location => 
+          location.accommodationIds?.includes(accommodation.id)
+        );
+        
+        if (parentLocation) {
+          tempLocationFixLog.push(`Fixed accommodation ${accommodation.id} (${accommodation.name}): temp-location → ${parentLocation.id} (${parentLocation.name})`);
+          return {
+            ...accommodation,
+            locationId: parentLocation.id,
+            updatedAt: new Date().toISOString()
+          };
+        } else {
+          // Log warning if no parent location found
+          tempLocationFixLog.push(`Warning: Could not find parent location for accommodation ${accommodation.id} (${accommodation.name}) with temp-location`);
+        }
+      }
+      return accommodation;
+    });
+    
+    // Log fixes if any were made
+    if (tempLocationFixLog.length > 0) {
+      console.log(`Trip ${tripId} temp-location cleanup:`, tempLocationFixLog);
+    }
+  }
+
   await saveUnifiedTripData(updated);
   return updated;
 }
