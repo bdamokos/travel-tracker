@@ -9,7 +9,7 @@
  * Updated for trip isolation: Works with provided trip data instead of fetching externally.
  */
 
-import { Accommodation, Location, Transportation, CostTrackingLink } from '../types';
+import { Accommodation, Location, Transportation, CostTrackingLink, Expense } from '../types';
 
 export interface TravelLinkInfo {
   type: 'location' | 'accommodation' | 'route';
@@ -24,6 +24,9 @@ export interface TripData {
   locations?: Location[];
   accommodations?: Accommodation[];
   routes?: Transportation[];
+  costData?: {
+    expenses?: Expense[];
+  };
 }
 
 export class ExpenseTravelLookup {
@@ -103,32 +106,33 @@ export class ExpenseTravelLookup {
 
     // PHASE 2: Index from travelReference (legacy system) - only if not already found
     // This handles cases like Antarctica Hostel where costTrackingLinks is empty but travelReference exists
-    if ((tripData as any).costData?.expenses) {
-      (tripData as any).costData.expenses.forEach((expense: any) => {
+    if (tripData.costData?.expenses) {
+      tripData.costData.expenses.forEach((expense: Expense) => {
         if (expense.travelReference && !this.expenseToTravelMap.has(expense.id)) {
           const travelRef = expense.travelReference;
-          
+
           // Find the travel item based on the reference
-          let travelItem: any = null;
+          let travelItem: Location | Accommodation | Transportation | null = null;
           let locationName: string | undefined = undefined;
 
           if (travelRef.type === 'location' && travelRef.locationId) {
-            travelItem = tripData.locations?.find((loc: Location) => loc.id === travelRef.locationId);
+            travelItem = tripData.locations?.find((loc: Location) => loc.id === travelRef.locationId) || null;
           } else if (travelRef.type === 'accommodation' && travelRef.accommodationId) {
-            travelItem = tripData.accommodations?.find((acc: Accommodation) => acc.id === travelRef.accommodationId);
+            travelItem = tripData.accommodations?.find((acc: Accommodation) => acc.id === travelRef.accommodationId) || null;
             if (travelItem) {
-              const location = tripData.locations?.find((loc: Location) => loc.id === travelItem.locationId);
+              const location = tripData.locations?.find((loc: Location) => loc.id === (travelItem as Accommodation).locationId);
               locationName = location?.name || 'Unknown location';
             }
           } else if (travelRef.type === 'route' && travelRef.routeId) {
-            travelItem = tripData.routes?.find((route: Transportation) => route.id === travelRef.routeId);
+            travelItem = tripData.routes?.find((route: Transportation) => route.id === travelRef.routeId) || null;
           }
 
           if (travelItem) {
+            const itemName = 'name' in travelItem ? travelItem.name : `${(travelItem as Transportation).from} → ${(travelItem as Transportation).to}`;
             const linkInfo: TravelLinkInfo = {
               type: travelRef.type,
               id: travelItem.id,
-              name: travelRef.description || travelItem.name || `${travelItem.from} → ${travelItem.to}`,
+              name: travelRef.description || itemName,
               tripTitle: this.tripTitle
             };
 

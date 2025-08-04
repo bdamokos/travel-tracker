@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
-import { CostTrackingLink } from '../../../types';
+import { CostTrackingLink, Location, Transportation, Accommodation, TravelReference } from '../../../types';
 import { isAdminDomain } from '../../../lib/server-domains';
 import { validateTripBoundary, ValidationErrorType } from '../../../lib/tripBoundaryValidation';
 
@@ -100,19 +100,19 @@ export async function POST(request: NextRequest) {
       };
 
       // Add to travel item (modern system)
-      let travelItem: any = null;
+      let travelItem: Location | Transportation | Accommodation | null = null;
       if (travelLinkInfo.type === 'location') {
-        travelItem = unifiedData.travelData.locations?.find(loc => loc.id === travelLinkInfo.id);
+        travelItem = unifiedData.travelData.locations?.find(loc => loc.id === travelLinkInfo.id) || null;
         if (travelItem) {
           travelItem.costTrackingLinks?.push(newLink);
         }
       } else if (travelLinkInfo.type === 'accommodation') {
-        travelItem = unifiedData.accommodations?.find(acc => acc.id === travelLinkInfo.id);
+        travelItem = unifiedData.accommodations?.find(acc => acc.id === travelLinkInfo.id) || null;
         if (travelItem) {
           travelItem.costTrackingLinks?.push(newLink);
         }
       } else if (travelLinkInfo.type === 'route') {
-        travelItem = unifiedData.travelData.routes?.find(r => r.id === travelLinkInfo.id);
+        travelItem = unifiedData.travelData.routes?.find(r => r.id === travelLinkInfo.id) || null;
         if (travelItem) {
           travelItem.costTrackingLinks?.push(newLink);
         }
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
         const expense = unifiedData.costData.expenses.find(exp => exp.id === expenseId);
         if (expense) {
           // Create the travelReference based on the travel item type
-          let travelReference: any = {
+          const travelReference: TravelReference = {
             type: travelLinkInfo.type,
             description: travelLinkInfo.name
           };

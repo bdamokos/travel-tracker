@@ -6,7 +6,8 @@
  */
 
 import { loadUnifiedTripData, saveUnifiedTripData } from './unifiedDataService';
-import { CostTrackingLink } from '../types';
+import { UnifiedTripData } from './dataMigration';
+import { CostTrackingLink, Location, Transportation, Accommodation } from '../types';
 import { TravelLinkInfo } from './expenseTravelLookup';
 
 export interface ExpenseLinkOperation {
@@ -66,10 +67,10 @@ export class ExpenseLinkingService {
     }]);
   }
 
-  private ensureCostTrackingLinksExist(tripData: any): void {
+  private ensureCostTrackingLinksExist(tripData: UnifiedTripData): void {
     // Ensure locations have costTrackingLinks
     if (tripData.travelData?.locations) {
-      tripData.travelData.locations.forEach((location: any) => {
+      tripData.travelData.locations.forEach((location: Location) => {
         if (!location.costTrackingLinks) {
           location.costTrackingLinks = [];
         }
@@ -78,7 +79,7 @@ export class ExpenseLinkingService {
 
     // Ensure routes have costTrackingLinks
     if (tripData.travelData?.routes) {
-      tripData.travelData.routes.forEach((route: any) => {
+      tripData.travelData.routes.forEach((route: Transportation) => {
         if (!route.costTrackingLinks) {
           route.costTrackingLinks = [];
         }
@@ -87,7 +88,7 @@ export class ExpenseLinkingService {
 
     // Ensure accommodations have costTrackingLinks
     if (tripData.accommodations) {
-      tripData.accommodations.forEach((accommodation: any) => {
+      tripData.accommodations.forEach((accommodation: Accommodation) => {
         if (!accommodation.costTrackingLinks) {
           accommodation.costTrackingLinks = [];
         }
@@ -95,7 +96,7 @@ export class ExpenseLinkingService {
     }
   }
 
-  private async applyOperation(tripData: any, operation: ExpenseLinkOperation): Promise<void> {
+  private async applyOperation(tripData: UnifiedTripData, operation: ExpenseLinkOperation): Promise<void> {
     const { type, expenseId, travelLinkInfo, description } = operation;
 
     // First, remove any existing links for this expense
@@ -117,14 +118,17 @@ export class ExpenseLinkingService {
         description: description || travelLinkInfo.name
       };
 
+      if (!travelItem.costTrackingLinks) {
+        travelItem.costTrackingLinks = [];
+      }
       travelItem.costTrackingLinks.push(newLink);
     }
   }
 
-  private removeExistingLinks(tripData: any, expenseId: string): void {
+  private removeExistingLinks(tripData: UnifiedTripData, expenseId: string): void {
     // Remove from locations
     if (tripData.travelData?.locations) {
-      tripData.travelData.locations.forEach((location: any) => {
+      tripData.travelData.locations.forEach((location: Location) => {
         if (location.costTrackingLinks) {
           location.costTrackingLinks = location.costTrackingLinks.filter(
             (link: CostTrackingLink) => link.expenseId !== expenseId
@@ -135,7 +139,7 @@ export class ExpenseLinkingService {
 
     // Remove from routes
     if (tripData.travelData?.routes) {
-      tripData.travelData.routes.forEach((route: any) => {
+      tripData.travelData.routes.forEach((route: Transportation) => {
         if (route.costTrackingLinks) {
           route.costTrackingLinks = route.costTrackingLinks.filter(
             (link: CostTrackingLink) => link.expenseId !== expenseId
@@ -146,7 +150,7 @@ export class ExpenseLinkingService {
 
     // Remove from accommodations
     if (tripData.accommodations) {
-      tripData.accommodations.forEach((accommodation: any) => {
+      tripData.accommodations.forEach((accommodation: Accommodation) => {
         if (accommodation.costTrackingLinks) {
           accommodation.costTrackingLinks = accommodation.costTrackingLinks.filter(
             (link: CostTrackingLink) => link.expenseId !== expenseId
@@ -156,14 +160,14 @@ export class ExpenseLinkingService {
     }
   }
 
-  private findTravelItem(tripData: any, travelLinkInfo: TravelLinkInfo): any {
+  private findTravelItem(tripData: UnifiedTripData, travelLinkInfo: TravelLinkInfo): Location | Transportation | Accommodation | null {
     switch (travelLinkInfo.type) {
       case 'location':
-        return tripData.travelData?.locations?.find((item: any) => item.id === travelLinkInfo.id);
+        return tripData.travelData?.locations?.find((item: Location) => item.id === travelLinkInfo.id) || null;
       case 'accommodation':
-        return tripData.accommodations?.find((item: any) => item.id === travelLinkInfo.id);
+        return tripData.accommodations?.find((item: Accommodation) => item.id === travelLinkInfo.id) || null;
       case 'route':
-        return tripData.travelData?.routes?.find((item: any) => item.id === travelLinkInfo.id);
+        return tripData.travelData?.routes?.find((item: Transportation) => item.id === travelLinkInfo.id) || null;
       default:
         return null;
     }
@@ -223,18 +227,18 @@ export async function syncLegacyTravelReferences(tripId: string): Promise<{
     for (const expense of tripData.costData.expenses) {
       if (expense.travelReference) {
         const travelRef = expense.travelReference;
-        let travelItem: any = null;
+        let travelItem: Location | Transportation | Accommodation | null = null;
         let itemType: string = '';
 
         // Find the travel item
         if (travelRef.type === 'location' && travelRef.locationId) {
-          travelItem = tripData.travelData?.locations?.find(loc => loc.id === travelRef.locationId);
+          travelItem = tripData.travelData?.locations?.find(loc => loc.id === travelRef.locationId) || null;
           itemType = 'location';
         } else if (travelRef.type === 'accommodation' && travelRef.accommodationId) {
-          travelItem = tripData.accommodations?.find(acc => acc.id === travelRef.accommodationId);
+          travelItem = tripData.accommodations?.find(acc => acc.id === travelRef.accommodationId) || null;
           itemType = 'accommodation';
         } else if (travelRef.type === 'route' && travelRef.routeId) {
-          travelItem = tripData.travelData?.routes?.find(route => route.id === travelRef.routeId);
+          travelItem = tripData.travelData?.routes?.find(route => route.id === travelRef.routeId) || null;
           itemType = 'route';
         }
 
@@ -251,9 +255,14 @@ export async function syncLegacyTravelReferences(tripId: string): Promise<{
               description: travelRef.description || `Synced from travelReference`
             };
 
+            if (!travelItem.costTrackingLinks) {
+              travelItem.costTrackingLinks = [];
+            }
             travelItem.costTrackingLinks.push(newLink);
             syncedCount++;
-            console.log(`Synced expense ${expense.id} to ${itemType} ${travelItem.id} (${travelItem.name || `${travelItem.from} → ${travelItem.to}`})`);
+            
+            const itemName = 'name' in travelItem ? travelItem.name : `${(travelItem as Transportation).from} → ${(travelItem as Transportation).to}`;
+            console.log(`Synced expense ${expense.id} to ${itemType} ${travelItem.id} (${itemName})`);
           }
         } else {
           errors.push(`Expense ${expense.id}: Referenced ${travelRef.type} not found`);

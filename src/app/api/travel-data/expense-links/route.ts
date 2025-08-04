@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
+import { Transportation, TravelReference } from '../../../types';
 
 interface LinkExpenseRequest {
   tripId: string;
@@ -167,9 +168,10 @@ export async function POST(request: NextRequest) {
       const expense = tripData.costData.expenses.find(exp => exp.id === expenseId);
       if (expense) {
         // Create the travelReference based on the travel item type
-        let travelReference: any = {
-          type: travelItemType,
-          description: description || (travelItem.name || `${travelItem.from} → ${travelItem.to}`)
+        const itemName = 'name' in travelItem ? travelItem.name : `${(travelItem as Transportation).from} → ${(travelItem as Transportation).to}`;
+        const travelReference: TravelReference = {
+          type: travelItemType as 'location' | 'accommodation' | 'route',
+          description: description || itemName
         };
 
         if (travelItemType === 'location') {
