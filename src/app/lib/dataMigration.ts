@@ -55,7 +55,7 @@ export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * Migrates from version 1 to version 2 - extracts accommodations from locations
@@ -389,6 +389,58 @@ export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
 }
 
 /**
+ * Migrate from schema v5 to v6 - Fix temp-location accommodation assignments
+ * This migration fixes accommodations that have "temp-location" as locationId
+ * by finding the correct location based on accommodation dates and location names
+ */
+export function migrateFromV5ToV6(data: UnifiedTripData): UnifiedTripData {
+  const tripId = data.id;
+  const fixLog: string[] = [];
+  
+  if (!data.accommodations || !data.travelData?.locations) {
+    return {
+      ...data,
+      schemaVersion: 6,
+      updatedAt: new Date().toISOString()
+    };
+  }
+  
+  // Fix accommodations with temp-location by finding which location references them
+  data.accommodations = data.accommodations.map(accommodation => {
+    if (accommodation.locationId !== 'temp-location') {
+      return accommodation;
+    }
+    
+    // Find the location that has this accommodation in its accommodationIds
+    const parentLocation = data.travelData?.locations?.find(location => 
+      location.accommodationIds?.includes(accommodation.id)
+    );
+    
+    if (parentLocation) {
+      fixLog.push(`Fixed accommodation ${accommodation.id} (${accommodation.name}): temp-location → ${parentLocation.id} (${parentLocation.name})`);
+      return {
+        ...accommodation,
+        locationId: parentLocation.id
+      };
+    } else {
+      fixLog.push(`Could not find parent location for accommodation ${accommodation.id} (${accommodation.name})`);
+      return accommodation;
+    }
+  });
+  
+  // Log fix actions
+  if (fixLog.length > 0) {
+    console.log(`Trip ${tripId} v5→v6 migration temp-location fixes:`, fixLog);
+  }
+  
+  return {
+    ...data,
+    schemaVersion: 6,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
  * Migration handler for schema version updates
  */
 export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
@@ -408,6 +460,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   if (data.schemaVersion < 5) {
     data = migrateFromV4ToV5(data);
+  }
+  if (data.schemaVersion < 6) {
+    data = migrateFromV5ToV6(data);
   }
   
   // Ensure current version
