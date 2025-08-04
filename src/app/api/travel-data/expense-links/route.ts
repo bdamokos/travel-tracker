@@ -159,8 +159,30 @@ export async function POST(request: NextRequest) {
       } as LinkExpenseResponse, { status: 409 });
     }
 
-    // Add the link
+    // Add the link to the travel item (modern system)
     addLinkToTravelItem(travelItem, expenseId, description);
+
+    // ALSO add/update the travelReference in the expense (legacy system) for maximum compatibility
+    if (tripData.costData?.expenses) {
+      const expense = tripData.costData.expenses.find(exp => exp.id === expenseId);
+      if (expense) {
+        // Create the travelReference based on the travel item type
+        let travelReference: any = {
+          type: travelItemType,
+          description: description || (travelItem.name || `${travelItem.from} → ${travelItem.to}`)
+        };
+
+        if (travelItemType === 'location') {
+          travelReference.locationId = travelItemId;
+        } else if (travelItemType === 'accommodation') {
+          travelReference.accommodationId = travelItemId;
+        } else if (travelItemType === 'route') {
+          travelReference.routeId = travelItemId;
+        }
+
+        expense.travelReference = travelReference;
+      }
+    }
 
     // Save the updated data
     await saveUnifiedTripData(tripData);
@@ -200,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Remove the specific link from the specified travel item
+    // Remove the specific link from the specified travel item (modern system)
     const allTravelItems = [
       ...(tripData.travelData?.locations || []),
       ...(tripData.accommodations || []),
@@ -212,6 +234,14 @@ export async function DELETE(request: NextRequest) {
       travelItem.costTrackingLinks = travelItem.costTrackingLinks.filter(
         link => link.expenseId !== expenseId
       );
+    }
+
+    // ALSO remove the travelReference from the expense (legacy system) for consistency
+    if (tripData.costData?.expenses) {
+      const expense = tripData.costData.expenses.find(exp => exp.id === expenseId);
+      if (expense && expense.travelReference) {
+        delete expense.travelReference;
+      }
     }
 
     // Save the updated data

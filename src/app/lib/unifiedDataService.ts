@@ -268,14 +268,14 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
   // the accommodations get their locationId updated from "temp-location" to the actual location ID
   if (updated.accommodations && updated.travelData?.locations) {
     const tempLocationFixLog: string[] = [];
-    
+
     updated.accommodations = updated.accommodations.map(accommodation => {
       if (accommodation.locationId === 'temp-location') {
         // Find the location that references this accommodation
-        const parentLocation = updated.travelData?.locations?.find(location => 
+        const parentLocation = updated.travelData?.locations?.find(location =>
           location.accommodationIds?.includes(accommodation.id)
         );
-        
+
         if (parentLocation) {
           tempLocationFixLog.push(`Fixed accommodation ${accommodation.id} (${accommodation.name}): temp-location → ${parentLocation.id} (${parentLocation.name})`);
           return {
@@ -290,7 +290,7 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
       }
       return accommodation;
     });
-    
+
     // Log fixes if any were made
     if (tempLocationFixLog.length > 0) {
       console.log(`Trip ${tripId} temp-location cleanup:`, tempLocationFixLog);

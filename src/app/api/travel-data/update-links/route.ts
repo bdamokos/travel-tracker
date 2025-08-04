@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       costTrackingLinks: route.costTrackingLinks || []
     })) || [];
 
-    // First, remove any existing links for this expenseId across all travel items
+    // First, remove any existing links for this expenseId across all travel items (modern system)
     unifiedData.travelData.locations.forEach(loc => {
       loc.costTrackingLinks = loc.costTrackingLinks?.filter(link => link.expenseId !== expenseId);
     });
@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
     unifiedData.travelData.routes.forEach(route => {
       route.costTrackingLinks = route.costTrackingLinks?.filter(link => link.expenseId !== expenseId);
     });
+
+    // ALSO remove the travelReference from the expense (legacy system) for consistency
+    if (unifiedData.costData?.expenses) {
+      const expense = unifiedData.costData.expenses.find(exp => exp.id === expenseId);
+      if (expense && expense.travelReference) {
+        delete expense.travelReference;
+      }
+    }
 
     // If a new travelLinkInfo is provided, validate and add the link
     if (travelLinkInfo) {
@@ -91,20 +99,44 @@ export async function POST(request: NextRequest) {
         description: travelLinkInfo.name // Use the name from TravelLinkInfo as description
       };
 
+      // Add to travel item (modern system)
+      let travelItem: any = null;
       if (travelLinkInfo.type === 'location') {
-        const location = unifiedData.travelData.locations?.find(loc => loc.id === travelLinkInfo.id);
-        if (location) {
-          location.costTrackingLinks?.push(newLink);
+        travelItem = unifiedData.travelData.locations?.find(loc => loc.id === travelLinkInfo.id);
+        if (travelItem) {
+          travelItem.costTrackingLinks?.push(newLink);
         }
       } else if (travelLinkInfo.type === 'accommodation') {
-        const accommodation = unifiedData.accommodations?.find(acc => acc.id === travelLinkInfo.id);
-        if (accommodation) {
-          accommodation.costTrackingLinks?.push(newLink);
+        travelItem = unifiedData.accommodations?.find(acc => acc.id === travelLinkInfo.id);
+        if (travelItem) {
+          travelItem.costTrackingLinks?.push(newLink);
         }
       } else if (travelLinkInfo.type === 'route') {
-        const route = unifiedData.travelData.routes?.find(r => r.id === travelLinkInfo.id);
-        if (route) {
-          route.costTrackingLinks?.push(newLink);
+        travelItem = unifiedData.travelData.routes?.find(r => r.id === travelLinkInfo.id);
+        if (travelItem) {
+          travelItem.costTrackingLinks?.push(newLink);
+        }
+      }
+
+      // ALSO add/update the travelReference in the expense (legacy system) for maximum compatibility
+      if (travelItem && unifiedData.costData?.expenses) {
+        const expense = unifiedData.costData.expenses.find(exp => exp.id === expenseId);
+        if (expense) {
+          // Create the travelReference based on the travel item type
+          let travelReference: any = {
+            type: travelLinkInfo.type,
+            description: travelLinkInfo.name
+          };
+
+          if (travelLinkInfo.type === 'location') {
+            travelReference.locationId = travelLinkInfo.id;
+          } else if (travelLinkInfo.type === 'accommodation') {
+            travelReference.accommodationId = travelLinkInfo.id;
+          } else if (travelLinkInfo.type === 'route') {
+            travelReference.routeId = travelLinkInfo.id;
+          }
+
+          expense.travelReference = travelReference;
         }
       }
     }

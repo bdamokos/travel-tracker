@@ -42,6 +42,7 @@ export default function ExpenseManager({
   const deleteExpense = (expenseId: string) => {
     const updatedExpenses = costData.expenses.filter(expense => expense.id !== expenseId);
     setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+    setHasUnsavedChanges(true);
   };
 
   const convertPlannedToActual = (expenseId: string) => {

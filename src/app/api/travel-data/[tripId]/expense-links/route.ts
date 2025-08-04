@@ -31,12 +31,14 @@ export async function GET(
     }
 
     const expenseLinks: ExpenseLink[] = [];
+    const processedExpenseIds = new Set<string>(); // Track processed expenses to avoid duplicates
 
     // Get valid expense IDs for filtering
     const validExpenseIds = new Set(
       (tripData.costData?.expenses || []).map(expense => expense.id)
     );
 
+    // PHASE 1: Collect links from costTrackingLinks (modern system)
     // Collect links from locations (only for expenses that exist)
     if (tripData.travelData?.locations) {
       tripData.travelData.locations.forEach(location => {
@@ -51,6 +53,7 @@ export async function GET(
                 travelItemType: 'location',
                 description: link.description
               });
+              processedExpenseIds.add(link.expenseId);
             }
           });
         }
@@ -71,6 +74,7 @@ export async function GET(
                 travelItemType: 'accommodation',
                 description: link.description
               });
+              processedExpenseIds.add(link.expenseId);
             }
           });
         }
@@ -91,8 +95,58 @@ export async function GET(
                 travelItemType: 'route',
                 description: link.description
               });
+              processedExpenseIds.add(link.expenseId);
             }
           });
+        }
+      });
+    }
+
+    // PHASE 2: Collect links from travelReference (legacy system) - only for unprocessed expenses
+    // This handles cases like Antarctica Hostel where costTrackingLinks is empty but travelReference exists
+    if (tripData.costData?.expenses) {
+      tripData.costData.expenses.forEach(expense => {
+        // Only process if we haven't already found a link for this expense
+        if (expense.travelReference && !processedExpenseIds.has(expense.id)) {
+          const travelRef = expense.travelReference;
+          
+          // Find the travel item and create the link
+          let travelItemId: string | undefined;
+          let travelItemName: string | undefined;
+          let travelItemType: 'location' | 'accommodation' | 'route' | undefined;
+
+          if (travelRef.type === 'location' && travelRef.locationId) {
+            const location = tripData.travelData?.locations?.find(loc => loc.id === travelRef.locationId);
+            if (location) {
+              travelItemId = location.id;
+              travelItemName = location.name;
+              travelItemType = 'location';
+            }
+          } else if (travelRef.type === 'accommodation' && travelRef.accommodationId) {
+            const accommodation = tripData.accommodations?.find(acc => acc.id === travelRef.accommodationId);
+            if (accommodation) {
+              travelItemId = accommodation.id;
+              travelItemName = accommodation.name;
+              travelItemType = 'accommodation';
+            }
+          } else if (travelRef.type === 'route' && travelRef.routeId) {
+            const route = tripData.travelData?.routes?.find(r => r.id === travelRef.routeId);
+            if (route) {
+              travelItemId = route.id;
+              travelItemName = `${route.from} → ${route.to}`;
+              travelItemType = 'route';
+            }
+          }
+
+          if (travelItemId && travelItemName && travelItemType) {
+            expenseLinks.push({
+              expenseId: expense.id,
+              travelItemId: travelItemId,
+              travelItemName: travelItemName,
+              travelItemType: travelItemType,
+              description: travelRef.description
+            });
+          }
         }
       });
     }

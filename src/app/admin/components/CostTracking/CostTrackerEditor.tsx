@@ -165,18 +165,41 @@ export default function CostTrackerEditor({
       }
     }
 
+    // Prepare the updated cost data with the new/updated expense
+    let updatedCostData: CostTrackingData;
     if (editingExpenseIndex !== null) {
       const updatedExpenses = [...costData.expenses];
       updatedExpenses[editingExpenseIndex] = expense;
-      setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+      updatedCostData = { ...costData, expenses: updatedExpenses };
+      setCostData(updatedCostData);
       setEditingExpenseIndex(null);
     } else {
-      setCostData(prev => ({ ...prev, expenses: [...prev.expenses, expense] }));
+      updatedCostData = { ...costData, expenses: [...costData.expenses, expense] };
+      setCostData(updatedCostData);
     }
+
+    // Mark as having unsaved changes to trigger auto-save
+    setHasUnsavedChanges(true);
 
     if (travelLinkInfo) {
       try {
-        // Use the same expense linking API as the trip editor for bidirectional linking
+        // First, save the expense data to ensure it exists on the server before creating the link
+        const saveResponse = await fetch(`/api/cost-tracking?id=${costData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedCostData),
+        });
+
+        if (!saveResponse.ok) {
+          throw new Error('Failed to save expense data before creating link');
+        }
+
+        // Reset unsaved changes flag since we just saved
+        setHasUnsavedChanges(false);
+
+        // Now create the travel link
         const response = await fetch('/api/travel-data/expense-links', {
           method: 'POST',
           headers: {

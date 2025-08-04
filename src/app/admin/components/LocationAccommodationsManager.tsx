@@ -5,10 +5,23 @@ import { Accommodation, CostTrackingLink } from '../../types';
 import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 import { CostTrackingData } from '../../types';
 import { useAccommodations } from '../../hooks/useAccommodations';
+import { useExpenseLinksForTravelItem } from '../../hooks/useExpenseLinks';
 import AccommodationInput from './AccommodationInput';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import LinkedExpensesDisplay from './LinkedExpensesDisplay';
 import AccommodationReadOnlyDisplay from './AccommodationReadOnlyDisplay';
+
+// Component to display expense count using SWR hook (handles both costTrackingLinks and travelReference)
+function ExpenseCountDisplay({ tripId, accommodationId }: { tripId: string; accommodationId: string }) {
+  const { expenseLinks } = useExpenseLinksForTravelItem(tripId, accommodationId);
+  const count = expenseLinks.length;
+  
+  return (
+    <span>
+      💰 {count} linked expense{count !== 1 ? 's' : ''}
+    </span>
+  );
+}
 
 interface LocationAccommodationsManagerProps {
   tripId: string;
@@ -307,9 +320,7 @@ function AccommodationDisplay({
         <span>
           {accommodation.isAccommodationPublic ? '🌍 Public' : '🔒 Private'}
         </span>
-        <span>
-          💰 {accommodation.costTrackingLinks?.length || 0} linked expense{accommodation.costTrackingLinks?.length !== 1 ? 's' : ''}
-        </span>
+        <ExpenseCountDisplay tripId={tripId} accommodationId={accommodation.id} />
       </div>
       
       {/* Linked Expenses Display */}
