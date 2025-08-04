@@ -2,13 +2,36 @@
 
 import React from 'react';
 import { Location, Transportation, CostTrackingLink } from '@/app/types';
-import { CostTrackingData } from '@/app/types';
-import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import RouteForm from '../../../components/RouteForm';
 import LinkedExpensesDisplay from '../../../components/LinkedExpensesDisplay';
 import InPlaceEditor from '../../../components/InPlaceEditor';
 import RouteDisplay from '../../../components/RouteDisplay';
 import RouteInlineEditor from '../../../components/RouteInlineEditor';
+import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
+
+// Component to conditionally show LinkedExpensesDisplay using SWR hook
+function RouteExpensesDisplay({ tripId, routeId, routeName }: { tripId: string; routeId: string; routeName: string }) {
+  const { expenseLinks, isLoading } = useExpenseLinksForTravelItem(tripId, routeId);
+
+  if (isLoading) {
+    return null; // Don't show anything while loading
+  }
+
+  if (expenseLinks.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+      <LinkedExpensesDisplay
+        itemId={routeId}
+        itemType="route"
+        itemName={routeName}
+        tripId={tripId}
+      />
+    </div>
+  );
+}
 
 // Type for travel routes - matches the interface in useTripEditor
 type TravelRoute = {
@@ -43,8 +66,6 @@ interface RouteManagerProps {
   setCurrentRoute: React.Dispatch<React.SetStateAction<Partial<TravelRoute>>>;
   editingRouteIndex: number | null;
   setEditingRouteIndex: React.Dispatch<React.SetStateAction<number | null>>;
-  travelLookup: ExpenseTravelLookup | null;
-  costData: CostTrackingData | null;
   handleRouteAdded: (route: TravelRoute) => Promise<void>;
   geocodeLocation: (locationName: string) => Promise<[number, number]>;
   deleteRoute: (index: number) => void;
@@ -61,8 +82,6 @@ export default function RouteManager({
   setCurrentRoute,
   editingRouteIndex,
   setEditingRouteIndex,
-  travelLookup,
-  costData,
   handleRouteAdded,
   geocodeLocation,
   deleteRoute,
@@ -74,24 +93,24 @@ export default function RouteManager({
     <>
       <div>
         <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Routes</h3>
-        
+
         {/* Add Route Form Section */}
         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 mb-6">
           <RouteForm
-          currentRoute={currentRoute}
-          setCurrentRoute={setCurrentRoute}
-          onRouteAdded={handleRouteAdded}
-          editingRouteIndex={editingRouteIndex}
-          setEditingRouteIndex={setEditingRouteIndex}
-          locationOptions={travelData.locations.map(loc => ({
-            name: loc.name,
-            coordinates: loc.coordinates
-          }))}
-          onGeocode={async (locationName: string) => {
-            const coords = await geocodeLocation(locationName);
-            return coords;
-          }}
-          tripId={tripId}
+            currentRoute={currentRoute}
+            setCurrentRoute={setCurrentRoute}
+            onRouteAdded={handleRouteAdded}
+            editingRouteIndex={editingRouteIndex}
+            setEditingRouteIndex={setEditingRouteIndex}
+            locationOptions={travelData.locations.map(loc => ({
+              name: loc.name,
+              coordinates: loc.coordinates
+            }))}
+            onGeocode={async (locationName: string) => {
+              const coords = await geocodeLocation(locationName);
+              return coords;
+            }}
+            tripId={tripId}
           />
         </div>
 
@@ -103,60 +122,53 @@ export default function RouteManager({
               {travelData.routes
                 .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 .map((route, index) => (
-                <div key={route.id}>
-                  <InPlaceEditor<TravelRoute>
-                    data={route}
-                    onSave={async (updatedRoute) => {
-                      const updatedRoutes = [...travelData.routes];
-                      updatedRoutes[index] = updatedRoute;
-                      setTravelData(prev => ({ ...prev, routes: updatedRoutes }));
-                      setHasUnsavedChanges(true);
-                    }}
-                    editor={(route, onSave, onCancel) => (
-                      <RouteInlineEditor
-                        route={route}
-                        onSave={onSave}
-                        onCancel={onCancel}
-                        locationOptions={travelData.locations.map(loc => ({
-                          name: loc.name,
-                          coordinates: loc.coordinates
-                        }))}
-                        onGeocode={async (locationName) => {
-                          const coords = await geocodeLocation(locationName);
-                          return coords;
-                        }}
-                        tripId={tripId}
-                      />
-                    )}
-                  >
-                    {(route, _isEditing, onEdit) => (
-                      <div>
-                        <RouteDisplay
+                  <div key={route.id}>
+                    <InPlaceEditor<TravelRoute>
+                      data={route}
+                      onSave={async (updatedRoute) => {
+                        const updatedRoutes = [...travelData.routes];
+                        updatedRoutes[index] = updatedRoute;
+                        setTravelData(prev => ({ ...prev, routes: updatedRoutes }));
+                        setHasUnsavedChanges(true);
+                      }}
+                      editor={(route, onSave, onCancel) => (
+                        <RouteInlineEditor
                           route={route}
-                          onEdit={onEdit}
-                          onDelete={() => deleteRoute(index)}
-                          onRecalculateRoute={() => recalculateRoutePoints(index)}
-                          linkedExpenses={[]}
+                          onSave={onSave}
+                          onCancel={onCancel}
+                          locationOptions={travelData.locations.map(loc => ({
+                            name: loc.name,
+                            coordinates: loc.coordinates
+                          }))}
+                          onGeocode={async (locationName) => {
+                            const coords = await geocodeLocation(locationName);
+                            return coords;
+                          }}
+                          tripId={tripId}
                         />
-                        
-                        {/* Linked Expenses Display */}
-                        {travelLookup && costData && travelLookup.getExpensesForTravelItem('route', route.id).length > 0 && (
-                          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <LinkedExpensesDisplay
-                              itemId={route.id}
-                              itemType="route"
-                              itemName={`${route.from} → ${route.to}`}
-                              travelLookup={travelLookup}
-                              costData={costData}
-                              tripId={tripId}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </InPlaceEditor>
-                </div>
-              ))}
+                      )}
+                    >
+                      {(route, _isEditing, onEdit) => (
+                        <div>
+                          <RouteDisplay
+                            route={route}
+                            onEdit={onEdit}
+                            onDelete={() => deleteRoute(index)}
+                            onRecalculateRoute={() => recalculateRoutePoints(index)}
+                            linkedExpenses={[]}
+                          />
+
+                          {/* Linked Expenses Display */}
+                          <RouteExpensesDisplay
+                            tripId={tripId}
+                            routeId={route.id}
+                            routeName={`${route.from} → ${route.to}`}
+                          />
+                        </div>
+                      )}
+                    </InPlaceEditor>
+                  </div>
+                ))}
             </div>
           </div>
         )}

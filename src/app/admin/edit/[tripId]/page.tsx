@@ -85,14 +85,12 @@ export default function TripEditorPage() {
     notification: { message: string; type: 'success' | 'error' | 'info'; isVisible: boolean };
     onClose: () => void;
   }> = ({ notification, onClose }) => (
-    <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
-      notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-    }`}>
-      <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
-        notification.type === 'success' ? 'bg-green-50 dark:bg-green-900' :
-        notification.type === 'error' ? 'bg-red-50 dark:bg-red-900' :
-        'bg-blue-50 dark:bg-blue-900'
+    <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
       }`}>
+      <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${notification.type === 'success' ? 'bg-green-50 dark:bg-green-900' :
+        notification.type === 'error' ? 'bg-red-50 dark:bg-red-900' :
+          'bg-blue-50 dark:bg-blue-900'
+        }`}>
         <div className="p-4">
           <div className="flex items-start">
             <div className="flex-shrink-0">
@@ -113,22 +111,20 @@ export default function TripEditorPage() {
               )}
             </div>
             <div className="ml-3 w-0 flex-1 pt-0.5">
-              <p className={`text-sm font-medium ${
-                notification.type === 'success' ? 'text-green-800 dark:text-green-200' :
+              <p className={`text-sm font-medium ${notification.type === 'success' ? 'text-green-800 dark:text-green-200' :
                 notification.type === 'error' ? 'text-red-800 dark:text-red-200' :
-                'text-blue-800 dark:text-blue-200'
-              }`}>
+                  'text-blue-800 dark:text-blue-200'
+                }`}>
                 {notification.message}
               </p>
             </div>
             <div className="ml-4 flex-shrink-0 flex">
               <button
                 onClick={onClose}
-                className={`rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  notification.type === 'success' ? 'text-green-500 hover:text-green-600 focus:ring-green-500' :
+                className={`rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 ${notification.type === 'success' ? 'text-green-500 hover:text-green-600 focus:ring-green-500' :
                   notification.type === 'error' ? 'text-red-500 hover:text-red-600 focus:ring-red-500' :
-                  'text-blue-500 hover:text-blue-600 focus:ring-blue-500'
-                }`}
+                    'text-blue-500 hover:text-blue-600 focus:ring-blue-500'
+                  }`}
               >
                 <span className="sr-only">Close</span>
                 <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -208,60 +204,58 @@ export default function TripEditorPage() {
             {/* Locations */}
             <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <LocationManager
-              tripId={tripId}
-              travelData={travelData}
-              setTravelData={setTravelData}
-              setHasUnsavedChanges={setHasUnsavedChanges}
-              currentLocation={currentLocation}
-              setCurrentLocation={setCurrentLocation}
-              editingLocationIndex={editingLocationIndex}
-              setEditingLocationIndex={setEditingLocationIndex}
-              selectedLocationForPosts={selectedLocationForPosts}
-              setSelectedLocationForPosts={setSelectedLocationForPosts}
-              newInstagramPost={newInstagramPost}
-              setNewInstagramPost={setNewInstagramPost}
-              newBlogPost={newBlogPost}
-              setNewBlogPost={setNewBlogPost}
-              travelLookup={travelLookup}
-              costData={costData}
-              handleLocationAdded={handleLocationAdded}
-              geocodeLocation={geocodeLocation}
-              deleteLocation={deleteLocation}
-              addInstagramPost={addInstagramPost}
-              addBlogPost={addBlogPost}
-              calculateSmartDurations={calculateSmartDurations}
+                tripId={tripId}
+                travelData={travelData}
+                setTravelData={setTravelData}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                currentLocation={currentLocation}
+                setCurrentLocation={setCurrentLocation}
+                editingLocationIndex={editingLocationIndex}
+                setEditingLocationIndex={setEditingLocationIndex}
+                selectedLocationForPosts={selectedLocationForPosts}
+                setSelectedLocationForPosts={setSelectedLocationForPosts}
+                newInstagramPost={newInstagramPost}
+                setNewInstagramPost={setNewInstagramPost}
+                newBlogPost={newBlogPost}
+                setNewBlogPost={setNewBlogPost}
+                travelLookup={travelLookup}
+                costData={costData}
+                handleLocationAdded={handleLocationAdded}
+                geocodeLocation={geocodeLocation}
+                deleteLocation={deleteLocation}
+                addInstagramPost={addInstagramPost}
+                addBlogPost={addBlogPost}
+                calculateSmartDurations={calculateSmartDurations}
               />
             </section>
 
             {/* Routes */}
             <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <RouteManager
-              travelData={travelData}
-              setTravelData={setTravelData}
-              setHasUnsavedChanges={setHasUnsavedChanges}
-              currentRoute={currentRoute}
-              setCurrentRoute={setCurrentRoute}
-              editingRouteIndex={editingRouteIndex}
-              setEditingRouteIndex={setEditingRouteIndex}
-              travelLookup={travelLookup}
-              costData={costData}
-              handleRouteAdded={handleRouteAdded}
-              geocodeLocation={geocodeLocation}
-              deleteRoute={deleteRoute}
-              recalculateRoutePoints={recalculateRoutePoints}
-              generateMap={generateMap}
-              tripId={tripId}
+                travelData={travelData}
+                setTravelData={setTravelData}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                currentRoute={currentRoute}
+                setCurrentRoute={setCurrentRoute}
+                editingRouteIndex={editingRouteIndex}
+                setEditingRouteIndex={setEditingRouteIndex}
+                handleRouteAdded={handleRouteAdded}
+                geocodeLocation={geocodeLocation}
+                deleteRoute={deleteRoute}
+                recalculateRoutePoints={recalculateRoutePoints}
+                generateMap={generateMap}
+                tripId={tripId}
               />
             </section>
 
             {/* Accommodations */}
             <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <AccommodationManager
-              travelData={travelData}
-              setTravelData={setTravelData}
-              setHasUnsavedChanges={setHasUnsavedChanges}
-              travelLookup={travelLookup}
-              costData={costData}
+                travelData={travelData}
+                setTravelData={setTravelData}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                travelLookup={travelLookup}
+                costData={costData}
               />
             </section>
           </div>
@@ -279,7 +273,7 @@ export default function TripEditorPage() {
                 } else if (choice === 'remove') {
                   // Remove links and delete item
                   await cleanupExpenseLinks(deleteDialog.itemType, deleteDialog.itemId);
-                  
+
                   if (deleteDialog.itemType === 'location') {
                     setTravelData(prev => ({
                       ...prev,
@@ -291,18 +285,18 @@ export default function TripEditorPage() {
                       routes: prev.routes.filter((_, i) => i !== deleteDialog.itemIndex)
                     }));
                   }
-                  
+
                   setHasUnsavedChanges(true);
                 } else if (choice === 'reassign') {
                   // Show reassignment dialog
-                  const availableItems = deleteDialog.itemType === 'location' 
+                  const availableItems = deleteDialog.itemType === 'location'
                     ? travelData.locations
-                        .filter(loc => loc.id !== deleteDialog.itemId)
-                        .map(loc => ({ id: loc.id, name: loc.name }))
+                      .filter(loc => loc.id !== deleteDialog.itemId)
+                      .map(loc => ({ id: loc.id, name: loc.name }))
                     : travelData.routes
-                        .filter(route => route.id !== deleteDialog.itemId)
-                        .map(route => ({ id: route.id, name: `${route.from} → ${route.to}` }));
-                  
+                      .filter(route => route.id !== deleteDialog.itemId)
+                      .map(route => ({ id: route.id, name: `${route.from} → ${route.to}` }));
+
                   setReassignDialog({
                     isOpen: true,
                     itemType: deleteDialog.itemType,
@@ -323,7 +317,7 @@ export default function TripEditorPage() {
                           routes: prev.routes.filter((_, i) => i !== deleteDialog.itemIndex)
                         }));
                       }
-                      
+
                       setHasUnsavedChanges(true);
                     }
                   });
@@ -331,7 +325,7 @@ export default function TripEditorPage() {
               }}
             />
           )}
-          
+
           {reassignDialog && (
             <ReassignmentDialog
               isOpen={reassignDialog.isOpen}
@@ -348,7 +342,7 @@ export default function TripEditorPage() {
                   toItemId,
                   toItemName
                 );
-                
+
                 setReassignDialog(null);
                 reassignDialog.onComplete();
               }}

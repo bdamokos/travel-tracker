@@ -339,8 +339,6 @@ export default function ShadowPlannerPage() {
                 setCurrentRoute={setCurrentRoute}
                 editingRouteIndex={editingRouteIndex}
                 setEditingRouteIndex={setEditingRouteIndex}
-                travelLookup={travelLookup}
-                costData={costData}
                 handleRouteAdded={async (route) => {
                   handleRouteAdded(route);
                 }}

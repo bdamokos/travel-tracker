@@ -68,6 +68,7 @@ export default function LocationItem({
               onViewPosts={onViewPosts}
               showAccommodations={false}
               linkedExpenses={[]}
+              tripId={tripId}
             />
             
             {/* Accommodation Display */}
