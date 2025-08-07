@@ -21,6 +21,18 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'lat and lon are required' }, { status: 400 });
     }
 
+    // Server log request
+    console.log('[WeatherAPI]', segment, {
+      lat,
+      lon,
+      start: sp.get('start'),
+      end: sp.get('end'),
+      date: sp.get('date'),
+      days: sp.get('days'),
+      name: sp.get('name'),
+      id: sp.get('id')
+    });
+
     if (segment === 'date') {
       const dateStr = sp.get('date');
       if (!dateStr) return NextResponse.json({ success: false, error: 'date is required' }, { status: 400 });
@@ -47,8 +59,10 @@ export async function GET(
       endDate: end ? new Date(end) : undefined
     } as Location;
     const summary = await weatherService.getWeatherForLocation(location);
+    console.log('[WeatherAPI] result', { count: summary.dailyWeather.length });
     return NextResponse.json({ success: true, data: summary });
   } catch (err) {
+    console.error('[WeatherAPI] error', err);
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
   }
 }

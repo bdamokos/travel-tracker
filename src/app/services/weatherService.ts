@@ -18,6 +18,12 @@ async function ensureDir(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
 
+function log(...args: unknown[]) {
+  // Centralized server-side logging for weather
+  // eslint-disable-next-line no-console
+  console.log('[Weather]', ...args);
+}
+
 function toISODate(date: Date): string {
   return formatISO(date, { representation: 'date' });
 }
@@ -69,6 +75,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   const wait = Math.max(0, RATE_LIMIT_MS - (now - lastRequestTime));
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
   lastRequestTime = Date.now();
+  log('HTTP GET', url);
   return fetch(url, { headers: { 'Accept': 'application/json' } });
 }
 
@@ -123,6 +130,7 @@ async function fetchOpenMeteoDaily(
   endpoint: 'forecast' | 'archive'
 ): Promise<WeatherData[]> {
   const [lat, lon] = coords;
+  log('fetchOpenMeteoDaily:start', { endpoint, lat, lon, startISO, endISO });
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
@@ -136,17 +144,20 @@ async function fetchOpenMeteoDaily(
       'weathercode',
       'cloudcover_mean'
     ].join(','),
-    timezone: 'auto',
+    timezone: 'UTC',
     start_date: startISO,
     end_date: endISO
   });
   const base = endpoint === 'archive'
-    ? 'https://archive-api.open-meteo.com/v1/archive'
+    ? 'https://historical-forecast-api.open-meteo.com/v1/forecast'
     : 'https://api.open-meteo.com/v1/forecast';
   const url = `${base}?${params.toString()}`;
   try {
     const res = await rateLimitedFetch(url);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      log('fetchOpenMeteoDaily:non-ok', { status: res.status, statusText: res.statusText, endpoint, lat, lon, startISO, endISO });
+      return [];
+    }
     const json = await res.json();
 
     const dates: string[] = json.daily?.time || [];
@@ -160,7 +171,7 @@ async function fetchOpenMeteoDaily(
     const cloud: Array<number | null> = json.daily?.cloudcover_mean || [];
 
     const today = new Date();
-    return dates.map((d, idx) => {
+    const result = dates.map((d, idx) => {
       const code = weatherCode[idx] ?? null;
       const { icon, description } = openMeteoIconAndDesc(code);
       const dateObj = parseISO(d);
@@ -197,12 +208,16 @@ async function fetchOpenMeteoDaily(
       };
       return w;
     });
+    log('fetchOpenMeteoDaily:success', { endpoint, count: result.length, lat, lon, startISO, endISO });
+    return result;
   } catch {
+    log('fetchOpenMeteoDaily:error', { endpoint, lat, lon, startISO, endISO });
     return [];
   }
 }
 
 async function fetchOpenMeteoRangeSmart(coords: [number, number], startISO: string, endISO: string): Promise<WeatherData[]> {
+  log('rangeSmart:start', { coords, startISO, endISO });
   const start = parseISO(startISO);
   const end = parseISO(endISO);
   if (!isValid(start) || !isValid(end) || isAfter(start, end)) return [];
@@ -218,6 +233,7 @@ async function fetchOpenMeteoRangeSmart(coords: [number, number], startISO: stri
   if (!isAfter(start, archiveEnd)) {
     const aStart = start;
     const aEnd = isAfter(end, archiveEnd) ? archiveEnd : end;
+    log('rangeSmart:archive-segment', { start: toISODate(aStart), end: toISODate(aEnd) });
     const list = await fetchOpenMeteoDaily(coords, toISODate(aStart), toISODate(aEnd), 'archive');
     parts.push(...list);
   }
@@ -228,6 +244,7 @@ async function fetchOpenMeteoRangeSmart(coords: [number, number], startISO: stri
     const fStart = fStartCandidate;
     const fEnd = isAfter(end, forecastMaxEnd) ? forecastMaxEnd : end;
     if (!isAfter(fStart, fEnd)) {
+      log('rangeSmart:forecast-segment', { start: toISODate(fStart), end: toISODate(fEnd) });
       const list = await fetchOpenMeteoDaily(coords, toISODate(fStart), toISODate(fEnd), 'forecast');
       parts.push(...list);
     }
@@ -237,7 +254,128 @@ async function fetchOpenMeteoRangeSmart(coords: [number, number], startISO: stri
   const sorted = parts
     .sort((a, b) => a.date.localeCompare(b.date))
     .filter(d => (seen.has(d.date) ? false : (seen.add(d.date), true)));
+  log('rangeSmart:done', { total: sorted.length });
   return sorted;
+}
+
+function safeDate(year: number, month: number, day: number): Date {
+  // month is 0-based
+  const d = new Date(Date.UTC(year, month, day));
+  // If invalid (e.g., Feb 29 non-leap), fallback to Feb 28
+  if (isNaN(d.getTime())) {
+    return new Date(Date.UTC(year, month, Math.max(1, day - 1)));
+  }
+  return d;
+}
+
+function daysBetweenInclusive(start: Date, end: Date): number {
+  const s = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const e = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+  const ms = e.getTime() - s.getTime();
+  return Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
+}
+
+async function computeHistoricalAverage(
+  coords: [number, number],
+  startISO: string,
+  endISO: string,
+  yearsBack = 10
+): Promise<WeatherData[]> {
+  log('histAvg:start', { coords, startISO, endISO, yearsBack });
+  const start = parseISO(startISO);
+  const end = parseISO(endISO);
+  if (!isValid(start) || !isValid(end) || isAfter(start, end)) return [];
+
+  const numDays = daysBetweenInclusive(start, end);
+  const accum: Array<{
+    temps: number[];
+    tmax: number[];
+    tmin: number[];
+    prec: number[];
+    precProb: number[];
+    wind: number[];
+    windDir: number[];
+    codes: number[];
+    cloud: number[];
+  }> = Array.from({ length: numDays }, () => ({
+    temps: [], tmax: [], tmin: [], prec: [], precProb: [], wind: [], windDir: [], codes: [], cloud: []
+  }));
+
+  const targetDates: Date[] = Array.from({ length: numDays }, (_, i) => addDays(start, i));
+
+  const today = new Date();
+  const baseYear = today.getUTCFullYear();
+  let usedYears = 0;
+
+  for (let y = 1; y <= yearsBack; y++) {
+    const year = baseYear - y;
+    // Map range to this year, handling year-crossing by reconstructing dates per offset
+    const yStart = safeDate(year, start.getUTCMonth(), start.getUTCDate());
+    const yEnd = safeDate(year, end.getUTCMonth(), end.getUTCDate());
+    const list = await fetchOpenMeteoDaily(coords, toISODate(yStart), toISODate(yEnd), 'archive');
+    if (list.length === 0) continue;
+    usedYears++;
+    log('histAvg:year-usable', { year, count: list.length });
+    // Align by offset from start
+    const mapByDate = new Map<string, WeatherData>();
+    list.forEach(d => mapByDate.set(d.date, d));
+    targetDates.forEach((td, idx) => {
+      const d = safeDate(year, td.getUTCMonth(), td.getUTCDate());
+      const key = toISODate(d);
+      const w = mapByDate.get(key);
+      if (!w) return;
+      if (w.temperature.average != null) accum[idx].temps.push(w.temperature.average);
+      if (w.temperature.max != null) accum[idx].tmax.push(w.temperature.max);
+      if (w.temperature.min != null) accum[idx].tmin.push(w.temperature.min);
+      if (w.precipitation.total != null) accum[idx].prec.push(w.precipitation.total);
+      if (w.precipitation.probability != null) accum[idx].precProb.push(w.precipitation.probability);
+      if (w.wind.speed != null) accum[idx].wind.push(w.wind.speed);
+      if (w.wind.direction != null) accum[idx].windDir.push(w.wind.direction);
+      if (w.conditions.code != null) accum[idx].codes.push(w.conditions.code);
+      if (w.conditions.cloudCover != null) accum[idx].cloud.push(w.conditions.cloudCover);
+    });
+  }
+
+  if (usedYears === 0) return [];
+
+  const [lat, lon] = coords;
+  const result = targetDates.map((td, idx) => {
+    const bucket = accum[idx];
+    const avg = (arr: number[]) => arr.length ? Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1)) : null;
+    // predominant weather code
+    let code: number | null = null;
+    if (bucket.codes.length) {
+      const m = new Map<number, number>();
+      bucket.codes.forEach(c => m.set(c, (m.get(c) || 0) + 1));
+      code = Array.from(m.entries()).sort((a, b) => b[1] - a[1])[0][0];
+    }
+    const { icon, description } = openMeteoIconAndDesc(code);
+    const dateStr = toISODate(td);
+    const w: WeatherData = {
+      id: `${lat.toFixed(4)}_${lon.toFixed(4)}_${dateStr}`,
+      date: dateStr,
+      coordinates: [lat, lon],
+      temperature: {
+        min: avg(bucket.tmin),
+        max: avg(bucket.tmax),
+        average: avg(bucket.temps) ?? avg(bucket.tmax.length && bucket.tmin.length ? [avg(bucket.tmax)!, avg(bucket.tmin)!] : [])
+      },
+      precipitation: {
+        total: avg(bucket.prec),
+        probability: avg(bucket.precProb)
+      },
+      wind: { speed: avg(bucket.wind), direction: avg(bucket.windDir) },
+      conditions: { description, icon, code, cloudCover: avg(bucket.cloud), humidity: null },
+      isHistorical: true,
+      isForecast: false,
+      dataSource: 'open-meteo',
+      fetchedAt: new Date().toISOString(),
+      expiresAt: undefined
+    };
+    return w;
+  });
+  log('histAvg:done', { usedYears, produced: result.length });
+  return result;
 }
 
 class WeatherService {
@@ -264,7 +402,12 @@ class WeatherService {
       }
     }
 
-    const fetched = await fetchOpenMeteoRangeSmart(location.coordinates, startISO, endISO);
+    let fetched = await fetchOpenMeteoRangeSmart(location.coordinates, startISO, endISO);
+    if (fetched.length === 0) {
+      // fallback to historical averages for far-future planning
+      log('fallback:histAvg', { locationId: location.id, startISO, endISO });
+      fetched = await computeHistoricalAverage(location.coordinates, startISO, endISO, 10);
+    }
     const summary: WeatherSummary = {
       locationId: location.id,
       startDate: startISO,
@@ -278,7 +421,11 @@ class WeatherService {
 
   async getWeatherForDate(coords: [number, number], date: Date): Promise<WeatherData> {
     const dayISO = toISODate(date);
-    const list = await fetchOpenMeteoRangeSmart(coords, dayISO, dayISO);
+    let list = await fetchOpenMeteoRangeSmart(coords, dayISO, dayISO);
+    if (list.length === 0) {
+      log('fallback:histAvg:single', { coords, dayISO });
+      list = await computeHistoricalAverage(coords, dayISO, dayISO, 10);
+    }
     return list[0];
   }
 

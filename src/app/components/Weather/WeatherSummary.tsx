@@ -9,6 +9,9 @@ interface Props {
 }
 
 export default function WeatherSummary({ summary }: Props) {
+  if (!summary || !summary.dailyWeather || summary.dailyWeather.length === 0) {
+    return null;
+  }
   const todayISO = new Date().toISOString().slice(0, 10);
   const today = summary.dailyWeather.find(d => d.date === todayISO) || summary.dailyWeather[0];
   return (
