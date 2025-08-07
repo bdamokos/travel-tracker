@@ -30,8 +30,8 @@ export default function AccommodationReadOnlyDisplay({
   const { expenses } = useExpenses(tripId);
   
   // Calculate linked expenses total using SWR data
-  const linkedExpenses = expenses.filter(expense => 
-    expenseLinks.some(link => link.expenseId === expense.id)
+  const linkedExpenses = (expenses || []).filter(expense => 
+    (expenseLinks || []).some(link => link.expenseId === expense.id)
   );
   const totalLinkedCost = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 

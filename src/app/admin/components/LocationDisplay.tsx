@@ -41,8 +41,8 @@ export default function LocationDisplay({
 
   // Calculate linked expenses using SWR data when tripId is available, otherwise use prop
   const actualLinkedExpenses = tripId && !linksLoading && !expensesLoading ?
-    expenses
-      .filter(expense => expenseLinks.some(link => link.expenseId === expense.id))
+    (expenses || [])
+      .filter(expense => (expenseLinks || []).some(link => link.expenseId === expense.id))
       .map(expense => ({
         description: expense.description || 'Expense',
         amount: expense.amount,

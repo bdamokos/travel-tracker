@@ -38,12 +38,12 @@ export default function LinkedExpensesDisplay({
   const targetItems = items?.length ? items : (itemId && itemType ? [{ itemType, itemId }] : []);
 
   // Filter expense links for our target items
-  const relevantLinks = expenseLinks.filter(link => 
+  const relevantLinks = (expenseLinks || []).filter(link => 
     targetItems.some(item => item.itemId === link.travelItemId && item.itemType === link.travelItemType)
   );
 
   // Get the linked expenses
-  const linkedExpenses = expenses
+  const linkedExpenses = (expenses || [])
     .filter(expense => relevantLinks.some(link => link.expenseId === expense.id))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
