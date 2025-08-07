@@ -33,9 +33,13 @@ export default function WeatherSummary({ summary }: Props) {
     if (!hasHistAvg && !hasForecast && hasPast) return 'Recorded';
     if (hasHistAvg && hasPast && !hasForecast) return 'Recorded + Hist. avg.';
     if (hasHistAvg && hasForecast && hasPast) return 'Recorded + Forecast + Hist. avg.';
-    // Fallback: infer from dates only to avoid unlabeled headers if caching/schema differences occur
+    // Fallback: infer conservatively when older cached data may miss flags
     const allFuture = summary.dailyWeather.every(d => d.date > todayISO);
-    return allFuture ? 'Forecast' : 'Recorded';
+    if (allFuture) {
+      // If nothing explicitly marked as forecast, assume historical averages were used
+      return hasForecast ? 'Forecast' : 'Hist. avg.';
+    }
+    return 'Recorded';
   })();
   return (
     <div className="space-y-2">
