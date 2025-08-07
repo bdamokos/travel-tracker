@@ -10,6 +10,8 @@ import { Location, JourneyDay } from '../../types';
 import { useWikipediaData } from '../../hooks/useWikipediaData';
 import WikipediaSection from './WikipediaSection';
 import TripContextSection from './TripContextSection';
+import WeatherSummary from '../Weather/WeatherSummary';
+import { useWeather } from '../../hooks/useWeather';
 import AccessibleModal from '../../admin/components/AccessibleModal';
 
 export interface LocationPopupData {
@@ -36,6 +38,10 @@ export default function LocationPopupModal({
   const departureLocation = data?.location || null;
   const arrivalLocation = isTransition && data.day.locations[1] ? data.day.locations[1] : null;
   
+  // Fetch Weather data for departure/arrival
+  const { data: departureWeather, loading: departureWeatherLoading } = useWeather(departureLocation);
+  const { data: arrivalWeather, loading: arrivalWeatherLoading } = useWeather(arrivalLocation);
+
   // Fetch Wikipedia data for departure location
   const { 
     data: departureWikipediaData, 
@@ -78,6 +84,58 @@ export default function LocationPopupModal({
       showOverlay={false}
     >
       <div className="space-y-6">
+        {/* Weather Section with Tabs for Transition Days */}
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
+          {isTransition ? (
+            <div>
+              <div className="flex space-x-1 mb-3 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                <button
+                  onClick={() => setActiveTab('departure')}
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    activeTab === 'departure'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  📍 {departureLocation?.name}
+                </button>
+                <button
+                  onClick={() => setActiveTab('arrival')}
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    activeTab === 'arrival'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  🎯 {arrivalLocation?.name}
+                </button>
+              </div>
+              {activeTab === 'departure' ? (
+                <div>
+                  {departureWeather && <WeatherSummary summary={departureWeather} />}
+                  {!departureWeather && departureWeatherLoading && (
+                    <div className="text-xs text-gray-500">Loading weather…</div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {arrivalWeather && <WeatherSummary summary={arrivalWeather} />}
+                  {!arrivalWeather && arrivalWeatherLoading && (
+                    <div className="text-xs text-gray-500">Loading weather…</div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {departureWeather && <WeatherSummary summary={departureWeather} />}
+              {!departureWeather && departureWeatherLoading && (
+                <div className="text-xs text-gray-500">Loading weather…</div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Trip Context Section */}
         <TripContextSection 
           location={location}

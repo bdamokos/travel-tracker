@@ -52,12 +52,16 @@ interface EmbeddableMapProps {
   travelData: TravelData;
 }
 
-// Function to generate popup HTML with Wikipedia data
+// Function to generate popup HTML with Wikipedia and Weather data
 const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?: {
   title: string;
   extract: string;
   thumbnail?: { source: string };
   url: string;
+}, weatherData?: {
+  icon: string;
+  temp?: number | null;
+  description?: string;
 }) => {
   const isDarkMode = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   const popupStyles = isDarkMode 
@@ -72,6 +76,19 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </p>
       ${location.notes ? `<p style="font-size: 14px; margin-bottom: 12px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${location.notes}</p>` : ''}
   `;
+
+  // Add Weather quick line (today)
+  if (weatherData) {
+    popupContent += `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px; padding: 6px 8px; border-radius:6px; ${isDarkMode ? 'background:#1f2937;color:#e5e7eb' : 'background:#f3f4f6;color:#374151'}">
+        <div style="font-size:12px;">Weather (today)</div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:14px;">
+          <span>${weatherData.icon}</span>
+          ${typeof weatherData.temp === 'number' ? `<span>${Math.round(weatherData.temp)}°</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
   
   // Add Wikipedia section
   if (wikipediaData) {
@@ -255,16 +272,34 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           className: 'wikipedia-popup'
         });
       
-      // Fetch Wikipedia data asynchronously
+      // Fetch Wikipedia and Weather data asynchronously
       try {
         const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}`);
         if (response.ok) {
           const wikipediaResponse = await response.json();
-          if (wikipediaResponse.success && wikipediaResponse.data) {
-            // Update popup content with Wikipedia data
-            const updatedPopupContent = generatePopupHTML(location, wikipediaResponse.data);
-            marker.setPopupContent(updatedPopupContent);
-          }
+          // Fetch weather for today within the stay window
+          const start = new Date(location.date).toISOString().slice(0, 10);
+          const end = (location.endDate ? new Date(location.endDate) : new Date(location.date)).toISOString().slice(0, 10);
+          let weatherBlock: { icon: string; temp?: number | null; description?: string } | undefined = undefined;
+          try {
+            const wRes = await fetch(`/api/weather/location?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}&start=${start}&end=${end}&name=${encodeURIComponent(location.name)}&id=${encodeURIComponent(location.id)}`);
+            if (wRes.ok) {
+              const wJson: { data?: { dailyWeather?: Array<{ date: string; conditions?: { icon?: string; description?: string }; temperature?: { average?: number | null } }> } } = await wRes.json();
+              const todayISO = new Date().toISOString().slice(0, 10);
+              const list = wJson?.data?.dailyWeather || [];
+              const today = list.find(d => d.date === todayISO) || list[0];
+              if (today) {
+                weatherBlock = { icon: today.conditions?.icon || '⛅', temp: today.temperature?.average ?? null, description: today.conditions?.description };
+              }
+            }
+          } catch {}
+
+          const updatedPopupContent = generatePopupHTML(
+            location,
+            (wikipediaResponse.success && wikipediaResponse.data) ? wikipediaResponse.data : undefined,
+            weatherBlock
+          );
+          marker.setPopupContent(updatedPopupContent);
         }
       } catch (error) {
         console.error('Failed to fetch Wikipedia data for', location.name, error);

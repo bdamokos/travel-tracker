@@ -1,6 +1,8 @@
 'use client';
 
 import { CalendarCell } from '@/app/lib/calendarUtils';
+import WeatherIcon from '../Weather/WeatherIcon';
+import { useMemo } from 'react';
 
 interface CalendarDayCellProps {
   cell: CalendarCell;
@@ -16,6 +18,14 @@ export default function CalendarDayCell({
   onClick
 }: CalendarDayCellProps) {
   const { day, backgroundColor, textColor, diagonalSplit, mergeInfo } = cell;
+
+  // Today weather hint should be computed unconditionally for hooks order
+  const todayHint = useMemo(() => {
+    if (!day?.primaryLocation) return null as null | { icon: string; label: string };
+    const today = new Date();
+    if (today.toDateString() !== day.date.toDateString()) return null;
+    return { icon: '⛅', label: 'Weather available in popup' };
+  }, [day]);
   
   // Don't render if this is a middle cell in a merge group
   if (mergeInfo && mergeInfo.colspan === 0) {
@@ -79,6 +89,13 @@ export default function CalendarDayCell({
       <div className="absolute top-1 left-2 text-sm font-medium z-10">
         {day.date.getDate()}
       </div>
+
+      {/* Today weather hint */}
+      {todayHint && (
+        <div className="absolute top-1 right-2 z-10">
+          <WeatherIcon icon={todayHint.icon} label={todayHint.label} />
+        </div>
+      )}
       
       {/* Location label for merged cells */}
       {mergeInfo && mergeInfo.position === 'start' && day.primaryLocation && (

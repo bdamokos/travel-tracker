@@ -42,8 +42,18 @@ interface LinkExpenseResponse {
   };
 }
 
-// Fetcher function
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+// Fetcher function: throw on non-2xx so SWR sets error and we can safely default arrays
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok) {
+    const error = new Error((json && json.error) || 'Request failed') as Error & { status?: number; info?: unknown };
+    error.status = res.status;
+    error.info = json;
+    throw error;
+  }
+  return json;
+};
 
 // SWR hook to get all expense links for a trip
 export function useExpenseLinks(tripId: string | null) {
@@ -53,7 +63,7 @@ export function useExpenseLinks(tripId: string | null) {
   );
 
   return {
-    expenseLinks: data || [],
+    expenseLinks: Array.isArray(data) ? data : [],
     isLoading,
     isError: error,
     mutate
@@ -145,7 +155,7 @@ export function useMoveExpenseLink() {
 export function useExpenseLinksForTravelItem(tripId: string | null, travelItemId: string) {
   const { expenseLinks, isLoading, isError, mutate } = useExpenseLinks(tripId);
   
-  const travelItemLinks = expenseLinks.filter(link => link.travelItemId === travelItemId);
+  const travelItemLinks = (expenseLinks || []).filter(link => link.travelItemId === travelItemId);
   
   return {
     expenseLinks: travelItemLinks,

@@ -24,12 +24,20 @@ export function useAccommodations(tripId?: string): UseAccommodationsResult {
       setError(null);
       const response = await fetch(`/admin/api/accommodations?tripId=${targetTripId}`);
       
+      // Treat missing trip or not-yet-created data as empty list instead of an error
+      if (response.status === 404) {
+        setAccommodations([]);
+        setError(null);
+        return;
+      }
+
       if (!response.ok) {
+        // Surface other errors (e.g., 400, 403, 500)
         throw new Error('Failed to load accommodations');
       }
       
       const data = await response.json();
-      setAccommodations(data);
+      setAccommodations(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
