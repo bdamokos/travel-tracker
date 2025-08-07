@@ -84,6 +84,13 @@ export default function LocationPopupModal({
       showOverlay={false}
     >
       <div className="space-y-6">
+        {/* Trip Details first */}
+        <TripContextSection 
+          location={location}
+          day={day}
+          tripId={tripId}
+        />
+
         {/* Weather Section with Tabs for Transition Days */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
           {isTransition ? (
@@ -135,13 +142,6 @@ export default function LocationPopupModal({
             </div>
           )}
         </div>
-
-        {/* Trip Context Section */}
-        <TripContextSection 
-          location={location}
-          day={day}
-          tripId={tripId}
-        />
 
         {/* Wikipedia Section with Tabs for Transition Days */}
         {isTransition ? (

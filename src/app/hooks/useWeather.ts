@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Location } from '@/app/types';
 import { WeatherSummary, WeatherAPIResponse } from '@/app/types/weather';
 
@@ -8,6 +8,7 @@ export function useWeather(location: Location | null) {
   const [data, setData] = useState<WeatherSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const url = useMemo(() => {
     if (!location) return null;
@@ -25,18 +26,33 @@ export function useWeather(location: Location | null) {
 
   const fetchWeather = useCallback(async () => {
     if (!url) return;
+    // Abort any in-flight request when starting a new one
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
       const json: WeatherAPIResponse = await res.json();
       if (json.success && json.data) setData(json.data);
       else setError(json.error || 'Failed to fetch weather');
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return; // ignore aborted requests
+      }
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setLoading(false);
     }
+  }, [url]);
+
+  // Clear previous data immediately when switching locations/URL to avoid stale display
+  useEffect(() => {
+    setData(null);
+    setError(null);
   }, [url]);
 
   useEffect(() => { fetchWeather(); }, [fetchWeather]);

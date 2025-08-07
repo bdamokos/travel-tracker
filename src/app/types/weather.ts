@@ -11,7 +11,7 @@ export interface WeatherData {
   conditions: { description: string; icon: string; code: number | null; cloudCover: number | null; humidity: number | null };
   isHistorical: boolean;
   isForecast: boolean;
-  dataSource: 'open-meteo' | 'cache';
+  dataSource: 'open-meteo' | 'cache' | 'historical-average';
   fetchedAt: string; // ISO Date
   expiresAt?: string; // ISO Date
 }

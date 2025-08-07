@@ -20,7 +20,7 @@ async function ensureDir(): Promise<void> {
 
 function log(...args: unknown[]) {
   // Centralized server-side logging for weather
-  // eslint-disable-next-line no-console
+
   console.log('[Weather]', ...args);
 }
 
@@ -368,7 +368,7 @@ async function computeHistoricalAverage(
       conditions: { description, icon, code, cloudCover: avg(bucket.cloud), humidity: null },
       isHistorical: true,
       isForecast: false,
-      dataSource: 'open-meteo',
+      dataSource: 'historical-average',
       fetchedAt: new Date().toISOString(),
       expiresAt: undefined
     };
@@ -391,15 +391,18 @@ class WeatherService {
     const cached = await readCache(key);
     const todayISO = toISODate(new Date());
     if (cached) {
+      const hasData = cached.dailyWeather && cached.dailyWeather.length > 0;
       // For today, ensure we have a non-expired entry; otherwise refetch
       const todayEntry = cached.dailyWeather.find(d => d.date === todayISO);
       const isTodayValid = todayEntry ? (!todayEntry.expiresAt || isAfter(parseISO(todayEntry.expiresAt), new Date())) : true;
-      if (isTodayValid) {
+      if (hasData && isTodayValid) {
+        log('cache:hit', { key, count: cached.dailyWeather.length });
         return {
           ...cached,
           summary: summarize(cached.dailyWeather)
         };
       }
+      log('cache:skip', { key, reason: hasData ? 'expired-today' : 'empty' });
     }
 
     let fetched = await fetchOpenMeteoRangeSmart(location.coordinates, startISO, endISO);
@@ -415,7 +418,12 @@ class WeatherService {
       dailyWeather: fetched,
       summary: summarize(fetched)
     };
-    await writeCache(key, summary);
+    if (fetched.length > 0) {
+      await writeCache(key, summary);
+      log('cache:write', { key, count: fetched.length });
+    } else {
+      log('cache:not-written-empty', { key });
+    }
     return summary;
   }
 
