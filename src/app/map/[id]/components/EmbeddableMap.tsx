@@ -241,8 +241,50 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     mapRef.current = map;
 
-    // Add markers for locations
-    const markers: L.Marker[] = [];
+    // Helpers available after L is loaded
+    const createCountIcon = (count: number) => {
+      const width = 25; // match default marker aspect
+      const height = 41;
+      const badgeSize = 16;
+      return L.divIcon({
+        className: 'group-count-marker',
+        html: `
+          <div style="position: relative; width: ${width}px; height: ${height}px;">
+            <img src="/images/marker-icon.png" alt="group marker" style="width: ${width}px; height: ${height}px; display: block;"/>
+            <div aria-label="${count} visits" style="
+              position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
+              background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+              font-size: 10px; font-weight: 700; border: 2px solid white;
+            ">${count}</div>
+          </div>
+        `,
+        iconSize: [width, height],
+        iconAnchor: [Math.round(width / 2), height],
+        popupAnchor: [0, -height]
+      });
+    };
+
+    // Note: meters-based fallback removed to avoid unused warnings
+
+    const distributeAroundPointPixels = (
+      map: L.Map,
+      center: [number, number],
+      index: number,
+      total: number,
+      pixelRadius = 24
+    ): [number, number] => {
+      const angle = (2 * Math.PI * index) / total;
+      const centerLL = L.latLng(center[0], center[1]);
+      const p = map.project(centerLL, map.getZoom());
+      const dx = Math.cos(angle) * pixelRadius;
+      const dy = Math.sin(angle) * pixelRadius;
+      const p2 = L.point(p.x + dx, p.y + dy);
+      const ll = map.unproject(p2, map.getZoom());
+      return [ll.lat, ll.lng];
+    };
+
+    // Add markers for locations with grouping + spiderfy
+    const cleanupItems: Array<() => void> = [];
     
     // Find the location closest to current date
     const closestLocation = findClosestLocationToCurrentDate(
@@ -252,32 +294,31 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }))
     );
     
-    travelData.locations.forEach(async (location) => {
-      // Determine if this location should be highlighted
-      const isHighlighted = closestLocation?.id === location.id;
-      
-      // Create marker with proper icon handling
-      const markerOptions: L.MarkerOptions = {};
-      if (isHighlighted && highlightedIcon) {
-        markerOptions.icon = highlightedIcon;
-      }
-      
-      // Generate initial popup content without Wikipedia data
+    type GroupItem = TravelData['locations'][0];
+    type Group = { key: string; center: [number, number]; items: GroupItem[] };
+    const groupsMap = new Map<string, Group>();
+    travelData.locations.forEach(loc => {
+      const [lat, lng] = loc.coordinates;
+      const key = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
+      if (!groupsMap.has(key)) groupsMap.set(key, { key, center: [lat, lng], items: [] });
+      groupsMap.get(key)!.items.push(loc);
+    });
+    const groups = Array.from(groupsMap.values());
+
+    // Track expanded state and spawned layers per group
+    const expanded = new Set<string>();
+    const groupLayers = new Map<string, { groupMarker: L.Marker; collapseMarker?: L.Marker; legs: L.Polyline[]; childMarkers: L.Marker[] }>();
+
+    const attachPopupAndEnrich = async (marker: L.Marker, location: GroupItem) => {
+      // Generate initial popup content
       const initialPopupContent = generatePopupHTML(location);
-      
-      const marker = L.marker(location.coordinates, markerOptions)
-        .addTo(map)
-        .bindPopup(initialPopupContent, {
-          maxWidth: 400,
-          className: 'wikipedia-popup'
-        });
-      
-      // Fetch Wikipedia and Weather data asynchronously
+      marker.bindPopup(initialPopupContent, { maxWidth: 400, className: 'wikipedia-popup' });
+
       try {
         const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}`);
         if (response.ok) {
           const wikipediaResponse = await response.json();
-          // Fetch weather for today within the stay window
+          // Weather fetch (today in stay window)
           const start = new Date(location.date).toISOString().slice(0, 10);
           const end = (location.endDate ? new Date(location.endDate) : new Date(location.date)).toISOString().slice(0, 10);
           let weatherBlock: { icon: string; temp?: number | null; description?: string } | undefined = undefined;
@@ -304,9 +345,81 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       } catch (error) {
         console.error('Failed to fetch Wikipedia data for', location.name, error);
       }
-      
-      markers.push(marker);
+    };
+
+    const collapseGroup = (groupKey: string) => {
+      const layers = groupLayers.get(groupKey);
+      if (!layers) return;
+      layers.childMarkers.forEach(m => m.remove());
+      layers.legs.forEach(p => p.remove());
+      if (layers.collapseMarker) layers.collapseMarker.remove();
+      layers.groupMarker.addTo(map);
+      expanded.delete(groupKey);
+    };
+
+    groups.forEach(group => {
+      if (group.items.length === 1) {
+        const location = group.items[0];
+        const isHighlighted = closestLocation?.id === location.id;
+        const markerOptions: L.MarkerOptions = {};
+        if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+        const marker = L.marker(location.coordinates, markerOptions).addTo(map);
+        attachPopupAndEnrich(marker, location);
+        cleanupItems.push(() => marker.remove());
+      } else {
+        const groupMarker = L.marker(group.center, { icon: createCountIcon(group.items.length) }).addTo(map);
+        groupLayers.set(group.key, { groupMarker, legs: [], childMarkers: [] });
+        cleanupItems.push(() => {
+          const layers = groupLayers.get(group.key);
+          if (!layers) return;
+          layers.groupMarker.remove();
+          layers.childMarkers.forEach(m => m.remove());
+          layers.legs.forEach(p => p.remove());
+          if (layers.collapseMarker) layers.collapseMarker.remove();
+        });
+
+        groupMarker.on('click', () => {
+          if (expanded.has(group.key)) return;
+          const layers = groupLayers.get(group.key)!;
+          // Remove the group marker while expanded
+          layers.groupMarker.remove();
+          // Create legs + child markers
+          group.items.forEach((location, index) => {
+            const distributed = distributeAroundPointPixels(map, group.center, index, group.items.length, 24);
+            const leg = L.polyline([group.center, distributed], { color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }).addTo(map);
+            layers.legs.push(leg);
+            const isHighlighted = closestLocation?.id === location.id;
+            const markerOptions: L.MarkerOptions = {};
+            if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+            const child = L.marker(distributed, markerOptions).addTo(map);
+            attachPopupAndEnrich(child, location);
+            layers.childMarkers.push(child);
+          });
+          // Add invisible center marker to collapse on click
+          const collapseMarker = L.marker(group.center, { opacity: 0 }).addTo(map);
+          collapseMarker.on('click', () => collapseGroup(group.key));
+          layers.collapseMarker = collapseMarker;
+          expanded.add(group.key);
+        });
+      }
     });
+
+    // Keep spiderfied positions proportional on zoom
+    const onZoomEnd = () => {
+      groups.forEach(group => {
+        if (!expanded.has(group.key)) return;
+        const layers = groupLayers.get(group.key);
+        if (!layers) return;
+        // recompute child positions
+        layers.childMarkers.forEach((marker, idx) => {
+          const distributed = distributeAroundPointPixels(map, group.center, idx, layers.childMarkers.length, 24);
+          marker.setLatLng(distributed);
+          const leg = layers.legs[idx];
+          if (leg) leg.setLatLngs([group.center, distributed]);
+        });
+      });
+    };
+    map.on('zoomend', onZoomEnd);
 
     // Add routes if any
     travelData.routes.forEach(async (route) => {
@@ -358,6 +471,10 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      cleanupItems.forEach(fn => {
+        try { fn(); } catch {}
+      });
+      map.off('zoomend', onZoomEnd);
     };
   }, [travelData, L, isClient, highlightedIcon]);
 
