@@ -22,7 +22,59 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
       
       if (response.ok) {
         const shadowData = await response.json();
-        
+
+        // Build coverage from real plans and filter shadow items that overlap
+        const realLocations: Location[] = shadowData.travelData?.locations || [];
+        const realRoutes: Transportation[] = shadowData.travelData?.routes || [];
+        const shadowLocations: Location[] = shadowData.shadowData?.shadowLocations || [];
+        const shadowRoutes: Transportation[] = shadowData.shadowData?.shadowRoutes || [];
+
+        const toStartOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const toEndOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+        const safeDate = (value?: string | Date) => {
+          if (!value) return null;
+          const d = value instanceof Date ? value : new Date(value);
+          return isNaN(d.getTime()) ? null : d;
+        };
+
+        type Interval = { start: number; end: number };
+        const realIntervals: Interval[] = [];
+        // Real locations coverage
+        for (const loc of realLocations) {
+          const startDate = safeDate((loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
+          const endDate = safeDate((loc as any).endDate || (loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (startDate && endDate) {
+            realIntervals.push({ start: toStartOfDay(startDate), end: toEndOfDay(endDate) });
+          }
+        }
+        // Real routes coverage
+        for (const route of realRoutes) {
+          const dep = safeDate((route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
+          const arr = safeDate((route as any).arrivalTime || (route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (dep && arr) {
+            realIntervals.push({ start: toStartOfDay(dep), end: toEndOfDay(arr) });
+          }
+        }
+        const overlaps = (start: number, end: number) => realIntervals.some(i => start <= i.end && end >= i.start);
+
+        const filteredShadowLocations: Location[] = shadowLocations.filter(loc => {
+          const startDate = safeDate((loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
+          const endDate = safeDate((loc as any).endDate || (loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (!startDate || !endDate) return true;
+          const s = toStartOfDay(startDate);
+          const e = toEndOfDay(endDate);
+          return !overlaps(s, e);
+        });
+
+        const filteredShadowRoutes: Transportation[] = shadowRoutes.filter(route => {
+          const dep = safeDate((route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
+          const arr = safeDate((route as any).arrivalTime || (route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
+          if (!dep || !arr) return true;
+          const s = toStartOfDay(dep);
+          const e = toEndOfDay(arr);
+          return !overlaps(s, e);
+        });
+
         // Merge real data with shadow data
         return {
           ...shadowData,
@@ -31,7 +83,7 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
             // Merge real locations with shadow locations
             locations: [
               ...(shadowData.travelData?.locations || []),
-              ...(shadowData.shadowData?.shadowLocations || []).map((loc: Location) => ({
+              ...filteredShadowLocations.map((loc: Location) => ({
                 ...loc,
                 name: `🔮 ${loc.name}`, // Prefix shadow locations
                 notes: loc.notes ? `🔮 PLANNED: ${loc.notes}` : '🔮 PLANNED LOCATION'
@@ -40,7 +92,7 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
             // Merge real routes with shadow routes  
             routes: [
               ...(shadowData.travelData?.routes || []),
-              ...(shadowData.shadowData?.shadowRoutes || []).map((route: Transportation) => ({
+              ...filteredShadowRoutes.map((route: Transportation) => ({
                 ...route,
                 from: `🔮 ${route.from}`,
                 to: `🔮 ${route.to}`,
