@@ -90,7 +90,12 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    return NextResponse.json(filteredData);
+    return NextResponse.json(filteredData, {
+      headers: {
+        // Cache at the CDN for a day; allow serving stale for a week while revalidating
+        'Cache-Control': 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
+      }
+    });
   } catch (error) {
     console.error('Error loading travel data:', error);
     return NextResponse.json(

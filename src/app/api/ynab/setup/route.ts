@@ -28,17 +28,24 @@ export async function POST(request: NextRequest) {
       // Validate API key and get budgets
       const budgets: YnabBudget[] = await client.getBudgets();
 
-      return NextResponse.json({
-        success: true,
-        budgets: budgets.map(budget => ({
-          id: budget.id,
-          name: budget.name,
-          last_modified_on: budget.last_modified_on,
-          first_month: budget.first_month,
-          last_month: budget.last_month,
-          currency_format: budget.currency_format
-        }))
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          budgets: budgets.map(budget => ({
+            id: budget.id,
+            name: budget.name,
+            last_modified_on: budget.last_modified_on,
+            first_month: budget.first_month,
+            last_month: budget.last_month,
+            currency_format: budget.currency_format
+          }))
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store'
+          }
+        }
+      );
 
     } catch (ynabError) {
       const error = ynabError as YnabApiError;

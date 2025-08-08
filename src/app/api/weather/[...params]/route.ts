@@ -37,13 +37,29 @@ export async function GET(
       const dateStr = sp.get('date');
       if (!dateStr) return NextResponse.json({ success: false, error: 'date is required' }, { status: 400 });
       const weather = await weatherService.getWeatherForDate([lat, lon], new Date(dateStr));
-      return NextResponse.json({ success: true, data: { dailyWeather: [weather] } });
+      return NextResponse.json(
+        { success: true, data: { dailyWeather: [weather] } },
+        {
+          headers: {
+            // Weather for a specific day changes rarely; cache for 6 hours at CDN
+            'Cache-Control': 'public, max-age=0, s-maxage=21600, stale-while-revalidate=86400'
+          }
+        }
+      );
     }
     
     if (segment === 'forecast') {
       const days = Math.min(16, Math.max(1, parseInt(sp.get('days') || '7', 10)));
       const list = await weatherService.getWeatherForecast([lat, lon], days);
-      return NextResponse.json({ success: true, data: { dailyWeather: list } });
+      return NextResponse.json(
+        { success: true, data: { dailyWeather: list } },
+        {
+          headers: {
+            // Forecast updates a few times a day; cache 30 minutes at CDN
+            'Cache-Control': 'public, max-age=0, s-maxage=1800, stale-while-revalidate=86400'
+          }
+        }
+      );
     }
 
     // default: location range
@@ -60,7 +76,15 @@ export async function GET(
     } as Location;
     const summary = await weatherService.getWeatherForLocation(location);
     console.log('[WeatherAPI] result', { count: summary.dailyWeather.length });
-    return NextResponse.json({ success: true, data: summary });
+    return NextResponse.json(
+      { success: true, data: summary },
+      {
+        headers: {
+          // Range queries combine historical/forecast; cache 2 hours at CDN
+          'Cache-Control': 'public, max-age=0, s-maxage=7200, stale-while-revalidate=86400'
+        }
+      }
+    );
   } catch (err) {
     console.error('[WeatherAPI] error', err);
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });

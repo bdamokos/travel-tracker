@@ -33,19 +33,27 @@ export async function GET(request: NextRequest) {
         serverKnowledge ? parseInt(serverKnowledge) : undefined
       );
 
-      return NextResponse.json({
-        success: true,
-        categories: result.categories.map(category => ({
-          id: category.id,
-          name: category.name,
-          category_group_name: category.category_group_name,
-          hidden: category.hidden,
-          balance: YnabApiClient.convertMilliUnitsToCurrency(category.balance),
-          budgeted: YnabApiClient.convertMilliUnitsToCurrency(category.budgeted),
-          activity: YnabApiClient.convertMilliUnitsToCurrency(category.activity)
-        })),
-        serverKnowledge: result.serverKnowledge
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          categories: result.categories.map(category => ({
+            id: category.id,
+            name: category.name,
+            category_group_name: category.category_group_name,
+            hidden: category.hidden,
+            balance: YnabApiClient.convertMilliUnitsToCurrency(category.balance),
+            budgeted: YnabApiClient.convertMilliUnitsToCurrency(category.budgeted),
+            activity: YnabApiClient.convertMilliUnitsToCurrency(category.activity)
+          })),
+          serverKnowledge: result.serverKnowledge
+        },
+        {
+          headers: {
+            // YNAB data should not be cached at CDN because it’s user-specific and sensitive
+            'Cache-Control': 'no-store'
+          }
+        }
+      );
 
     } catch (ynabError) {
       const error = ynabError as YnabApiError;

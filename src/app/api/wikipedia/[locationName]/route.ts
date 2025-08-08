@@ -60,12 +60,20 @@ export async function GET(
       }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: wikipediaData,
-      locationName,
-      cached: !forceRefresh,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: wikipediaData,
+        locationName,
+        cached: !forceRefresh,
+      },
+      {
+        headers: {
+          // Wikipedia content is relatively stable; cache for one day at CDN
+          'Cache-Control': 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
+        }
+      }
+    );
 
   } catch (error) {
     console.error('Error fetching Wikipedia data:', error);

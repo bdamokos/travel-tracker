@@ -86,12 +86,20 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      return NextResponse.json({
-        success: true,
-        transactions: processedTransactions,
-        serverKnowledge: result.serverKnowledge,
-        totalCount: processedTransactions.length
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          transactions: processedTransactions,
+          serverKnowledge: result.serverKnowledge,
+          totalCount: processedTransactions.length
+        },
+        {
+          headers: {
+            // User-specific financial data must not be cached
+            'Cache-Control': 'no-store'
+          }
+        }
+      );
 
     } catch (ynabError) {
       const error = ynabError as YnabApiError;
@@ -252,12 +260,19 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      return NextResponse.json({
-        success: true,
-        transactions: processedTransactions,
-        serverKnowledge: result.serverKnowledge,
-        totalCount: processedTransactions.length
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          transactions: processedTransactions,
+          serverKnowledge: result.serverKnowledge,
+          totalCount: processedTransactions.length
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store'
+          }
+        }
+      );
 
     } catch (ynabError) {
       const error = ynabError as YnabApiError;
