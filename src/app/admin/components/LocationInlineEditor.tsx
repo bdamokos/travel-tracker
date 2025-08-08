@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import AccessibleDatePicker from './AccessibleDatePicker';
 import { Location, CostTrackingData } from '../../types';
 import { formatDuration } from '../../lib/durationUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
@@ -94,23 +95,23 @@ export default function LocationInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Arrival Date *
             </label>
-            <input
-              type="date"
-              value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: new Date(e.target.value) }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            <AccessibleDatePicker
+              id="location-inline-date"
+              value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
+              onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
+              className="text-sm"
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Departure Date
             </label>
-            <input
-              type="date"
-              value={formData.endDate instanceof Date ? formData.endDate.toISOString().split('T')[0] : (formData.endDate || '')}
-              onChange={(e) => handleEndDateChange(e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            <AccessibleDatePicker
+              id="location-inline-end-date"
+              value={formData.endDate instanceof Date ? formData.endDate : (formData.endDate ? new Date(formData.endDate) : null)}
+              onChange={(endDate) => handleEndDateChange(endDate ? endDate.toISOString().split('T')[0] : '')}
+              className="text-sm"
             />
           </div>
         </div>

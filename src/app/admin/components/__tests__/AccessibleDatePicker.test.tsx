@@ -17,12 +17,16 @@ describe('AccessibleDatePicker', () => {
 
   describe('Basic Rendering', () => {
     it('renders with required props', () => {
-      render(<AccessibleDatePicker {...defaultProps} />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toBeInTheDocument();
-      expect(input).toHaveAttribute('id', 'test-date-picker');
-      expect(input).toHaveAttribute('placeholder', 'Select a date');
+      const { container } = render(<AccessibleDatePicker {...defaultProps} />);
+      const group = screen.getByRole('group', { name: /test date picker/i });
+      expect(group).toBeInTheDocument();
+      expect(group).toHaveAttribute('id', 'test-date-picker');
+      // Segmented field renders three spinbuttons
+      const segments = screen.getAllByRole('spinbutton');
+      expect(segments.length).toBeGreaterThanOrEqual(3);
+      // Placeholder is represented through placeholder-like segment text
+      expect(container.textContent?.toLowerCase()).toContain('mm');
+      expect(container.textContent?.toLowerCase()).toContain('dd');
     });
 
     it('renders calendar button', () => {
@@ -33,26 +37,22 @@ describe('AccessibleDatePicker', () => {
     });
 
     it('applies custom className', () => {
-      render(<AccessibleDatePicker {...defaultProps} className="custom-class" />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveClass('custom-class');
+      const { container } = render(<AccessibleDatePicker {...defaultProps} className="custom-class" />);
+      const fieldContainer = container.querySelector('.custom-class');
+      expect(fieldContainer).toBeInTheDocument();
     });
 
     it('renders as required when specified', () => {
       render(<AccessibleDatePicker {...defaultProps} required />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toBeRequired();
+      const group = screen.getByRole('group', { name: /test date picker/i });
+      expect(group).toHaveAttribute('aria-required', 'true');
     });
 
     it('renders as disabled when specified', () => {
       render(<AccessibleDatePicker {...defaultProps} isDisabled />);
-      
-      const input = screen.getByRole('textbox');
+      const group = screen.getByRole('group', { name: /test date picker/i });
       const button = screen.getByRole('button', { name: /open calendar/i });
-      
-      expect(input).toBeDisabled();
+      expect(group).toHaveAttribute('aria-disabled', 'true');
       expect(button).toBeDisabled();
     });
   });
@@ -97,39 +97,42 @@ describe('AccessibleDatePicker', () => {
   });
 
   describe('Date Input and Validation', () => {
-    it('accepts valid date input in YYYY-MM-DD format', async () => {
+    it('accepts date changes via segments', async () => {
       const user = userEvent.setup();
       const onChange = jest.fn();
       
       render(<AccessibleDatePicker {...defaultProps} onChange={onChange} />);
       
-      const input = screen.getByRole('textbox');
-      await user.clear(input);
-      await user.type(input, '2024-01-15');
-      
-      expect(input).toHaveValue('2024-01-15');
+      const segments = screen.getAllByRole('spinbutton');
+      // Focus year segment and type 2024
+      await user.click(segments[2]);
+      await user.type(segments[2], '2024');
+      // Focus month segment and type 01
+      await user.click(segments[0]);
+      await user.type(segments[0], '01');
+      // Focus day segment and type 15
+      await user.click(segments[1]);
+      await user.type(segments[1], '15');
+      expect(onChange).toHaveBeenCalled();
     });
 
-    it('has correct input pattern for date validation', () => {
+    it('renders segments for validation instead of a text input', () => {
       render(<AccessibleDatePicker {...defaultProps} />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveAttribute('pattern', '\\d{4}-\\d{2}-\\d{2}');
+      const segments = screen.getAllByRole('spinbutton');
+      expect(segments.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('displays formatted date value', () => {
+    it('displays formatted date via segments', () => {
       const testDate = new Date('2024-01-15');
       render(<AccessibleDatePicker {...defaultProps} value={testDate} />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveValue('2024-01-15');
+      const segments = screen.getAllByRole('spinbutton');
+      expect(segments.map(s => s.textContent?.trim())).toEqual(['1', '15', '2024']);
     });
 
     it('handles null/undefined values gracefully', () => {
-      render(<AccessibleDatePicker {...defaultProps} value={null} />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveValue('');
+      const { container } = render(<AccessibleDatePicker {...defaultProps} value={null} />);
+      expect(container.textContent?.toLowerCase()).toContain('mm');
+      expect(container.textContent?.toLowerCase()).toContain('dd');
     });
   });
 
@@ -138,8 +141,8 @@ describe('AccessibleDatePicker', () => {
       const user = userEvent.setup();
       render(<AccessibleDatePicker {...defaultProps} />);
       
-      const input = screen.getByRole('textbox');
-      await user.click(input);
+      const firstSegment = screen.getAllByRole('spinbutton')[0];
+      await user.click(firstSegment);
       await user.keyboard('{Enter}');
       
       // Calendar should be opened - we can check for calendar elements
@@ -152,8 +155,8 @@ describe('AccessibleDatePicker', () => {
       const user = userEvent.setup();
       render(<AccessibleDatePicker {...defaultProps} />);
       
-      const input = screen.getByRole('textbox');
-      await user.click(input);
+      const firstSegment = screen.getAllByRole('spinbutton')[0];
+      await user.click(firstSegment);
       await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
       
       await waitFor(() => {
@@ -168,8 +171,8 @@ describe('AccessibleDatePicker', () => {
       
       render(<AccessibleDatePicker {...defaultProps} value={testDate} onChange={onChange} />);
       
-      const input = screen.getByRole('textbox');
-      await user.click(input);
+      const daySegment = screen.getAllByRole('spinbutton')[1];
+      await user.click(daySegment);
       await user.keyboard('{ArrowUp}');
       
       expect(onChange).toHaveBeenCalled();
@@ -179,13 +182,11 @@ describe('AccessibleDatePicker', () => {
       const user = userEvent.setup();
       render(<AccessibleDatePicker {...defaultProps} />);
       
-      const input = screen.getByRole('textbox');
-      await user.click(input);
-      
+      const daySegment = screen.getAllByRole('spinbutton')[1];
+      await user.click(daySegment);
       const keydownEvent = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true });
       const preventDefaultSpy = jest.spyOn(keydownEvent, 'preventDefault');
-      
-      fireEvent(input, keydownEvent);
+      fireEvent(daySegment, keydownEvent);
       expect(preventDefaultSpy).toHaveBeenCalled();
     });
 
@@ -195,7 +196,7 @@ describe('AccessibleDatePicker', () => {
       
       render(<AccessibleDatePicker {...defaultProps} isDisabled onChange={onChange} />);
       
-      const input = screen.getByRole('textbox');
+      const daySegment = screen.getAllByRole('spinbutton')[1];
       await user.keyboard('{ArrowUp}');
       
       expect(onChange).not.toHaveBeenCalled();
@@ -324,8 +325,8 @@ describe('AccessibleDatePicker', () => {
         />
       );
       
-      const input = screen.getByRole('textbox');
-      fireEvent.keyDown(input, { key: 'ArrowLeft' }); // Try to go to previous day
+      const daySegment = screen.getAllByRole('spinbutton')[1];
+      fireEvent.keyDown(daySegment, { key: 'ArrowLeft' });
       
       // Should not call onChange if it would violate min constraint
       // This test verifies the constraint logic exists
@@ -345,8 +346,8 @@ describe('AccessibleDatePicker', () => {
         />
       );
       
-      const input = screen.getByRole('textbox');
-      fireEvent.keyDown(input, { key: 'ArrowRight' }); // Try to go to next day
+      const daySegment = screen.getAllByRole('spinbutton')[1];
+      fireEvent.keyDown(daySegment, { key: 'ArrowRight' });
       
       // Should call onChange as it doesn't violate max constraint
       expect(onChange).toHaveBeenCalled();
@@ -360,12 +361,9 @@ describe('AccessibleDatePicker', () => {
       
       render(<AccessibleDatePicker {...defaultProps} onChange={onChange} />);
       
-      const input = screen.getByRole('textbox');
-      await user.clear(input);
-      await user.type(input, 'invalid-date');
-      
-      // Should not crash and should not call onChange with invalid date
-      expect(input).toHaveValue('invalid-date');
+      const yearSegment = screen.getAllByRole('spinbutton')[2];
+      await user.click(yearSegment);
+      await user.type(yearSegment, 'abcd');
       expect(onChange).not.toHaveBeenCalled();
     });
 
@@ -377,18 +375,16 @@ describe('AccessibleDatePicker', () => {
         render(<AccessibleDatePicker {...defaultProps} value={edgeDate} />);
       }).not.toThrow();
       
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveValue('1970-01-01');
+      const segments = screen.getAllByRole('spinbutton');
+      expect(segments.map(s => s.textContent?.trim())).toEqual(['1', '1', '1970']);
     });
   });
 
   describe('Dark Mode Support', () => {
     it('applies dark mode classes', () => {
-      render(<AccessibleDatePicker {...defaultProps} />);
-      
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveClass('dark:bg-gray-700', 'dark:text-white', 'dark:border-gray-600');
-      
+      const { container } = render(<AccessibleDatePicker {...defaultProps} />);
+      const fieldContainer = container.querySelector('.dark:bg-gray-700.dark\:text-white.dark\:border-gray-600');
+      expect(fieldContainer).toBeTruthy();
       const button = screen.getByRole('button', { name: /open calendar/i });
       expect(button).toHaveClass('dark:bg-gray-600', 'dark:hover:bg-gray-500');
     });

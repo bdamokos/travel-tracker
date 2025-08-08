@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { useDatePicker } from '@react-aria/datepicker';
-import { useCalendar, useCalendarGrid, useCalendarCell } from '@react-aria/calendar';
-import { useDatePickerState } from '@react-stately/datepicker';
-import { useCalendarState } from '@react-stately/calendar';
-import { useButton } from '@react-aria/button';
-import { useDialog } from '@react-aria/dialog';
+import { useDatePicker, useDateField, useDateSegment } from '@react-aria/datepicker';
+import { useDatePickerState, useDateFieldState, type DateFieldState } from '@react-stately/datepicker';
 import { useOverlay, useModal, DismissButton, OverlayProvider } from '@react-aria/overlays';
-import { useFocusRing } from '@react-aria/focus';
+import { FocusScope } from '@react-aria/focus';
+import { useButton } from '@react-aria/button';
+import { useLocale } from '@react-aria/i18n';
 import { CalendarDate, createCalendar } from '@internationalized/date';
+import { useCalendar, useCalendarGrid, useCalendarCell, type AriaCalendarProps } from '@react-aria/calendar';
+import { useCalendarState, type CalendarState } from '@react-stately/calendar';
 import type { DateValue } from '@internationalized/date';
+import type { AriaButtonProps } from '@react-aria/button';
+import type { AriaDateFieldProps } from '@react-aria/datepicker';
 import type { AriaDialogProps } from '@react-aria/dialog';
-import type { CalendarProps as AriaCalendarProps } from '@react-aria/calendar';
+import type { DateSegment as AriaDateSegment } from '@react-stately/datepicker';
 
 interface AccessibleDatePickerProps {
   id: string;
@@ -31,51 +33,22 @@ interface AccessibleDatePickerProps {
 }
 
 // Utility functions for date conversion
-function dateToCalendarDate(date: Date | null): CalendarDate | null {
-  if (!date) return null;
-  try {
-    // Use local date components to avoid timezone issues
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    return new CalendarDate(year, month, day);
-  } catch {
-    return null;
-  }
+function dateToCalendarDate(date: Date | null | undefined): CalendarDate | undefined {
+  if (!date) return undefined;
+  return new CalendarDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
 }
 
 function calendarDateToDate(calendarDate: CalendarDate | null): Date | null {
   if (!calendarDate) return null;
-  try {
-    // Create date using local time to avoid timezone issues
-    return new Date(calendarDate.year, calendarDate.month - 1, calendarDate.day);
-  } catch {
-    return null;
-  }
+  return new Date(calendarDate.year, calendarDate.month - 1, calendarDate.day);
 }
 
-function formatDateForInput(date: Date | null): string {
+function formatDateForInput(date: Date | null | undefined): string {
   if (!date) return '';
-  try {
-    // Format as YYYY-MM-DD using local date components
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return '';
-  }
-}
-
-function parseDateFromInput(value: string): Date | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  try {
-    const [year, month, day] = value.split('-').map(Number);
-    // Create date using local time to avoid timezone issues
-    return new Date(year, month - 1, day);
-  } catch {
-    return null;
-  }
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export default function AccessibleDatePicker({
@@ -86,275 +59,242 @@ export default function AccessibleDatePicker({
   onChange,
   required = false,
   className = '',
-  placeholder = 'YYYY-MM-DD',
+  placeholder = 'Select date',
   minValue,
   maxValue,
   isDisabled = false,
   'aria-label': ariaLabel,
   'aria-describedby': ariaDescribedBy
 }: AccessibleDatePickerProps) {
-  const [inputValue, setInputValue] = React.useState(() => formatDateForInput(value ?? null));
-  
-  // Update input value when prop changes
-  React.useEffect(() => {
-    setInputValue(formatDateForInput(value ?? null));
-  }, [value]);
+  useLocale();
 
   const state = useDatePickerState({
-    value: dateToCalendarDate(value ?? null),
-    defaultValue: dateToCalendarDate(defaultValue ?? null),
-    minValue: dateToCalendarDate(minValue ?? null),
-    maxValue: dateToCalendarDate(maxValue ?? null),
-    onChange: (date: DateValue | null) => {
-      const jsDate = calendarDateToDate(date as CalendarDate | null);
-      onChange?.(jsDate);
-    },
-    isDisabled
+    value: dateToCalendarDate(value ?? undefined),
+    defaultValue: dateToCalendarDate(defaultValue ?? undefined),
+    minValue: dateToCalendarDate(minValue ?? undefined),
+    maxValue: dateToCalendarDate(maxValue ?? undefined),
+    isDisabled,
+    shouldCloseOnSelect: true,
+    onChange: (newVal: DateValue | null) => {
+      onChange?.(calendarDateToDate(newVal as CalendarDate | null));
+    }
   });
 
-  const ref = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const {
-    groupProps,
-    buttonProps: calendarButtonProps,
-    dialogProps,
-    calendarProps
-  } = useDatePicker(
+  const groupRef = useRef<HTMLDivElement>(null);
+  const { groupProps, fieldProps, buttonProps, dialogProps, calendarProps } = useDatePicker(
     {
+      id,
       'aria-label': ariaLabel || placeholder,
       'aria-describedby': ariaDescribedBy,
       isRequired: required,
       isDisabled
     },
     state,
-    ref
+    groupRef
   );
-
-  const { buttonProps } = useButton(calendarButtonProps, buttonRef);
-
-  const baseInputClassName = "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed";
-  const finalClassName = `${baseInputClassName} ${className}`;
-
-  // Handle text input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newInputValue = e.target.value;
-    setInputValue(newInputValue);
-    
-    const parsedDate = parseDateFromInput(newInputValue);
-    
-    if (parsedDate || newInputValue === '') {
-      onChange?.(parsedDate);
-    }
-  };
-
-  // Handle keyboard navigation in input
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isDisabled) return;
-
-    const currentDate = value || new Date();
-    let newDate: Date | null = null;
-
-    switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault();
-        newDate = new Date(currentDate);
-        newDate.setDate(newDate.getDate() + 1);
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        if (e.altKey || e.metaKey) {
-          // Open calendar
-          state.setOpen(true);
-          return;
-        }
-        newDate = new Date(currentDate);
-        newDate.setDate(newDate.getDate() - 1);
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        newDate = new Date(currentDate);
-        newDate.setDate(newDate.getDate() - 1);
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        newDate = new Date(currentDate);
-        newDate.setDate(newDate.getDate() + 1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        state.setOpen(true);
-        return;
-      case 'Escape':
-        if (state.isOpen) {
-          e.preventDefault();
-          state.setOpen(false);
-        }
-        return;
-    }
-
-    if (newDate) {
-      // Validate against min/max values
-      if (minValue && newDate < minValue) return;
-      if (maxValue && newDate > maxValue) return;
-      onChange?.(newDate);
-    }
-  };
 
   return (
     <OverlayProvider>
       <div className="relative">
-      <div {...groupProps} ref={ref} className="flex">
-        <input
-          type="text"
-          id={id}
-          name={name}
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          pattern="\d{4}-\d{2}-\d{2}"
-          className={finalClassName}
-          disabled={isDisabled}
-          required={required}
-          aria-label={ariaLabel || `Date input, ${placeholder} format`}
-          aria-describedby={ariaDescribedBy}
-        />
-        <button
-          {...buttonProps}
-          ref={buttonRef}
-          className="ml-1 px-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-600 hover:bg-gray-100 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={isDisabled}
-          aria-label="Open calendar"
-        >
-          📅
-        </button>
+        <div {...groupProps} ref={groupRef} className="flex items-stretch">
+          <DateField
+            {...fieldProps}
+            id={id}
+            isDisabled={isDisabled}
+            isRequired={required}
+            className={`flex-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus-within:ring-2 focus-within:ring-blue-500 dark:bg-gray-700 dark:text-white ${className}`}
+          />
+          <CalendarButton buttonProps={buttonProps} isDisabled={isDisabled} />
+        </div>
+
+        {/* Hidden input for form submission */}
+        {name && (
+          <input type="hidden" name={name} value={formatDateForInput(calendarDateToDate(state.value as CalendarDate | null) ?? value ?? undefined)} />
+        )}
+
+        {state.isOpen && (
+          <Popover onClose={() => state.setOpen(false)}>
+            <DialogContainer dialogProps={dialogProps}>
+              <Calendar {...calendarProps} />
+            </DialogContainer>
+          </Popover>
+        )}
       </div>
-
-      {/* Hidden input for form submission */}
-      {name && (
-        <input
-          type="hidden"
-          name={name}
-          value={formatDateForInput(value ?? null)}
-        />
-      )}
-
-      {state.isOpen && (
-        <CalendarPopover
-          state={state}
-          dialogProps={dialogProps}
-          calendarProps={calendarProps}
-        />
-      )}
-    </div>
     </OverlayProvider>
   );
 }
 
-interface CalendarPopoverProps {
-  state: ReturnType<typeof useDatePickerState>;
-  dialogProps: AriaDialogProps;
-  calendarProps: AriaCalendarProps<DateValue>;
+function CalendarButton({ buttonProps, isDisabled }: { buttonProps: AriaButtonProps; isDisabled?: boolean }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const { buttonProps: ariaButtonProps } = useButton(buttonProps, ref);
+  return (
+    <button
+      {...ariaButtonProps}
+      ref={ref}
+      type="button"
+      className="ml-2 px-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+      aria-label="Open calendar"
+      disabled={isDisabled}
+    >
+      📅
+    </button>
+  );
 }
 
-function CalendarPopover({ state, dialogProps, calendarProps }: CalendarPopoverProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { overlayProps, underlayProps } = useOverlay(
-    {
-      onClose: () => state.setOpen(false),
-      isOpen: true,
-      isDismissable: true
-    },
-    ref
-  );
+function DateField(props: AriaDateFieldProps<DateValue> & { className?: string; id?: string }) {
+  const { locale } = useLocale();
+  const state = useDateFieldState({
+    ...props,
+    locale,
+    createCalendar,
+    granularity: 'day'
+  });
 
-  const { modalProps } = useModal();
-  const { dialogProps: ariaDialogProps } = useDialog(dialogProps, ref);
+  const ref = useRef<HTMLDivElement>(null);
+  const { fieldProps } = useDateField(props, state, ref);
 
   return (
-    <div {...underlayProps} className="fixed inset-0 z-50 bg-black bg-opacity-25 flex items-center justify-center">
-      <div
-        {...overlayProps}
-        {...modalProps}
-        {...ariaDialogProps}
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4 max-w-sm w-full mx-4"
-      >
-        <DismissButton onDismiss={() => state.setOpen(false)} />
-        <Calendar {...calendarProps} value={state.value} onChange={state.setValue} />
-        <DismissButton onDismiss={() => state.setOpen(false)} />
+    <div {...fieldProps} ref={ref} className={props.className}>
+      <div className="flex gap-1 items-center">
+        {state.segments.map((segment, i) => (
+          <DateSegment key={i} segment={segment} state={state} />)
+        )}
       </div>
     </div>
   );
 }
 
-interface CalendarProps {
-  value?: DateValue | null;
-  onChange?: (value: DateValue | null) => void;
-  [key: string]: unknown;
+function DateSegment({ segment, state }: { segment: AriaDateSegment; state: DateFieldState }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { segmentProps } = useDateSegment(segment, state, ref);
+  const isPlaceholder = segment.isPlaceholder;
+  return (
+    <div
+      {...segmentProps}
+      ref={ref}
+      className={`px-1 rounded outline-none focus:ring-2 focus:ring-blue-500 ${
+        isPlaceholder ? 'text-gray-400' : 'text-gray-900 dark:text-white'
+      }`}
+    >
+      {segment.text}
+    </div>
+  );
 }
 
-function Calendar(props: CalendarProps) {
+function Popover({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const state = useCalendarState({ 
-    ...props, 
-    locale: 'en-US', 
-    createCalendar,
-    value: props.value || null
-  });
+  const { overlayProps, underlayProps } = useOverlay(
+    { isOpen: true, isDismissable: true, onClose },
+    ref
+  );
+  const { modalProps } = useModal();
+
+  return (
+    <div {...underlayProps} className="fixed inset-0 z-50 bg-black/25 flex items-center justify-center">
+      <FocusScope restoreFocus>
+        <div
+          {...overlayProps}
+          {...modalProps}
+          ref={ref}
+          className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 w-[20rem] max-w-[95vw]"
+        >
+          <DismissButton onDismiss={onClose} />
+          {children}
+          <DismissButton onDismiss={onClose} />
+        </div>
+      </FocusScope>
+    </div>
+  );
+}
+
+function DialogContainer({ children, dialogProps }: { children: React.ReactNode; dialogProps: AriaDialogProps }) {
+  return (
+    <div {...dialogProps} role="dialog" aria-modal="true">
+      {children}
+    </div>
+  );
+}
+
+function Calendar(props: AriaCalendarProps<DateValue>) {
+  const { locale } = useLocale();
+  const state = useCalendarState({ ...props, locale, createCalendar });
+  const ref = useRef<HTMLDivElement>(null);
   const { calendarProps, prevButtonProps, nextButtonProps, title } = useCalendar(props, state);
 
   return (
     <div {...calendarProps} ref={ref} className="text-center">
-      <div className="flex items-center justify-between mb-4">
-        <button
-          {...prevButtonProps}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          ◀
-        </button>
+      <div className="flex items-center justify-between mb-2">
+        <NavButton {...prevButtonProps}>◀</NavButton>
         <h2 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
-        <button
-          {...nextButtonProps}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          ▶
-        </button>
+        <NavButton {...nextButtonProps}>▶</NavButton>
       </div>
       <CalendarGrid state={state} />
     </div>
   );
 }
 
-interface CalendarGridProps {
-  state: ReturnType<typeof useCalendarState>;
+function NavButton(props: AriaButtonProps & { children: React.ReactNode }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const { buttonProps } = useButton(props, ref);
+  return (
+    <button
+      {...buttonProps}
+      ref={ref}
+      type="button"
+      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+      {props.children}
+    </button>
+  );
 }
 
-function CalendarGrid({ state }: CalendarGridProps) {
-  const ref = useRef<HTMLTableElement>(null);
-  const { gridProps, headerProps, weekDays } = useCalendarGrid({}, state);
+function CalendarGrid({ state }: { state: CalendarState }) {
+  const { locale } = useLocale();
+  const { gridProps, headerProps } = useCalendarGrid({}, state);
+
+  // Build a 6x7 grid of dates covering the visible month, aligned to Sundays (weekDays starts with Sunday)
+  const start = state.visibleRange.start as CalendarDate; // first day of visible month
+  const jsStartOfMonth = new Date(start.year, start.month - 1, 1);
+  // Compute offset for Monday-first grid (Mon=0 ... Sun=6)
+  const offset = (jsStartOfMonth.getDay() + 6) % 7; // JS getDay(): Sun=0
+  const jsGridStart = new Date(start.year, start.month - 1, 1 - offset);
+
+  const weeks: CalendarDate[][] = Array.from({ length: 6 }, (_, weekIdx) => {
+    return Array.from({ length: 7 }, (_, dayIdx) => {
+      const d = new Date(jsGridStart);
+      d.setDate(d.getDate() + weekIdx * 7 + dayIdx);
+      return new CalendarDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    });
+  });
+
+  // Build Monday-first weekday headers using locale
+  const baseMonday = new Date(2021, 0, 4); // 2021-01-04 is a Monday
+  const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(baseMonday);
+    d.setDate(baseMonday.getDate() + i);
+    return weekdayFormatter.format(d);
+  });
 
   return (
-    <table {...gridProps} ref={ref} className="w-full">
+    <table {...gridProps} className="w-full">
       <thead {...headerProps}>
         <tr>
-          {weekDays.map((day, index) => (
-            <th key={index} className="text-xs font-medium text-gray-500 dark:text-gray-400 p-2">
+          {weekDays.map((day, i) => (
+            <th key={i} className="text-xs font-medium text-gray-500 dark:text-gray-400 p-1">
               {day}
             </th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {Array.from({ length: 6 }, (_, weekIndex) => (
-          <tr key={weekIndex}>
-            {state.getDatesInWeek(weekIndex, state.visibleRange.start).map((date: CalendarDate | null, i: number) => (
+        {weeks.map((week, i) => (
+          <tr key={i}>
+            {week.map((date, j) => (
               date ? (
-                <CalendarCell key={i} state={state} date={date} />
+                <CalendarCellInner key={j} state={state} date={date} />
               ) : (
-                <td key={i} />
+                <CalendarCellEmpty key={j} />
               )
             ))}
           </tr>
@@ -364,37 +304,26 @@ function CalendarGrid({ state }: CalendarGridProps) {
   );
 }
 
-interface CalendarCellProps {
-  state: ReturnType<typeof useCalendarState>;
-  date: CalendarDate;
+function CalendarCellEmpty() {
+  return <td className="p-0.5"><div className="w-8 h-8" /></td>;
 }
 
-function CalendarCell({ state, date }: CalendarCellProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { cellProps, buttonProps, isSelected, isOutsideVisibleRange, isDisabled, formattedDate } = useCalendarCell(
-    { date },
-    state,
-    ref
-  );
-
-  const { focusProps, isFocusVisible } = useFocusRing();
-
+function CalendarCellInner({ state, date }: { state: CalendarState; date: CalendarDate }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const { cellProps, buttonProps, isSelected, isOutsideVisibleRange, isDisabled, formattedDate } = useCalendarCell({ date }, state, ref);
   return (
-    <td {...cellProps} className="p-1">
-      <div
+    <td {...cellProps} className="p-0.5">
+      <button
         {...buttonProps}
-        {...focusProps}
         ref={ref}
-        className={`
-          w-8 h-8 flex items-center justify-center text-sm rounded cursor-pointer
+        type="button"
+        disabled={isDisabled}
+        className={`w-8 h-8 flex items-center justify-center text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500
           ${isSelected ? 'bg-blue-500 text-white' : 'text-gray-900 dark:text-gray-100'}
-          ${isDisabled ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
-          ${isOutsideVisibleRange ? 'text-gray-400' : ''}
-          ${isFocusVisible ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-        `}
+          ${isOutsideVisibleRange ? 'text-gray-400' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
       >
         {formattedDate}
-      </div>
+      </button>
     </td>
   );
 }

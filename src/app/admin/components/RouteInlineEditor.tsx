@@ -6,6 +6,7 @@ import { transportationTypes, transportationLabels } from '../../lib/routeUtils'
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
+import AccessibleDatePicker from './AccessibleDatePicker';
 
 interface RouteInlineEditorProps {
   route: TravelRoute;
@@ -102,12 +103,12 @@ export default function RouteInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date *
             </label>
-            <input
-              type="date"
-              value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, date: new Date(e.target.value) }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            <AccessibleDatePicker
+              id="route-inline-date"
+              value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
+              onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
+              className="text-sm"
             />
           </div>
         </div>

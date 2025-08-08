@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { JourneyDay, Location, Transportation, InstagramPost, BlogPost } from '../types';
+import AccessibleDatePicker from '../admin/components/AccessibleDatePicker';
 import AriaSelect from '../admin/components/AriaSelect';
 import { 
   geocodeLocation, 
@@ -617,14 +618,12 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 <label htmlFor="date" className="block mb-1 font-medium">
                   Start Date
                 </label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded-sm"
+                <AccessibleDatePicker
+                  id="editform-start-date"
+                  value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
+                  onChange={(d) => setFormData(prev => ({ ...prev, date: d || undefined }))}
                   required
+                  className="w-full"
                 />
               </div>
               
@@ -632,14 +631,11 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 <label htmlFor="endDate" className="block mb-1 font-medium">
                   End Date <span className="text-sm text-gray-500">(Optional)</span>
                 </label>
-                <input
-                  type="date"
-                  id="endDate"
-                  name="endDate"
-                  value={formData.endDate instanceof Date ? formData.endDate.toISOString().split('T')[0] : formData.endDate || ''}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded-sm"
-                  min={formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date} // Cannot be before start date
+                <AccessibleDatePicker
+                  id="editform-end-date"
+                  value={formData.endDate instanceof Date ? formData.endDate : (formData.endDate ? new Date(formData.endDate) : null)}
+                  onChange={(d) => setFormData(prev => ({ ...prev, endDate: d || undefined }))}
+                  className="w-full"
                 />
                 <p className="text-xs text-gray-500 mt-1">For multi-day periods</p>
               </div>

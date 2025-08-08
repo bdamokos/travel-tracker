@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import AccessibleDatePicker from './AccessibleDatePicker';
 import { formatDuration } from '../../lib/durationUtils';
 import { Location } from '../../types';
 import LocationAccommodationsManager from './LocationAccommodationsManager';
@@ -169,15 +170,14 @@ export default function LocationForm({
           <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Arrival Date *
           </label>
-          <input
+          <AccessibleDatePicker
             id="location-date"
             name="date"
-            type="date"
-            defaultValue={currentLocation.date instanceof Date ? currentLocation.date.toISOString().split('T')[0] : (currentLocation.date || '')}
-            onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: new Date(e.target.value) }))}
             required
+            className="w-full"
+            defaultValue={currentLocation.date instanceof Date ? currentLocation.date : (currentLocation.date ? new Date(currentLocation.date) : null)}
+            onChange={(val) => val && setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: val as Date }))}
             data-testid="location-date"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
 
@@ -185,22 +185,20 @@ export default function LocationForm({
           <label htmlFor="location-end-date" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Departure Date (optional)
           </label>
-          <input
+          <AccessibleDatePicker
             id="location-end-date"
             name="endDate"
-            type="date"
-            defaultValue={currentLocation.endDate instanceof Date ? currentLocation.endDate.toISOString().split('T')[0] : (currentLocation.endDate || '')}
-            onChange={(e) => {
-              const endDateStr = e.target.value;
-              const endDate = endDateStr ? new Date(endDateStr) : undefined;
+            className="w-full"
+            defaultValue={currentLocation.endDate instanceof Date ? currentLocation.endDate : (currentLocation.endDate ? new Date(currentLocation.endDate) : null)}
+            onChange={(endDate) => {
               setCurrentLocation((prev: Partial<Location>) => {
-                const duration = endDate && prev.date ? 
-                  Math.ceil((endDate.getTime() - (prev.date instanceof Date ? prev.date.getTime() : new Date(prev.date).getTime())) / (1000 * 60 * 60 * 24)) + 1 : 
+                const start = prev.date instanceof Date ? prev.date : (prev.date ? new Date(prev.date) : undefined);
+                const duration = endDate && start ?
+                  Math.ceil(((endDate as Date).getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1 :
                   undefined;
-                return { ...prev, endDate, duration };
+                return { ...prev, endDate: (endDate as Date) || undefined, duration };
               });
             }}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
           {currentLocation.duration && currentLocation.date && currentLocation.endDate && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

@@ -5,6 +5,7 @@ import { Expense, ExpenseType } from '../../types';
 import TravelItemSelector from './TravelItemSelector';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';
+import AccessibleDatePicker from './AccessibleDatePicker';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
@@ -51,18 +52,18 @@ export default function ExpenseInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date *
             </label>
-            <input
-              type="date"
+            <AccessibleDatePicker
+              id="expense-inline-date"
               value={
-                formData.date instanceof Date 
-                  ? formData.date.toISOString().split('T')[0] 
+                formData.date instanceof Date
+                  ? formData.date
                   : typeof formData.date === 'string' && formData.date
-                    ? new Date(formData.date).toISOString().split('T')[0]
-                    : ''
+                    ? new Date(formData.date)
+                    : null
               }
-              onChange={(e) => setFormData(prev => ({ ...prev, date: new Date(e.target.value) }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
+              className="text-sm"
             />
           </div>
           <div>
