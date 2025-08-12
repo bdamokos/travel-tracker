@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange } from '../../lib/dateUtils';
 import { Location, Transportation } from '../../types';
+import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
   id: string;
@@ -270,6 +271,11 @@ export default async function MapPage({ params }: {
             </a>
           </div>
         </header>
+
+        {/* Next steps summary */}
+        {/* <div className="mb-6">
+          <NextStepsCard tripId={travelData.id} />
+        </div> */}
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
           <div style={{ height: '600px' }}>
