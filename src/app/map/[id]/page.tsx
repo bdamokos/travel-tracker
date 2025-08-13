@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange } from '../../lib/dateUtils';
 import { Location, Transportation } from '../../types';
-import NextStepsCard from '../../components/NextStepsCard';
+// import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
   id: string;
