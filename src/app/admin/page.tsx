@@ -23,7 +23,7 @@ function AdminPageContent() {
 
   // Set active tab based on URL parameter
   useEffect(() => {
-    const tab = searchParams.get('tab');
+    const tab = searchParams?.get?.('tab') || null;
     if (tab === 'cost') {
       setActiveTab('cost');
     } else {
