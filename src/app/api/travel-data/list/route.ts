@@ -14,7 +14,10 @@ export async function GET() {
         description: '', // Not available in summary
         startDate: trip.startDate,
         endDate: trip.endDate,
-        createdAt: trip.createdAt
+        createdAt: trip.createdAt,
+        locationCount: trip.locationCount,
+        accommodationCount: trip.accommodationCount,
+        routeCount: trip.routeCount
       }));
     
     return NextResponse.json(travelTrips);

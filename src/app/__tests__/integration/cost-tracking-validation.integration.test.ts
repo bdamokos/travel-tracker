@@ -162,8 +162,8 @@ describe('Cost Tracking API Validation Integration Tests', () => {
 
       // Mock listAllTrips to return trips with cost data
       mockListAllTrips.mockResolvedValue([
-        { id: mockTripId, hasCost: true },
-        { id: 'test-trip-456', hasCost: true }
+        { id: mockTripId, hasCost: true, hasTravel: false, isUnified: true, locationCount: 0, accommodationCount: 0, routeCount: 0 },
+        { id: 'test-trip-456', hasCost: true, hasTravel: false, isUnified: true, locationCount: 0, accommodationCount: 0, routeCount: 0 }
       ]);
 
       mockLoadUnifiedTripData

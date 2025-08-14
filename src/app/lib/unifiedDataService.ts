@@ -139,10 +139,25 @@ export async function listAllTrips(): Promise<Array<{
   hasTravel: boolean;
   hasCost: boolean;
   isUnified: boolean;
+  locationCount: number;
+  accommodationCount: number;
+  routeCount: number;
 }>> {
   try {
     const files = await readdir(DATA_DIR);
-    const trips = new Map<string, { id: string; title: string; startDate: string; endDate: string; createdAt: string; hasTravel: boolean; hasCost: boolean; isUnified: boolean; }>();
+    const trips = new Map<string, {
+      id: string;
+      title: string;
+      startDate: string;
+      endDate: string;
+      createdAt: string;
+      hasTravel: boolean;
+      hasCost: boolean;
+      isUnified: boolean;
+      locationCount: number;
+      accommodationCount: number;
+      routeCount: number;
+    }>();
 
     // Process unified files only
     const unifiedFiles = files.filter(f => f.startsWith('trip-') && f.endsWith('.json'));
@@ -151,6 +166,26 @@ export async function listAllTrips(): Promise<Array<{
       const data = JSON.parse(content);
 
       if (isUnifiedFormat(data)) {
+        const locationCount =
+          (Array.isArray(data.travelData?.locations) ? data.travelData.locations.length : 0) +
+          (Array.isArray(data.travelData?.days)
+            ? data.travelData.days.reduce(
+                (sum: number, day: { locations?: unknown[] }) => sum + (day.locations?.length || 0),
+                0
+              )
+            : 0);
+
+        const routeCount =
+          (Array.isArray(data.travelData?.routes) ? data.travelData.routes.length : 0) +
+          (Array.isArray(data.travelData?.days)
+            ? data.travelData.days.reduce(
+                (sum: number, day: { transportation?: unknown }) => sum + (day.transportation ? 1 : 0),
+                0
+              )
+            : 0);
+
+        const accommodationCount = Array.isArray(data.accommodations) ? data.accommodations.length : 0;
+
         trips.set(data.id, {
           id: data.id,
           title: data.title,
@@ -159,7 +194,10 @@ export async function listAllTrips(): Promise<Array<{
           createdAt: data.createdAt,
           hasTravel: !!data.travelData,
           hasCost: !!data.costData,
-          isUnified: true
+          isUnified: true,
+          locationCount,
+          accommodationCount,
+          routeCount
         });
       }
     }

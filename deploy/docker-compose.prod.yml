@@ -16,6 +16,7 @@ services:
       - ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - EMBED_DOMAIN=${EMBED_DOMAIN}
       - MCP_LOGGING=true
+      - MCP_LEGACY_SSE=false
     restart: unless-stopped
     networks:
       - travel-network
@@ -41,6 +42,7 @@ services:
       - ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - EMBED_DOMAIN=${EMBED_DOMAIN}
       - MCP_LOGGING=true
+      - MCP_LEGACY_SSE=false
     restart: unless-stopped
     networks:
       - travel-network

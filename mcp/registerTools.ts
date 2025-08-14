@@ -29,7 +29,17 @@ export function registerTools(mcp: McpServer, baseUrl?: string) {
   interface RawAccommodation { id?: string; name?: string; locationId?: string }
   interface RawDay { id?: string; date?: string | Date; endDate?: string | Date; title?: string }
   interface RawTrip { id?: string; title?: string; description?: string; startDate?: string; endDate?: string; locations?: RawLocation[]; routes?: RawRoute[]; accommodations?: RawAccommodation[]; days?: RawDay[] }
-  interface ListedTrip { id: string; title: string; description?: string; startDate?: string; endDate?: string; createdAt?: string }
+  interface ListedTrip {
+    id: string;
+    title: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string;
+    createdAt?: string;
+    locationCount?: number;
+    accommodationCount?: number;
+    routeCount?: number;
+  }
   type ShapedCounts = { locations?: number; routes?: number; accommodations?: number; days?: number };
   interface ShapedTripResult {
     meta: { id?: string; title?: string; description?: string; startDate?: string; endDate?: string };
@@ -163,7 +173,7 @@ export function registerTools(mcp: McpServer, baseUrl?: string) {
 
   mcp.tool(
     'list_trips',
-    'List available trips (ids, titles, dates)',
+    'List available trips (ids, titles, dates). Provides counts and metadata useful for filtering and pagination.',
     { limit: z.number().int().min(1).max(500).optional(), offset: z.number().int().min(0).optional(), query: z.string().optional(), fromDate: z.string().optional(), toDate: z.string().optional() },
     async ({ limit, offset, query, fromDate, toDate }) => {
       const url = `${BASE}/api/travel-data/list`;
@@ -205,8 +215,20 @@ export function registerTools(mcp: McpServer, baseUrl?: string) {
     'Return next steps summary for a trip',
     { tripId: z.string() },
     async ({ tripId }) => {
-      const url = `${BASE}/api/travel-data/${encodeURIComponent(tripId)}/next-steps`;
+      const id = tripId?.trim();
+      if (!id || !/^[\w-]+$/.test(id)) {
+        throw new Error('Invalid tripId. Call list_trips for valid IDs.');
+      }
+      const url = `${BASE}/api/travel-data/${encodeURIComponent(id)}/next-steps`;
       const res = await fetch(url, { headers: { host: new URL(BASE).host } });
+      if (res.status === 400 || res.status === 404) {
+        let message = `HTTP ${res.status}`;
+        try {
+          const err = await res.json();
+          if (typeof err?.error === 'string') message = err.error;
+        } catch {}
+        throw new Error(`${message}. Call list_trips for valid IDs.`);
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       return { content: [{ type: 'text', text: JSON.stringify(json) }] };
@@ -231,8 +253,20 @@ export function registerTools(mcp: McpServer, baseUrl?: string) {
       daysOffset: z.number().int().min(0).optional(),
     },
     async ({ tripId, sections, maxLocations, maxRoutes, includeRoutePoints, maxChars, summaryOnly, fromDate, toDate, locationsOffset, routesOffset, daysOffset }) => {
-      const url = `${BASE}/api/travel-data?id=${encodeURIComponent(tripId)}`;
+      const id = tripId?.trim();
+      if (!id || !/^[\w-]+$/.test(id)) {
+        throw new Error('Invalid tripId. Call list_trips for valid IDs.');
+      }
+      const url = `${BASE}/api/travel-data?id=${encodeURIComponent(id)}`;
       const res = await fetch(url, { headers: { host: new URL(BASE).host } });
+      if (res.status === 400 || res.status === 404) {
+        let message = `HTTP ${res.status}`;
+        try {
+          const err = await res.json();
+          if (typeof err?.error === 'string') message = err.error;
+        } catch {}
+        throw new Error(`${message}. Call list_trips for valid IDs.`);
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: RawTrip = await res.json();
 

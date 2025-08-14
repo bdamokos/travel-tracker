@@ -215,6 +215,9 @@ describe('Travel Data API Endpoints', () => {
       const ourTrip = trips.find(trip => trip.id === createdTripId);
       expect(ourTrip).toBeDefined();
       expect(ourTrip.title).toBe('Updated API Test Trip');
+      expect(ourTrip.locationCount).toBe(3);
+      expect(ourTrip.accommodationCount).toBe(0);
+      expect(ourTrip.routeCount).toBe(1);
     });
   });
 
