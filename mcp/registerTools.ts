@@ -1,6 +1,23 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+/**
+ * Register all MCP tools.
+ *
+ * Responses from these tools are streamed to clients using
+ * Server‑Sent Events (SSE).  Each SSE message follows the
+ * `event / id / data` format and is terminated by a blank line:
+ *
+ * ```text
+ * event: message
+ * id: <unique-id>
+ * data: {"example":true}
+ *
+ * ```
+ *
+ * Contributors adding new tools should ensure any streamed output
+ * adheres to this format so the transport can parse it correctly.
+ */
 export function registerTools(mcp: McpServer, baseUrl?: string) {
   const BASE = baseUrl || process.env.TRAVEL_TRACKER_BASE_URL || 'http://localhost:3000';
   const DEFAULT_MAX_CHARS = Number(process.env.MCP_MAX_CHARS || 20000);

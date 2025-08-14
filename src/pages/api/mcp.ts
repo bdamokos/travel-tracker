@@ -19,16 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(204).end();
     return;
   }
-
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
 
-  // Allow flexible truthy values so Dockerfile can set MCP_LOGGING to true/1/yes
-  const logEnabled =
-    typeof process.env.MCP_LOGGING === 'string' &&
-    ['1', 'true', 'yes'].includes(process.env.MCP_LOGGING.toLowerCase());
+  const logEnabled = process.env.MCP_LOGGING === 'true';
   const clientIp =
     (Array.isArray(req.headers['x-forwarded-for'])
       ? req.headers['x-forwarded-for'][0]
@@ -59,18 +55,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   registerTools(server, baseUrl);
   await server.connect(transport);
   // Next provides Node's IncomingMessage/ServerResponse; pass through to MCP transport
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await transport.handleRequest(req as any, res as any, req.body);
-  } catch (error) {
-    if (logEnabled) {
-      console.error('Error handling MCP request', {
-        ...logContext,
-        sessionId: transport.sessionId,
-        error,
-      });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await transport.handleRequest(req as any, res as any, req.body);
+
+  // If this is an SSE request, immediately send a comment and start a lightweight heartbeat
+  // to keep intermediaries (e.g., Cloudflare) from timing out idle connections.
+  if (req.method === 'GET' && req.headers.accept?.includes('text/event-stream')) {
+    try {
+      if (!res.writableEnded) {
+        res.write(': init\n\n');
+      }
+    } catch {
+      // ignore write errors; transport will manage the stream
     }
-    throw error;
+    const heartbeat = setInterval(() => {
+      try {
+        if (!res.writableEnded) {
+          res.write(': keepalive\n\n');
+        } else {
+          clearInterval(heartbeat);
+        }
+      } catch {
+        clearInterval(heartbeat);
+      }
+    }, 20000);
+    res.on('close', () => clearInterval(heartbeat));
+    res.on('finish', () => clearInterval(heartbeat));
   }
 }
 
