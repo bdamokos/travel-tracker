@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
-    "@modelcontextprotocol/sdk": "^1.17.2",
+    "@modelcontextprotocol/sdk": "^1.17.3",
     "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/jest-dom": "^6.7.0",
     "@testing-library/react": "^16.3.0",
