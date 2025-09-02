@@ -16,7 +16,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@internationalized/date": "^3.8.2",
+    "@internationalized/date": "^3.9.0",
     "@react-aria/button": "^3.14.0",
     "@react-aria/calendar": "^3.9.0",
     "@react-aria/combobox": "^3.13.0",

@@ -4,7 +4,7 @@
     "": {
       "name": "travel-tracker",
       "dependencies": {
-        "@internationalized/date": "^3.8.2",
+        "@internationalized/date": "^3.9.0",
         "@react-aria/button": "^3.14.0",
         "@react-aria/calendar": "^3.9.0",
         "@react-aria/combobox": "^3.13.0",
@@ -241,7 +241,7 @@
 
     "@img/sharp-win32-x64": ["@img/sharp-win32-x64@0.34.3", "", { "os": "win32", "cpu": "x64" }, "sha512-OWwz05d++TxzLEv4VnsTz5CmZ6mI6S05sfQGEMrNrQcOEERbX46332IvE7pO/EUiw7jUrrS40z/M7kPyjfl04g=="],
 
-    "@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+    "@internationalized/date": ["@internationalized/date@3.9.0", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-yaN3brAnHRD+4KyyOsJyk49XUvj2wtbNACSqg0bz3u8t2VuzhC8Q5dfRnrSxjnnbDb+ienBnkn1TzQfE154vyg=="],
 
     "@internationalized/message": ["@internationalized/message@3.1.8", "", { "dependencies": { "@swc/helpers": "^0.5.0", "intl-messageformat": "^10.1.0" } }, "sha512-Rwk3j/TlYZhn3HQ6PyXUV0XP9Uv42jqZGNegt0BXlxjE6G3+LwHjbQZAGHhCnCPdaA6Tvd3ma/7QzLlLkJxAWA=="],
 
@@ -1859,6 +1859,20 @@
 
     "@next/eslint-plugin-next/fast-glob": ["fast-glob@3.3.1", "", { "dependencies": { "@nodelib/fs.stat": "^2.0.2", "@nodelib/fs.walk": "^1.2.3", "glob-parent": "^5.1.2", "merge2": "^1.3.0", "micromatch": "^4.0.4" } }, "sha512-kNFPyjhh5cKjrUltxs+wFx+ZkbRaxxmZ+X0ZU31SOsxCEtP9VPgtq2teZw1DebupL5GmDaNQ6yKMMVcM41iqDg=="],
 
+    "@react-aria/calendar/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
+    "@react-aria/datepicker/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
+    "@react-aria/i18n/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
+    "@react-stately/calendar/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
+    "@react-stately/datepicker/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
+    "@react-types/calendar/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
+    "@react-types/datepicker/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
+
     "@testing-library/dom/aria-query": ["aria-query@5.3.0", "", { "dependencies": { "dequal": "^2.0.3" } }, "sha512-b0P0sZPKtyu8HkeRAfCq0IfURZK+SuwMjY1UXGBU27wpAiTwQAIlq56IbIO+ytk/JjS1fMR14ee5WBBfKi5J6A=="],
 
     "@testing-library/dom/dom-accessibility-api": ["dom-accessibility-api@0.5.16", "", {}, "sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg=="],
@@ -1952,6 +1966,8 @@
     "pretty-format/react-is": ["react-is@17.0.2", "", {}, "sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w=="],
 
     "prop-types/react-is": ["react-is@16.13.1", "", {}, "sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ=="],
+
+    "react-aria-components/@internationalized/date": ["@internationalized/date@3.8.2", "", { "dependencies": { "@swc/helpers": "^0.5.0" } }, "sha512-/wENk7CbvLbkUvX1tu0mwq49CVkkWpkXubGel6birjRPyo6uQ4nQpnq5xZu823zRCwwn82zgHrvgF1vZyvmVgA=="],
 
     "resolve-cwd/resolve-from": ["resolve-from@5.0.0", "", {}, "sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw=="],
 
