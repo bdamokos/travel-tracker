@@ -25,7 +25,7 @@
     "@react-aria/focus": "^3.21.0",
     "@react-aria/i18n": "^3.12.11",
     "@react-aria/listbox": "^3.14.7",
-    "@react-aria/overlays": "^3.28.0",
+    "@react-aria/overlays": "^3.29.1",
     "@react-aria/select": "^3.16.0",
     "@react-aria/utils": "^3.30.0",
     "@react-stately/calendar": "^3.8.3",
