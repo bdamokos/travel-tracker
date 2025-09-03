@@ -288,6 +288,11 @@ run_ssh "
     # Default values and expand paths
     DATA_PATH=\${DATA_PATH:-~/travel-tracker/data}
     DATA_PATH=\$(eval echo \$DATA_PATH)
+
+    # Compute image registry host used by docker-compose
+    # Prefer REGISTRY_PULL_HOST if set; otherwise fall back to REGISTRY_HOST
+    IMAGE_REGISTRY=\${REGISTRY_PULL_HOST:-\$REGISTRY_HOST}
+    export IMAGE_REGISTRY
     
     echo \"📁 Setting up Travel Tracker deployment on Pi...\"
     

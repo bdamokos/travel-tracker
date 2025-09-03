@@ -44,6 +44,10 @@ This setup provides two separate interfaces for your Travel Tracker app:
 # Your Pi's IP address where the registry is running
 REGISTRY_HOST=192.168.1.100
 
+# If the registry runs on the same Pi, add this so the Pi pulls via loopback
+# This avoids TLS requirements for a local HTTP registry
+# REGISTRY_PULL_HOST=127.0.0.1
+
 # Ports for the two interfaces (choose unused ports)
 ADMIN_PORT=3001  # Admin interface
 EMBED_PORT=3002  # Public embed interface
@@ -120,7 +124,12 @@ git pull
 1. **Admin Interface**: Always keep behind Cloudflare Access authentication
 2. **Embed Interface**: Consider rate limiting if needed
 3. **Data Directory**: Stored in your home directory (`~/travel-tracker/data`)
-4. **Registry Access**: Keep your Docker registry on a private network
+4. **Registry Access**: Keep your Docker registry on a private network. If your
+   registry is HTTP-only, Docker requires either:
+   - Using loopback (`REGISTRY_PULL_HOST=127.0.0.1`) when pulling on the same Pi, or
+   - Configuring Docker Engine on the Pi with an insecure registry entry:
+     - Edit `/etc/docker/daemon.json` and add: `{ "insecure-registries": ["<PI_IP>:5010"] }`
+     - Then run: `sudo systemctl daemon-reload && sudo systemctl restart docker`
 
 
 ## Architecture
