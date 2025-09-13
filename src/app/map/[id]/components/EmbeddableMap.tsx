@@ -318,17 +318,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}`);
         if (response.ok) {
           const wikipediaResponse = await response.json();
-          // Weather fetch (today in stay window)
-          const start = new Date(location.date).toISOString().slice(0, 10);
-          const end = (location.endDate ? new Date(location.endDate) : new Date(location.date)).toISOString().slice(0, 10);
+          // Weather fetch (always today's weather at this location)
           let weatherBlock: { icon: string; temp?: number | null; description?: string } | undefined = undefined;
           try {
-            const wRes = await fetch(`/api/weather/location?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}&start=${start}&end=${end}&name=${encodeURIComponent(location.name)}&id=${encodeURIComponent(location.id)}`);
+            const todayISO = new Date().toISOString().slice(0, 10);
+            const wRes = await fetch(`/api/weather/date?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}&date=${todayISO}`);
             if (wRes.ok) {
               const wJson: { data?: { dailyWeather?: Array<{ date: string; conditions?: { icon?: string; description?: string }; temperature?: { average?: number | null } }> } } = await wRes.json();
-              const todayISO = new Date().toISOString().slice(0, 10);
-              const list = wJson?.data?.dailyWeather || [];
-              const today = list.find(d => d.date === todayISO) || list[0];
+              const today = wJson?.data?.dailyWeather?.[0];
               if (today) {
                 weatherBlock = { icon: today.conditions?.icon || '⛅', temp: today.temperature?.average ?? null, description: today.conditions?.description };
               }
