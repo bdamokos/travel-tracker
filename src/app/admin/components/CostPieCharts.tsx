@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import type { PieLabelRenderProps as RPieLabelRenderProps } from 'recharts/types/polar/Pie';
 import { CostSummary, CountryBreakdown } from '../../types';
 import { formatCurrency } from '../../lib/costUtils';
 import AriaSelect from './AriaSelect';
@@ -159,7 +160,12 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(1)}%)`}
+                  label={(props) => {
+                    const p = props as RPieLabelRenderProps;
+                    const name = String(p.name ?? '');
+                    const percent = (p.percent ?? 0) * 100;
+                    return <text>{`${name} (${percent.toFixed(1)}%)`}</text>;
+                  }}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -210,7 +216,12 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(1)}%)`}
+                  label={(props) => {
+                    const p = props as RPieLabelRenderProps;
+                    const name = String(p.name ?? '');
+                    const percent = (p.percent ?? 0) * 100;
+                    return <text>{`${name} (${percent.toFixed(1)}%)`}</text>;
+                  }}
                   outerRadius={80}
                   fill="#82ca9d"
                   dataKey="value"
