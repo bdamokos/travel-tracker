@@ -13,6 +13,8 @@ export default function WeatherSummary({ summary }: Props) {
     return null;
   }
   const todayISO = new Date().toISOString().slice(0, 10);
+  // Limit the timeline strip to the actual stay window only
+  const inRangeDays = summary.dailyWeather.filter(d => d.date >= summary.startDate && d.date <= summary.endDate);
   // Always show today's weather in the header corner, even if outside the stay: fall back to nearest day in range
   const headerDay = summary.dailyWeather.find(d => d.date === todayISO)
     || summary.dailyWeather.reduce((closest, d) => {
@@ -58,7 +60,7 @@ export default function WeatherSummary({ summary }: Props) {
         Avg: {summary.summary.averageTemp ?? '—'}°, Precip: {summary.summary.totalPrecipitation ?? '—'}mm, {summary.summary.predominantCondition}
       </div>
       <div className="flex gap-2 overflow-x-auto py-1">
-        {summary.dailyWeather.map(d => (
+        {inRangeDays.map(d => (
           <div key={d.id} className="flex flex-col items-center min-w-10">
             <span className="text-[10px] text-gray-500">{d.date.slice(5)}</span>
             <WeatherIcon icon={d.conditions.icon} temperature={d.temperature.average} label={d.conditions.description} />
@@ -68,4 +70,3 @@ export default function WeatherSummary({ summary }: Props) {
     </div>
   );
 }
-
