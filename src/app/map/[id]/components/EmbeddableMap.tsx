@@ -143,6 +143,9 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   return popupContent;
 };
 
+const GROUP_PIXEL_THRESHOLD = 36;
+const SPIDER_PIXEL_RADIUS = 24;
+
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -284,8 +287,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     };
 
     // Add markers for locations with grouping + spiderfy
-    const cleanupItems: Array<() => void> = [];
-    
     // Find the location closest to current date
     const closestLocation = findClosestLocationToCurrentDate(
       travelData.locations.map(location => ({
@@ -293,21 +294,142 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         date: new Date(location.date)
       }))
     );
-    
+
     type GroupItem = TravelData['locations'][0];
     type Group = { key: string; center: [number, number]; items: GroupItem[] };
-    const groupsMap = new Map<string, Group>();
-    travelData.locations.forEach(loc => {
-      const [lat, lng] = loc.coordinates;
-      const key = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
-      if (!groupsMap.has(key)) groupsMap.set(key, { key, center: [lat, lng], items: [] });
-      groupsMap.get(key)!.items.push(loc);
-    });
-    const groups = Array.from(groupsMap.values());
 
-    // Track expanded state and spawned layers per group
+    const sortItemsByOrientation = (
+      mapInstance: L.Map,
+      center: [number, number],
+      items: GroupItem[]
+    ): GroupItem[] => {
+      if (items.length <= 1) return items;
+
+      const zoom = mapInstance.getZoom();
+      const centerPoint = mapInstance.project(L.latLng(center[0], center[1]), zoom);
+
+      const getAngle = (item: GroupItem) => {
+        const point = mapInstance.project(L.latLng(item.coordinates[0], item.coordinates[1]), zoom);
+        const dx = point.x - centerPoint.x;
+        const dy = point.y - centerPoint.y;
+        if (dx === 0 && dy === 0) return Number.POSITIVE_INFINITY;
+        return Math.atan2(dy, dx);
+      };
+
+      return [...items].sort((a, b) => {
+        const angleA = getAngle(a);
+        const angleB = getAngle(b);
+        if (Number.isFinite(angleA) && Number.isFinite(angleB) && angleA !== angleB) {
+          return angleA - angleB;
+        }
+
+        const [aLat, aLng] = a.coordinates;
+        const [bLat, bLng] = b.coordinates;
+        if (aLng !== bLng) return aLng - bLng;
+        if (aLat !== bLat) return aLat - bLat;
+        return a.id.localeCompare(b.id);
+      });
+    };
+
+    const buildGroupKey = (items: GroupItem[]): string =>
+      items
+        .map(item => item.id)
+        .sort()
+        .join('|');
+
+    const groupLocationsForSpiderfy = (
+      mapInstance: L.Map,
+      items: GroupItem[],
+      pixelThreshold = GROUP_PIXEL_THRESHOLD
+    ): Group[] => {
+      if (!items.length) return [];
+
+      const zoom = mapInstance.getZoom();
+      const internalGroups: Array<{ items: GroupItem[]; pixelSum: { x: number; y: number } }> = [];
+
+      const sortedItems = [...items].sort((a, b) => {
+        const [aLat, aLng] = a.coordinates;
+        const [bLat, bLng] = b.coordinates;
+        if (aLat === bLat) return aLng - bLng;
+        return aLat - bLat;
+      });
+
+      sortedItems.forEach(item => {
+        const projected = mapInstance.project(L.latLng(item.coordinates[0], item.coordinates[1]), zoom);
+
+        let target = internalGroups.find(group => {
+          const count = group.items.length;
+          if (count === 0) return false;
+          const centerPoint = L.point(group.pixelSum.x / count, group.pixelSum.y / count);
+          return centerPoint.distanceTo(projected) <= pixelThreshold;
+        });
+
+        if (!target) {
+          target = { items: [], pixelSum: { x: 0, y: 0 } };
+          internalGroups.push(target);
+        }
+
+        target.items.push(item);
+        target.pixelSum.x += projected.x;
+        target.pixelSum.y += projected.y;
+      });
+
+      return internalGroups.map(group => {
+        const count = group.items.length;
+        if (count === 0) {
+          return { key: 'empty', center: [0, 0], items: [] };
+        }
+
+        if (count === 1) {
+          const single = group.items[0];
+          const center = single.coordinates;
+          const sortedItems = sortItemsByOrientation(mapInstance, center, group.items);
+          return {
+            key: buildGroupKey(sortedItems),
+            center,
+            items: sortedItems,
+          };
+        }
+
+        const centerPoint = L.point(group.pixelSum.x / count, group.pixelSum.y / count);
+        const centerLatLng = mapInstance.unproject(centerPoint, zoom);
+        const center: [number, number] = [centerLatLng.lat, centerLatLng.lng];
+        const sortedItems = sortItemsByOrientation(mapInstance, center, group.items);
+        return {
+          key: buildGroupKey(sortedItems),
+          center,
+          items: sortedItems,
+        };
+      });
+    };
+
+    type GroupLayerState = {
+      group: Group;
+      groupMarker: L.Marker;
+      childMarkers: L.Marker[];
+      legs: L.Polyline[];
+      collapseMarker?: L.Marker;
+    };
+
     const expanded = new Set<string>();
-    const groupLayers = new Map<string, { groupMarker: L.Marker; collapseMarker?: L.Marker; legs: L.Polyline[]; childMarkers: L.Marker[] }>();
+    const singles: L.Marker[] = [];
+    const groupLayers = new Map<string, GroupLayerState>();
+
+    const clearAllMarkers = () => {
+      singles.forEach(marker => marker.remove());
+      singles.length = 0;
+      groupLayers.forEach(state => {
+        state.childMarkers.forEach(marker => marker.remove());
+        state.legs.forEach(leg => leg.remove());
+        if (state.collapseMarker) {
+          state.collapseMarker.off('click');
+          state.collapseMarker.remove();
+          state.collapseMarker = undefined;
+        }
+        state.groupMarker.remove();
+      });
+      groupLayers.clear();
+    };
 
     const attachPopupAndEnrich = async (marker: L.Marker, location: GroupItem) => {
       // Generate initial popup content
@@ -343,80 +465,102 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         console.error('Failed to fetch Wikipedia data for', location.name, error);
       }
     };
-
     const collapseGroup = (groupKey: string) => {
-      const layers = groupLayers.get(groupKey);
-      if (!layers) return;
-      layers.childMarkers.forEach(m => m.remove());
-      layers.legs.forEach(p => p.remove());
-      if (layers.collapseMarker) layers.collapseMarker.remove();
-      layers.groupMarker.addTo(map);
+      const state = groupLayers.get(groupKey);
+      if (!state) return;
+
+      state.childMarkers.forEach(marker => marker.remove());
+      state.childMarkers = [];
+      state.legs.forEach(leg => leg.remove());
+      state.legs = [];
+      if (state.collapseMarker) {
+        state.collapseMarker.off('click');
+        state.collapseMarker.remove();
+        state.collapseMarker = undefined;
+      }
+      state.groupMarker.addTo(map);
       expanded.delete(groupKey);
     };
 
-    groups.forEach(group => {
-      if (group.items.length === 1) {
-        const location = group.items[0];
+    const expandGroup = (groupKey: string, providedState?: GroupLayerState) => {
+      const state = providedState ?? groupLayers.get(groupKey);
+      if (!state) return;
+
+      state.childMarkers.forEach(marker => marker.remove());
+      state.childMarkers = [];
+      state.legs.forEach(leg => leg.remove());
+      state.legs = [];
+      if (state.collapseMarker) {
+        state.collapseMarker.off('click');
+        state.collapseMarker.remove();
+        state.collapseMarker = undefined;
+      }
+
+      state.groupMarker.remove();
+
+      state.group.items.forEach((location, index) => {
+        const distributed = distributeAroundPointPixels(map, state.group.center, index, state.group.items.length, SPIDER_PIXEL_RADIUS);
+        const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }).addTo(map);
+        state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
         const markerOptions: L.MarkerOptions = {};
         if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
-        const marker = L.marker(location.coordinates, markerOptions).addTo(map);
-        attachPopupAndEnrich(marker, location);
-        cleanupItems.push(() => marker.remove());
-      } else {
+        const child = L.marker(distributed, markerOptions).addTo(map);
+        attachPopupAndEnrich(child, location);
+        state.childMarkers.push(child);
+      });
+
+      const collapseMarker = L.marker(state.group.center, { opacity: 0 }).addTo(map);
+      collapseMarker.on('click', () => collapseGroup(groupKey));
+      state.collapseMarker = collapseMarker;
+      expanded.add(groupKey);
+    };
+
+    const renderGroups = () => {
+      clearAllMarkers();
+
+      const groups = groupLocationsForSpiderfy(map, travelData.locations);
+      const validKeys = new Set(groups.map(group => group.key));
+      for (const key of Array.from(expanded)) {
+        if (!validKeys.has(key)) {
+          expanded.delete(key);
+        }
+      }
+
+      groups.forEach(group => {
+        if (group.items.length === 1) {
+          const location = group.items[0];
+          const isHighlighted = closestLocation?.id === location.id;
+          const markerOptions: L.MarkerOptions = {};
+          if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+          const marker = L.marker(location.coordinates, markerOptions).addTo(map);
+          attachPopupAndEnrich(marker, location);
+          singles.push(marker);
+          return;
+        }
+
         const groupMarker = L.marker(group.center, { icon: createCountIcon(group.items.length) }).addTo(map);
-        groupLayers.set(group.key, { groupMarker, legs: [], childMarkers: [] });
-        cleanupItems.push(() => {
-          const layers = groupLayers.get(group.key);
-          if (!layers) return;
-          layers.groupMarker.remove();
-          layers.childMarkers.forEach(m => m.remove());
-          layers.legs.forEach(p => p.remove());
-          if (layers.collapseMarker) layers.collapseMarker.remove();
-        });
+        const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
+        groupLayers.set(group.key, state);
 
         groupMarker.on('click', () => {
           if (expanded.has(group.key)) return;
-          const layers = groupLayers.get(group.key)!;
-          // Remove the group marker while expanded
-          layers.groupMarker.remove();
-          // Create legs + child markers
-          group.items.forEach((location, index) => {
-            const distributed = distributeAroundPointPixels(map, group.center, index, group.items.length, 24);
-            const leg = L.polyline([group.center, distributed], { color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }).addTo(map);
-            layers.legs.push(leg);
-            const isHighlighted = closestLocation?.id === location.id;
-            const markerOptions: L.MarkerOptions = {};
-            if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
-            const child = L.marker(distributed, markerOptions).addTo(map);
-            attachPopupAndEnrich(child, location);
-            layers.childMarkers.push(child);
-          });
-          // Add invisible center marker to collapse on click
-          const collapseMarker = L.marker(group.center, { opacity: 0 }).addTo(map);
-          collapseMarker.on('click', () => collapseGroup(group.key));
-          layers.collapseMarker = collapseMarker;
-          expanded.add(group.key);
+          expandGroup(group.key, state);
         });
-      }
-    });
 
-    // Keep spiderfied positions proportional on zoom
-    const onZoomEnd = () => {
-      groups.forEach(group => {
-        if (!expanded.has(group.key)) return;
-        const layers = groupLayers.get(group.key);
-        if (!layers) return;
-        // recompute child positions
-        layers.childMarkers.forEach((marker, idx) => {
-          const distributed = distributeAroundPointPixels(map, group.center, idx, layers.childMarkers.length, 24);
-          marker.setLatLng(distributed);
-          const leg = layers.legs[idx];
-          if (leg) leg.setLatLngs([group.center, distributed]);
-        });
+        if (expanded.has(group.key)) {
+          expandGroup(group.key, state);
+        }
       });
     };
-    map.on('zoomend', onZoomEnd);
+
+    renderGroups();
+
+    const onViewChange = () => {
+      renderGroups();
+    };
+
+    map.on('zoomend', onViewChange);
 
     // Add routes if any
     travelData.routes.forEach(async (route) => {
@@ -464,14 +608,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     // Cleanup function
     return () => {
+      map.off('zoomend', onViewChange);
+      clearAllMarkers();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
-      cleanupItems.forEach(fn => {
-        try { fn(); } catch {}
-      });
-      map.off('zoomend', onZoomEnd);
     };
   }, [travelData, L, isClient, highlightedIcon]);
 

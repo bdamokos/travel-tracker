@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location } from '../types';
@@ -106,6 +106,184 @@ const distributeAroundPointPixels = (
   return [newLatLng.lat, newLatLng.lng];
 };
 
+const GROUP_PIXEL_THRESHOLD = 36;
+
+type GroupItem = { location: Location; day: JourneyDay };
+
+type Group = {
+  key: string;
+  center: [number, number];
+  items: GroupItem[];
+};
+
+const buildGroupKey = (items: GroupItem[]): string =>
+  items
+    .map(({ location }) => location.id)
+    .sort()
+    .join('|');
+
+const sortItemsByOrientation = (
+  map: L.Map | null,
+  center: [number, number],
+  items: GroupItem[]
+): GroupItem[] => {
+  if (items.length <= 1) return items;
+
+  if (!map) {
+    return [...items].sort((a, b) => {
+      const [aLat, aLng] = a.location.coordinates;
+      const [bLat, bLng] = b.location.coordinates;
+      if (aLng !== bLng) return aLng - bLng;
+      return aLat - bLat;
+    });
+  }
+
+  const zoom = map.getZoom();
+  const centerPoint = map.project(L.latLng(center[0], center[1]), zoom);
+
+  const getAngle = (item: GroupItem) => {
+    const point = map.project(L.latLng(item.location.coordinates[0], item.location.coordinates[1]), zoom);
+    const dx = point.x - centerPoint.x;
+    const dy = point.y - centerPoint.y;
+    if (dx === 0 && dy === 0) return Number.POSITIVE_INFINITY;
+    return Math.atan2(dy, dx); // range [-pi, pi]
+  };
+
+  return [...items].sort((a, b) => {
+    const angleA = getAngle(a);
+    const angleB = getAngle(b);
+    if (Number.isFinite(angleA) && Number.isFinite(angleB) && angleA !== angleB) {
+      return angleA - angleB;
+    }
+
+    const [aLat, aLng] = a.location.coordinates;
+    const [bLat, bLng] = b.location.coordinates;
+    if (aLng !== bLng) return aLng - bLng;
+    if (aLat !== bLat) return aLat - bLat;
+    return a.location.id.localeCompare(b.location.id);
+  });
+};
+
+const groupLocationsForSpiderfy = (
+  map: L.Map | null,
+  items: GroupItem[],
+  pixelThreshold = GROUP_PIXEL_THRESHOLD
+): Group[] => {
+  if (!items.length) return [];
+
+  if (!map) {
+    const fallback: Record<string, Group> = {};
+    items.forEach(item => {
+      const [lat, lng] = item.location.coordinates;
+      const approxKey = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
+      if (!fallback[approxKey]) {
+        fallback[approxKey] = {
+          key: approxKey,
+          center: [lat, lng],
+          items: [],
+        };
+      }
+      fallback[approxKey].items.push(item);
+    });
+    return Object.values(fallback).map(group => {
+      const sortedItems = sortItemsByOrientation(null, group.center, group.items);
+      return {
+        key: buildGroupKey(sortedItems) || group.key,
+        center: sortedItems.length === 1
+          ? sortedItems[0].location.coordinates
+          : group.center,
+        items: sortedItems,
+      };
+    });
+  }
+
+  const zoom = map.getZoom();
+  const internalGroups: Array<{ items: GroupItem[]; pixelSum: { x: number; y: number } }> = [];
+
+  const sortedItems = [...items].sort((a, b) => {
+    const [aLat, aLng] = a.location.coordinates;
+    const [bLat, bLng] = b.location.coordinates;
+    if (aLat === bLat) return aLng - bLng;
+    return aLat - bLat;
+  });
+
+  sortedItems.forEach(item => {
+    const latLng = L.latLng(item.location.coordinates[0], item.location.coordinates[1]);
+    const projected = map.project(latLng, zoom);
+
+    let target = internalGroups.find(group => {
+      const count = group.items.length;
+      if (count === 0) return false;
+      const centerPoint = L.point(group.pixelSum.x / count, group.pixelSum.y / count);
+      return centerPoint.distanceTo(projected) <= pixelThreshold;
+    });
+
+    if (!target) {
+      target = { items: [], pixelSum: { x: 0, y: 0 } };
+      internalGroups.push(target);
+    }
+
+    target.items.push(item);
+    target.pixelSum.x += projected.x;
+    target.pixelSum.y += projected.y;
+  });
+
+  return internalGroups.map(group => {
+    const count = group.items.length;
+    if (count === 0) {
+      return {
+        key: 'empty',
+        center: [0, 0],
+        items: [],
+      };
+    }
+
+    if (count === 1) {
+      const { location } = group.items[0];
+      const center = location.coordinates;
+      const sortedItems = sortItemsByOrientation(map, center, group.items);
+      return {
+        key: buildGroupKey(sortedItems),
+        center,
+        items: sortedItems,
+      };
+    }
+
+    const centerPoint = L.point(group.pixelSum.x / count, group.pixelSum.y / count);
+    const centerLatLng = map.unproject(centerPoint, zoom);
+    const center: [number, number] = [centerLatLng.lat, centerLatLng.lng];
+    const sortedItems = sortItemsByOrientation(map, center, group.items);
+
+    return {
+      key: buildGroupKey(sortedItems),
+      center,
+      items: sortedItems,
+    };
+  });
+};
+
+const MapEventBridge: React.FC<{
+  onReady: (map: L.Map) => void;
+  onViewChange: () => void;
+}> = ({ onReady, onViewChange }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    onReady(map);
+    onViewChange();
+
+    map.on('zoomend', onViewChange);
+    map.on('moveend', onViewChange);
+
+    return () => {
+      map.off('zoomend', onViewChange);
+      map.off('moveend', onViewChange);
+    };
+  }, [map, onReady, onViewChange]);
+
+  return null;
+};
+
 
 interface MapProps {
   journey: Journey | null;
@@ -118,7 +296,15 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const [days, setDays] = useState<JourneyDay[]>([]);
   const [key, setKey] = useState(0);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [zoomTick, setZoomTick] = useState(0);
+  const [viewChangeTick, setViewChangeTick] = useState(0);
+  
+  const handleViewChange = useCallback(() => {
+    setViewChangeTick(t => t + 1);
+  }, []);
+
+  const handleMapReady = useCallback((mapInstance: L.Map) => {
+    mapRef.current = mapInstance;
+  }, []);
   
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
@@ -136,17 +322,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     };
   }, []);
 
-  // Track zoom changes to recompute distributed marker positions
-  useEffect(() => {
-    const m = mapRef.current;
-    if (!m) return;
-    const onZoomEnd = () => setZoomTick(t => t + 1);
-    m.on('zoomend', onZoomEnd);
-    return () => {
-      m.off('zoomend', onZoomEnd);
-    };
-  }, []);
-  
   // Update days when journey changes
   useEffect(() => {
     if (!journey) {
@@ -167,7 +342,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   // Fit map bounds to show all locations
   useEffect(() => {
     if (!mapRef.current || days.length === 0) return;
-    
+
     const allLocations: [number, number][] = [];
     
     // Collect all location coordinates
@@ -192,6 +367,51 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     const bounds = L.latLngBounds(allLocations.map(coords => L.latLng(coords[0], coords[1])));
     mapRef.current.fitBounds(bounds, { padding: [50, 50] });
   }, [days]);
+
+  const locationItems = useMemo<GroupItem[]>(() => {
+    return days.flatMap(day => day.locations.map(location => ({ location, day })));
+  }, [days]);
+
+  const datedLocations = useMemo(() => {
+    return days.flatMap(day =>
+      day.locations.map(location => ({
+        ...location,
+        date: day.date || new Date().toISOString().split('T')[0],
+      }))
+    );
+  }, [days]);
+
+  const closestLocation = useMemo(() => {
+    return findClosestLocationToCurrentDate(datedLocations);
+  }, [datedLocations]);
+
+  const groups = useMemo<Group[]>(() => {
+    // reference tick so lint understands it intentionally triggers recompute
+    void viewChangeTick;
+    return groupLocationsForSpiderfy(mapRef.current, locationItems);
+  }, [locationItems, viewChangeTick]);
+
+  useEffect(() => {
+    setExpandedGroups(prev => {
+      const expandableKeys = new Set(groups.filter(group => group.items.length > 1).map(group => group.key));
+      let requiresUpdate = false;
+      prev.forEach(keyValue => {
+        if (!expandableKeys.has(keyValue)) {
+          requiresUpdate = true;
+        }
+      });
+      if (!requiresUpdate) {
+        return prev;
+      }
+      const next = new Set<string>();
+      prev.forEach(keyValue => {
+        if (expandableKeys.has(keyValue)) {
+          next.add(keyValue);
+        }
+      });
+      return next;
+    });
+  }, [groups]);
   
   if (!journey) {
     return (
@@ -212,6 +432,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         scrollWheelZoom={true}
         ref={mapRef}
       >
+      <MapEventBridge onReady={handleMapReady} onViewChange={handleViewChange} />
       <TileLayer
         attribution={
           typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -227,35 +448,9 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       
       {/* Render locations with grouping + spiderfy */}
       {(() => {
-        // Flatten with dates for closest-location logic
-        const allLocations = days.flatMap(day => 
-          day.locations.map(location => ({
-            ...location,
-            date: day.date || new Date().toISOString().split('T')[0]
-          }))
-        );
-        const closestLocation = findClosestLocationToCurrentDate(allLocations);
-        
-        // Group locations by approx coordinate to handle repeated visits
-        type Group = { key: string; center: [number, number]; items: Array<{ location: Location; day: JourneyDay }> };
-        const groupsMap: Record<string, Group> = {};
-        days.forEach((day: JourneyDay) => {
-          day.locations.forEach((location: Location) => {
-            const [lat, lng] = location.coordinates;
-            const key = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
-            if (!groupsMap[key]) {
-              groupsMap[key] = { key, center: [lat, lng], items: [] };
-            }
-            groupsMap[key].items.push({ location, day });
-          });
-        });
-        const groups: Group[] = Object.values(groupsMap);
-
         const elements: React.ReactNode[] = [];
 
-        // reference zoomTick so React re-renders legs at new zoom
-        void zoomTick;
-        groups.forEach((group: Group) => {
+        groups.forEach(group => {
           if (group.items.length === 1) {
             const { location, day } = group.items[0];
             elements.push(
@@ -298,13 +493,13 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
             );
           } else {
             // Spiderfy: render distributed markers and legs
-            group.items.forEach(({ location, day }: { location: Location; day: JourneyDay }, index: number) => {
+            group.items.forEach(({ location, day }, index) => {
               const distributed = distributeAroundPointPixels(mapRef.current, group.center, index, group.items.length, 24);
               // Spider leg connecting back to center (tasteful connection to true location)
               elements.push(
                 <Polyline
                   key={`leg-${group.key}-${location.id}`}
-                  positions={[group.center, distributed]}
+                  positions={[location.coordinates, distributed]}
                   pathOptions={{ color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }}
                 />
               );
