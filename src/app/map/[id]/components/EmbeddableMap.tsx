@@ -484,7 +484,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
       state.group.items.forEach((location, index) => {
         const distributed = distributeAroundPointPixels(map, state.group.center, index, state.group.items.length, SPIDER_PIXEL_RADIUS);
-        const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }).addTo(map);
+        const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 3, opacity: 0.8, dashArray: '2 4' }).addTo(map);
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
         const markerOptions: L.MarkerOptions = {};
