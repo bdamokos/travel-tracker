@@ -219,28 +219,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     });
 
     // Add tile layer
-    // Use a dark tile layer for dark mode, and a light one for light mode
-    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const tileLayerUrl = isDarkMode
-      ? 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const attribution = isDarkMode
-      ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    
-    // Add labels layer for dark mode
-    const labelLayerUrl = isDarkMode ? 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png' : null;
+    const tileLayerUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
     L.tileLayer(tileLayerUrl, {
       attribution: attribution
     }).addTo(map);
-    
-    // Add labels layer for dark mode (on top of the base layer)
-    if (labelLayerUrl) {
-      L.tileLayer(labelLayerUrl, {
-        attribution: ''
-      }).addTo(map);
-    }
 
     mapRef.current = map;
 
