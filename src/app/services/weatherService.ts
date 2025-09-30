@@ -4,10 +4,20 @@ import { addDays, differenceInCalendarDays, formatISO, isAfter, isBefore, isVali
 import { Location } from '@/app/types';
 import { WeatherData, WeatherSummary } from '@/app/types/weather';
 
+type CacheSources = {
+  hasHistoricalAverage: boolean;
+  hasForecast: boolean;
+  hasRecorded: boolean;
+};
+
 type CacheEntry = {
   key: string;
   summary: WeatherSummary;
+  fetchedAt: string;
+  sources: CacheSources;
 };
+
+const LEGACY_FETCHED_AT = '1970-01-01T00:00:00.000Z';
 
 const DATA_DIR = path.join(process.cwd(), 'data', 'weather');
 
@@ -79,12 +89,13 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   return fetch(url, { headers: { 'Accept': 'application/json' } });
 }
 
-async function readCache(key: string): Promise<WeatherSummary | null> {
+async function readCache(key: string): Promise<CacheEntry | null> {
   try {
     await ensureDir();
     const file = path.join(DATA_DIR, `${key}.json`);
     const raw = await fs.readFile(file, 'utf-8');
-    const parsed = JSON.parse(raw) as CacheEntry;
+    const parsed = JSON.parse(raw) as Partial<CacheEntry> & { summary: WeatherSummary };
+    if (!parsed.summary) return null;
     // Filter out expired per-day entries
     const today = new Date();
     const filtered = parsed.summary.dailyWeather.filter(d => {
@@ -92,7 +103,15 @@ async function readCache(key: string): Promise<WeatherSummary | null> {
       const exp = parseISO(d.expiresAt);
       return isValid(exp) && isAfter(exp, today);
     });
-    return { ...parsed.summary, dailyWeather: filtered };
+    const summary: WeatherSummary = { ...parsed.summary, dailyWeather: filtered };
+    const fetchedAt = typeof parsed.fetchedAt === 'string' ? parsed.fetchedAt : LEGACY_FETCHED_AT;
+    const entry: CacheEntry = {
+      key: parsed.key || key,
+      summary,
+      fetchedAt,
+      sources: computeSources(summary.dailyWeather)
+    };
+    return entry;
   } catch {
     return null;
   }
@@ -101,7 +120,12 @@ async function readCache(key: string): Promise<WeatherSummary | null> {
 async function writeCache(key: string, summary: WeatherSummary): Promise<void> {
   await ensureDir();
   const file = path.join(DATA_DIR, `${key}.json`);
-  const entry: CacheEntry = { key, summary };
+  const entry: CacheEntry = {
+    key,
+    summary,
+    fetchedAt: new Date().toISOString(),
+    sources: computeSources(summary.dailyWeather)
+  };
   await fs.writeFile(file, JSON.stringify(entry, null, 2), 'utf-8');
 }
 
@@ -121,6 +145,60 @@ function summarize(daily: WeatherData[]): WeatherSummary['summary'] {
     predominant = openMeteoIconAndDesc(best).description;
   }
   return { averageTemp: avg, totalPrecipitation: total, predominantCondition: predominant };
+}
+
+function computeSources(daily: WeatherData[]): CacheSources {
+  const result: CacheSources = {
+    hasHistoricalAverage: false,
+    hasForecast: false,
+    hasRecorded: false
+  };
+  daily.forEach(d => {
+    if (d.dataSource === 'historical-average') {
+      result.hasHistoricalAverage = true;
+    }
+    if (d.isForecast || (d.dataSource === 'open-meteo' && !d.isHistorical)) {
+      result.hasForecast = true;
+    }
+    if (d.isHistorical && d.dataSource === 'open-meteo') {
+      result.hasRecorded = true;
+    }
+  });
+  return result;
+}
+
+function enumerateDateStrings(startISO: string, endISO: string): string[] {
+  const start = parseISO(startISO);
+  const end = parseISO(endISO);
+  if (!isValid(start) || !isValid(end) || isAfter(start, end)) return [];
+  const dates: string[] = [];
+  let cursor = start;
+  while (!isAfter(cursor, end)) {
+    dates.push(toISODate(cursor));
+    cursor = addDays(cursor, 1);
+  }
+  return dates;
+}
+
+function findMissingDates(summary: WeatherSummary): string[] {
+  return findMissingDatesForRange(summary.dailyWeather, summary.startDate, summary.endDate);
+}
+
+function findMissingDatesForRange(daily: WeatherData[], startISO: string, endISO: string): string[] {
+  const want = enumerateDateStrings(startISO, endISO);
+  if (want.length === 0) return [];
+  const set = new Set(daily.map(d => d.date));
+  return want.filter(date => !set.has(date));
+}
+
+function needsForecastRefresh(summary: WeatherSummary): boolean {
+  const today = new Date();
+  const todayISO = toISODate(today);
+  const horizonISO = toISODate(addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 16));
+  return summary.dailyWeather.some(d => {
+    if (d.dataSource !== 'historical-average') return false;
+    return d.date >= todayISO && d.date <= horizonISO;
+  });
 }
 
 async function fetchOpenMeteoDaily(
@@ -351,6 +429,12 @@ async function computeHistoricalAverage(
     }
     const { icon, description } = openMeteoIconAndDesc(code);
     const dateStr = toISODate(td);
+    const isFuture = isAfter(td, today);
+    let expiresAt: string | undefined;
+    if (isFuture) {
+      const expiryDate = addDays(td, -15);
+      expiresAt = isAfter(expiryDate, today) ? expiryDate.toISOString() : new Date().toISOString();
+    }
     const w: WeatherData = {
       id: `${lat.toFixed(4)}_${lon.toFixed(4)}_${dateStr}`,
       date: dateStr,
@@ -370,7 +454,7 @@ async function computeHistoricalAverage(
       isForecast: false,
       dataSource: 'historical-average',
       fetchedAt: new Date().toISOString(),
-      expiresAt: undefined
+      expiresAt
     };
     return w;
   });
@@ -389,20 +473,30 @@ class WeatherService {
     const key = buildCacheKey(location.coordinates, startISO, endISO);
 
     const cached = await readCache(key);
-    const todayISO = toISODate(new Date());
+    const now = new Date();
+    const todayISO = toISODate(now);
     if (cached) {
-      const hasData = cached.dailyWeather && cached.dailyWeather.length > 0;
-      // For today, ensure we have a non-expired entry; otherwise refetch
-      const todayEntry = cached.dailyWeather.find(d => d.date === todayISO);
-      const isTodayValid = todayEntry ? (!todayEntry.expiresAt || isAfter(parseISO(todayEntry.expiresAt), new Date())) : true;
-      if (hasData && isTodayValid) {
-        log('cache:hit', { key, count: cached.dailyWeather.length });
+      const reasons: string[] = [];
+      const hasMetadata = cached.fetchedAt !== LEGACY_FETCHED_AT;
+      if (!hasMetadata) reasons.push('legacy-entry');
+      const hasData = cached.summary.dailyWeather.length > 0;
+      if (!hasData) reasons.push('empty');
+      const todayEntry = cached.summary.dailyWeather.find(d => d.date === todayISO);
+      const isTodayValid = todayEntry ? (!todayEntry.expiresAt || isAfter(parseISO(todayEntry.expiresAt), now)) : true;
+      if (!isTodayValid) reasons.push('expired-today');
+      const missingDates = findMissingDates(cached.summary);
+      if (missingDates.length > 0) reasons.push('missing-dates');
+      const forecastRefreshNeeded = needsForecastRefresh(cached.summary);
+      if (forecastRefreshNeeded) reasons.push('needs-forecast');
+
+      if (hasData && isTodayValid && missingDates.length === 0 && !forecastRefreshNeeded && hasMetadata) {
+        log('cache:hit', { key, count: cached.summary.dailyWeather.length });
         return {
-          ...cached,
-          summary: summarize(cached.dailyWeather)
+          ...cached.summary,
+          summary: summarize(cached.summary.dailyWeather)
         };
       }
-      log('cache:skip', { key, reason: hasData ? 'expired-today' : 'empty' });
+      log('cache:skip', { key, reasons });
     }
 
     let fetched = await fetchOpenMeteoRangeSmart(location.coordinates, startISO, endISO);
@@ -410,6 +504,30 @@ class WeatherService {
       // fallback to historical averages for far-future planning
       log('fallback:histAvg', { locationId: location.id, startISO, endISO });
       fetched = await computeHistoricalAverage(location.coordinates, startISO, endISO, 10);
+    }
+
+    if (fetched.length > 0) {
+      const missingDates = findMissingDatesForRange(fetched, startISO, endISO);
+      if (missingDates.length > 0) {
+        log('fill:histAvg-missing', { key, count: missingDates.length });
+        const hist = await computeHistoricalAverage(location.coordinates, startISO, endISO, 10);
+        if (hist.length > 0) {
+          const missingSet = new Set(missingDates);
+          const map = new Map(fetched.map(d => [d.date, d] as const));
+          hist.forEach(item => {
+            if (missingSet.has(item.date) && !map.has(item.date)) {
+              map.set(item.date, item);
+            }
+          });
+          fetched = Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+        } else {
+          log('fill:histAvg-missing-failed', { key, count: missingDates.length });
+        }
+      }
+    }
+
+    if (fetched.length === 0) {
+      log('fetch:failed-no-data', { key });
     }
     const summary: WeatherSummary = {
       locationId: location.id,
@@ -445,4 +563,3 @@ class WeatherService {
 }
 
 export const weatherService = new WeatherService();
-
