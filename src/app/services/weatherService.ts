@@ -248,12 +248,13 @@ async function fetchOpenMeteoDaily(
     const weatherCode: Array<number | null> = json.daily?.weathercode || [];
     const cloud: Array<number | null> = json.daily?.cloudcover_mean || [];
 
-    const today = new Date();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const result = dates.map((d, idx) => {
       const code = weatherCode[idx] ?? null;
       const { icon, description } = openMeteoIconAndDesc(code);
       const dateObj = parseISO(d);
-      const expSecs = expirationForDate(dateObj, today);
+      const expSecs = expirationForDate(dateObj, now);
       const w: WeatherData = {
         id: `${lat.toFixed(4)}_${lon.toFixed(4)}_${d}`,
         date: d,
@@ -278,8 +279,8 @@ async function fetchOpenMeteoDaily(
           cloudCover: cloud[idx] ?? null,
           humidity: null
         },
-        isHistorical: endpoint === 'archive' || isBefore(dateObj, today),
-        isForecast: endpoint === 'forecast' && !isBefore(dateObj, today),
+        isHistorical: endpoint === 'archive' || isBefore(dateObj, todayStart),
+        isForecast: endpoint === 'forecast' && !isBefore(dateObj, todayStart),
         dataSource: 'open-meteo',
         fetchedAt: new Date().toISOString(),
         expiresAt: expSecs === Infinity ? undefined : new Date(Date.now() + expSecs * 1000).toISOString()
