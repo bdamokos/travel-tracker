@@ -23,9 +23,10 @@ export default function WeatherSummary({ summary }: Props) {
       return dist < best ? d : closest;
     }, summary.dailyWeather[0]);
   const label = (() => {
-    const hasHistAvg = summary.dailyWeather.some(d => d.dataSource === 'historical-average');
-    const hasForecast = summary.dailyWeather.some(d => d.isForecast);
-    const hasRecorded = summary.dailyWeather.some(d => d.isHistorical && d.dataSource !== 'historical-average');
+    const sourceDays = inRangeDays.length > 0 ? inRangeDays : summary.dailyWeather;
+    const hasHistAvg = sourceDays.some(d => d.dataSource === 'historical-average');
+    const hasForecast = sourceDays.some(d => d.isForecast);
+    const hasRecorded = sourceDays.some(d => d.isHistorical && d.dataSource !== 'historical-average');
 
     if (hasHistAvg && hasForecast && hasRecorded) return 'Recorded + Forecast + Hist. avg.';
     if (hasHistAvg && hasForecast) return 'Forecast + Hist. avg.';
