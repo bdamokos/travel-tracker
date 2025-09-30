@@ -23,25 +23,18 @@ export default function WeatherSummary({ summary }: Props) {
       return dist < best ? d : closest;
     }, summary.dailyWeather[0]);
   const label = (() => {
-    const todayISO = new Date().toISOString().slice(0, 10);
     const hasHistAvg = summary.dailyWeather.some(d => d.dataSource === 'historical-average');
     const hasForecast = summary.dailyWeather.some(d => d.isForecast);
-    const hasPast = summary.dailyWeather.some(d => d.date <= todayISO);
-    // Prefer combined labels over misclassifying future hist. avg. as Recorded
-    if (hasHistAvg && hasForecast && !hasPast) return 'Forecast + Hist. avg.';
-    if (hasHistAvg && !hasForecast && !hasPast) return 'Hist. avg.';
-    if (!hasHistAvg && hasForecast && hasPast) return 'Recorded + Forecast';
-    if (!hasHistAvg && hasForecast && !hasPast) return 'Forecast';
-    if (!hasHistAvg && !hasForecast && hasPast) return 'Recorded';
-    if (hasHistAvg && hasPast && !hasForecast) return 'Recorded + Hist. avg.';
-    if (hasHistAvg && hasForecast && hasPast) return 'Recorded + Forecast + Hist. avg.';
-    // Fallback: infer conservatively when older cached data may miss flags
-    const allFuture = summary.dailyWeather.every(d => d.date > todayISO);
-    if (allFuture) {
-      // If nothing explicitly marked as forecast, assume historical averages were used
-      return hasForecast ? 'Forecast' : 'Hist. avg.';
-    }
-    return 'Recorded';
+    const hasRecorded = summary.dailyWeather.some(d => d.isHistorical && d.dataSource !== 'historical-average');
+
+    if (hasHistAvg && hasForecast && hasRecorded) return 'Recorded + Forecast + Hist. avg.';
+    if (hasHistAvg && hasForecast) return 'Forecast + Hist. avg.';
+    if (hasForecast && hasRecorded) return 'Recorded + Forecast';
+    if (hasHistAvg && hasRecorded) return 'Recorded + Hist. avg.';
+    if (hasHistAvg) return 'Hist. avg.';
+    if (hasForecast) return 'Forecast';
+    if (hasRecorded) return 'Recorded';
+    return '';
   })();
   return (
     <div className="space-y-2">
