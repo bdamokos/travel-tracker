@@ -25,6 +25,11 @@ interface TravelData {
       url: string;
       caption?: string;
     }>;
+    tikTokPosts?: Array<{
+      id: string;
+      url: string;
+      caption?: string;
+    }>;
     blogPosts?: Array<{
       id: string;
       title: string;
@@ -131,6 +136,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
                 endDate: loc.endDate,
                 notes: loc.notes,
                 instagramPosts: loc.instagramPosts,
+                tikTokPosts: loc.tikTokPosts,
                 blogPosts: loc.blogPosts,
               })),
               ...filteredShadowLocations.map((loc: Location) => ({
