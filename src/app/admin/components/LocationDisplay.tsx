@@ -167,13 +167,16 @@ export default function LocationDisplay({
         )}
 
         {/* Posts Summary */}
-        {((location.instagramPosts?.length || 0) + (location.blogPosts?.length || 0)) > 0 && (
+        {((location.instagramPosts?.length || 0) + (location.blogPosts?.length || 0) + (location.tikTokPosts?.length || 0)) > 0 && (
           <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-500 pt-2">
             {location.blogPosts && location.blogPosts.length > 0 && (
               <span>📝 {location.blogPosts.length} blog post{location.blogPosts.length !== 1 ? 's' : ''}</span>
             )}
             {location.instagramPosts && location.instagramPosts.length > 0 && (
               <span>📸 {location.instagramPosts.length} Instagram post{location.instagramPosts.length !== 1 ? 's' : ''}</span>
+            )}
+            {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+              <span>🎵 {location.tikTokPosts.length} TikTok post{location.tikTokPosts.length !== 1 ? 's' : ''}</span>
             )}
           </div>
         )}

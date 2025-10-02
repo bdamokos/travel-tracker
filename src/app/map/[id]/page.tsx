@@ -25,6 +25,11 @@ interface TravelData {
       url: string;
       caption?: string;
     }>;
+    tikTokPosts?: Array<{
+      id: string;
+      url: string;
+      caption?: string;
+    }>;
     blogPosts?: Array<{
       id: string;
       title: string;
@@ -131,6 +136,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
                 endDate: loc.endDate,
                 notes: loc.notes,
                 instagramPosts: loc.instagramPosts,
+                tikTokPosts: loc.tikTokPosts,
                 blogPosts: loc.blogPosts,
               })),
               ...filteredShadowLocations.map((loc: Location) => ({
@@ -338,6 +344,30 @@ export default async function MapPage({ params }: {
                               title={post.caption || post.url}
                             >
                               📸 Instagram Post
+                            </a>
+                            {post.caption && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Display TikTok Posts */}
+                  {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                      <div className="space-y-2">
+                        {location.tikTokPosts.map((post, postIndex) => (
+                          <div key={post.id || postIndex}>
+                            <a
+                              href={post.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm underline block"
+                              title={post.caption || post.url}
+                            >
+                              🎵 TikTok Clip
                             </a>
                             {post.caption && (
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>

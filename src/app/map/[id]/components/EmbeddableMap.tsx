@@ -26,6 +26,11 @@ interface TravelData {
       url: string;
       caption?: string;
     }>;
+    tikTokPosts?: Array<{
+      id: string;
+      url: string;
+      caption?: string;
+    }>;
     blogPosts?: Array<{
       id: string;
       title: string;

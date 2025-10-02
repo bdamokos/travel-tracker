@@ -183,6 +183,31 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                           </div>
                         </div>
                       )}
+
+                      {/* Display TikTok Posts */}
+                      {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs font-semibold text-gray-700 mb-1">🎵 TikTok:</div>
+                          <div className="space-y-1">
+                            {location.tikTokPosts.map((post, index) => (
+                              <div key={post.id || index}>
+                                <a
+                                  href={post.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-gray-700 hover:text-gray-900 text-xs underline block"
+                                  title={post.caption || post.url}
+                                >
+                                  Watch Clip {location.tikTokPosts!.length > 1 ? `#${index + 1}` : ''}
+                                </a>
+                                {post.caption && (
+                                  <p className="text-[10px] text-gray-500">{post.caption}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       
                       {/* Accommodation Display */}
                       <AccommodationDisplay
@@ -220,6 +245,30 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                     <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 dark:text-blue-400 text-sm hover:underline">
                       View Instagram Post
                     </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TikTok Posts */}
+          {day.tikTokPosts && day.tikTokPosts.length > 0 && (
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">TikTok Posts</h4>
+              <div className="space-y-2">
+                {day.tikTokPosts.map(post => (
+                  <div key={post.id} className="border border-gray-200 dark:border-gray-700 rounded-sm p-2">
+                    <a
+                      href={post.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-700 dark:text-gray-200 text-sm hover:underline"
+                    >
+                      View TikTok Post
+                    </a>
+                    {post.caption && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{post.caption}</p>
+                    )}
                   </div>
                 ))}
               </div>

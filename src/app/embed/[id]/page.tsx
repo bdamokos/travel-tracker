@@ -20,6 +20,11 @@ interface TravelData {
       url: string;
       caption?: string;
     }>;
+    tikTokPosts?: Array<{
+      id: string;
+      url: string;
+      caption?: string;
+    }>;
     blogPosts?: Array<{
       id: string;
       title: string;
@@ -281,7 +286,21 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                       ))}
                     </div>
                   )}
-                  
+
+                  {/* TikTok Posts */}
+                  {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+                    <div className="posts-section">
+                      <div className="posts-header">🎵 TikTok:</div>
+                      {location.tikTokPosts.map((post, postIndex) => (
+                        <div key={postIndex} className="post-link">
+                          <a href={post.url} target="_blank" rel="noopener">
+                            {post.caption || 'Watch Clip'}
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Blog Posts */}
                   {location.blogPosts && location.blogPosts.length > 0 && (
                     <div className="posts-section">
