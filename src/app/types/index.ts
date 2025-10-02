@@ -38,6 +38,7 @@ export type Location = {
   duration?: number; // Duration in days (calculated or manual)
   notes?: string;
   instagramPosts?: InstagramPost[];
+  tikTokPosts?: TikTokPost[];
   blogPosts?: BlogPost[];
   // References to accommodations (not embedded data)
   accommodationIds?: string[];
@@ -107,6 +108,13 @@ export type InstagramPost = {
   caption?: string;
 };
 
+// TikTok post reference
+export type TikTokPost = {
+  id: string;
+  url: string;
+  caption?: string;
+};
+
 // Single travel period (could be a day, part of a day, or multiple days)
 export type JourneyPeriod = {
   id: string;
@@ -116,6 +124,7 @@ export type JourneyPeriod = {
   locations: Location[];
   transportation?: Transportation;
   instagramPosts?: InstagramPost[];
+  tikTokPosts?: TikTokPost[];
   customNotes?: string;
 };
 

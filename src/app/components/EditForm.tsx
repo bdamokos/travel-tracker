@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { JourneyDay, Location, Transportation, InstagramPost, BlogPost } from '../types';
+import { JourneyDay, Location, Transportation, InstagramPost, BlogPost, TikTokPost } from '../types';
 import AccessibleDatePicker from '../admin/components/AccessibleDatePicker';
 import AriaSelect from '../admin/components/AriaSelect';
 import { 
@@ -34,6 +34,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     arrivalTime: '',
     notes: '',
     instagramPosts: [],
+    tikTokPosts: [],
     blogPosts: [],
   });
   
@@ -51,15 +52,20 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   const [newPost, setNewPost] = useState<Partial<InstagramPost>>({
     url: '',
   });
-  
+
   const [newBlogPost, setNewBlogPost] = useState<Partial<BlogPost>>({
     title: '',
     url: '',
   });
-  
+
+  const [newTikTokPost, setNewTikTokPost] = useState<Partial<TikTokPost>>({
+    url: '',
+    caption: '',
+  });
+
   const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<number>(-1);
-  
-  const [activeTab, setActiveTab] = useState<'basic' | 'location' | 'transport' | 'instagram' | 'blog'>('basic');
+
+  const [activeTab, setActiveTab] = useState<'basic' | 'location' | 'transport' | 'instagram' | 'tiktok' | 'blog'>('basic');
   const [geoLocationStatus, setGeoLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [geoLocationError, setGeoLocationError] = useState<string>('');
   
@@ -108,17 +114,25 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   
   const handlePostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setNewPost(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setNewPost(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
-  
+
   const handleBlogPostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setNewBlogPost(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setNewBlogPost(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleTikTokPostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setNewTikTokPost(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
   
@@ -350,7 +364,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     
     setFormData(prev => ({
       ...prev,
-      locations: [...(prev.locations || []), { 
+      locations: [...(prev.locations || []), {
         id: `temp-${Date.now()}`,
         name: newLocation.name!,  // Use non-null assertion since we've checked above
         coordinates: newLocation.coordinates || [0, 0] as [number, number],
@@ -358,10 +372,11 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
         arrivalTime: newLocation.arrivalTime,
         notes: newLocation.notes,
         instagramPosts: newLocation.instagramPosts || [],
+        tikTokPosts: newLocation.tikTokPosts || [],
         blogPosts: newLocation.blogPosts || [],
       }]
     }));
-    
+
     // Reset the form
     setNewLocation({
       name: '',
@@ -369,6 +384,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       arrivalTime: '',
       notes: '',
       instagramPosts: [],
+      tikTokPosts: [],
       blogPosts: [],
     });
   };
@@ -406,7 +422,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
   
   const addInstagramPost = () => {
     if (!newPost.url) return;
-    
+
     setFormData(prev => ({
       ...prev,
       instagramPosts: [...(prev.instagramPosts || []), {
@@ -414,10 +430,28 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
         url: newPost.url!,  // Use non-null assertion since we've checked above
       }]
     }));
-    
+
     // Reset the form
     setNewPost({
       url: '',
+    });
+  };
+
+  const addTikTokPost = () => {
+    if (!newTikTokPost.url) return;
+
+    setFormData(prev => ({
+      ...prev,
+      tikTokPosts: [...(prev.tikTokPosts || []), {
+        id: `temp-${Date.now()}`,
+        url: newTikTokPost.url!,
+        caption: newTikTokPost.caption || '',
+      }]
+    }));
+
+    setNewTikTokPost({
+      url: '',
+      caption: '',
     });
   };
   
@@ -442,6 +476,13 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
     }));
   };
 
+  const removeTikTokPost = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      tikTokPosts: prev.tikTokPosts?.filter((_, i) => i !== index),
+    }));
+  };
+
   const addInstagramPostToLocation = (locationIndex: number) => {
     if (!newPost.url || locationIndex < 0) return;
     
@@ -461,10 +502,38 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
       }
       return { ...prev, locations: updatedLocations };
     });
-    
+
     // Reset the form
     setNewPost({
       url: '',
+    });
+    setSelectedLocationForPosts(-1);
+  };
+
+  const addTikTokPostToLocation = (locationIndex: number) => {
+    if (!newTikTokPost.url || locationIndex < 0) return;
+
+    setFormData(prev => {
+      const updatedLocations = [...(prev.locations || [])];
+      if (updatedLocations[locationIndex]) {
+        updatedLocations[locationIndex] = {
+          ...updatedLocations[locationIndex],
+          tikTokPosts: [
+            ...(updatedLocations[locationIndex].tikTokPosts || []),
+            {
+              id: `temp-${Date.now()}`,
+              url: newTikTokPost.url!,
+              caption: newTikTokPost.caption || '',
+            }
+          ]
+        };
+      }
+      return { ...prev, locations: updatedLocations };
+    });
+
+    setNewTikTokPost({
+      url: '',
+      caption: '',
     });
     setSelectedLocationForPosts(-1);
   };
@@ -518,6 +587,19 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
         updatedLocations[locationIndex] = {
           ...updatedLocations[locationIndex],
           blogPosts: updatedLocations[locationIndex].blogPosts?.filter((_, i) => i !== postIndex) || []
+        };
+      }
+      return { ...prev, locations: updatedLocations };
+    });
+  };
+
+  const removeTikTokPostFromLocation = (locationIndex: number, postIndex: number) => {
+    setFormData(prev => {
+      const updatedLocations = [...(prev.locations || [])];
+      if (updatedLocations[locationIndex]) {
+        updatedLocations[locationIndex] = {
+          ...updatedLocations[locationIndex],
+          tikTokPosts: updatedLocations[locationIndex].tikTokPosts?.filter((_, i) => i !== postIndex) || []
         };
       }
       return { ...prev, locations: updatedLocations };
@@ -578,6 +660,17 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
             }`}
           >
             Instagram
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('tiktok')}
+            className={`pb-2 px-1 ${
+              activeTab === 'tiktok'
+                ? 'border-b-2 border-blue-500 text-blue-500'
+                : 'text-gray-500'
+            }`}
+          >
+            TikTok
           </button>
           <button
             type="button"
@@ -1145,7 +1238,88 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
             )}
           </div>
         )}
-        
+
+        {/* TikTok Tab */}
+        {activeTab === 'tiktok' && (
+          <div>
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">Add TikTok Post</h3>
+
+              <div className="mb-3">
+                <label htmlFor="tiktokUrl" className="block mb-1">
+                  TikTok Post URL
+                </label>
+                <input
+                  type="url"
+                  id="tiktokUrl"
+                  name="url"
+                  value={newTikTokPost.url}
+                  onChange={handleTikTokPostChange}
+                  className="w-full p-2 border rounded-sm"
+                  placeholder="https://www.tiktok.com/@username/video/..."
+                />
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="tiktokCaption" className="block mb-1">
+                  Caption (optional)
+                </label>
+                <input
+                  type="text"
+                  id="tiktokCaption"
+                  name="caption"
+                  value={newTikTokPost.caption || ''}
+                  onChange={handleTikTokPostChange}
+                  className="w-full p-2 border rounded-sm"
+                  placeholder="Add a short caption"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={addTikTokPost}
+                className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
+              >
+                Add TikTok Post
+              </button>
+            </div>
+
+            {formData.tikTokPosts && formData.tikTokPosts.length > 0 && (
+              <div>
+                <h3 className="font-medium mb-2">Added TikTok Posts</h3>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {formData.tikTokPosts.map((post, index) => (
+                    <div key={post.id || index} className="border p-3 rounded-sm">
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <a
+                            href={post.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:underline"
+                          >
+                            {post.url}
+                          </a>
+                          {post.caption && (
+                            <p className="text-sm text-gray-600 mt-1">{post.caption}</p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeTikTokPost(index)}
+                          className="text-red-500"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Blog Posts Tab */}
         {activeTab === 'blog' && (
           <div>
@@ -1209,7 +1383,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     
 
                     
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => addBlogPostToLocation(selectedLocationForPosts)}
@@ -1218,29 +1392,61 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                       >
                         Add Blog Post
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => addInstagramPostToLocation(selectedLocationForPosts)}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
-                        disabled={!newPost.url}
-                      >
-                        Add Instagram Post
-                      </button>
                     </div>
-                    
-                    {/* Quick Instagram Post Form */}
-                    <div className="mt-4 pt-4 border-t">
-                      <h5 className="font-medium mb-2">Or add Instagram Post:</h5>
-                      <div className="flex space-x-2">
-                        <input
-                          type="url"
-                          name="url"
-                          value={newPost.url}
-                          onChange={handlePostChange}
-                          className="flex-1 p-2 border rounded-sm"
-                          placeholder="https://www.instagram.com/p/..."
-                        />
 
+                    <div className="mt-4 pt-4 border-t space-y-4">
+                      {/* Quick Instagram Post Form */}
+                      <div>
+                        <h5 className="font-medium mb-2">Or add Instagram Post:</h5>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="url"
+                            name="url"
+                            value={newPost.url}
+                            onChange={handlePostChange}
+                            className="flex-1 p-2 border rounded-sm"
+                            placeholder="https://www.instagram.com/p/..."
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addInstagramPostToLocation(selectedLocationForPosts)}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-sm hover:bg-blue-600"
+                            disabled={!newPost.url}
+                          >
+                            Add Instagram Post
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quick TikTok Post Form */}
+                      <div>
+                        <h5 className="font-medium mb-2">Or add TikTok Post:</h5>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="url"
+                            name="url"
+                            value={newTikTokPost.url}
+                            onChange={handleTikTokPostChange}
+                            className="flex-1 p-2 border rounded-sm"
+                            placeholder="https://www.tiktok.com/@username/video/..."
+                          />
+                          <input
+                            type="text"
+                            name="caption"
+                            value={newTikTokPost.caption || ''}
+                            onChange={handleTikTokPostChange}
+                            className="flex-1 p-2 border rounded-sm"
+                            placeholder="Caption (optional)"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addTikTokPostToLocation(selectedLocationForPosts)}
+                            className="bg-black text-white px-4 py-2 rounded-sm hover:bg-gray-800"
+                            disabled={!newTikTokPost.url}
+                          >
+                            Add TikTok Post
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1316,9 +1522,43 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                           </div>
                         </div>
                       )}
-                      
-                      {(!location.blogPosts || location.blogPosts.length === 0) && 
-                       (!location.instagramPosts || location.instagramPosts.length === 0) && (
+
+                      {/* TikTok Posts for this location */}
+                      {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+                        <div className="mt-3">
+                          <h5 className="text-sm font-medium text-gray-800 mb-1">TikTok Posts:</h5>
+                          <div className="space-y-2">
+                            {location.tikTokPosts.map((post, postIndex) => (
+                              <div key={post.id} className="flex justify-between items-center bg-gray-100 p-2 rounded-sm">
+                                <div className="flex flex-col">
+                                  <a
+                                    href={post.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-gray-700 hover:underline"
+                                  >
+                                    {post.url.length > 50 ? `${post.url.substring(0, 50)}...` : post.url}
+                                  </a>
+                                  {post.caption && (
+                                    <span className="text-xs text-gray-500 mt-1">{post.caption}</span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeTikTokPostFromLocation(locationIndex, postIndex)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(!location.blogPosts || location.blogPosts.length === 0) &&
+                       (!location.instagramPosts || location.instagramPosts.length === 0) &&
+                       (!location.tikTokPosts || location.tikTokPosts.length === 0) && (
                         <p className="text-gray-500 text-sm">No posts attached to this location yet.</p>
                       )}
                     </div>
@@ -1326,10 +1566,10 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                 </div>
               </div>
             )}
-            
+
             {(!formData.locations || formData.locations.length === 0) && (
               <div className="text-center py-8 text-gray-500">
-                <p>Add locations first to attach blog posts and Instagram posts to them.</p>
+                <p>Add locations first to attach blog, Instagram, or TikTok posts to them.</p>
                 <p className="text-sm mt-1">Go to the &quot;Locations&quot; tab to add your first location.</p>
               </div>
             )}
