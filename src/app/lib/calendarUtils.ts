@@ -2,6 +2,25 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-
 import { pickDistinctColors } from 'pick-distinct-colors';
 import { Trip, Location } from '@/app/types';
 
+function toCalendarDay(value: string | Date): Date {
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (isNaN(date.getTime())) {
+    return new Date(NaN);
+  }
+
+  const isLocalMidnight =
+    date.getHours() === 0 &&
+    date.getMinutes() === 0 &&
+    date.getSeconds() === 0 &&
+    date.getMilliseconds() === 0;
+
+  if (isLocalMidnight) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 export interface CalendarDay {
   date: Date;
   locations: Location[];
@@ -116,14 +135,18 @@ export function applyShadowStyling(hexColor: string): string {
 }
 
 export function generateDateRange(startDate: string | Date, endDate: string | Date): Date[] {
-  const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
-  const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
-  
+  const start = toCalendarDay(startDate);
+  const end = toCalendarDay(endDate);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return [];
+  }
+
   const dates: Date[] = [];
-  let currentDate = new Date(start);
+  let currentDate = start;
   
   while (currentDate <= end) {
-    dates.push(new Date(currentDate));
+    dates.push(new Date(currentDate.getTime()));
     currentDate = addDays(currentDate, 1);
   }
   
@@ -131,21 +154,33 @@ export function generateDateRange(startDate: string | Date, endDate: string | Da
 }
 
 export function getCalendarDaysForMonth(month: Date): Date[] {
-  const monthStart = startOfMonth(month);
-  const monthEnd = endOfMonth(month);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday = 1
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const normalizedMonth = toCalendarDay(month);
+  if (isNaN(normalizedMonth.getTime())) {
+    return [];
+  }
+
+  const monthStart = toCalendarDay(startOfMonth(normalizedMonth));
+  const monthEnd = toCalendarDay(endOfMonth(normalizedMonth));
+  const calendarStart = toCalendarDay(startOfWeek(monthStart, { weekStartsOn: 1 })); // Monday = 1
+  const calendarEnd = toCalendarDay(endOfWeek(monthEnd, { weekStartsOn: 1 }));
   
   return generateDateRange(calendarStart, calendarEnd);
 }
 
 export function getAllMonthsInTrip(tripStart: Date, tripEnd: Date): Date[] {
   const months: Date[] = [];
-  let currentMonth = startOfMonth(tripStart);
-  const lastMonth = startOfMonth(tripEnd);
+  const normalizedStart = toCalendarDay(tripStart);
+  const normalizedEnd = toCalendarDay(tripEnd);
+
+  if (isNaN(normalizedStart.getTime()) || isNaN(normalizedEnd.getTime())) {
+    return months;
+  }
+
+  let currentMonth = toCalendarDay(startOfMonth(normalizedStart));
+  const lastMonth = toCalendarDay(startOfMonth(normalizedEnd));
   
   while (currentMonth <= lastMonth) {
-    months.push(new Date(currentMonth));
+    months.push(new Date(currentMonth.getTime()));
     // Move to next month
     currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
   }
@@ -154,20 +189,16 @@ export function getAllMonthsInTrip(tripStart: Date, tripEnd: Date): Date[] {
 }
 
 export function calculateLocationPeriodsForMonth(trip: Trip, month: Date): CalendarDay[] {
-  const tripStart = new Date(trip.startDate);
-  const tripEnd = new Date(trip.endDate);
-  const monthDays = getCalendarDaysForMonth(month);
+  const tripStart = toCalendarDay(trip.startDate);
+  const tripEnd = toCalendarDay(trip.endDate);
+  const monthLocal = toCalendarDay(month);
+  const monthDays = getCalendarDaysForMonth(monthLocal);
   
   return monthDays.map(date => {
-    // Normalize the calendar date to start of day in UTC to match location dates
-    const normalizedDate = new Date(Date.UTC(
-      date.getFullYear(), 
-      date.getMonth(), 
-      date.getDate()
-    ));
+    const normalizedDate = toCalendarDay(date);
     
     const isOutsideTrip = normalizedDate < tripStart || normalizedDate > tripEnd;
-    const isOutsideMonth = date.getMonth() !== month.getMonth();
+    const isOutsideMonth = normalizedDate.getMonth() !== monthLocal.getMonth();
     
     if (isOutsideTrip || isOutsideMonth) {
       return {
@@ -181,30 +212,19 @@ export function calculateLocationPeriodsForMonth(trip: Trip, month: Date): Calen
     
     // Find locations that include this date
     const locationsOnDate = trip.locations.filter(location => {
-      const locationStart = new Date(location.date);
-      const locationEnd = location.endDate ? new Date(location.endDate) : locationStart;
+      const locationStart = toCalendarDay(location.date);
+      const locationEnd = location.endDate ? toCalendarDay(location.endDate) : locationStart;
       
-      // For calendar purposes, include the location if the calendar date falls within the period
-      // This means start date <= calendar date < end date + 1 day
-      // We normalize to start of day to handle any time-of-day differences
-      const normalizedLocationStart = new Date(Date.UTC(
-        locationStart.getFullYear(),
-        locationStart.getMonth(), 
-        locationStart.getDate()
-      ));
-      const normalizedLocationEnd = new Date(Date.UTC(
-        locationEnd.getFullYear(),
-        locationEnd.getMonth(), 
-        locationEnd.getDate() + 1  // Add 1 day to make end date inclusive for full day
-      ));
+      const normalizedLocationStart = locationStart;
+      const normalizedLocationEnd = addDays(locationEnd, 1); // exclusive end
       
       return normalizedDate >= normalizedLocationStart && normalizedDate < normalizedLocationEnd;
     });
     
     // Sort locations by start date to ensure correct transition order
     const sortedLocations = locationsOnDate.sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
+      const dateA = toCalendarDay(a.date);
+      const dateB = toCalendarDay(b.date);
       return dateA.getTime() - dateB.getTime();
     });
 
@@ -348,8 +368,8 @@ export async function generateTripCalendars(trip: Trip): Promise<{
   monthCalendars: MonthCalendar[];
   locationColors: Map<string, string>;
 }> {
-  const tripStart = new Date(trip.startDate);
-  const tripEnd = new Date(trip.endDate);
+  const tripStart = toCalendarDay(trip.startDate);
+  const tripEnd = toCalendarDay(trip.endDate);
   const months = getAllMonthsInTrip(tripStart, tripEnd);
   
   // Generate location colors first
