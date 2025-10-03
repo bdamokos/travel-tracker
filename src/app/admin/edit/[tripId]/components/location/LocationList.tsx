@@ -15,6 +15,8 @@ interface LocationListProps {
   selectedLocationForPosts: number | null;
   newInstagramPost: Partial<{ url: string; caption: string }>;
   setNewInstagramPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
+  newTikTokPost: Partial<{ url: string; caption: string }>;
+  setNewTikTokPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newBlogPost: Partial<{ title: string; url: string; excerpt: string }>;
   setNewBlogPost: React.Dispatch<React.SetStateAction<Partial<{ title: string; url: string; excerpt: string }>>>;
   onLocationUpdate: (index: number, updatedLocation: Location) => void;
@@ -22,6 +24,7 @@ interface LocationListProps {
   onViewPosts: (index: number) => void;
   onGeocode: (locationName: string) => Promise<[number, number]>;
   onAddInstagramPost: (index: number) => void;
+  onAddTikTokPost: (index: number) => void;
   onAddBlogPost: (index: number) => void;
 }
 
@@ -33,6 +36,8 @@ export default function LocationList({
   selectedLocationForPosts,
   newInstagramPost,
   setNewInstagramPost,
+  newTikTokPost,
+  setNewTikTokPost,
   newBlogPost,
   setNewBlogPost,
   onLocationUpdate,
@@ -40,6 +45,7 @@ export default function LocationList({
   onViewPosts,
   onGeocode,
   onAddInstagramPost,
+  onAddTikTokPost,
   onAddBlogPost,
 }: LocationListProps) {
   if (locations.length === 0) {
@@ -70,10 +76,13 @@ export default function LocationList({
               isVisible={selectedLocationForPosts === index}
               newInstagramPost={newInstagramPost}
               setNewInstagramPost={setNewInstagramPost}
+              newTikTokPost={newTikTokPost}
+              setNewTikTokPost={setNewTikTokPost}
               newBlogPost={newBlogPost}
               setNewBlogPost={setNewBlogPost}
               onLocationUpdate={(updatedLocation) => onLocationUpdate(index, updatedLocation)}
               onAddInstagramPost={() => onAddInstagramPost(index)}
+              onAddTikTokPost={() => onAddTikTokPost(index)}
               onAddBlogPost={() => onAddBlogPost(index)}
             />
           </div>

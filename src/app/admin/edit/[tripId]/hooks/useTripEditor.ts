@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
 import { calculateSmartDurations } from '@/app/lib/durationUtils';
-import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Transportation, Accommodation } from '@/app/types';
+import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelData, Transportation, Accommodation } from '@/app/types';
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
@@ -42,6 +42,7 @@ export function useTripEditor(tripId: string | null) {
     date: new Date(),
     notes: '',
     instagramPosts: [],
+    tikTokPosts: [],
     blogPosts: [],
     accommodationData: '',
     isAccommodationPublic: false,
@@ -76,6 +77,11 @@ export function useTripEditor(tripId: string | null) {
     title: '',
     url: '',
     excerpt: ''
+  });
+
+  const [newTikTokPost, setNewTikTokPost] = useState<Partial<TikTokPost>>({
+    url: '',
+    caption: ''
   });
 
   // Safe deletion state
@@ -130,6 +136,7 @@ export function useTripEditor(tripId: string | null) {
       departureTime: location.departureTime,
       notes: location.notes || '',
       instagramPosts: location.instagramPosts || [],
+      tikTokPosts: location.tikTokPosts || [],
       blogPosts: location.blogPosts || [],
       accommodationData: location.accommodationData,
       isAccommodationPublic: location.isAccommodationPublic || false,
@@ -348,10 +355,11 @@ export function useTripEditor(tripId: string | null) {
         name: newRoute.from,
         coordinates: newRoute.fromCoords,
         date: newRoute.date,
-        notes: '',
-        instagramPosts: [],
-        blogPosts: [],
-        accommodationData: '',
+      notes: '',
+      instagramPosts: [],
+      tikTokPosts: [],
+      blogPosts: [],
+      accommodationData: '',
         isAccommodationPublic: false,
         costTrackingLinks: []
       };
@@ -437,6 +445,26 @@ export function useTripEditor(tripId: string | null) {
       
       setTravelData(prev => ({ ...prev, locations: updatedLocations }));
       setNewInstagramPost({ url: '', caption: '' });
+      setHasUnsavedChanges(true);
+    }
+  };
+
+  const addTikTokPost = (locationIndex: number) => {
+    if (newTikTokPost.url) {
+      const post: TikTokPost = {
+        id: generateId(),
+        url: newTikTokPost.url,
+        caption: newTikTokPost.caption || ''
+      };
+
+      const updatedLocations = [...travelData.locations];
+      updatedLocations[locationIndex].tikTokPosts = [
+        ...(updatedLocations[locationIndex].tikTokPosts || []),
+        post
+      ];
+
+      setTravelData(prev => ({ ...prev, locations: updatedLocations }));
+      setNewTikTokPost({ url: '', caption: '' });
       setHasUnsavedChanges(true);
     }
   };
@@ -631,6 +659,8 @@ export function useTripEditor(tripId: string | null) {
     setSelectedLocationForPosts,
     newInstagramPost,
     setNewInstagramPost,
+    newTikTokPost,
+    setNewTikTokPost,
     newBlogPost,
     setNewBlogPost,
     deleteDialog,
@@ -645,6 +675,7 @@ export function useTripEditor(tripId: string | null) {
     handleLocationAdded,
     handleRouteAdded,
     addInstagramPost,
+    addTikTokPost,
     addBlogPost,
     deleteLocation,
     deleteRoute,

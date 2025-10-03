@@ -44,6 +44,8 @@ interface LocationManagerProps {
   setSelectedLocationForPosts: React.Dispatch<React.SetStateAction<number | null>>;
   newInstagramPost: Partial<{ url: string; caption: string }>;
   setNewInstagramPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
+  newTikTokPost: Partial<{ url: string; caption: string }>;
+  setNewTikTokPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newBlogPost: Partial<{ title: string; url: string; excerpt: string }>;
   setNewBlogPost: React.Dispatch<React.SetStateAction<Partial<{ title: string; url: string; excerpt: string }>>>;
   travelLookup: ExpenseTravelLookup | null;
@@ -52,6 +54,7 @@ interface LocationManagerProps {
   geocodeLocation: (locationName: string) => Promise<[number, number]>;
   deleteLocation: (index: number) => void;
   addInstagramPost: (index: number) => void;
+  addTikTokPost: (index: number) => void;
   addBlogPost: (index: number) => void;
   calculateSmartDurations: (locations: Location[], routes: TravelRoute[]) => Location[];
 }
@@ -69,6 +72,8 @@ export default function LocationManager({
   setSelectedLocationForPosts,
   newInstagramPost,
   setNewInstagramPost,
+  newTikTokPost,
+  setNewTikTokPost,
   newBlogPost,
   setNewBlogPost,
   travelLookup,
@@ -77,6 +82,7 @@ export default function LocationManager({
   geocodeLocation,
   deleteLocation,
   addInstagramPost,
+  addTikTokPost,
   addBlogPost,
   calculateSmartDurations,
 }: LocationManagerProps) {
@@ -124,6 +130,8 @@ export default function LocationManager({
         selectedLocationForPosts={selectedLocationForPosts}
         newInstagramPost={newInstagramPost}
         setNewInstagramPost={setNewInstagramPost}
+        newTikTokPost={newTikTokPost}
+        setNewTikTokPost={setNewTikTokPost}
         newBlogPost={newBlogPost}
         setNewBlogPost={setNewBlogPost}
         onLocationUpdate={(index, updatedLocation) => {
@@ -136,6 +144,7 @@ export default function LocationManager({
         onViewPosts={(index) => setSelectedLocationForPosts(selectedLocationForPosts === index ? null : index)}
         onGeocode={geocodeLocation}
         onAddInstagramPost={addInstagramPost}
+        onAddTikTokPost={addTikTokPost}
         onAddBlogPost={addBlogPost}
       />
     </div>

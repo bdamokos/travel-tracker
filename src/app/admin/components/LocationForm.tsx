@@ -74,6 +74,7 @@ export default function LocationForm({
       departureTime: currentLocation.departureTime,
       notes: data.notes as string || '',
       instagramPosts: currentLocation.instagramPosts || [],
+      tikTokPosts: currentLocation.tikTokPosts || [],
       blogPosts: currentLocation.blogPosts || [],
       // Multiple accommodations support
       accommodationIds: currentLocation.accommodationIds || [],
@@ -101,6 +102,7 @@ export default function LocationForm({
         date: new Date(),
         notes: '',
         instagramPosts: [],
+        tikTokPosts: [],
         blogPosts: [],
         accommodationIds: [],
         accommodationData: '',

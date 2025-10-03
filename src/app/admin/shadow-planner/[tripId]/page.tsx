@@ -56,6 +56,8 @@ export default function ShadowPlannerPage() {
     setSelectedLocationForPosts,
     newInstagramPost,
     setNewInstagramPost,
+    newTikTokPost,
+    setNewTikTokPost,
     newBlogPost,
     setNewBlogPost,
     notification,
@@ -64,6 +66,9 @@ export default function ShadowPlannerPage() {
     handleRouteAdded,
     deleteLocation,
     deleteRoute,
+    addInstagramPost,
+    addTikTokPost,
+    addBlogPost,
     recalculateRoutePoints,
     geocodeLocation,
   } = useShadowTripEditor(tripId);
@@ -286,6 +291,8 @@ export default function ShadowPlannerPage() {
                   setSelectedLocationForPosts={setSelectedLocationForPosts}
                   newInstagramPost={newInstagramPost}
                   setNewInstagramPost={setNewInstagramPost}
+                  newTikTokPost={newTikTokPost}
+                  setNewTikTokPost={setNewTikTokPost}
                   newBlogPost={newBlogPost}
                   setNewBlogPost={setNewBlogPost}
                   travelLookup={travelLookup}
@@ -296,14 +303,9 @@ export default function ShadowPlannerPage() {
                     return result || [0, 0] as [number, number];
                   }}
                   deleteLocation={deleteLocation}
-                  addInstagramPost={(_index) => {
-                    // This should be handled by the location component directly
-                    // For now, just stub it out as shadow trips might not need this
-                  }}
-                  addBlogPost={(_index) => {
-                    // This should be handled by the location component directly
-                    // For now, just stub it out as shadow trips might not need this
-                  }}
+                  addInstagramPost={addInstagramPost}
+                  addTikTokPost={addTikTokPost}
+                  addBlogPost={addBlogPost}
                   calculateSmartDurations={(locations, _routes) => {
                     // For shadow trips, return locations as-is since they're planning data
                     return locations;

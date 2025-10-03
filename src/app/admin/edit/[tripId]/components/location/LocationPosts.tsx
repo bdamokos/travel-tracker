@@ -8,10 +8,13 @@ interface LocationPostsProps {
   isVisible: boolean;
   newInstagramPost: Partial<{ url: string; caption: string }>;
   setNewInstagramPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
+  newTikTokPost: Partial<{ url: string; caption: string }>;
+  setNewTikTokPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newBlogPost: Partial<{ title: string; url: string; excerpt: string }>;
   setNewBlogPost: React.Dispatch<React.SetStateAction<Partial<{ title: string; url: string; excerpt: string }>>>;
   onLocationUpdate: (updatedLocation: Location) => void;
   onAddInstagramPost: () => void;
+  onAddTikTokPost: () => void;
   onAddBlogPost: () => void;
 }
 
@@ -20,10 +23,13 @@ export default function LocationPosts({
   isVisible,
   newInstagramPost,
   setNewInstagramPost,
+  newTikTokPost,
+  setNewTikTokPost,
   newBlogPost,
   setNewBlogPost,
   onLocationUpdate,
   onAddInstagramPost,
+  onAddTikTokPost,
   onAddBlogPost,
 }: LocationPostsProps) {
   if (!isVisible) {
@@ -38,6 +44,14 @@ export default function LocationPosts({
     onLocationUpdate(updatedLocation);
   };
 
+  const handleRemoveTikTokPost = (postId: string) => {
+    const updatedLocation = {
+      ...location,
+      tikTokPosts: location.tikTokPosts?.filter(p => p.id !== postId),
+    };
+    onLocationUpdate(updatedLocation);
+  };
+
   const handleRemoveBlogPost = (postId: string) => {
     const updatedLocation = {
       ...location,
@@ -48,7 +62,7 @@ export default function LocationPosts({
 
   return (
     <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-      <h6 className="font-medium mb-4 text-gray-900 dark:text-white">Instagram & Blog Posts</h6>
+      <h6 className="font-medium mb-4 text-gray-900 dark:text-white">Instagram, TikTok & Blog Posts</h6>
       
       {/* Instagram Posts */}
       <div className="mb-4">
@@ -85,6 +99,51 @@ export default function LocationPosts({
                 </a>
                 <button
                   onClick={() => handleRemoveInstagramPost(post.id)}
+                  className="text-red-500 hover:text-red-700 ml-2"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* TikTok Posts */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">TikTok Posts</label>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="url"
+            value={newTikTokPost.url || ''}
+            onChange={(e) => setNewTikTokPost(prev => ({ ...prev, url: e.target.value }))}
+            className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
+            placeholder="TikTok post URL"
+          />
+          <input
+            type="text"
+            value={newTikTokPost.caption || ''}
+            onChange={(e) => setNewTikTokPost(prev => ({ ...prev, caption: e.target.value }))}
+            className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
+            placeholder="Caption (optional)"
+          />
+          <button
+            onClick={onAddTikTokPost}
+            className="px-3 py-1 bg-purple-500 text-white rounded-sm text-sm hover:bg-purple-600"
+          >
+            Add
+          </button>
+        </div>
+
+        {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+          <div className="space-y-1">
+            {location.tikTokPosts.map((post) => (
+              <div key={post.id} className="flex justify-between items-center bg-white p-2 rounded-sm text-sm">
+                <a href={post.url} target="_blank" rel="noopener" className="text-purple-600 hover:underline truncate">
+                  {post.url}
+                </a>
+                <button
+                  onClick={() => handleRemoveTikTokPost(post.id)}
                   className="text-red-500 hover:text-red-700 ml-2"
                 >
                   ×

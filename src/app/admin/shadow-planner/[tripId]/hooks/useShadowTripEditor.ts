@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
-import { Location, InstagramPost, BlogPost, TravelRoute, TravelData, Accommodation, Transportation } from '@/app/types';
+import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelData, Accommodation, Transportation } from '@/app/types';
 import { cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
@@ -24,6 +24,7 @@ export function useShadowTripEditor(tripId: string) {
     date: new Date(),
     notes: '',
     instagramPosts: [],
+    tikTokPosts: [],
     blogPosts: [],
     accommodationData: '',
     isAccommodationPublic: false,
@@ -63,6 +64,11 @@ export function useShadowTripEditor(tripId: string) {
     caption: ''
   });
   
+  const [newTikTokPost, setNewTikTokPost] = useState<Partial<TikTokPost>>({
+    url: '',
+    caption: ''
+  });
+
   const [newBlogPost, setNewBlogPost] = useState<Partial<BlogPost>>({
     title: '',
     url: '',
@@ -313,6 +319,7 @@ export function useShadowTripEditor(tripId: string) {
       date: new Date(),
       notes: '',
       instagramPosts: [],
+      tikTokPosts: [],
       blogPosts: [],
       accommodationData: '',
       isAccommodationPublic: false,
@@ -359,7 +366,17 @@ export function useShadowTripEditor(tripId: string) {
   }, []);
 
   // Instagram post functions
-  const addInstagramPost = useCallback((locationIndex: number, post: InstagramPost) => {
+  const addInstagramPost = useCallback((locationIndex: number) => {
+    if (!newInstagramPost.url) {
+      return;
+    }
+
+    const post: InstagramPost = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 11),
+      url: newInstagramPost.url,
+      caption: newInstagramPost.caption || ''
+    };
+
     setTravelData(prev => {
       if (!prev) return prev;
       const newLocations = [...prev.locations];
@@ -371,10 +388,45 @@ export function useShadowTripEditor(tripId: string) {
     });
     setHasUnsavedChanges(true);
     setNewInstagramPost({ url: '', caption: '' });
-  }, []);
+  }, [newInstagramPost]);
+
+  const addTikTokPost = useCallback((locationIndex: number) => {
+    if (!newTikTokPost.url) {
+      return;
+    }
+
+    const post: TikTokPost = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 11),
+      url: newTikTokPost.url,
+      caption: newTikTokPost.caption || ''
+    };
+
+    setTravelData(prev => {
+      if (!prev) return prev;
+      const newLocations = [...prev.locations];
+      newLocations[locationIndex] = {
+        ...newLocations[locationIndex],
+        tikTokPosts: [...(newLocations[locationIndex].tikTokPosts || []), post]
+      };
+      return { ...prev, locations: newLocations };
+    });
+    setHasUnsavedChanges(true);
+    setNewTikTokPost({ url: '', caption: '' });
+  }, [newTikTokPost]);
 
   // Blog post functions
-  const addBlogPost = useCallback((locationIndex: number, post: BlogPost) => {
+  const addBlogPost = useCallback((locationIndex: number) => {
+    if (!newBlogPost.title || !newBlogPost.url) {
+      return;
+    }
+
+    const post: BlogPost = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 11),
+      title: newBlogPost.title,
+      url: newBlogPost.url,
+      excerpt: newBlogPost.excerpt || ''
+    };
+
     setTravelData(prev => {
       if (!prev) return prev;
       const newLocations = [...prev.locations];
@@ -386,7 +438,7 @@ export function useShadowTripEditor(tripId: string) {
     });
     setHasUnsavedChanges(true);
     setNewBlogPost({ title: '', url: '', excerpt: '' });
-  }, []);
+  }, [newBlogPost]);
 
   // Delete functions
   const deleteLocation = useCallback((index: number) => {
@@ -506,6 +558,8 @@ export function useShadowTripEditor(tripId: string) {
     setSelectedLocationForPosts,
     newInstagramPost,
     setNewInstagramPost,
+    newTikTokPost,
+    setNewTikTokPost,
     newBlogPost,
     setNewBlogPost,
     deleteDialog,
@@ -518,6 +572,7 @@ export function useShadowTripEditor(tripId: string) {
     handleRouteAdded,
     handleAccommodationAdded,
     addInstagramPost,
+    addTikTokPost,
     addBlogPost,
     deleteLocation,
     deleteRoute,

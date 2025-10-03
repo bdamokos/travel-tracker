@@ -59,6 +59,8 @@ export default function TripEditorPage() {
     setSelectedLocationForPosts,
     newInstagramPost,
     setNewInstagramPost,
+    newTikTokPost,
+    setNewTikTokPost,
     newBlogPost,
     setNewBlogPost,
     deleteDialog,
@@ -69,6 +71,7 @@ export default function TripEditorPage() {
     handleLocationAdded,
     handleRouteAdded,
     addInstagramPost,
+    addTikTokPost,
     addBlogPost,
     deleteLocation,
     deleteRoute,
@@ -216,6 +219,8 @@ export default function TripEditorPage() {
                 setSelectedLocationForPosts={setSelectedLocationForPosts}
                 newInstagramPost={newInstagramPost}
                 setNewInstagramPost={setNewInstagramPost}
+                newTikTokPost={newTikTokPost}
+                setNewTikTokPost={setNewTikTokPost}
                 newBlogPost={newBlogPost}
                 setNewBlogPost={setNewBlogPost}
                 travelLookup={travelLookup}
@@ -224,6 +229,7 @@ export default function TripEditorPage() {
                 geocodeLocation={geocodeLocation}
                 deleteLocation={deleteLocation}
                 addInstagramPost={addInstagramPost}
+                addTikTokPost={addTikTokPost}
                 addBlogPost={addBlogPost}
                 calculateSmartDurations={calculateSmartDurations}
               />
