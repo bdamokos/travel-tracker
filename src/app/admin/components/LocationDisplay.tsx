@@ -5,6 +5,7 @@ import { Location } from '../../types';
 import { formatDuration } from '../../lib/durationUtils';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface LocationDisplayProps {
   location: Location;
@@ -26,8 +27,7 @@ export default function LocationDisplay({
   tripId
 }: LocationDisplayProps) {
   const formatDate = (date: string | Date) => {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    return dateObj.toLocaleDateString('en-GB', {
+    return formatUtcDate(date, 'en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'

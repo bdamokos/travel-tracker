@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 // import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
-import { formatDateRange } from '../../lib/dateUtils';
+import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
 import { Location, Transportation } from '../../types';
 // import NextStepsCard from '../../components/NextStepsCard';
 
@@ -72,8 +72,16 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
           const shadowLocations: Location[] = shadowData.shadowData?.shadowLocations || [];
           const shadowRoutes: Transportation[] = shadowData.shadowData?.shadowRoutes || [];
 
-          const toStartOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-          const toEndOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+          const toStartOfDay = (d: Date) => {
+            const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
+            normalized.setHours(0, 0, 0, 0);
+            return normalized.getTime();
+          };
+          const toEndOfDay = (d: Date) => {
+            const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
+            normalized.setHours(23, 59, 59, 999);
+            return normalized.getTime();
+          };
           const safeDate = (value?: string | Date) => {
             if (!value) return null;
             const d = value instanceof Date ? value : new Date(value);
@@ -264,7 +272,7 @@ export default async function MapPage({ params }: {
                 <p className="text-gray-600 dark:text-gray-300 mb-2">{travelData.description}</p>
               )}
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {new Date(travelData.startDate).toLocaleDateString()} - {new Date(travelData.endDate).toLocaleDateString()}
+                {formatUtcDate(travelData.startDate)} - {formatUtcDate(travelData.endDate)}
               </p>
             </div>
             <a 

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { listAllTrips, loadUnifiedTripData } from '../lib/unifiedDataService';
+import { formatUtcDate } from '../lib/dateUtils';
 
 // Force dynamic rendering to ensure trip list is always current
 export const dynamic = 'force-dynamic';
@@ -99,7 +100,7 @@ export default async function PublicMapsPage() {
                     
                     <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-3">
                       <span>
-                        {new Date(map.startDate).toLocaleDateString()} - {new Date(map.endDate).toLocaleDateString()}
+                        {formatUtcDate(map.startDate)} - {formatUtcDate(map.endDate)}
                       </span>
                       <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs">
                         {map.locationCount} location{map.locationCount !== 1 ? 's' : ''}

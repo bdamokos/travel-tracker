@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getMapUrl } from '../../lib/domains';
 import EmbeddableMap from '../../map/[id]/components/EmbeddableMap';
+import { formatUtcDate } from '../../lib/dateUtils';
 
 interface TravelData {
   id: string;
@@ -239,7 +240,7 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
         <div className="header">
           <h1 className="title">{travelData.title}</h1>
           <p className="subtitle">
-            {new Date(travelData.startDate).toLocaleDateString()} - {new Date(travelData.endDate).toLocaleDateString()}
+            {formatUtcDate(travelData.startDate)} - {formatUtcDate(travelData.endDate)}
             {travelData.locations.length > 0 && ` • ${travelData.locations.length} locations`}
           </p>
           {travelData.description && (
@@ -267,7 +268,7 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                 <div key={index} className="location-card">
                   <h3 className="location-name">{location.name}</h3>
                   <p className="location-date">
-                    {new Date(location.date).toLocaleDateString()}
+                    {formatUtcDate(location.date)}
                   </p>
                   {location.notes && (
                     <p className="location-notes">{location.notes}</p>

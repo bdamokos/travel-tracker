@@ -1,4 +1,5 @@
 import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '../types';
+import { formatUtcDate } from './dateUtils';
 
 /**
  * Helper function to determine if an expense is post-trip based on dates
@@ -720,7 +721,7 @@ export function formatDate(dateInput: string | Date): string {
     return 'Invalid Date';
   }
   
-  return date.toLocaleDateString('en-GB', {
+  return formatUtcDate(date, 'en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric'

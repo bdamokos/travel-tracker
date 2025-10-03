@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Expense } from '../../types';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface ExpenseDisplayProps {
   expense: Expense;
@@ -19,8 +20,7 @@ export default function ExpenseDisplay({
   showMarkActual = false
 }: ExpenseDisplayProps) {
   const formatDate = (date: string | Date) => {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    return dateObj.toLocaleDateString('en-GB', {
+    return formatUtcDate(date, 'en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric'

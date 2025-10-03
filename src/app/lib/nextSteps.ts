@@ -1,4 +1,5 @@
 import { Location, Transportation } from '@/app/types';
+import { normalizeUtcDateToLocalDay } from './dateUtils';
 
 type TripStatus = 'before' | 'during' | 'after';
 
@@ -9,11 +10,15 @@ function toDate(value?: string | Date | null): Date | null {
 }
 
 function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const normalized = normalizeUtcDateToLocalDay(d) || new Date(d.getTime());
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
 }
 
 function endOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  const normalized = normalizeUtcDateToLocalDay(d) || new Date(d.getTime());
+  normalized.setHours(23, 59, 59, 999);
+  return normalized;
 }
 
 export function determineTripStatus(start: string | Date, end: string | Date, now: Date = new Date()): TripStatus {
@@ -114,5 +119,4 @@ export function computeNextSteps(
   const nextLocation = findNextLocation(locations, now);
   return { status, currentLocation, nextRoute, nextLocation };
 }
-
 

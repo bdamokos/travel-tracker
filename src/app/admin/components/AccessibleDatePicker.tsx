@@ -35,19 +35,19 @@ interface AccessibleDatePickerProps {
 // Utility functions for date conversion
 function dateToCalendarDate(date: Date | null | undefined): CalendarDate | undefined {
   if (!date) return undefined;
-  return new CalendarDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  return new CalendarDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
 }
 
 function calendarDateToDate(calendarDate: CalendarDate | null): Date | null {
   if (!calendarDate) return null;
-  return new Date(calendarDate.year, calendarDate.month - 1, calendarDate.day);
+  return new Date(Date.UTC(calendarDate.year, calendarDate.month - 1, calendarDate.day));
 }
 
 function formatDateForInput(date: Date | null | undefined): string {
   if (!date) return '';
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 

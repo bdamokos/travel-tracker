@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 
 type NextStepsResponse = {
   trip: { id: string; title: string; startDate: string; endDate: string };
@@ -18,9 +19,8 @@ type NextStepsResponse = {
 
 function formatDate(input?: string | Date | null): string | null {
   if (!input) return null;
-  const d = input instanceof Date ? input : new Date(input);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString();
+  const formatted = formatUtcDate(input);
+  return formatted || null;
 }
 
 export default function NextStepsCard({ tripId }: { tripId: string }) {
@@ -104,5 +104,4 @@ export default function NextStepsCard({ tripId }: { tripId: string }) {
     </div>
   );
 }
-
 

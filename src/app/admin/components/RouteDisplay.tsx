@@ -3,6 +3,7 @@
 import React from 'react';
 import { Transportation, CostTrackingLink } from '../../types';
 import { transportationLabels } from '../../lib/routeUtils';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface TravelRoute {
   id: string;
@@ -34,7 +35,7 @@ export default function RouteDisplay({
   linkedExpenses = []
 }: RouteDisplayProps) {
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+    return formatUtcDate(date, 'en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

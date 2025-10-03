@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { TripCalendar } from '@/app/components/TripCalendar';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
+import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 
 interface CalendarPageProps {
   params: Promise<{
@@ -29,8 +30,16 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
         const shadowLocations: Location[] = shadowData.shadowData?.shadowLocations || [];
         const shadowRoutes: Transportation[] = shadowData.shadowData?.shadowRoutes || [];
 
-        const toStartOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const toEndOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+        const toStartOfDay = (d: Date) => {
+          const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
+          normalized.setHours(0, 0, 0, 0);
+          return normalized.getTime();
+        };
+        const toEndOfDay = (d: Date) => {
+          const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
+          normalized.setHours(23, 59, 59, 999);
+          return normalized.getTime();
+        };
         const safeDate = (value?: string | Date) => {
           if (!value) return null;
           const d = value instanceof Date ? value : new Date(value);

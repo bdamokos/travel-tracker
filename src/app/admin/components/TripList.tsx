@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface ExistingTrip {
   id: string;
@@ -224,7 +225,7 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
                 <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white pr-8">{trip.title}</h3>
                 <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">{trip.description}</p>
                 <p className="text-gray-500 dark:text-gray-400 text-xs mb-4">
-                  {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
+                  {formatUtcDate(trip.startDate)} - {formatUtcDate(trip.endDate)}
                 </p>
                 
                 <div className="flex gap-2">

@@ -7,6 +7,7 @@ import {
   generateTripCalendars,
   MonthCalendar
 } from '@/app/lib/calendarUtils';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 import CalendarGrid from './CalendarGrid';
 import styles from './Calendar.module.css';
 import { LocationPopupModal } from '../LocationPopup';
@@ -127,7 +128,9 @@ export default function TripCalendar({
           {trip.title} - Calendar View
         </h2>
         <p className="text-sm text-gray-600">
-          {new Date(trip.startDate).getDate()}/{new Date(trip.startDate).getMonth() + 1}/{new Date(trip.startDate).getFullYear()} - {new Date(trip.endDate).getDate()}/{new Date(trip.endDate).getMonth() + 1}/{new Date(trip.endDate).getFullYear()}
+          {formatUtcDate(trip.startDate, undefined, { day: 'numeric', month: 'numeric', year: 'numeric' })}
+          {' - '}
+          {formatUtcDate(trip.endDate, undefined, { day: 'numeric', month: 'numeric', year: 'numeric' })}
         </p>
         {planningMode && (
           <div className="mt-2 space-y-1">
@@ -154,9 +157,9 @@ export default function TripCalendar({
           <div key={index} className="month-calendar">
             {/* Month Header */}
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 text-center">
-              {monthCalendar.month.toLocaleDateString('en-US', { 
-                month: 'long', 
-                year: 'numeric' 
+              {formatUtcDate(monthCalendar.month, 'en-US', {
+                month: 'long',
+                year: 'numeric'
               })}
             </h3>
             

@@ -12,7 +12,10 @@ import { CostTrackingData, Expense, Location, Accommodation, Transportation } fr
 // Mock the cost utils
 jest.mock('../../../lib/costUtils', () => ({
   formatCurrency: (amount: number, currency: string) => `${currency} ${amount.toFixed(2)}`,
-  formatDate: (date: Date | string) => new Date(date).toLocaleDateString()
+  formatDate: (date: Date | string) => {
+    const d = date instanceof Date ? date : new Date(date);
+    return new Intl.DateTimeFormat(undefined, { timeZone: 'UTC' }).format(d);
+  }
 }));
 
 describe('LinkedExpensesDisplay Integration Tests', () => {
