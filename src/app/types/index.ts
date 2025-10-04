@@ -220,6 +220,7 @@ export type CostSummary = {
   remainingDays: number;
   averageSpentPerDay: number;
   suggestedDailyBudget: number;
+  dailyBudgetBasisDays: number;
   countryBreakdown: CountryBreakdown[];
   // New fields for smarter pre-trip expense handling
   preTripSpent: number;
@@ -235,6 +236,7 @@ export type CostSummary = {
   plannedRefunds: number; // For negative planned amounts (expected refunds)
   totalCommittedSpending: number; // actual + planned (excluding post-trip)
   availableForPlanning: number; // budget - actual - planned
+  recentTripSpending: { date: string; amount: number }[];
 };
 
 export type CountryBreakdown = {

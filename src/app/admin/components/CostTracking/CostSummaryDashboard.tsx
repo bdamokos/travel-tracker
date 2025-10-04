@@ -13,6 +13,18 @@ export default function CostSummaryDashboard({
   costSummary,
   costData
 }: CostSummaryDashboardProps) {
+  const dailyBudgetLabel = (() => {
+    const days = costSummary.dailyBudgetBasisDays;
+    const baseLabel = costSummary.tripStatus === 'during' ? 'remaining day' : 'journey day';
+    const suffix = days === 1 ? '' : 's';
+    return `${baseLabel}${suffix}`;
+  })();
+
+  const tripSpendingHistory = costSummary.recentTripSpending;
+  const maxTripSpending = tripSpendingHistory.length > 0
+    ? Math.max(...tripSpendingHistory.map(entry => entry.amount), 0)
+    : 0;
+
   return (
     <div>
       <h3 className="text-xl font-semibold mb-4">Cost Summary</h3>
@@ -36,7 +48,7 @@ export default function CostSummaryDashboard({
             {formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
           </p>
           <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-            For {costSummary.totalDays} journey days
+            For {costSummary.dailyBudgetBasisDays} {dailyBudgetLabel}
           </p>
         </div>
       </div>
@@ -80,6 +92,34 @@ export default function CostSummaryDashboard({
             <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
               Trip spending so far
             </p>
+            {tripSpendingHistory.length > 0 && (
+              <div className="mt-4">
+                <div className="flex items-end gap-1 h-20">
+                  {tripSpendingHistory.map((entry) => {
+                    const percentage = maxTripSpending > 0 ? (entry.amount / maxTripSpending) * 100 : 0;
+                    const barHeight = Math.max(percentage, entry.amount > 0 ? 8 : 2); // ensure small expenses still visible
+                    const labelDate = new Date(entry.date);
+                    const dayLabel = labelDate.toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric'
+                    });
+                    return (
+                      <div key={entry.date} className="flex-1 h-full flex flex-col items-center justify-end">
+                        <div className="w-full bg-orange-200 dark:bg-orange-900/60 rounded-t-sm overflow-hidden" style={{ height: `${barHeight}%` }}>
+                          <div className="w-full h-full bg-orange-500 dark:bg-orange-400" />
+                        </div>
+                        <div className="mt-1 text-[10px] text-orange-700 dark:text-orange-300 text-center leading-tight">
+                          {dayLabel}
+                        </div>
+                        <div className="text-[10px] text-orange-500 dark:text-orange-200">
+                          {formatCurrency(entry.amount, costData.currency)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

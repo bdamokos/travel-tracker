@@ -167,8 +167,75 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     averageSpentPerTripDay = averageSpentPerDay;
   }
   
-  // Suggested daily budget should use total journey days, not remaining days from today
-  const suggestedDailyBudget = totalDays > 0 ? availableForPlanning / totalDays : 0;
+  // Suggested daily budget should use remaining days when in-trip, otherwise total duration
+  let dailyBudgetBasisDays: number;
+  if (tripStatus === 'during') {
+    dailyBudgetBasisDays = Math.max(1, remainingDays);
+  } else {
+    dailyBudgetBasisDays = totalDays;
+  }
+
+  const suggestedDailyBudget = dailyBudgetBasisDays > 0 ? availableForPlanning / dailyBudgetBasisDays : 0;
+
+  // Build recent trip spending history (last few days)
+  const recentTripSpending = (() => {
+    if (tripStatus === 'before') {
+      return [] as { date: string; amount: number }[];
+    }
+
+    const historyWindow = 7;
+    const msPerDay = 1000 * 60 * 60 * 24;
+
+    const normalizeDate = (value: Date) => {
+      const normalized = new Date(value);
+      normalized.setHours(0, 0, 0, 0);
+      return normalized;
+    };
+
+    const startOfTrip = normalizeDate(startDate);
+    const endOfTrip = normalizeDate(endDate);
+    const todayNormalized = normalizeDate(today);
+
+    const effectiveHistoryEnd = tripStatus === 'after'
+      ? endOfTrip
+      : (todayNormalized > endOfTrip ? endOfTrip : todayNormalized);
+
+    if (effectiveHistoryEnd < startOfTrip) {
+      return [];
+    }
+
+    const earliestDay = (() => {
+      const candidate = new Date(effectiveHistoryEnd);
+      candidate.setDate(candidate.getDate() - (historyWindow - 1));
+      return candidate < startOfTrip ? new Date(startOfTrip) : candidate;
+    })();
+
+    const dayTotals = new Map<string, number>();
+    tripActualExpenses.forEach(expense => {
+      const expenseDate = normalizeDate(new Date(expense.date));
+      if (expenseDate < earliestDay || expenseDate > effectiveHistoryEnd) {
+        return;
+      }
+      const key = expenseDate.toISOString().split('T')[0];
+      dayTotals.set(key, (dayTotals.get(key) || 0) + expense.amount);
+    });
+
+    const history: { date: string; amount: number }[] = [];
+    const totalDaysInRange = Math.floor((effectiveHistoryEnd.getTime() - earliestDay.getTime()) / msPerDay) + 1;
+
+    for (let offset = 0; offset < totalDaysInRange; offset++) {
+      const day = new Date(earliestDay);
+      day.setDate(earliestDay.getDate() + offset);
+      if (day > endOfTrip) break;
+      const key = day.toISOString().split('T')[0];
+      history.push({
+        date: key,
+        amount: dayTotals.get(key) || 0,
+      });
+    }
+
+    return history;
+  })();
   
   // Calculate country breakdowns
   const countryBreakdown = calculateCountryBreakdowns(costData);
@@ -182,6 +249,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     remainingDays,
     averageSpentPerDay,
     suggestedDailyBudget,
+    dailyBudgetBasisDays,
     countryBreakdown,
     preTripSpent,
     preTripRefunds,
@@ -195,7 +263,8 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     plannedSpending,
     plannedRefunds,
     totalCommittedSpending,
-    availableForPlanning
+    availableForPlanning,
+    recentTripSpending
   };
 }
 
