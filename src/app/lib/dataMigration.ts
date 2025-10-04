@@ -40,6 +40,7 @@ export interface UnifiedTripData {
     currency: string;
     countryBudgets: CostTrackingData['countryBudgets'];
     expenses: CostTrackingData['expenses'];
+    customCategories?: CostTrackingData['customCategories'];
     ynabImportData?: CostTrackingData['ynabImportData'];
     ynabConfig?: CostTrackingData['ynabConfig']; // YNAB API configuration for direct integration
   };

@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
       tripEndDate: unifiedData.endDate,
       overallBudget: unifiedData.costData.overallBudget,
       currency: unifiedData.costData.currency,
+      customCategories: unifiedData.costData.customCategories,
       countryBudgets: unifiedData.costData.countryBudgets,
       expenses: unifiedData.costData.expenses, // These are already trip-scoped by design
       ynabImportData: unifiedData.costData.ynabImportData,

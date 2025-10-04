@@ -358,6 +358,16 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
 
   const baseData = existing || defaultData;
 
+  const incomingCustomCategories = Array.isArray(costUpdates.customCategories)
+    ? (costUpdates.customCategories as unknown[]).filter((category): category is string => typeof category === 'string')
+    : undefined;
+
+  const resolvedCustomCategories = incomingCustomCategories
+    ? [...incomingCustomCategories]
+    : baseData.costData?.customCategories
+      ? [...baseData.costData.customCategories]
+      : undefined;
+
   const updated: UnifiedTripData = {
     ...baseData,
     title: (costUpdates.tripTitle as string) || baseData.title,
@@ -369,6 +379,7 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
       currency: (costUpdates.currency as string) || baseData.costData?.currency || 'EUR',
       countryBudgets: (costUpdates.countryBudgets as BudgetItem[]) || baseData.costData?.countryBudgets || [],
       expenses: (costUpdates.expenses as Expense[]) || baseData.costData?.expenses || [],
+      ...(resolvedCustomCategories ? { customCategories: resolvedCustomCategories } : {}),
       ynabImportData: (costUpdates.ynabImportData as YnabImportData) || baseData.costData?.ynabImportData,
       ynabConfig: (costUpdates.ynabConfig as YnabConfig) || baseData.costData?.ynabConfig // YNAB API configuration
     }
