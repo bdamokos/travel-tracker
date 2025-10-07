@@ -193,8 +193,11 @@ async function handleImportTransactions(
   if (!costData.ynabImportData) {
     costData.ynabImportData = {
       mappings: [],
-      importedTransactionHashes: []
+      importedTransactionHashes: [],
+      payeeCategoryDefaults: {}
     };
+  } else if (!costData.ynabImportData.payeeCategoryDefaults) {
+    costData.ynabImportData.payeeCategoryDefaults = {};
   }
 
   // Update category mappings
@@ -269,6 +272,13 @@ async function handleImportTransactions(
       isGeneralExpense: mapping.mappingType === 'general',
       expenseType: 'actual' as ExpenseType // YNAB imports are always actual expenses
     };
+
+    const normalizedPayee = originalTxn.Payee?.trim();
+    if (normalizedPayee) {
+      const payeeDefaults = costData.ynabImportData.payeeCategoryDefaults ?? {};
+      costData.ynabImportData.payeeCategoryDefaults = payeeDefaults;
+      payeeDefaults[normalizedPayee] = expenseCategory;
+    }
 
     // Auto-create country budget if it doesn't exist
     if (mapping.mappingType === 'country' && mapping.countryName) {

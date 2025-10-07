@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   YnabCategoryMapping, 
   ProcessedYnabTransaction, 
@@ -55,11 +55,31 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   const [showAllTransactions, setShowAllTransactions] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [lastServerKnowledge, setLastServerKnowledge] = useState<number>(0);
+  const [payeeCategoryDefaults, setPayeeCategoryDefaults] = useState<Record<string, string>>(
+    () => ({ ...(costData.ynabImportData?.payeeCategoryDefaults ?? {}) })
+  );
 
   const availableCountries = costData.countryBudgets.map(b => b.country);
   
   // Use the app's standard categories - either custom or the default EXPENSE_CATEGORIES
   const availableCategories = costData.customCategories || [...EXPENSE_CATEGORIES];
+
+  useEffect(() => {
+    setPayeeCategoryDefaults({ ...(costData.ynabImportData?.payeeCategoryDefaults ?? {}) });
+  }, [costData.ynabImportData?.payeeCategoryDefaults]);
+
+  const getDefaultCategoryForTransaction = (transaction: ProcessedYnabTransaction) => {
+    const fallback = availableCategories[0];
+    const normalizedPayee = transaction.description?.trim();
+    if (!normalizedPayee) {
+      return fallback;
+    }
+    const rememberedCategory = payeeCategoryDefaults[normalizedPayee];
+    if (rememberedCategory && availableCategories.includes(rememberedCategory)) {
+      return rememberedCategory;
+    }
+    return fallback;
+  };
 
   // Helper function to determine sinceDate based on sync mode
   const getSinceDateForSyncMode = (mode: 'last-sync' | 'last-import' | 'all', ynabConfig?: { lastTransactionSync?: Date; lastTransactionImport?: Date }) => {
@@ -255,7 +275,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         // Initialize selected transactions with all available ones
         const initialSelections: TransactionSelection[] = result.transactions.map((txn: ProcessedYnabTransaction) => ({
           transactionHash: txn.hash,
-          expenseCategory: availableCategories[0] // Default to first available category
+          expenseCategory: getDefaultCategoryForTransaction(txn)
         }));
 
         setSelectedTransactions(initialSelections);
@@ -317,7 +337,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       // Initialize selected transactions with all available ones
       const initialSelections: TransactionSelection[] = result.transactions.map((txn: ProcessedYnabTransaction) => ({
         transactionHash: txn.hash,
-        expenseCategory: availableCategories[0] // Default to first available category
+        expenseCategory: getDefaultCategoryForTransaction(txn)
       }));
 
       setSelectedTransactions(initialSelections);
@@ -338,9 +358,13 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     if (exists) {
       setSelectedTransactions(prev => prev.filter(s => s.transactionHash !== hash));
     } else {
+      const transaction = processedTransactions.find(t => t.hash === hash);
+      const defaultCategory = transaction
+        ? getDefaultCategoryForTransaction(transaction)
+        : availableCategories[0];
       setSelectedTransactions(prev => [...prev, {
         transactionHash: hash,
-        expenseCategory: availableCategories[0]
+        expenseCategory: defaultCategory
       }]);
     }
   };
@@ -353,6 +377,15 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           : s
       )
     );
+
+    const transaction = processedTransactions.find(t => t.hash === hash);
+    const normalizedPayee = transaction?.description?.trim();
+    if (normalizedPayee) {
+      setPayeeCategoryDefaults(prev => ({
+        ...prev,
+        [normalizedPayee]: category
+      }));
+    }
   };
 
   const handleFinalImport = async () => {
@@ -364,9 +397,15 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
       if (importMethod === 'api') {
         // API-based import: send transactions directly to cost tracking API
+        const updatedPayeeCategoryDefaults = { ...payeeCategoryDefaults };
         const expensesToAdd = selectedTransactions.map(selection => {
           const transaction = processedTransactions.find(t => t.hash === selection.transactionHash);
           if (!transaction) throw new Error(`Transaction not found: ${selection.transactionHash}`);
+
+          const normalizedPayee = transaction.description?.trim();
+          if (normalizedPayee) {
+            updatedPayeeCategoryDefaults[normalizedPayee] = selection.expenseCategory;
+          }
 
           return {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2),
@@ -384,6 +423,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           };
         });
 
+        const newTransactionHashes = selectedTransactions.map(s => s.transactionHash);
+
         response = await fetch(`/api/cost-tracking?id=${costData.id}`, {
           method: 'PUT',
           headers: {
@@ -395,7 +436,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
               ...costData.ynabImportData,
               mappings: categoryMappings,
               lastImportDate: new Date().toISOString(),
-              lastImportedTransactionHashes: selectedTransactions.map(s => s.transactionHash)
+              lastImportedTransactionHashes: newTransactionHashes,
+              payeeCategoryDefaults: updatedPayeeCategoryDefaults
             },
             ynabConfig: {
               ...costData.ynabConfig,
@@ -409,6 +451,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to import transactions');
         }
+
+        setPayeeCategoryDefaults(updatedPayeeCategoryDefaults);
 
         alert(`Successfully imported ${expensesToAdd.length} transactions!`);
         onImportComplete();

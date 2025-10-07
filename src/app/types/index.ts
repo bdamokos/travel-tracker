@@ -294,6 +294,7 @@ export type YnabImportData = {
   importedTransactionHashes: string[]; // to prevent duplicates
   lastImportedTransactionHash?: string; // NEW: track last imported transaction
   lastImportedTransactionDate?: string; // NEW: for additional filtering context
+  payeeCategoryDefaults?: Record<string, string>; // remembers last category per payee
 };
 
 // Extended CategoryMapping with YNAB API support
