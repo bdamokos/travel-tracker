@@ -3,7 +3,7 @@
  * These tests run with mocked dependencies and don't require a server
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals'
+import { describe, it, expect, beforeEach, jest } from '@jest/globals'
 
 // Example unit test for utility functions
 describe('Utility Functions', () => {
@@ -221,6 +221,74 @@ describe('Core Business Workflow Tests', () => {
       expect(summary.totalCommittedSpending).toBe(720); // 520 + 200
       expect(summary.remainingBudget).toBe(1280); // 2000 - 720
       expect(summary.totalDays).toBe(15); // June 1-15
+    });
+
+    it('should keep recent trip spending buckets aligned to UTC dates', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-10-08T12:00:00.000Z'));
+
+      try {
+        const costData: CostTrackingData = {
+          id: 'tz-test',
+          tripId: 'trip-utc',
+          tripTitle: 'Timezone Check',
+          tripStartDate: new Date('2025-10-01T00:00:00.000Z'),
+          tripEndDate: new Date('2025-10-10T00:00:00.000Z'),
+          overallBudget: 5000,
+          currency: 'EUR',
+          countryBudgets: [],
+          expenses: [
+            {
+              id: 'exp-oct6',
+              date: new Date('2025-10-06T00:00:00.000Z'),
+              amount: 85,
+              currency: 'EUR',
+              category: 'Transportation',
+              country: 'Brazil',
+              description: 'Metro',
+              expenseType: 'actual'
+            },
+            {
+              id: 'exp-oct7-1',
+              date: new Date('2025-10-07T00:00:00.000Z'),
+              amount: 3.03,
+              currency: 'EUR',
+              category: 'Food & Dining',
+              country: 'Brazil',
+              description: 'Airport snack',
+              expenseType: 'actual'
+            },
+            {
+              id: 'exp-oct7-2',
+              date: new Date('2025-10-07T00:00:00.000Z'),
+              amount: 1.27,
+              currency: 'EUR',
+              category: 'Transportation',
+              country: 'Brazil',
+              description: 'Bus fare',
+              expenseType: 'actual'
+            },
+            {
+              id: 'exp-oct7-3',
+              date: new Date('2025-10-07T00:00:00.000Z'),
+              amount: 0.11,
+              currency: 'EUR',
+              category: 'Miscellaneous',
+              country: 'Brazil',
+              description: 'Exchange fee',
+              expenseType: 'actual'
+            }
+          ],
+          createdAt: new Date().toISOString()
+        };
+
+        const summary = calculateCostSummary(costData);
+        const oct7Entry = summary.recentTripSpending.find(entry => entry.date === '2025-10-07');
+
+        expect(oct7Entry?.amount).toBeCloseTo(4.41);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

@@ -188,7 +188,8 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 
     const normalizeDate = (value: Date) => {
       const normalized = new Date(value);
-      normalized.setHours(0, 0, 0, 0);
+      // Always snap to midnight in UTC so day buckets are stable regardless of viewer timezone
+      normalized.setUTCHours(0, 0, 0, 0);
       return normalized;
     };
 
