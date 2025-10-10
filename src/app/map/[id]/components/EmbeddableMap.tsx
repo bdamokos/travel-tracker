@@ -126,7 +126,25 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
+  // Add TikTok posts
+  if (location.tikTokPosts && location.tikTokPosts.length > 0) {
+    const totalTikTokPosts = location.tikTokPosts.length;
+    popupContent += `
+      <div style="margin-bottom: 8px;">
+        <strong style="font-size: 12px; ${isDarkMode ? 'color: #fef3c7;' : 'color: #f59e0b;'}">🎵 TikTok:</strong>
+        ${location.tikTokPosts.map((post, index) => `
+          <div style="margin-top: 2px;">
+            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #facc15;' : 'color: #b45309;'}">
+              TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}
+            </a>
+            ${post.caption ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #e5e7eb;' : 'color: #6b7280;'}">${post.caption}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
   // Add blog posts
   if (location.blogPosts && location.blogPosts.length > 0) {
     popupContent += `
