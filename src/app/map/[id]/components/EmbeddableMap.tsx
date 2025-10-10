@@ -7,6 +7,13 @@ import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
 import { formatDateRange } from '../../../lib/dateUtils';
+import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
+
+const INSTAGRAM_ICON_MARKUP = getInstagramIconMarkup({
+  containerClassName: 'w-5 h-5',
+  iconClassName: 'w-3 h-3',
+  className: 'shrink-0',
+});
 
 interface TravelData {
   id: string;
@@ -115,10 +122,13 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   if (location.instagramPosts && location.instagramPosts.length > 0) {
     popupContent += `
       <div style="margin-bottom: 8px;">
-        <strong style="font-size: 12px; ${isDarkMode ? 'color: #f472b6;' : 'color: #ec4899;'}">📷 Instagram:</strong>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #bfdbfe;' : 'color: #1d4ed8;'}">
+          ${INSTAGRAM_ICON_MARKUP}
+          <span>Instagram</span>
+        </div>
         ${location.instagramPosts.map(post => `
           <div style="margin-top: 2px;">
-            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
+            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
               ${post.caption || 'View Post'}
             </a>
           </div>
