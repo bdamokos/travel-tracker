@@ -15,12 +15,6 @@ const INSTAGRAM_ICON_MARKUP = getInstagramIconMarkup({
   className: 'shrink-0',
 });
 
-const INSTAGRAM_ICON_SMALL_MARKUP = getInstagramIconMarkup({
-  containerClassName: 'w-4 h-4',
-  iconClassName: 'w-2.5 h-2.5',
-  className: 'shrink-0',
-});
-
 interface TravelData {
   id: string;
   title: string;
@@ -133,8 +127,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
           <span>Instagram</span>
         </div>
         ${location.instagramPosts.map(post => `
-          <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
-            ${INSTAGRAM_ICON_SMALL_MARKUP}
+          <div style="margin-top: 2px;">
             <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
               ${post.caption || 'View Post'}
             </a>

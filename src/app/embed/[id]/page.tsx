@@ -284,9 +284,8 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                       </div>
                       {location.instagramPosts.map((post, postIndex) => (
                         <div key={postIndex} className="post-link">
-                          <a href={post.url} target="_blank" rel="noopener" className="flex items-center space-x-2">
-                            <InstagramIcon containerClassName="w-5 h-5" iconClassName="w-3 h-3" />
-                            <span>{post.caption || 'View Post'}</span>
+                          <a href={post.url} target="_blank" rel="noopener">
+                            {post.caption || 'View Post'}
                           </a>
                         </div>
                       ))}
