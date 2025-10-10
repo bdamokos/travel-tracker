@@ -163,7 +163,12 @@ export default function TripContextSection({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <TikTokIcon className="mr-3" ariaLabel="TikTok" />
+                  <TikTokIcon
+                    className="mr-3"
+                    containerClassName="w-6 h-6"
+                    iconClassName="w-3.5 h-3.5"
+                    ariaLabel="TikTok"
+                  />
                   <span className="text-gray-800 dark:text-gray-100 font-medium text-sm group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                     TikTok Clip {total > 1 ? `#${index + 1}` : ''}
                   </span>
