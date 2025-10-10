@@ -8,11 +8,19 @@ import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
 import { formatDateRange } from '../../../lib/dateUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
+import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
 
 const INSTAGRAM_ICON_MARKUP = getInstagramIconMarkup({
   containerClassName: 'w-5 h-5',
   iconClassName: 'w-3 h-3',
   className: 'shrink-0',
+});
+
+const TIKTOK_ICON_MARKUP = getTikTokIconMarkup({
+  containerClassName: 'w-5 h-5',
+  iconClassName: 'w-3 h-3',
+  className: 'shrink-0',
+  ariaLabel: 'TikTok',
 });
 
 interface TravelData {
@@ -142,15 +150,20 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
     const totalTikTokPosts = location.tikTokPosts.length;
     popupContent += `
       <div style="margin-bottom: 8px;">
-        <strong style="font-size: 12px; ${isDarkMode ? 'color: #fef3c7;' : 'color: #f59e0b;'}">🎵 TikTok:</strong>
-        ${location.tikTokPosts.map((post, index) => `
-          <div style="margin-top: 2px;">
-            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #facc15;' : 'color: #b45309;'}">
-              TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}
-            </a>
-            ${post.caption ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #e5e7eb;' : 'color: #6b7280;'}">${post.caption}</div>` : ''}
-          </div>
-        `).join('')}
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #fbcfe8;' : 'color: #db2777;'}">
+          ${TIKTOK_ICON_MARKUP}
+          <span>TikTok</span>
+        </div>
+        ${location.tikTokPosts
+          .map((post, index) => `
+            <div style="margin-top: 2px;">
+              <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
+                TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}
+              </a>
+              ${post.caption ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #e5e7eb;' : 'color: #6b7280;'}">${post.caption}</div>` : ''}
+            </div>
+          `)
+          .join('')}
       </div>
     `;
   }

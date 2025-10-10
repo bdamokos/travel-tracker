@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Journey, JourneyDay, Transportation } from '../types';
 import { transportationColors } from '../lib/routeUtils';
 import AccommodationDisplay from './AccommodationDisplay';
+import TikTokIcon from './icons/TikTokIcon';
 
 import { ExpenseTravelLookup } from '../lib/expenseTravelLookup';
 import { CostTrackingData } from '../types';
@@ -187,7 +188,10 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                       {/* Display TikTok Posts */}
                       {location.tikTokPosts && location.tikTokPosts.length > 0 && (
                         <div className="mt-2">
-                          <div className="text-xs font-semibold text-gray-700 mb-1">🎵 TikTok:</div>
+                          <div className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
+                            <TikTokIcon containerClassName="w-4 h-4" iconClassName="w-2.5 h-2.5" ariaLabel="TikTok" />
+                            <span>TikTok:</span>
+                          </div>
                           <div className="space-y-1">
                             {location.tikTokPosts.map((post, index) => (
                               <div key={post.id || index}>
