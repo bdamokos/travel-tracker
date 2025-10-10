@@ -1,22 +1,25 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
 import { formatDateRange } from '../../../lib/dateUtils';
-import InstagramIcon from '../../../components/icons/InstagramIcon';
+import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 
-const INSTAGRAM_ICON_MARKUP = renderToStaticMarkup(
-  <InstagramIcon containerClassName="w-5 h-5" iconClassName="w-3 h-3" className="shrink-0" />
-);
+const INSTAGRAM_ICON_MARKUP = getInstagramIconMarkup({
+  containerClassName: 'w-5 h-5',
+  iconClassName: 'w-3 h-3',
+  className: 'shrink-0',
+});
 
-const INSTAGRAM_ICON_SMALL_MARKUP = renderToStaticMarkup(
-  <InstagramIcon containerClassName="w-4 h-4" iconClassName="w-2.5 h-2.5" className="shrink-0" />
-);
+const INSTAGRAM_ICON_SMALL_MARKUP = getInstagramIconMarkup({
+  containerClassName: 'w-4 h-4',
+  iconClassName: 'w-2.5 h-2.5',
+  className: 'shrink-0',
+});
 
 interface TravelData {
   id: string;
