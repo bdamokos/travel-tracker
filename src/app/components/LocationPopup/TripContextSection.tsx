@@ -9,6 +9,7 @@ import React from 'react';
 import { Location, JourneyDay } from '../../types';
 import { formatDateRange } from '../../lib/dateUtils';
 import InstagramIcon from '../icons/InstagramIcon';
+import TikTokIcon from '../icons/TikTokIcon';
 
 interface TripContextSectionProps {
   location: Location;
@@ -143,7 +144,12 @@ export default function TripContextSection({
     return (
       <div>
         <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center">
-          <span className="mr-2">🎵</span>
+          <TikTokIcon
+            className="mr-2"
+            containerClassName="w-6 h-6"
+            iconClassName="w-3.5 h-3.5"
+            ariaLabel="TikTok"
+          />
           {headingLabel} ({total})
         </h4>
         <div className="space-y-2">
@@ -157,9 +163,12 @@ export default function TripContextSection({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center mr-3">
-                    <span className="text-sm">Tik</span>
-                  </div>
+                  <TikTokIcon
+                    className="mr-3"
+                    containerClassName="w-6 h-6"
+                    iconClassName="w-3.5 h-3.5"
+                    ariaLabel="TikTok"
+                  />
                   <span className="text-gray-800 dark:text-gray-100 font-medium text-sm group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
                     TikTok Clip {total > 1 ? `#${index + 1}` : ''}
                   </span>

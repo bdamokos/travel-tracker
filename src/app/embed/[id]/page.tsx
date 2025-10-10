@@ -4,6 +4,7 @@ import { getMapUrl } from '../../lib/domains';
 import EmbeddableMap from '../../map/[id]/components/EmbeddableMap';
 import { formatUtcDate } from '../../lib/dateUtils';
 import InstagramIcon from '../../components/icons/InstagramIcon';
+import TikTokIcon from '../../components/icons/TikTokIcon';
 
 interface TravelData {
   id: string;
@@ -295,7 +296,10 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                   {/* TikTok Posts */}
                   {location.tikTokPosts && location.tikTokPosts.length > 0 && (
                     <div className="posts-section">
-                      <div className="posts-header">🎵 TikTok:</div>
+                      <div className="posts-header flex items-center space-x-2">
+                        <TikTokIcon containerClassName="w-5 h-5" iconClassName="w-3 h-3" ariaLabel="TikTok" />
+                        <span>TikTok:</span>
+                      </div>
                       {location.tikTokPosts.map((post, postIndex) => (
                         <div key={postIndex} className="post-link">
                           <a href={post.url} target="_blank" rel="noopener">

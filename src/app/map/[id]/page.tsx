@@ -6,6 +6,7 @@ import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
 import { Location, Transportation } from '../../types';
 import InstagramIcon from '../../components/icons/InstagramIcon';
+import TikTokIcon from '../../components/icons/TikTokIcon';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
@@ -379,7 +380,14 @@ export default async function MapPage({ params }: {
                               className="text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm underline block"
                               title={post.caption || post.url}
                             >
-                              🎵 TikTok Clip
+                              <span className="flex items-center space-x-2">
+                                <TikTokIcon
+                                  containerClassName="w-6 h-6"
+                                  iconClassName="w-3.5 h-3.5"
+                                  ariaLabel="TikTok"
+                                />
+                                <span>TikTok Clip</span>
+                              </span>
                             </a>
                             {post.caption && (
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>

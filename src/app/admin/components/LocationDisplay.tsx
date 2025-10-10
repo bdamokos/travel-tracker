@@ -6,6 +6,7 @@ import { formatDuration } from '../../lib/durationUtils';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { formatUtcDate } from '@/app/lib/dateUtils';
+import TikTokIcon from '@/app/components/icons/TikTokIcon';
 
 interface LocationDisplayProps {
   location: Location;
@@ -176,7 +177,15 @@ export default function LocationDisplay({
               <span>📸 {location.instagramPosts.length} Instagram post{location.instagramPosts.length !== 1 ? 's' : ''}</span>
             )}
             {location.tikTokPosts && location.tikTokPosts.length > 0 && (
-              <span>🎵 {location.tikTokPosts.length} TikTok post{location.tikTokPosts.length !== 1 ? 's' : ''}</span>
+              <span className="inline-flex items-center gap-1">
+                <TikTokIcon
+                  containerClassName="w-4 h-4"
+                  iconClassName="w-2.5 h-2.5"
+                  ariaLabel="TikTok"
+                />
+                {location.tikTokPosts.length} TikTok post
+                {location.tikTokPosts.length !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
         )}
