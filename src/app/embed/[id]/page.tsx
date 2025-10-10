@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getMapUrl } from '../../lib/domains';
 import EmbeddableMap from '../../map/[id]/components/EmbeddableMap';
 import { formatUtcDate } from '../../lib/dateUtils';
+import InstagramIcon from '../../components/icons/InstagramIcon';
 
 interface TravelData {
   id: string;
@@ -277,11 +278,15 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                   {/* Instagram Posts */}
                   {location.instagramPosts && location.instagramPosts.length > 0 && (
                     <div className="posts-section">
-                      <div className="posts-header">📷 Instagram:</div>
+                      <div className="posts-header flex items-center space-x-2">
+                        <InstagramIcon containerClassName="w-5 h-5" iconClassName="w-3 h-3" ariaLabel="Instagram" />
+                        <span>Instagram:</span>
+                      </div>
                       {location.instagramPosts.map((post, postIndex) => (
                         <div key={postIndex} className="post-link">
-                          <a href={post.url} target="_blank" rel="noopener">
-                            {post.caption || 'View Post'}
+                          <a href={post.url} target="_blank" rel="noopener" className="flex items-center space-x-2">
+                            <InstagramIcon containerClassName="w-5 h-5" iconClassName="w-3 h-3" />
+                            <span>{post.caption || 'View Post'}</span>
                           </a>
                         </div>
                       ))}

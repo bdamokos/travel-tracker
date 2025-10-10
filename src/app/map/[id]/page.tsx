@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
 import { Location, Transportation } from '../../types';
+import InstagramIcon from '../../components/icons/InstagramIcon';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
@@ -351,7 +352,10 @@ export default async function MapPage({ params }: {
                               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm underline block"
                               title={post.caption || post.url}
                             >
-                              📸 Instagram Post
+                              <span className="flex items-center space-x-2">
+                                <InstagramIcon containerClassName="w-6 h-6" iconClassName="w-3.5 h-3.5" ariaLabel="Instagram" />
+                                <span>Instagram Post</span>
+                              </span>
                             </a>
                             {post.caption && (
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>
