@@ -46,3 +46,4 @@ GITHUB_SYNC_WORKFLOW.md
 sync-from-github.sh
 test-data/*
 .vscode/
+deploy/backups/*

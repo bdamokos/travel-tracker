@@ -318,6 +318,95 @@ run_ssh "
     # Stop existing containers
     echo \"⏹️  Stopping existing containers...\"
     docker-compose -f docker-compose.prod.yml down
+"
+
+# Create local backup of remote data directory
+echo "💾 Creating local backup of remote data directory..."
+LOCAL_BACKUP_DIR=${LOCAL_BACKUP_DIR:-"$PWD/backups"}
+mkdir -p "$LOCAL_BACKUP_DIR"
+BACKUP_TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+LOCAL_BACKUP_FILE="$LOCAL_BACKUP_DIR/data-$BACKUP_TIMESTAMP.tar.gz"
+
+# Resolve remote data path
+REMOTE_DATA_PATH=$(run_ssh "
+    cd $DEPLOY_PATH
+    set -a
+    source .env
+    set +a
+    DATA_PATH=\${DATA_PATH:-~/travel-tracker/data}
+    DATA_PATH=\$(eval echo \$DATA_PATH)
+    printf '%s' \"\$DATA_PATH\"
+")
+REMOTE_DATA_PATH=$(echo "$REMOTE_DATA_PATH" | tr -d '\r')
+if [ -z "$REMOTE_DATA_PATH" ]; then
+    echo "❌ Failed to resolve remote data path."
+    exit 1
+fi
+
+REMOTE_DATA_PATH_ESCAPED=$(printf '%q' "$REMOTE_DATA_PATH")
+if sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"; then
+    echo "✅ Local backup saved to $LOCAL_BACKUP_FILE"
+else
+    echo "❌ Failed to download remote backup."
+    rm -f "$LOCAL_BACKUP_FILE"
+    exit 1
+fi
+
+# Apply retention policy locally: keep backups from last 7 days and at least the 10 most recent
+if command -v gdate &> /dev/null; then
+    LIMIT_TIMESTAMP=$(gdate -d '7 days ago' +%s)
+elif date -d '7 days ago' +%s >/dev/null 2>&1; then
+    LIMIT_TIMESTAMP=$(date -d '7 days ago' +%s)
+else
+    LIMIT_TIMESTAMP=$(date -v-7d +%s)
+fi
+
+if ls "$LOCAL_BACKUP_DIR"/data-*.tar.gz >/dev/null 2>&1; then
+    IFS=$'\n' BACKUP_FILES=($(ls -1t "$LOCAL_BACKUP_DIR"/data-*.tar.gz 2>/dev/null))
+    unset IFS
+    KEEP_COUNT=0
+    for BACKUP_FILE in "${BACKUP_FILES[@]}"; do
+        [ -f "$BACKUP_FILE" ] || continue
+        if stat -f "%m" "$BACKUP_FILE" >/dev/null 2>&1; then
+            FILE_TIMESTAMP=$(stat -f "%m" "$BACKUP_FILE")
+        else
+            FILE_TIMESTAMP=$(stat -c "%Y" "$BACKUP_FILE")
+        fi
+        KEEP=0
+        if [ "$KEEP_COUNT" -lt 10 ]; then
+            KEEP=1
+        fi
+        if [ "$FILE_TIMESTAMP" -ge "$LIMIT_TIMESTAMP" ]; then
+            KEEP=1
+        fi
+        if [ "$KEEP" -eq 0 ]; then
+            echo "🗑️  Removing expired backup $BACKUP_FILE"
+            rm -f "$BACKUP_FILE"
+        fi
+        KEEP_COUNT=$((KEEP_COUNT + 1))
+    done
+fi
+
+echo "📂 Current local backups in $LOCAL_BACKUP_DIR:"
+if ! ls -1t "$LOCAL_BACKUP_DIR"; then
+    echo "ℹ️  No backups found in $LOCAL_BACKUP_DIR"
+fi
+
+# Restart services after local backup
+run_ssh "
+    set -e
+    cd $DEPLOY_PATH
+    
+    # Reload environment variables
+    set -a
+    source .env
+    set +a
+    
+    DATA_PATH=\${DATA_PATH:-~/travel-tracker/data}
+    DATA_PATH=\$(eval echo \$DATA_PATH)
+    export DATA_PATH
+    IMAGE_REGISTRY=\${REGISTRY_PULL_HOST:-\$REGISTRY_HOST}
+    export IMAGE_REGISTRY
     
     # Start services
     echo \"▶️  Starting services...\"
