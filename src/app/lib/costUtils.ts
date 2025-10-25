@@ -708,6 +708,8 @@ export function calculateDailySpendingTrend(expenses: Expense[]): { date: string
 /**
  * Get common expense categories
  */
+export const CASH_CATEGORY_NAME = 'Local currency held in cash';
+
 export const EXPENSE_CATEGORIES = [
   'Accommodation',
   'Food & Dining',
@@ -718,7 +720,8 @@ export const EXPENSE_CATEGORIES = [
   'Visas & Documentation',
   'Medical',
   'Entertainment',
-  'Miscellaneous'
+  'Miscellaneous',
+  CASH_CATEGORY_NAME
 ] as const;
 
 /**

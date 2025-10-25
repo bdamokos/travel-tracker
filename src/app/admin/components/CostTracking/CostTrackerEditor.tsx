@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip, YnabCategoryMapping, YnabConfig } from '../../../types';
-import { calculateCostSummary, generateId, EXPENSE_CATEGORIES } from '../../../lib/costUtils';
+import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '../../../lib/costUtils';
 import CostPieCharts from '../CostPieCharts';
 import { ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
 import BudgetSetup from './BudgetSetup';
@@ -14,6 +14,7 @@ import CostSummaryDashboard from './CostSummaryDashboard';
 import YnabImportForm from '../YnabImportForm';
 import YnabMappingManager from '../YnabMappingManager';
 import YnabSetup from '../YnabSetup';
+import { applyAllocationToSource, isCashAllocation, isCashSource } from '../../../lib/cashTransactions';
 
 interface CostTrackerEditorProps {
   costData: CostTrackingData;
@@ -83,12 +84,24 @@ export default function CostTrackerEditor({
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
   
   const getCategories = (): string[] => {
-    return costData.customCategories || [...EXPENSE_CATEGORIES];
+    const baseCategories = costData.customCategories ? [...costData.customCategories] : [...EXPENSE_CATEGORIES];
+    if (!baseCategories.includes(CASH_CATEGORY_NAME)) {
+      baseCategories.push(CASH_CATEGORY_NAME);
+    }
+    return baseCategories;
   };
   
   const ensureCategoriesInitialized = () => {
     if (!costData.customCategories) {
-      setCostData(prev => ({ ...prev, customCategories: [...EXPENSE_CATEGORIES] }));
+      setCostData(prev => ({
+        ...prev,
+        customCategories: Array.from(new Set([...EXPENSE_CATEGORIES, CASH_CATEGORY_NAME]))
+      }));
+    } else if (!costData.customCategories.includes(CASH_CATEGORY_NAME)) {
+      setCostData(prev => ({
+        ...prev,
+        customCategories: [...prev.customCategories!, CASH_CATEGORY_NAME]
+      }));
     }
   };
 
@@ -143,39 +156,75 @@ export default function CostTrackerEditor({
     }
   }, [costData]);
 
-  const handleExpenseAdded = async (expense: Expense, travelLinkInfo?: TravelLinkInfo) => {
+  const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo) => {
+    let expense: Expense = { ...incomingExpense };
+
+    if (isCashSource(expense) && expense.cashTransaction.cashTransactionId !== expense.id) {
+      expense = {
+        ...expense,
+        cashTransaction: {
+          ...expense.cashTransaction,
+          cashTransactionId: expense.id
+        }
+      };
+    }
+
+    const updatedCountryBudgets = [...costData.countryBudgets];
     if (!expense.isGeneralExpense && expense.country && editingExpenseIndex === null) {
-      const existingCountryBudget = costData.countryBudgets.find(
-        budget => budget.country === expense.country
-      );
-      
-      if (!existingCountryBudget) {
-        const newCountryBudget: BudgetItem = {
+      const hasBudget = updatedCountryBudgets.some(budget => budget.country === expense.country);
+      if (!hasBudget) {
+        updatedCountryBudgets.push({
           id: generateId(),
           country: expense.country,
-          // amount omitted - no budget amount set for auto-created budget
           currency: costData.currency,
           notes: 'Auto-created when adding expense'
-        };
-        
-        setCostData(prev => ({ 
-          ...prev, 
-          countryBudgets: [...prev.countryBudgets, newCountryBudget] 
-        }));
+        });
       }
     }
 
-    // Prepare the updated cost data with the new/updated expense
-    let updatedCostData: CostTrackingData;
-    if (editingExpenseIndex !== null) {
-      const updatedExpenses = [...costData.expenses];
+    let updatedExpenses = [...costData.expenses];
+
+    if (isCashAllocation(expense) && editingExpenseIndex === null) {
+      const parentIndex = updatedExpenses.findIndex(e => e.id === expense.cashTransaction?.cashTransactionId);
+      if (parentIndex === -1) {
+        alert('Unable to find the cash transaction this spending belongs to. Please refresh and try again.');
+        return;
+      }
+
+      try {
+        const updatedParent = applyAllocationToSource(
+          updatedExpenses[parentIndex],
+          expense.cashTransaction,
+          expense.id
+        );
+        updatedExpenses[parentIndex] = updatedParent;
+      } catch (error) {
+        console.error('Failed to apply cash allocation:', error);
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Unable to apply this cash spending to the selected transaction.'
+        );
+        return;
+      }
+
+      updatedExpenses = [...updatedExpenses, expense];
+    } else if (editingExpenseIndex !== null) {
       updatedExpenses[editingExpenseIndex] = expense;
-      updatedCostData = { ...costData, expenses: updatedExpenses };
-      setCostData(updatedCostData);
-      setEditingExpenseIndex(null);
     } else {
-      updatedCostData = { ...costData, expenses: [...costData.expenses, expense] };
-      setCostData(updatedCostData);
+      updatedExpenses = [...updatedExpenses, expense];
+    }
+
+    const updatedCostData: CostTrackingData = {
+      ...costData,
+      expenses: updatedExpenses,
+      countryBudgets: updatedCountryBudgets
+    };
+
+    setCostData(updatedCostData);
+
+    if (editingExpenseIndex !== null) {
+      setEditingExpenseIndex(null);
     }
 
     // Mark as having unsaved changes to trigger auto-save

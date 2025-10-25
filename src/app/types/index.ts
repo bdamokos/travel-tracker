@@ -150,6 +150,30 @@ export interface TravelLink {
   entityId: string; // ID of the trip, location, etc.
 }
 
+export type CashTransactionSourceDetails = {
+  kind: 'source';
+  cashTransactionId: string;
+  localCurrency: string;
+  originalLocalAmount: number;
+  remainingLocalAmount: number;
+  originalBaseAmount: number;
+  remainingBaseAmount: number;
+  exchangeRate: number;
+  allocationIds: string[];
+};
+
+export type CashTransactionAllocationDetails = {
+  kind: 'allocation';
+  cashTransactionId: string;
+  parentExpenseId: string;
+  localCurrency: string;
+  localAmount: number;
+  baseAmount: number;
+  exchangeRate: number;
+};
+
+export type CashTransactionDetails = CashTransactionSourceDetails | CashTransactionAllocationDetails;
+
 
 // Cost tracking types
 export type CountryPeriod = {
@@ -192,6 +216,7 @@ export type Expense = {
   originalPlannedId?: string; // For linking actual expenses to original planned expenses
   // Travel integration (private)
   travelReference?: TravelReference;
+  cashTransaction?: CashTransactionDetails;
 };
 
 export type CostTrackingData = {

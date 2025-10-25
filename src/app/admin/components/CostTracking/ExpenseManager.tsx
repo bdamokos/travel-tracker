@@ -15,6 +15,13 @@ import {
   useLinkExpense,
   useMoveExpenseLink
 } from '../../../hooks/useExpenseLinks';
+import CashTransactionManager from './CashTransactionManager';
+import {
+  getAllocationsForSource,
+  isCashAllocation,
+  isCashSource,
+  restoreAllocationOnSource
+} from '../../../lib/cashTransactions';
 
 interface ExpenseManagerProps {
   costData: CostTrackingData;
@@ -45,6 +52,9 @@ export default function ExpenseManager({
   setHasUnsavedChanges,
   tripId,
 }: ExpenseManagerProps) {
+
+  const categories = getCategories();
+  const countryOptions = getExistingCountries();
 
   const [isBulkLinkMode, setIsBulkLinkMode] = useState(false);
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
@@ -175,13 +185,65 @@ export default function ExpenseManager({
   };
 
   const deleteExpense = (expenseId: string) => {
-    const updatedExpenses = costData.expenses.filter(expense => expense.id !== expenseId);
+    const expense = costData.expenses.find(item => item.id === expenseId);
+    if (!expense) {
+      return;
+    }
+
+    if (isCashAllocation(expense)) {
+      const parentId = expense.cashTransaction.parentExpenseId;
+      const parentExpense = costData.expenses.find(item => item.id === parentId);
+
+      if (!parentExpense || !isCashSource(parentExpense)) {
+        alert('Unable to locate the cash transaction this spending belongs to. Please refresh the page.');
+        return;
+      }
+
+      const updatedParent = restoreAllocationOnSource(parentExpense, expense.cashTransaction, expense.id);
+
+      const updatedExpenses = costData.expenses
+        .filter(item => item.id !== expenseId)
+        .map(item => (item.id === parentId ? updatedParent : item));
+
+      setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+      setHasUnsavedChanges(true);
+      setSelectedExpenseIds(prev => prev.filter(id => id !== expenseId));
+      return;
+    }
+
+    if (isCashSource(expense)) {
+      const linkedAllocations = getAllocationsForSource(costData.expenses, expense.id);
+      if (linkedAllocations.length > 0) {
+        const confirmation = confirm(
+          `This cash transaction has ${linkedAllocations.length} linked cash spending entr${
+            linkedAllocations.length === 1 ? 'y' : 'ies'
+          }. Deleting it will also remove those expenses.\n\nDo you want to continue?`
+        );
+        if (!confirmation) {
+          return;
+        }
+      }
+
+      const removalIds = new Set<string>([expense.id, ...linkedAllocations.map(allocation => allocation.id)]);
+      const updatedExpenses = costData.expenses.filter(item => !removalIds.has(item.id));
+
+      setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
+      setHasUnsavedChanges(true);
+      setSelectedExpenseIds(prev => prev.filter(id => !removalIds.has(id)));
+      return;
+    }
+
+    const updatedExpenses = costData.expenses.filter(item => item.id !== expenseId);
     setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
     setHasUnsavedChanges(true);
+    setSelectedExpenseIds(prev => prev.filter(id => id !== expenseId));
   };
 
   const convertPlannedToActual = (expenseId: string) => {
     const updatedExpenses = costData.expenses.map(expense => {
+      if (expense.cashTransaction) {
+        return expense;
+      }
       if (expense.id === expenseId && expense.expenseType === 'planned') {
         return {
           ...expense,
@@ -214,7 +276,18 @@ export default function ExpenseManager({
           </button>
         </div>
       </div>
-      
+
+      <div className="mb-6">
+        <CashTransactionManager
+          costData={costData}
+          currency={costData.currency}
+          categories={categories}
+          countryOptions={countryOptions}
+          tripId={tripId}
+          onExpenseAdded={onExpenseAdded}
+        />
+      </div>
+
       <ExpenseForm
         currentExpense={currentExpense}
         setCurrentExpense={setCurrentExpense}
@@ -222,8 +295,8 @@ export default function ExpenseManager({
         editingExpenseIndex={editingExpenseIndex}
         setEditingExpenseIndex={setEditingExpenseIndex}
         currency={costData.currency}
-        categories={getCategories()}
-        countryOptions={getExistingCountries()}
+        categories={categories}
+        countryOptions={countryOptions}
         travelLookup={travelLookup}
         tripId={tripId}
       />

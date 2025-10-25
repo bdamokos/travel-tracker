@@ -14,6 +14,7 @@ interface AriaSelectProps {
   value?: string;
   onChange?: (value: string) => void;
   required?: boolean;
+  disabled?: boolean;
   className?: string;
   options: SelectOption[];
   placeholder?: string;
@@ -27,6 +28,7 @@ export default function AriaSelect({
   value,
   onChange,
   required = false,
+  disabled = false,
   className = '',
   options,
   placeholder = 'Select an option',
@@ -44,6 +46,7 @@ export default function AriaSelect({
     id,
     name,
     required,
+    disabled,
     className: finalClassName,
     'aria-label': placeholder,
     ...(isControlled 

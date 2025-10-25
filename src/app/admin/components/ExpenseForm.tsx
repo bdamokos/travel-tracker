@@ -5,7 +5,7 @@ import TravelItemSelector from './TravelItemSelector';
 import AriaSelect from './AriaSelect';
 import { Expense, ExpenseType } from '../../types';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
-import { generateId } from '@/app/lib/costUtils';
+import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
 import AccessibleDatePicker from './AccessibleDatePicker';
 
 
@@ -35,6 +35,11 @@ export default function ExpenseForm({
   tripId
 }: ExpenseFormProps) {
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+  const selectableCategories = categories.includes(CASH_CATEGORY_NAME)
+    ? ((editingExpenseIndex !== null && currentExpense.category === CASH_CATEGORY_NAME)
+        ? categories
+        : categories.filter(category => category !== CASH_CATEGORY_NAME))
+    : categories;
 
   // Load existing travel link when editing an expense
   useEffect(() => {
@@ -190,9 +195,14 @@ export default function ExpenseForm({
             name="category"
             defaultValue={currentExpense.category || ''}
             required
-            options={categories.map(cat => ({ value: cat, label: cat }))}
+            options={selectableCategories.map(cat => ({ value: cat, label: cat }))}
             placeholder="Select Category"
           />
+          {categories.includes(CASH_CATEGORY_NAME) && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Cash exchanges are managed from the cash handling section above.
+            </p>
+          )}
         </div>
 
         <div>

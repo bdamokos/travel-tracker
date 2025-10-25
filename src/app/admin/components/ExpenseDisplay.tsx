@@ -3,6 +3,7 @@
 import React from 'react';
 import { Expense } from '../../types';
 import { formatUtcDate } from '@/app/lib/dateUtils';
+import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 
 interface ExpenseDisplayProps {
   expense: Expense;
@@ -19,6 +20,10 @@ export default function ExpenseDisplay({
   onMarkActual,
   showMarkActual = false
 }: ExpenseDisplayProps) {
+  const isCashSourceExpense = isCashSource(expense);
+  const isCashAllocationExpense = isCashAllocation(expense);
+  const canEdit = !isCashSourceExpense;
+
   const formatDate = (date: string | Date) => {
     return formatUtcDate(date, 'en-GB', {
       day: 'numeric',
@@ -95,12 +100,14 @@ export default function ExpenseDisplay({
                 Mark Actual
               </button>
             )}
-            <button
-              onClick={onEdit}
-              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-xs font-medium"
-            >
-              Edit
-            </button>
+            {canEdit && (
+              <button
+                onClick={onEdit}
+                className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-xs font-medium"
+              >
+                Edit
+              </button>
+            )}
             {onDelete && (
               <button
                 onClick={onDelete}
@@ -140,6 +147,23 @@ export default function ExpenseDisplay({
         {expense.amount < 0 && (
           <div className="text-xs text-green-600 dark:text-green-400 mt-2">
             💰 This is a refund or income
+          </div>
+        )}
+
+        {isCashSourceExpense && expense.cashTransaction && (
+          <div className="text-xs text-yellow-700 dark:text-yellow-200 mt-2">
+            💵 Cash on hand: {expense.cashTransaction.remainingBaseAmount.toFixed(2)}{' '}
+            {expense.currency} ({expense.cashTransaction.remainingLocalAmount.toFixed(2)}{' '}
+            {expense.cashTransaction.localCurrency}) remaining from{' '}
+            {expense.cashTransaction.originalBaseAmount.toFixed(2)} {expense.currency}
+          </div>
+        )}
+
+        {isCashAllocationExpense && expense.cashTransaction && (
+          <div className="text-xs text-yellow-700 dark:text-yellow-200 mt-2">
+            🔄 Converted {expense.cashTransaction.localAmount.toFixed(2)}{' '}
+            {expense.cashTransaction.localCurrency} ≈ {expense.cashTransaction.baseAmount.toFixed(2)}{' '}
+            {expense.currency}
           </div>
         )}
       </div>

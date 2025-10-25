@@ -6,6 +6,7 @@ import TravelItemSelector from './TravelItemSelector';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';
 import AccessibleDatePicker from './AccessibleDatePicker';
+import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
@@ -31,6 +32,10 @@ export default function ExpenseInlineEditor({
     ...expense
   });
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+
+  const isCashSourceExpense = isCashSource(expense);
+  const isCashAllocationExpense = isCashAllocation(expense);
+  const disableFinancialFields = isCashSourceExpense || isCashAllocationExpense;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +83,13 @@ export default function ExpenseInlineEditor({
               className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="0.00"
               required
+              disabled={disableFinancialFields}
             />
+            {disableFinancialFields && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Amount is calculated from the associated cash transaction.
+              </p>
+            )}
           </div>
         </div>
 
@@ -93,6 +104,7 @@ export default function ExpenseInlineEditor({
               value={formData.currency}
               onChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
               className="w-full px-2 py-1 text-sm"
+              disabled={disableFinancialFields}
               options={[
                 { value: 'EUR', label: 'EUR' },
                 { value: 'USD', label: 'USD' },
@@ -141,6 +153,7 @@ export default function ExpenseInlineEditor({
               value={formData.expenseType}
               onChange={(value) => setFormData(prev => ({ ...prev, expenseType: value as ExpenseType }))}
               className="w-full px-2 py-1 text-sm"
+              disabled={disableFinancialFields}
               options={[
                 { value: 'actual', label: 'Actual' },
                 { value: 'planned', label: 'Planned' }
