@@ -7,6 +7,7 @@ import { TravelLinkInfo } from '../../../lib/expenseTravelLookup';
 import {
   createCashAllocationExpense,
   createCashSourceExpense,
+  getAllocationSegments,
   getAllocationsForSource,
   isCashAllocation,
   isCashSource,
@@ -87,29 +88,74 @@ export default function CashTransactionManager({
     () =>
       costData.expenses
         .filter(isCashSource)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     [costData.expenses]
   );
+
+  type CashCurrencyGroup = {
+    currency: string;
+    sources: Expense[];
+    totalOriginalLocal: number;
+    totalOriginalBase: number;
+    totalRemainingLocal: number;
+    totalRemainingBase: number;
+    defaultCountry: string;
+  };
+
+  const cashGroups: CashCurrencyGroup[] = useMemo(() => {
+    const groupMap = new Map<string, CashCurrencyGroup>();
+
+    cashSources.forEach(source => {
+      const localCurrency = source.cashTransaction.localCurrency;
+      const existing = groupMap.get(localCurrency);
+      const sourceInfo = {
+        originalLocal: source.cashTransaction.originalLocalAmount,
+        originalBase: source.cashTransaction.originalBaseAmount,
+        remainingLocal: source.cashTransaction.remainingLocalAmount,
+        remainingBase: source.cashTransaction.remainingBaseAmount
+      };
+
+      if (!existing) {
+        groupMap.set(localCurrency, {
+          currency: localCurrency,
+          sources: [source],
+          totalOriginalLocal: sourceInfo.originalLocal,
+          totalOriginalBase: sourceInfo.originalBase,
+          totalRemainingLocal: sourceInfo.remainingLocal,
+          totalRemainingBase: sourceInfo.remainingBase,
+          defaultCountry: source.country || ''
+        });
+      } else {
+        existing.sources.push(source);
+        existing.totalOriginalLocal += sourceInfo.originalLocal;
+        existing.totalOriginalBase += sourceInfo.originalBase;
+        existing.totalRemainingLocal += sourceInfo.remainingLocal;
+        existing.totalRemainingBase += sourceInfo.remainingBase;
+      }
+    });
+
+    return Array.from(groupMap.values()).sort((a, b) => a.currency.localeCompare(b.currency));
+  }, [cashSources]);
 
   useEffect(() => {
     setAllocationForms(prevState => {
       const nextState: Record<string, CashAllocationFormState> = { ...prevState };
 
-      cashSources.forEach(source => {
-        if (!nextState[source.id]) {
-          nextState[source.id] = createInitialAllocationForm(source.country || '');
+      cashGroups.forEach(group => {
+        if (!nextState[group.currency]) {
+          nextState[group.currency] = createInitialAllocationForm(group.defaultCountry);
         }
       });
 
-      Object.keys(nextState).forEach(sourceId => {
-        if (!cashSources.some(source => source.id === sourceId)) {
-          delete nextState[sourceId];
+      Object.keys(nextState).forEach(currencyKey => {
+        if (!cashGroups.some(group => group.currency === currencyKey)) {
+          delete nextState[currencyKey];
         }
       });
 
       return nextState;
     });
-  }, [cashSources]);
+  }, [cashGroups]);
 
   const handleCreateCashSource = async () => {
     if (!sourceForm.date) {
@@ -157,25 +203,26 @@ export default function CashTransactionManager({
     }
   };
 
-  const handleAllocationChange = (sourceId: string, updates: Partial<CashAllocationFormState>) => {
+  const handleAllocationChange = (currencyKey: string, updates: Partial<CashAllocationFormState>) => {
     setAllocationForms(prev => ({
       ...prev,
-      [sourceId]: {
-        ...prev[sourceId],
+      [currencyKey]: {
+        ...prev[currencyKey],
         ...updates
       }
     }));
   };
 
-  const handleAddAllocation = async (sourceId: string) => {
-    const formState = allocationForms[sourceId];
-    const sourceExpense = cashSources.find(source => source.id === sourceId);
+  const handleAddAllocation = async (currencyKey: string) => {
+    const formState = allocationForms[currencyKey];
+    const group = cashGroups.find(item => item.currency === currencyKey);
 
-    if (!formState || !sourceExpense || !isCashSource(sourceExpense)) {
-      alert('Cash transaction not found. Please refresh and try again.');
+    if (!formState || !group) {
+      alert('Cash transactions for this currency were not found. Please refresh and try again.');
       return;
     }
 
+    const sources = group.sources;
     if (!formState.date) {
       alert('Please select the spending date.');
       return;
@@ -187,8 +234,8 @@ export default function CashTransactionManager({
       return;
     }
 
-    if (localAmount - sourceExpense.cashTransaction.remainingLocalAmount > 0.0001) {
-      alert('This spending exceeds the remaining local cash for this transaction.');
+    if (localAmount - group.totalRemainingLocal > 0.0001) {
+      alert('This spending exceeds the remaining local cash available in this currency.');
       return;
     }
 
@@ -209,9 +256,9 @@ export default function CashTransactionManager({
           }
         : undefined;
 
-      const allocationExpense = createCashAllocationExpense({
+      const { expense: allocationExpense } = createCashAllocationExpense({
         id: formState.expenseId,
-        parentExpense: sourceExpense,
+        sources,
         localAmount,
         date: formState.date,
         trackingCurrency: currency,
@@ -226,10 +273,12 @@ export default function CashTransactionManager({
       await onExpenseAdded(allocationExpense, formState.travelLink);
       setAllocationForms(prev => ({
         ...prev,
-        [sourceId]: {
-          ...createInitialAllocationForm(sourceExpense.country || ''),
+        [currencyKey]: {
+          ...createInitialAllocationForm(group.defaultCountry),
+          category: formState.category,
           country: formState.country,
-          travelLink: undefined
+          travelLink: formState.travelLink,
+          expenseId: generateId()
         }
       }));
     } catch (error) {
@@ -238,75 +287,77 @@ export default function CashTransactionManager({
     }
   };
 
-  const renderCashSource = (source: Expense) => {
+  const renderSourceSummary = (source: Expense) => {
     if (!isCashSource(source)) return null;
 
-    const allocationForm = allocationForms[source.id] || createInitialAllocationForm(source.country || '');
     const allocations = getAllocationsForSource(costData.expenses, source.id);
     const { cashTransaction } = source;
     const remainingLocal = cashTransaction.remainingLocalAmount;
     const remainingBase = cashTransaction.remainingBaseAmount;
     const originalLocal = cashTransaction.originalLocalAmount;
     const originalBase = cashTransaction.originalBaseAmount;
+    const localCurrency = cashTransaction.localCurrency;
     const exchangeRate =
       originalBase > 0 ? roundCurrency(originalLocal / originalBase, 4) : undefined;
 
-    const pendingLocal = parseFloat(allocationForm.localAmount);
-    const estimatedBase =
-      !Number.isNaN(pendingLocal) && pendingLocal > 0
-        ? roundCurrency(
-            pendingLocal *
-              (source.cashTransaction.originalBaseAmount / source.cashTransaction.originalLocalAmount || 0)
-          )
-        : 0;
-
-    const localCurrency = source.cashTransaction.localCurrency;
-
     return (
-      <div key={source.id} className="rounded-lg border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-4">
+      <div
+        key={source.id}
+        className="rounded-md border border-yellow-200 dark:border-yellow-700 bg-white dark:bg-gray-900/60 p-3 space-y-3"
+      >
         <div className="flex flex-wrap justify-between gap-3">
           <div>
-            <h4 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
+            <h5 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
               {source.description || 'Cash exchange'}
-            </h4>
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            </h5>
+            <p className="text-xs text-yellow-800 dark:text-yellow-200">
               Original: {originalBase.toFixed(2)} {currency} • {originalLocal.toFixed(2)} {localCurrency}
             </p>
             {exchangeRate !== undefined && (
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">
                 Exchange rate: 1 {currency} = {exchangeRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{' '}
                 {localCurrency}
               </p>
             )}
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            <p className="text-xs text-yellow-800 dark:text-yellow-200">
               Remaining: {remainingBase.toFixed(2)} {currency} • {remainingLocal.toFixed(2)} {localCurrency}
             </p>
           </div>
-          <div className="text-right text-sm text-yellow-800 dark:text-yellow-200">
+          <div className="text-right text-xs text-yellow-800 dark:text-yellow-200">
             <div>Exchange date: {new Date(source.date).toLocaleDateString()}</div>
             <div>Country: {source.country || 'General'}</div>
           </div>
         </div>
 
         {allocations.length > 0 && (
-          <div className="bg-white dark:bg-gray-900/60 rounded-md border border-yellow-200 dark:border-yellow-700 p-3">
-            <h5 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100 mb-2">
-              Cash spendings ({allocations.length})
-            </h5>
-            <ul className="space-y-1 text-sm text-yellow-900 dark:text-yellow-100">
+          <div className="rounded border border-yellow-100 dark:border-yellow-800 bg-yellow-50/60 dark:bg-yellow-900/20 p-2">
+            <h6 className="text-xs font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+              Allocations ({allocations.length})
+            </h6>
+            <ul className="space-y-1 text-xs text-yellow-900 dark:text-yellow-100">
               {allocations
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .map(allocation => {
-                  const details = isCashAllocation(allocation) ? allocation.cashTransaction : null;
+                  if (!isCashAllocation(allocation)) {
+                    return null;
+                  }
+                  const allocationDetails = allocation.cashTransaction;
+                  const segment = getAllocationSegments(allocationDetails).find(
+                    item => item.sourceExpenseId === source.id
+                  );
+                  if (!segment) {
+                    return null;
+                  }
+
                   return (
-                    <li key={allocation.id} className="flex justify-between">
+                    <li key={`${allocation.id}-${source.id}`} className="flex justify-between gap-2">
                       <span>
                         {new Date(allocation.date).toLocaleDateString()} • {allocation.category}
                         {allocation.description ? ` – ${allocation.description}` : ''}
                       </span>
                       <span>
-                        {allocation.amount.toFixed(2)} {allocation.currency} ({details?.localAmount.toFixed(2)}{' '}
-                        {details?.localCurrency})
+                        {segment.baseAmount.toFixed(2)} {allocation.currency} ({segment.localAmount.toFixed(2)}{' '}
+                        {allocationDetails.localCurrency})
                       </span>
                     </li>
                   );
@@ -314,34 +365,96 @@ export default function CashTransactionManager({
             </ul>
           </div>
         )}
+      </div>
+    );
+  };
+
+  const renderCurrencyGroup = (group: CashCurrencyGroup) => {
+    const allocationForm =
+      allocationForms[group.currency] || createInitialAllocationForm(group.defaultCountry);
+    const totalOriginalLocal = roundCurrency(group.totalOriginalLocal);
+    const totalOriginalBase = roundCurrency(group.totalOriginalBase);
+    const totalRemainingLocal = roundCurrency(group.totalRemainingLocal);
+    const totalRemainingBase = roundCurrency(group.totalRemainingBase);
+    const pendingLocal = parseFloat(allocationForm.localAmount);
+
+    let estimatedBase = 0;
+    if (!Number.isNaN(pendingLocal) && pendingLocal > 0) {
+      try {
+        const preview = createCashAllocationExpense({
+          id: allocationForm.expenseId,
+          sources: group.sources,
+          localAmount: pendingLocal,
+          date: allocationForm.date || new Date(),
+          trackingCurrency: currency,
+          category: allocationForm.category || (spendingCategories[0] ?? CASH_CATEGORY_NAME),
+          country: allocationForm.country,
+          description: allocationForm.description,
+          notes: allocationForm.notes,
+          isGeneralExpense: !allocationForm.country
+        });
+        estimatedBase = preview.expense.amount;
+      } catch {
+        estimatedBase = 0;
+      }
+    }
+
+    return (
+      <div
+        key={group.currency}
+        className="rounded-lg border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-4"
+      >
+        <div className="flex flex-wrap justify-between gap-3">
+          <div>
+            <h4 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
+              {group.currency} cash on hand
+            </h4>
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              Total exchanged: {totalOriginalBase.toFixed(2)} {currency} • {totalOriginalLocal.toFixed(2)}
+              {' '}
+              {group.currency}
+            </p>
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              Remaining: {totalRemainingBase.toFixed(2)} {currency} • {totalRemainingLocal.toFixed(2)} {group.currency}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {group.sources.map(source => renderSourceSummary(source))}
+        </div>
 
         <div className="rounded-md border border-yellow-200 dark:border-yellow-700 bg-white dark:bg-gray-900/60 p-3">
           <h5 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
             Add cash spending
           </h5>
-          {remainingLocal <= 0 ? (
-            <p className="text-sm text-gray-600 dark:text-gray-400">All local cash from this exchange has been allocated.</p>
+          {totalRemainingLocal <= 0 ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              All local cash for this currency has been allocated.
+            </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Spending date *</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Spending date *
+                </label>
                 <AccessibleDatePicker
-                  id={`cash-allocation-date-${source.id}`}
+                  id={`cash-allocation-date-${group.currency}`}
                   value={allocationForm.date}
-                  onChange={date => handleAllocationChange(source.id, { date: date ?? null })}
+                  onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
                   required
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Local amount ({localCurrency}) *
+                  Local amount ({group.currency}) *
                 </label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   value={allocationForm.localAmount}
-                  onChange={e => handleAllocationChange(source.id, { localAmount: e.target.value })}
+                  onChange={e => handleAllocationChange(group.currency, { localAmount: e.target.value })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                   placeholder="0.00"
                 />
@@ -355,9 +468,9 @@ export default function CashTransactionManager({
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
                 <AriaSelect
-                  id={`cash-allocation-category-${source.id}`}
+                  id={`cash-allocation-category-${group.currency}`}
                   value={allocationForm.category}
-                  onChange={value => handleAllocationChange(source.id, { category: value })}
+                  onChange={value => handleAllocationChange(group.currency, { category: value })}
                   options={spendingCategories.map(category => ({ value: category, label: category }))}
                   placeholder="Select category"
                   className="w-full text-sm"
@@ -366,12 +479,12 @@ export default function CashTransactionManager({
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Country ({remainingLocal.toFixed(2)} {localCurrency} left)
+                  Country ({totalRemainingLocal.toFixed(2)} {group.currency} left)
                 </label>
                 <AriaSelect
-                  id={`cash-allocation-country-${source.id}`}
+                  id={`cash-allocation-country-${group.currency}`}
                   value={allocationForm.country}
-                  onChange={value => handleAllocationChange(source.id, { country: value })}
+                  onChange={value => handleAllocationChange(group.currency, { country: value })}
                   options={countryOptions.map(country => ({ value: country, label: country }))}
                   placeholder="General / multiple"
                   className="w-full text-sm"
@@ -383,7 +496,7 @@ export default function CashTransactionManager({
                 <input
                   type="text"
                   value={allocationForm.description}
-                  onChange={e => handleAllocationChange(source.id, { description: e.target.value })}
+                  onChange={e => handleAllocationChange(group.currency, { description: e.target.value })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                   placeholder="e.g., Dinner in Buenos Aires"
                 />
@@ -394,7 +507,7 @@ export default function CashTransactionManager({
                 <input
                   type="text"
                   value={allocationForm.notes}
-                  onChange={e => handleAllocationChange(source.id, { notes: e.target.value })}
+                  onChange={e => handleAllocationChange(group.currency, { notes: e.target.value })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                   placeholder="Optional internal notes"
                 />
@@ -404,7 +517,7 @@ export default function CashTransactionManager({
                 <TravelItemSelector
                   expenseId={allocationForm.expenseId}
                   tripId={tripId}
-                  onReferenceChange={travelLink => handleAllocationChange(source.id, { travelLink })}
+                  onReferenceChange={travelLink => handleAllocationChange(group.currency, { travelLink })}
                   className="bg-white dark:bg-gray-900/40 rounded border border-gray-200 dark:border-gray-700 p-3"
                   initialValue={allocationForm.travelLink}
                 />
@@ -413,7 +526,7 @@ export default function CashTransactionManager({
               <div className="md:col-span-2 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => handleAddAllocation(source.id)}
+                  onClick={() => handleAddAllocation(group.currency)}
                   className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
                 >
                   Add cash spending
@@ -545,9 +658,9 @@ export default function CashTransactionManager({
         </div>
       </div>
 
-      {cashSources.length > 0 && (
+      {cashGroups.length > 0 && (
         <div className="space-y-4">
-          {cashSources.map(source => renderCashSource(source))}
+          {cashGroups.map(group => renderCurrencyGroup(group))}
         </div>
       )}
     </div>

@@ -17,10 +17,11 @@ import {
 } from '../../../hooks/useExpenseLinks';
 import CashTransactionManager from './CashTransactionManager';
 import {
+  getAllocationSegments,
   getAllocationsForSource,
   isCashAllocation,
   isCashSource,
-  restoreAllocationOnSource
+  restoreAllocationSegmentsOnSources
 } from '../../../lib/cashTransactions';
 
 interface ExpenseManagerProps {
@@ -191,19 +192,23 @@ export default function ExpenseManager({
     }
 
     if (isCashAllocation(expense)) {
-      const parentId = expense.cashTransaction.parentExpenseId;
-      const parentExpense = costData.expenses.find(item => item.id === parentId);
+      const segments = getAllocationSegments(expense.cashTransaction);
+      const missingSource = segments.find(
+        segment => !costData.expenses.some(item => item.id === segment.sourceExpenseId)
+      );
 
-      if (!parentExpense || !isCashSource(parentExpense)) {
-        alert('Unable to locate the cash transaction this spending belongs to. Please refresh the page.');
+      if (missingSource) {
+        alert('Unable to locate one of the cash exchanges linked to this spending. Please refresh the page.');
         return;
       }
 
-      const updatedParent = restoreAllocationOnSource(parentExpense, expense.cashTransaction, expense.id);
+      const expensesWithRestoredSources = restoreAllocationSegmentsOnSources(
+        costData.expenses,
+        segments,
+        expense.id
+      );
 
-      const updatedExpenses = costData.expenses
-        .filter(item => item.id !== expenseId)
-        .map(item => (item.id === parentId ? updatedParent : item));
+      const updatedExpenses = expensesWithRestoredSources.filter(item => item.id !== expenseId);
 
       setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
       setHasUnsavedChanges(true);

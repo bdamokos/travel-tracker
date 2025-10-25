@@ -3,7 +3,7 @@
 import React from 'react';
 import { Expense } from '../../types';
 import { formatUtcDate } from '@/app/lib/dateUtils';
-import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
+import { getAllocationSegments, isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 
 interface ExpenseDisplayProps {
   expense: Expense;
@@ -22,6 +22,7 @@ export default function ExpenseDisplay({
 }: ExpenseDisplayProps) {
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
+  const allocationSegments = isCashAllocationExpense ? getAllocationSegments(expense.cashTransaction) : [];
   const canEdit = !isCashSourceExpense;
 
   const formatDate = (date: string | Date) => {
@@ -160,10 +161,17 @@ export default function ExpenseDisplay({
         )}
 
         {isCashAllocationExpense && expense.cashTransaction && (
-          <div className="text-xs text-yellow-700 dark:text-yellow-200 mt-2">
-            🔄 Converted {expense.cashTransaction.localAmount.toFixed(2)}{' '}
-            {expense.cashTransaction.localCurrency} ≈ {expense.cashTransaction.baseAmount.toFixed(2)}{' '}
-            {expense.currency}
+          <div className="text-xs text-yellow-700 dark:text-yellow-200 mt-2 space-y-1">
+            <div>
+              🔄 Converted {expense.cashTransaction.localAmount.toFixed(2)}{' '}
+              {expense.cashTransaction.localCurrency} ≈ {expense.cashTransaction.baseAmount.toFixed(2)}{' '}
+              {expense.currency}
+            </div>
+            {allocationSegments.length > 1 && (
+              <div>
+                Sourced from {allocationSegments.length} exchanges (FIFO applied).
+              </div>
+            )}
           </div>
         )}
       </div>

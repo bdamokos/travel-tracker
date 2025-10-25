@@ -14,7 +14,12 @@ import CostSummaryDashboard from './CostSummaryDashboard';
 import YnabImportForm from '../YnabImportForm';
 import YnabMappingManager from '../YnabMappingManager';
 import YnabSetup from '../YnabSetup';
-import { applyAllocationToSource, isCashAllocation, isCashSource } from '../../../lib/cashTransactions';
+import {
+  applyAllocationSegmentsToSources,
+  getAllocationSegments,
+  isCashAllocation,
+  isCashSource
+} from '../../../lib/cashTransactions';
 
 interface CostTrackerEditorProps {
   costData: CostTrackingData;
@@ -185,25 +190,24 @@ export default function CostTrackerEditor({
     let updatedExpenses = [...costData.expenses];
 
     if (isCashAllocation(expense) && editingExpenseIndex === null) {
-      const parentIndex = updatedExpenses.findIndex(e => e.id === expense.cashTransaction?.cashTransactionId);
-      if (parentIndex === -1) {
-        alert('Unable to find the cash transaction this spending belongs to. Please refresh and try again.');
+      const segments = getAllocationSegments(expense.cashTransaction);
+      const missingSource = segments.find(
+        segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
+      );
+
+      if (missingSource) {
+        alert('Unable to find one of the cash exchanges referenced by this spending. Please refresh and try again.');
         return;
       }
 
       try {
-        const updatedParent = applyAllocationToSource(
-          updatedExpenses[parentIndex],
-          expense.cashTransaction,
-          expense.id
-        );
-        updatedExpenses[parentIndex] = updatedParent;
+        updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
       } catch (error) {
         console.error('Failed to apply cash allocation:', error);
         alert(
           error instanceof Error
             ? error.message
-            : 'Unable to apply this cash spending to the selected transaction.'
+            : 'Unable to allocate this cash spending to the available exchanges.'
         );
         return;
       }

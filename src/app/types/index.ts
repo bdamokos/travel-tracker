@@ -162,14 +162,21 @@ export type CashTransactionSourceDetails = {
   allocationIds: string[];
 };
 
+export type CashTransactionAllocationSegment = {
+  sourceExpenseId: string;
+  localAmount: number;
+  baseAmount: number;
+};
+
 export type CashTransactionAllocationDetails = {
   kind: 'allocation';
   cashTransactionId: string;
-  parentExpenseId: string;
+  parentExpenseId?: string;
   localCurrency: string;
   localAmount: number;
   baseAmount: number;
   exchangeRate: number;
+  segments?: CashTransactionAllocationSegment[];
 };
 
 export type CashTransactionDetails = CashTransactionSourceDetails | CashTransactionAllocationDetails;

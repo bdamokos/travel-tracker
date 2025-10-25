@@ -1,8 +1,8 @@
 import {
-  applyAllocationToSource,
+  applyAllocationSegmentsToSources,
   createCashAllocationExpense,
   createCashSourceExpense,
-  restoreAllocationOnSource
+  restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
 import { CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
 
@@ -35,44 +35,52 @@ describe('cash transaction utilities', () => {
 
   test('createCashAllocationExpense converts amounts using source exchange rate', () => {
     const source = createSource();
-    const allocation = createCashAllocationExpense({
+    const { expense, segments } = createCashAllocationExpense({
       id: 'cash-allocation-1',
-      parentExpense: source,
+      sources: [source],
       localAmount: 2000,
       date: baseDate,
       trackingCurrency: 'EUR',
       category: 'Food & Dining'
     });
 
-    expect(allocation.cashTransaction).toBeDefined();
-    expect(allocation.cashTransaction?.baseAmount).toBeCloseTo(10, 5);
-    expect(allocation.amount).toBeCloseTo(10, 5);
-    expect(allocation.cashTransaction?.cashTransactionId).toBe(source.id);
+    expect(expense.cashTransaction).toBeDefined();
+    expect(expense.cashTransaction?.baseAmount).toBeCloseTo(10, 5);
+    expect(expense.amount).toBeCloseTo(10, 5);
+    expect(expense.cashTransaction?.cashTransactionId).toBe(source.id);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].sourceExpenseId).toBe(source.id);
   });
 
-  test('applyAllocationToSource reduces remaining balances, restoreAllocationOnSource reverses them', () => {
+  test('applyAllocationSegmentsToSources reduces remaining balances, restoreAllocationSegmentsOnSources reverses them', () => {
     const source = createSource();
-    const allocation = createCashAllocationExpense({
+    const { expense: allocationExpense, segments } = createCashAllocationExpense({
       id: 'cash-allocation-2',
-      parentExpense: source,
+      sources: [source],
       localAmount: 4000,
       date: baseDate,
       trackingCurrency: 'EUR',
       category: 'Activities & Tours'
     });
 
-    const updatedSource = applyAllocationToSource(source, allocation.cashTransaction!, allocation.id);
+    const updatedSources = applyAllocationSegmentsToSources([source], segments, allocationExpense.id);
+    const updatedSource = updatedSources[0];
 
     expect(updatedSource.cashTransaction?.remainingLocalAmount).toBeCloseTo(6000, 5);
     expect(updatedSource.cashTransaction?.remainingBaseAmount).toBeCloseTo(30, 5);
     expect(updatedSource.amount).toBeCloseTo(30, 5);
-    expect(updatedSource.cashTransaction?.allocationIds).toContain(allocation.id);
+    expect(updatedSource.cashTransaction?.allocationIds).toContain(allocationExpense.id);
 
-    const restoredSource = restoreAllocationOnSource(updatedSource, allocation.cashTransaction!, allocation.id);
+    const restoredSources = restoreAllocationSegmentsOnSources(
+      updatedSources,
+      segments,
+      allocationExpense.id
+    );
+    const restoredSource = restoredSources[0];
     expect(restoredSource.cashTransaction?.remainingLocalAmount).toBeCloseTo(10000, 5);
     expect(restoredSource.cashTransaction?.remainingBaseAmount).toBeCloseTo(50, 5);
     expect(restoredSource.amount).toBeCloseTo(50, 5);
-    expect(restoredSource.cashTransaction?.allocationIds).not.toContain(allocation.id);
+    expect(restoredSource.cashTransaction?.allocationIds).not.toContain(allocationExpense.id);
   });
 
   test('createCashAllocationExpense throws when overspending remaining cash', () => {
@@ -80,12 +88,67 @@ describe('cash transaction utilities', () => {
 
     expect(() =>
       createCashAllocationExpense({
-        parentExpense: source,
+        sources: [source],
         localAmount: 20000,
         date: baseDate,
         trackingCurrency: 'EUR',
         category: 'Shopping'
       })
-    ).toThrow('Cash spending exceeds remaining local amount.');
+    ).toThrow('Not enough cash available in this currency to cover the spending.');
+  });
+
+  test('cash allocation splits spend across multiple sources using FIFO', () => {
+    const firstSource = createCashSourceExpense({
+      id: 'cash-source-1',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 17000,
+      localCurrency: 'ARS',
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const secondSource = createCashSourceExpense({
+      id: 'cash-source-2',
+      date: new Date('2024-01-02T00:00:00Z'),
+      baseAmount: 10,
+      localAmount: 20000,
+      localCurrency: 'ARS',
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const { expense: allocationExpense, segments } = createCashAllocationExpense({
+      id: 'cash-allocation-3',
+      sources: [firstSource, secondSource],
+      localAmount: 18000,
+      date: new Date('2024-01-03T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      category: 'Food & Dining'
+    });
+
+    expect(segments).toHaveLength(2);
+    expect(segments[0].sourceExpenseId).toBe(firstSource.id);
+    expect(segments[0].localAmount).toBeCloseTo(17000, 5);
+    expect(segments[1].sourceExpenseId).toBe(secondSource.id);
+    expect(segments[1].localAmount).toBeCloseTo(1000, 5);
+
+    const updatedSources = applyAllocationSegmentsToSources(
+      [firstSource, secondSource],
+      segments,
+      allocationExpense.id
+    );
+
+    expect(updatedSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(updatedSources[1].cashTransaction.remainingLocalAmount).toBeCloseTo(19000, 5);
+
+    const restored = restoreAllocationSegmentsOnSources(
+      updatedSources,
+      segments,
+      allocationExpense.id
+    );
+
+    expect(restored[0].cashTransaction.remainingLocalAmount).toBeCloseTo(17000, 5);
+    expect(restored[1].cashTransaction.remainingLocalAmount).toBeCloseTo(20000, 5);
   });
 });
