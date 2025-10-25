@@ -11,7 +11,7 @@ import AccessibleDatePicker from './AccessibleDatePicker';
 
 interface ExpenseFormProps {
   currentExpense: Partial<Expense>;
-  setCurrentExpense: (expense: Partial<Expense>) => void;
+  setCurrentExpense: React.Dispatch<React.SetStateAction<Partial<Expense>>>;
   onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => void;
   editingExpenseIndex: number | null;
   setEditingExpenseIndex: (index: number | null) => void;
@@ -114,9 +114,15 @@ export default function ExpenseForm({
         description: '',
         notes: '',
         isGeneralExpense: false,
-        expenseType: 'actual'
+        expenseType: 'actual',
+        travelReference: selectedTravelLinkInfo ? {
+          type: selectedTravelLinkInfo.type,
+          locationId: selectedTravelLinkInfo.type === 'location' ? selectedTravelLinkInfo.id : undefined,
+          accommodationId: selectedTravelLinkInfo.type === 'accommodation' ? selectedTravelLinkInfo.id : undefined,
+          routeId: selectedTravelLinkInfo.type === 'route' ? selectedTravelLinkInfo.id : undefined,
+          description: selectedTravelLinkInfo.name,
+        } : undefined
       });
-      setSelectedTravelLinkInfo(undefined);
       
     } catch (error) {
       console.error('Error submitting expense:', error);
@@ -277,14 +283,14 @@ export default function ExpenseForm({
 
         <div className="md:col-span-2">
           <TravelItemSelector
-            expenseId={currentExpense.id!}
+            expenseId={currentExpense.id ?? 'new-expense'}
             tripId={tripId}
             travelLookup={travelLookup}
             initialValue={selectedTravelLinkInfo}
             onReferenceChange={(travelLinkInfo) => {
               setSelectedTravelLinkInfo(travelLinkInfo);
-              setCurrentExpense({
-                ...currentExpense,
+              setCurrentExpense(prev => ({
+                ...prev,
                 travelReference: travelLinkInfo ? {
                   type: travelLinkInfo.type,
                   locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
@@ -292,7 +298,7 @@ export default function ExpenseForm({
                   routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
                   description: travelLinkInfo.name,
                 } : undefined,
-              });
+              }));
             }}
           />
         </div>
@@ -322,7 +328,6 @@ export default function ExpenseForm({
                   expenseType: 'actual',
                   travelReference: undefined
                 });
-                setSelectedTravelLinkInfo(undefined);
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >

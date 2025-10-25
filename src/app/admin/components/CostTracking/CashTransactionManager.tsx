@@ -243,10 +243,13 @@ export default function CashTransactionManager({
 
     const allocationForm = allocationForms[source.id] || createInitialAllocationForm(source.country || '');
     const allocations = getAllocationsForSource(costData.expenses, source.id);
-    const remainingLocal = source.cashTransaction.remainingLocalAmount;
-    const remainingBase = source.cashTransaction.remainingBaseAmount;
-    const originalLocal = source.cashTransaction.originalLocalAmount;
-    const originalBase = source.cashTransaction.originalBaseAmount;
+    const { cashTransaction } = source;
+    const remainingLocal = cashTransaction.remainingLocalAmount;
+    const remainingBase = cashTransaction.remainingBaseAmount;
+    const originalLocal = cashTransaction.originalLocalAmount;
+    const originalBase = cashTransaction.originalBaseAmount;
+    const exchangeRate =
+      originalBase > 0 ? roundCurrency(originalLocal / originalBase, 4) : undefined;
 
     const pendingLocal = parseFloat(allocationForm.localAmount);
     const estimatedBase =
@@ -269,6 +272,12 @@ export default function CashTransactionManager({
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
               Original: {originalBase.toFixed(2)} {currency} • {originalLocal.toFixed(2)} {localCurrency}
             </p>
+            {exchangeRate !== undefined && (
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                Exchange rate: 1 {currency} = {exchangeRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{' '}
+                {localCurrency}
+              </p>
+            )}
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
               Remaining: {remainingBase.toFixed(2)} {currency} • {remainingLocal.toFixed(2)} {localCurrency}
             </p>
