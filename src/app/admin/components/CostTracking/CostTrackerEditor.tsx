@@ -14,6 +14,7 @@ import CostSummaryDashboard from './CostSummaryDashboard';
 import YnabImportForm from '../YnabImportForm';
 import YnabMappingManager from '../YnabMappingManager';
 import YnabSetup from '../YnabSetup';
+import ExportDataMenu from './ExportDataMenu';
 import {
   applyAllocationSegmentsToSources,
   getAllocationSegments,
@@ -474,6 +475,7 @@ export default function CostTrackerEditor({
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">Expense Tracking</h3>
               <div className="flex gap-2">
+                <ExportDataMenu costData={costData} />
                 <button
                   onClick={() => setShowYnabSetup(true)}
                   className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 text-sm"

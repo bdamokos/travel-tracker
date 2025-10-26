@@ -98,7 +98,10 @@ export default function CostSummaryDashboard({
                   {tripSpendingHistory.map((entry) => {
                     const percentage = maxTripSpending > 0 ? (entry.amount / maxTripSpending) * 100 : 0;
                     const barHeight = Math.max(percentage, entry.amount > 0 ? 8 : 2); // ensure small expenses still visible
-                    const labelDate = new Date(entry.date);
+                    const [year, month, day] = entry.date.split('-').map(Number);
+                    const labelDate = !Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)
+                      ? new Date(year, month - 1, day)
+                      : new Date(entry.date);
                     const dayLabel = labelDate.toLocaleDateString(undefined, {
                       month: 'short',
                       day: 'numeric'

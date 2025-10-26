@@ -157,8 +157,9 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     averageSpentPerDay = 0;
     averageSpentPerTripDay = 0;
   } else if (tripStatus === 'during') {
-    // During trip: average based on days elapsed in the trip
-    const daysElapsedInTrip = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+    // During trip: average based on days elapsed in the trip (inclusive)
+    const daysElapsedRaw = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+    const daysElapsedInTrip = Math.min(Math.max(daysElapsedRaw, 1), totalDays);
     averageSpentPerDay = daysElapsedInTrip > 0 ? tripSpent / daysElapsedInTrip : 0;
     averageSpentPerTripDay = averageSpentPerDay;
   } else {
