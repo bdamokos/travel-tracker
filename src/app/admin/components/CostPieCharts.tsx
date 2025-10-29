@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { PieLabelRenderProps as RPieLabelRenderProps } from 'recharts/types/polar/Pie';
 import { CostSummary, CountryBreakdown } from '../../types';
@@ -19,16 +19,84 @@ interface ChartData {
   category?: string;
 }
 
-// Color palette for charts
-const COLORS = [
-  '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1',
-  '#d084d0', '#87ceeb', '#dda0dd', '#98fb98', '#f0e68c',
-  '#ffa07a', '#20b2aa', '#b0c4de', '#ffb6c1', '#daa520'
+// High-contrast palettes tuned for light and dark themes
+const LIGHT_MODE_COLORS = [
+  '#1d4ed8', '#f97316', '#10b981', '#ef4444', '#6366f1',
+  '#14b8a6', '#facc15', '#a855f7', '#22d3ee', '#84cc16',
+  '#db2777', '#0ea5e9', '#f59e0b', '#15803d', '#c026d3'
 ];
+
+const DARK_MODE_COLORS = [
+  '#60a5fa', '#fb7185', '#4ade80', '#facc15', '#c4b5fd',
+  '#22d3ee', '#fbbf24', '#f472b6', '#93c5fd', '#a3e635',
+  '#fda4af', '#38bdf8', '#fde68a', '#34d399', '#ddd6fe'
+];
+
+const useAccessiblePieStyles = () => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const evaluateTheme = () => {
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+      const classDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(prefersDark || classDark);
+    };
+
+    evaluateTheme();
+
+    const mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const handleMediaChange = () => evaluateTheme();
+
+    if (mediaQuery) {
+      if (typeof mediaQuery.addEventListener === 'function') {
+        mediaQuery.addEventListener('change', handleMediaChange);
+      } else if (typeof mediaQuery.addListener === 'function') {
+        mediaQuery.addListener(handleMediaChange);
+      }
+    }
+
+    const observer = new MutationObserver(evaluateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => {
+      if (mediaQuery) {
+        if (typeof mediaQuery.removeEventListener === 'function') {
+          mediaQuery.removeEventListener('change', handleMediaChange);
+        } else if (typeof mediaQuery.removeListener === 'function') {
+          mediaQuery.removeListener(handleMediaChange);
+        }
+      }
+      observer.disconnect();
+    };
+  }, []);
+
+  return {
+    colors: isDarkMode ? DARK_MODE_COLORS : LIGHT_MODE_COLORS,
+    labelColor: isDarkMode ? '#e5e7eb' : '#1f2937',
+    sliceBorderColor: isDarkMode ? '#0f172a' : '#ffffff',
+    tooltipContainerClass: isDarkMode
+      ? 'bg-slate-900 border border-slate-700 text-slate-100'
+      : 'bg-white border border-slate-200 text-slate-900',
+    tooltipValueClass: isDarkMode ? 'text-sky-300' : 'text-blue-600',
+    tooltipMutedClass: isDarkMode ? 'text-slate-400' : 'text-gray-500'
+  };
+};
 
 const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) => {
   const [countryBasis, setCountryBasis] = useState<'total' | 'daily'>('total');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const {
+    colors,
+    labelColor,
+    sliceBorderColor,
+    tooltipContainerClass,
+    tooltipValueClass,
+    tooltipMutedClass
+  } = useAccessiblePieStyles();
 
   // Prepare country data
   const countryData: ChartData[] = costSummary.countryBreakdown
@@ -102,22 +170,66 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   };
 
   const categoryData = getCategoryData();
+  const pieChartMargin = { top: 24, right: 16, bottom: 16, left: 16 };
+  const renderSliceLabel = (props: RPieLabelRenderProps) => {
+    const { x, y, cx, name, percent } = props;
+    if (typeof x !== 'number' || typeof y !== 'number' || typeof cx !== 'number') {
+      return null;
+    }
+    if (!name) {
+      return null;
+    }
+    const percentValue = Math.round((percent ?? 0) * 1000) / 10;
+    if (percentValue < 4) {
+      // Skip rendering extremely small slices to avoid clutter
+      return null;
+    }
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill={labelColor}
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        fontSize={12}
+        fontWeight={500}
+      >
+        {`${name} (${percentValue.toFixed(1)}%)`}
+      </text>
+    );
+  };
+
+  type TooltipEntry = {
+    name: string;
+    value: number;
+    payload: ChartData;
+    percent?: number;
+  };
 
   // Custom tooltip for better formatting
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: ChartData }[]; label?: string }) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0];
+      const percentValue =
+        typeof data.percent === 'number'
+          ? Math.round(data.percent * 1000) / 10
+          : null;
+
       return (
-        <div className="bg-white p-3 border border-gray-300 rounded-sm shadow-lg">
+        <div className={`${tooltipContainerClass} p-3 rounded-sm shadow-lg`}>
           <p className="font-medium">{data.name}</p>
-          <p className="text-blue-600">
+          <p className={`mt-1 font-semibold ${tooltipValueClass}`}>
             {countryBasis === 'daily' && data.payload.country ? 
               `${formatCurrency(data.value, currency)} per day` :
               formatCurrency(data.value, currency)
             }
           </p>
+          {percentValue !== null && (
+            <p className={`${tooltipMutedClass} text-sm`}>{percentValue.toFixed(1)}% of chart</p>
+          )}
           {data.payload.country && countryBasis === 'total' && (
-            <p className="text-gray-500 text-sm">Total spent</p>
+            <p className={`${tooltipMutedClass} text-sm`}>Total spent</p>
           )}
         </div>
       );
@@ -154,24 +266,24 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
           
           {countryData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
+              <PieChart margin={pieChartMargin}>
                 <Pie
                   data={countryData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(props) => {
-                    const p = props as RPieLabelRenderProps;
-                    const name = String(p.name ?? '');
-                    const percent = (p.percent ?? 0) * 100;
-                    return <text>{`${name} (${percent.toFixed(1)}%)`}</text>;
-                  }}
+                  label={(props) => renderSliceLabel(props as RPieLabelRenderProps)}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                 >
                   {countryData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={colors[index % colors.length]}
+                      stroke={sliceBorderColor}
+                      strokeWidth={1.5}
+                    />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
@@ -210,24 +322,24 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
           
           {categoryData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
+              <PieChart margin={pieChartMargin}>
                 <Pie
                   data={categoryData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(props) => {
-                    const p = props as RPieLabelRenderProps;
-                    const name = String(p.name ?? '');
-                    const percent = (p.percent ?? 0) * 100;
-                    return <text>{`${name} (${percent.toFixed(1)}%)`}</text>;
-                  }}
+                  label={(props) => renderSliceLabel(props as RPieLabelRenderProps)}
                   outerRadius={80}
                   fill="#82ca9d"
                   dataKey="value"
                 >
                   {categoryData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={colors[index % colors.length]}
+                      stroke={sliceBorderColor}
+                      strokeWidth={1.5}
+                    />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
