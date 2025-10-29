@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import type { PieLabelRenderProps as RPieLabelRenderProps } from 'recharts/types/polar/Pie';
+import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
+import type { TooltipProps } from 'recharts';
 import { CostSummary, CountryBreakdown } from '../../types';
 import { formatCurrency } from '../../lib/costUtils';
 import AriaSelect from './AriaSelect';
@@ -99,90 +100,99 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     tooltipMutedClass
   } = useAccessiblePieStyles();
 
-  // Prepare country data
-  const countryData: ChartData[] = costSummary.countryBreakdown
-    .filter(country => country.spentAmount > 0)
-    .map(country => {
-      let value = country.spentAmount;
-      
-      // For daily basis, calculate per day spending
-      if (countryBasis === 'daily' && country.days > 0) {
-        value = country.spentAmount / country.days;
-      }
-      
-      return {
-        name: country.country,
-        value: value,
-        country: country.country
-      };
-    });
+  const countryData = useMemo<ChartData[]>(() => {
+    const baseData = costSummary.countryBreakdown
+      .filter(country => country.spentAmount > 0)
+      .map(country => {
+        let value = country.spentAmount;
 
-  // Add general expenses (expenses not tied to specific countries)
-  const generalExpenses = costSummary.countryBreakdown.find(c => c.country === 'General');
-  if (generalExpenses && generalExpenses.spentAmount > 0) {
-    let generalValue = generalExpenses.spentAmount;
-    
-    if (countryBasis === 'daily') {
-      // For general expenses, average over total trip duration
-      const totalDays = costSummary.totalDays || 1;
-      generalValue = generalExpenses.spentAmount / totalDays;
-    }
-    
-    // Update existing general entry or add it
-    const existingGeneralIndex = countryData.findIndex(d => d.name === 'General');
-    if (existingGeneralIndex >= 0) {
-      countryData[existingGeneralIndex].value = generalValue;
-    } else {
-      countryData.push({
-        name: 'General',
-        value: generalValue,
-        country: 'General'
+        if (countryBasis === 'daily' && country.days > 0) {
+          value = country.spentAmount / country.days;
+        }
+
+        return {
+          name: country.country,
+          value,
+          country: country.country
+        };
       });
-    }
-  }
 
-  // Prepare category data
-  const getCategoryData = (): ChartData[] => {
+    const data = [...baseData];
+    const generalExpenses = costSummary.countryBreakdown.find(c => c.country === 'General');
+
+    if (generalExpenses && generalExpenses.spentAmount > 0) {
+      let generalValue = generalExpenses.spentAmount;
+
+      if (countryBasis === 'daily') {
+        const totalDays = costSummary.totalDays || 1;
+        generalValue = generalExpenses.spentAmount / totalDays;
+      }
+
+      const existingGeneralIndex = data.findIndex(d => d.name === 'General');
+      if (existingGeneralIndex >= 0) {
+        data[existingGeneralIndex] = {
+          ...data[existingGeneralIndex],
+          value: generalValue
+        };
+      } else {
+        data.push({
+          name: 'General',
+          value: generalValue,
+          country: 'General'
+        });
+      }
+    }
+
+    return data;
+  }, [costSummary, countryBasis]);
+
+  const categoryData = useMemo<ChartData[]>(() => {
     let targetCountries: CountryBreakdown[] = costSummary.countryBreakdown;
-    
-    // Filter by country if specific country is selected
+
     if (categoryFilter !== 'all') {
       targetCountries = costSummary.countryBreakdown.filter(c => c.country === categoryFilter);
     }
-    
-    // Aggregate categories across selected countries
+
     const categoryMap = new Map<string, number>();
-    
+
     targetCountries.forEach(country => {
       country.categoryBreakdown.forEach(cat => {
         const existing = categoryMap.get(cat.category) || 0;
         categoryMap.set(cat.category, existing + cat.amount);
       });
     });
-    
+
     return Array.from(categoryMap.entries())
       .filter(([, amount]) => amount > 0)
       .map(([category, amount]) => ({
         name: category,
         value: amount,
-        category: category
+        category
       }))
-      .sort((a, b) => b.value - a.value); // Sort by value descending
-  };
+      .sort((a, b) => b.value - a.value);
+  }, [costSummary, categoryFilter]);
 
-  const categoryData = getCategoryData();
-  const countryTotal = countryData.reduce((sum, d) => sum + d.value, 0);
-  const categoryTotal = categoryData.reduce((sum, d) => sum + d.value, 0);
-  const countryChartData = countryData.map(dataPoint => ({
-    ...dataPoint,
-    chartTotal: countryTotal
-  }));
-  const categoryChartData = categoryData.map(dataPoint => ({
-    ...dataPoint,
-    chartTotal: categoryTotal
-  }));
+  const countryTotal = useMemo(
+    () => countryData.reduce((sum, d) => sum + d.value, 0),
+    [countryData]
+  );
+  const categoryTotal = useMemo(
+    () => categoryData.reduce((sum, d) => sum + d.value, 0),
+    [categoryData]
+  );
+  const countryChartData = useMemo(
+    () => countryData.map(dataPoint => ({ ...dataPoint, chartTotal: countryTotal })),
+    [countryData, countryTotal]
+  );
+  const categoryChartData = useMemo(
+    () => categoryData.map(dataPoint => ({ ...dataPoint, chartTotal: categoryTotal })),
+    [categoryData, categoryTotal]
+  );
   const pieChartMargin = { top: 24, right: 16, bottom: 16, left: 16 };
-  const renderSliceLabel = (props: RPieLabelRenderProps) => {
+  const renderSliceLabel = useCallback((props: PieLabelRenderProps | undefined) => {
+    if (!props) {
+      return null;
+    }
     const { x, y, cx, name, percent } = props;
     if (typeof x !== 'number' || typeof y !== 'number' || typeof cx !== 'number') {
       return null;
@@ -209,7 +219,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         {`${name} (${percentValue.toFixed(1)}%)`}
       </text>
     );
-  };
+  }, [labelColor]);
 
   type TooltipEntry = {
     name: string;
@@ -218,11 +228,19 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     percent?: number;
   };
 
+  type CustomTooltipProps = TooltipProps<number, string> & {
+    payload?: TooltipEntry[];
+  };
+
   // Custom tooltip for better formatting
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) => {
-    if (active && payload && payload.length) {
+  const renderTooltipContent = useCallback(
+    ({ active, payload }: CustomTooltipProps) => {
+      if (!active || !payload || payload.length === 0) {
+        return null;
+      }
+
       const data = payload[0];
-      const chartTotal = data.payload.chartTotal ?? 0;
+      const chartTotal = data?.payload?.chartTotal ?? 0;
       const percentValue =
         chartTotal > 0
           ? Math.round((data.value / chartTotal) * 1000) / 10
@@ -245,14 +263,20 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
           )}
         </div>
       );
-    }
-    return null;
-  };
+    },
+    [countryBasis, currency, tooltipContainerClass, tooltipMutedClass, tooltipValueClass]
+  );
 
   // Get list of countries for filter dropdown
-  const countries = ['all', ...costSummary.countryBreakdown
-    .filter(c => c.spentAmount > 0)
-    .map(c => c.country)];
+  const countries = useMemo(
+    () => [
+      'all',
+      ...costSummary.countryBreakdown
+        .filter(c => c.spentAmount > 0)
+        .map(c => c.country)
+    ],
+    [costSummary]
+  );
 
   return (
     <div className="space-y-6 text-gray-900 dark:text-gray-100" data-testid="cost-pie-charts">
@@ -284,12 +308,12 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(props) => renderSliceLabel(props as RPieLabelRenderProps)}
+                  label={(props) => renderSliceLabel(props as PieLabelRenderProps)}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {countryData.map((_, index) => (
+                  {countryChartData.map((_, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={colors[index % colors.length]}
@@ -298,7 +322,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                     />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={renderTooltipContent} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -340,12 +364,12 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(props) => renderSliceLabel(props as RPieLabelRenderProps)}
+                  label={(props) => renderSliceLabel(props as PieLabelRenderProps)}
                   outerRadius={80}
                   fill="#82ca9d"
                   dataKey="value"
                 >
-                  {categoryData.map((_, index) => (
+                  {categoryChartData.map((_, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={colors[index % colors.length]}
@@ -354,7 +378,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                     />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={renderTooltipContent} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
