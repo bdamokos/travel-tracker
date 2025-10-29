@@ -17,6 +17,7 @@ interface ChartData {
   value: number;
   country?: string;
   category?: string;
+  chartTotal?: number;
 }
 
 // High-contrast palettes tuned for light and dark themes
@@ -170,6 +171,16 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   };
 
   const categoryData = getCategoryData();
+  const countryTotal = countryData.reduce((sum, d) => sum + d.value, 0);
+  const categoryTotal = categoryData.reduce((sum, d) => sum + d.value, 0);
+  const countryChartData = countryData.map(dataPoint => ({
+    ...dataPoint,
+    chartTotal: countryTotal
+  }));
+  const categoryChartData = categoryData.map(dataPoint => ({
+    ...dataPoint,
+    chartTotal: categoryTotal
+  }));
   const pieChartMargin = { top: 24, right: 16, bottom: 16, left: 16 };
   const renderSliceLabel = (props: RPieLabelRenderProps) => {
     const { x, y, cx, name, percent } = props;
@@ -211,9 +222,10 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0];
+      const chartTotal = data.payload.chartTotal ?? 0;
       const percentValue =
-        typeof data.percent === 'number'
-          ? Math.round(data.percent * 1000) / 10
+        chartTotal > 0
+          ? Math.round((data.value / chartTotal) * 1000) / 10
           : null;
 
       return (
@@ -268,7 +280,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
             <ResponsiveContainer width="100%" height={300}>
               <PieChart margin={pieChartMargin}>
                 <Pie
-                  data={countryData}
+                  data={countryChartData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -324,7 +336,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
             <ResponsiveContainer width="100%" height={300}>
               <PieChart margin={pieChartMargin}>
                 <Pie
-                  data={categoryData}
+                  data={categoryChartData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
