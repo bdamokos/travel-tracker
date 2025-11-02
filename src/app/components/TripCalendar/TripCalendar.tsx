@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Trip, Location } from '@/app/types';
 import { 
   applyPlanningModeColors,
   generateTripCalendars,
-  MonthCalendar
+  MonthCalendar,
+  CalendarDay
 } from '@/app/lib/calendarUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import CalendarGrid from './CalendarGrid';
@@ -23,7 +24,7 @@ interface TripCalendarProps {
 export default function TripCalendar({ 
   trip, 
   planningMode = false, 
-  isPublic = () => true,
+  isPublic: isPublicProp,
   className = ''
 }: TripCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -35,6 +36,11 @@ export default function TripCalendar({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isPublic = useCallback(
+    (location: Location) => (isPublicProp ? isPublicProp(location) : true),
+    [isPublicProp]
+  );
 
   // Generate colors and process calendar data
   const [calendarData, setCalendarData] = useState<{
@@ -67,44 +73,47 @@ export default function TripCalendar({
     if (mounted) {
       loadCalendarData();
     }
-  }, [trip.id, trip.startDate, trip.endDate, trip.locations.length, planningMode, mounted]);
+  }, [trip, planningMode, mounted, isPublic]);
 
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    
-    // Find the calendar day data for this date from the generated calendar
-    let selectedCalendarDay = null;
-    
-    if (calendarData) {
-      for (const monthCalendar of calendarData.monthCalendars) {
-        for (const week of monthCalendar.weeks) {
-          for (const cell of week) {
-            if (cell.day.date.toDateString() === date.toDateString()) {
-              selectedCalendarDay = cell.day;
-              break;
-            }
-          }
-          if (selectedCalendarDay) break;
-        }
-        if (selectedCalendarDay) break;
-      }
-    }
-    
-    if (selectedCalendarDay && selectedCalendarDay.primaryLocation) {
-      // Create a JourneyDay-like object for the popup
-      const journeyDay = {
-        id: `day-${date.getTime()}`,
-        date: date,
-        title: selectedCalendarDay.cellType === 'transition' && selectedCalendarDay.secondaryLocation
-          ? `${selectedCalendarDay.primaryLocation.name} → ${selectedCalendarDay.secondaryLocation.name}`
-          : selectedCalendarDay.primaryLocation.name,
-        locations: selectedCalendarDay.locations,
-        transportation: undefined,
-        isTransition: selectedCalendarDay.cellType === 'transition'
-      };
-      
-      openPopup(selectedCalendarDay.primaryLocation, journeyDay, trip.id);
-    }
+  const handleLocationSelect = (
+    calendarDay: CalendarDay,
+    location: Location,
+    options: { isSideTrip?: boolean; baseLocation?: Location } = {}
+  ) => {
+    if (!location) return;
+
+    setSelectedDate(calendarDay.date);
+
+    const baseLocation = options.baseLocation ?? calendarDay.baseLocation ?? calendarDay.primaryLocation;
+    const isSideTrip = options.isSideTrip ?? false;
+    const sideTripNames = calendarDay.sideTrips?.map(loc => loc.name).filter(Boolean) ?? [];
+
+    const getDateValue = (value: Date | string | undefined): Date | undefined => {
+      if (!value) return undefined;
+      if (value instanceof Date) return value;
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? undefined : parsed;
+    };
+
+    const journeyDay = {
+      id: `day-${calendarDay.date.getTime()}-${location.id}`,
+      date: getDateValue(location.date) ?? calendarDay.date,
+      endDate: getDateValue(location.endDate),
+      title: isSideTrip && baseLocation
+        ? `Side Trip: ${location.name}`
+        : location.name,
+      locations: [location],
+      transportation: undefined,
+      customNotes: isSideTrip
+        ? baseLocation
+          ? `Side trip from ${baseLocation.name}`
+          : undefined
+        : sideTripNames.length > 0
+          ? `Side trips: ${sideTripNames.join(', ')}`
+          : undefined
+    };
+
+    openPopup(location, journeyDay, trip.id);
   };
 
   // Show loading state until mounted and data loaded to prevent hydration issues
@@ -167,7 +176,7 @@ export default function TripCalendar({
             <CalendarGrid
               monthCalendar={monthCalendar}
               selectedDate={selectedDate}
-              onDateSelect={handleDateSelect}
+              onLocationSelect={handleLocationSelect}
             />
           </div>
         ))}

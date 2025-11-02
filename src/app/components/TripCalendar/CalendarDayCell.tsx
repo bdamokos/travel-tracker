@@ -1,6 +1,7 @@
 'use client';
 
-import { CalendarCell } from '@/app/lib/calendarUtils';
+import { CalendarCell, CalendarDay } from '@/app/lib/calendarUtils';
+import { Location } from '@/app/types';
 import WeatherIcon from '../Weather/WeatherIcon';
 import { useMemo } from 'react';
 
@@ -8,16 +9,27 @@ interface CalendarDayCellProps {
   cell: CalendarCell;
   isSelected: boolean;
   isToday: boolean;
-  onClick: () => void;
+  onSelectLocation: (
+    day: CalendarDay,
+    location: Location,
+    options?: { isSideTrip?: boolean; baseLocation?: Location }
+  ) => void;
 }
 
 export default function CalendarDayCell({
   cell,
   isSelected,
   isToday,
-  onClick
+  onSelectLocation
 }: CalendarDayCellProps) {
   const { day, backgroundColor, textColor, diagonalSplit, mergeInfo } = cell;
+  const hasSideTrips = !!day.sideTrips && day.sideTrips.length > 0;
+  const baseLocation = day.baseLocation ?? day.primaryLocation ?? null;
+
+  const handlePrimaryClick = () => {
+    if (!day.primaryLocation || day.isOutsideTrip || day.isOutsideMonth) return;
+    onSelectLocation(day, day.primaryLocation, { baseLocation: baseLocation ?? undefined });
+  };
 
   // Today weather hint should be computed unconditionally for hooks order
   const todayHint = useMemo(() => {
@@ -70,7 +82,7 @@ export default function CalendarDayCell({
     <div
       className={baseClasses}
       style={cellStyle}
-      onClick={onClick}
+      onClick={handlePrimaryClick}
     >
       {/* Diagonal background for transition cells */}
       {diagonalSplit && (
@@ -108,7 +120,7 @@ export default function CalendarDayCell({
       
       {/* Single location label */}
       {!mergeInfo && day.primaryLocation && !diagonalSplit && (
-        <div className="absolute bottom-1 left-1 right-1 z-10">
+        <div className={`absolute ${hasSideTrips ? 'bottom-6' : 'bottom-1'} left-1 right-1 z-10`}>
           <span className="text-xs font-medium truncate block text-center">
             {day.primaryLocation.name}
           </span>
@@ -125,6 +137,28 @@ export default function CalendarDayCell({
             {day.secondaryLocation.name.slice(0, 3)}
           </div>
         </>
+      )}
+
+      {/* Side trip badges */}
+      {hasSideTrips && !diagonalSplit && (
+        <div className="absolute left-1 right-1 bottom-1 z-10 flex flex-wrap items-center justify-center gap-1">
+          {day.sideTrips!.map(sideTrip => (
+            <button
+              key={sideTrip.id}
+              type="button"
+              onClick={event => {
+                event.stopPropagation();
+                onSelectLocation(day, sideTrip, {
+                  isSideTrip: true,
+                  baseLocation: baseLocation ?? undefined
+                });
+              }}
+              className="px-2 py-0.5 rounded-full bg-white/85 text-xs font-semibold text-gray-700 shadow-sm hover:bg-white transition"
+            >
+              🧭 {sideTrip.name}
+            </button>
+          ))}
+        </div>
       )}
       
       {/* Outside trip or month styling */}

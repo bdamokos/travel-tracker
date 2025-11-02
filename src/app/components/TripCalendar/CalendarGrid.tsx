@@ -1,13 +1,18 @@
 'use client';
 
-import { MonthCalendar } from '@/app/lib/calendarUtils';
+import { MonthCalendar, CalendarDay } from '@/app/lib/calendarUtils';
+import { Location } from '@/app/types';
 import CalendarDayCell from './CalendarDayCell';
 import styles from './Calendar.module.css';
 
 interface CalendarGridProps {
   monthCalendar: MonthCalendar;
   selectedDate: Date | null;
-  onDateSelect: (date: Date) => void;
+  onLocationSelect: (
+    day: CalendarDay,
+    location: Location,
+    options?: { isSideTrip?: boolean; baseLocation?: Location }
+  ) => void;
 }
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -15,7 +20,7 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function CalendarGrid({
   monthCalendar,
   selectedDate,
-  onDateSelect
+  onLocationSelect
 }: CalendarGridProps) {
   
   const weeks = monthCalendar.weeks;
@@ -42,7 +47,9 @@ export default function CalendarGrid({
                 isSelected={selectedDate ? 
                   cell.day.date.getTime() === selectedDate.getTime() : false}
                 isToday={false} // Disabled to prevent hydration mismatch
-                onClick={() => onDateSelect(cell.day.date)}
+                onSelectLocation={(day, location, options) =>
+                  onLocationSelect(day, location, options)
+                }
               />
             ))}
           </div>

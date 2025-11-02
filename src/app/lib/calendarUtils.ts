@@ -26,6 +26,8 @@ export interface CalendarDay {
   locations: Location[];
   primaryLocation?: Location;
   secondaryLocation?: Location;
+  sideTrips?: Location[];
+  baseLocation?: Location;
   cellType: 'single' | 'transition' | 'merged-start' | 'merged-middle' | 'merged-end';
   mergeGroup?: string;
   isOutsideTrip?: boolean;
@@ -188,7 +190,77 @@ export function getAllMonthsInTrip(tripStart: Date, tripEnd: Date): Date[] {
   return months;
 }
 
-export function calculateLocationPeriodsForMonth(trip: Trip, month: Date): CalendarDay[] {
+type LocationRange = {
+  location: Location;
+  start: Date;
+  end: Date;
+};
+
+function getLocationRange(location: Location): LocationRange | null {
+  const start = toCalendarDay(location.date);
+  if (isNaN(start.getTime())) {
+    return null;
+  }
+
+  const rawEnd = location.endDate ? toCalendarDay(location.endDate) : start;
+  const end = isNaN(rawEnd.getTime()) || rawEnd < start ? start : rawEnd;
+
+  return {
+    location,
+    start,
+    end
+  };
+}
+
+function detectSideTrips(locations: Location[]): Map<string, Location> {
+  const ranges = locations
+    .map(getLocationRange)
+    .filter((range): range is LocationRange => range !== null);
+
+  const sideTripMap = new Map<string, Location>();
+
+  ranges.forEach(range => {
+    const containingLocations = ranges.filter(candidate => {
+      if (candidate.location.id === range.location.id) return false;
+      const startsBefore = candidate.start <= range.start;
+      const endsAfter = candidate.end >= range.end;
+      const strictlyContains = candidate.start < range.start || candidate.end > range.end;
+      return startsBefore && endsAfter && strictlyContains;
+    });
+
+    if (containingLocations.length === 0) {
+      return;
+    }
+
+    const base = containingLocations.reduce<LocationRange | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      const selectedDuration = selected.end.getTime() - selected.start.getTime();
+      const candidateDuration = candidate.end.getTime() - candidate.start.getTime();
+
+      if (candidateDuration > selectedDuration) {
+        return candidate;
+      }
+
+      if (candidateDuration === selectedDuration && candidate.start < selected.start) {
+        return candidate;
+      }
+
+      return selected;
+    }, null);
+
+    if (base) {
+      sideTripMap.set(range.location.id, base.location);
+    }
+  });
+
+  return sideTripMap;
+}
+
+export function calculateLocationPeriodsForMonth(
+  trip: Trip,
+  month: Date,
+  sideTripMap: Map<string, Location>
+): CalendarDay[] {
   const tripStart = toCalendarDay(trip.startDate);
   const tripEnd = toCalendarDay(trip.endDate);
   const monthLocal = toCalendarDay(month);
@@ -228,12 +300,44 @@ export function calculateLocationPeriodsForMonth(trip: Trip, month: Date): Calen
       return dateA.getTime() - dateB.getTime();
     });
 
+    const baseLocationForDay = sortedLocations.find(location => !sideTripMap.has(location.id));
+    const sideTripLocations = baseLocationForDay
+      ? sortedLocations.filter(location => {
+          const base = sideTripMap.get(location.id);
+          return base?.id === baseLocationForDay.id;
+        })
+      : [];
+
+    let primaryLocation = sortedLocations[0];
+    let secondaryLocation = sortedLocations[1];
+    let locationsForDay = sortedLocations;
+    let daySideTrips: Location[] | undefined;
+    let baseLocation: Location | undefined = baseLocationForDay;
+    let cellType: CalendarDay['cellType'] = 'single';
+
+    if (baseLocationForDay && sideTripLocations.length > 0) {
+      primaryLocation = baseLocationForDay;
+      secondaryLocation = sideTripLocations[0];
+      locationsForDay = [primaryLocation, ...sideTripLocations];
+      daySideTrips = sideTripLocations;
+      cellType = 'single';
+    } else if (sortedLocations.length > 1) {
+      primaryLocation = sortedLocations[0];
+      secondaryLocation = sortedLocations[1];
+      locationsForDay = sortedLocations;
+      daySideTrips = undefined;
+      baseLocation = primaryLocation;
+      cellType = 'transition';
+    }
+
     return {
       date,
-      locations: sortedLocations,
-      primaryLocation: sortedLocations[0],
-      secondaryLocation: sortedLocations[1],
-      cellType: sortedLocations.length > 1 ? 'transition' : 'single',
+      locations: locationsForDay,
+      primaryLocation,
+      secondaryLocation,
+      sideTrips: daySideTrips,
+      baseLocation,
+      cellType,
       isOutsideTrip: false,
       isOutsideMonth: false
     };
@@ -253,7 +357,13 @@ export function mergeAdjacentCells(calendarDays: CalendarDay[], locationColors: 
       const currentLocation = currentDay.primaryLocation?.name;
       
 
-      if (!currentLocation || currentDay.isOutsideTrip || currentDay.isOutsideMonth || currentDay.cellType === 'transition') {
+      if (
+        !currentLocation ||
+        currentDay.isOutsideTrip ||
+        currentDay.isOutsideMonth ||
+        currentDay.cellType === 'transition' ||
+        (currentDay.sideTrips && currentDay.sideTrips.length > 0)
+      ) {
         // Single cell for empty, outside trip, outside month, or transition days
         cells.push(createSingleCell(currentDay, locationColors));
         i++;
@@ -374,10 +484,11 @@ export async function generateTripCalendars(trip: Trip): Promise<{
   
   // Generate location colors first
   const locationColors = await generateLocationColors(trip.locations);
+  const sideTripMap = detectSideTrips(trip.locations);
   
   const monthCalendars = months.map(month => {
     // Calculate location periods for this specific month
-    const calendarDays = calculateLocationPeriodsForMonth(trip, month);
+    const calendarDays = calculateLocationPeriodsForMonth(trip, month, sideTripMap);
     
     // Create merged cells for this month
     const calendarCells = mergeAdjacentCells(calendarDays, locationColors);

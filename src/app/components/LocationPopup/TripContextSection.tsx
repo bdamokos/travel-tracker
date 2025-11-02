@@ -232,9 +232,16 @@ export default function TripContextSection({
             </p>
           )}
           
-          {location.notes && (
-            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-              <p className="italic">{location.notes}</p>
+          {(location.notes || day.customNotes) && (
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
+              {location.notes && (
+                <p className="italic">{location.notes}</p>
+              )}
+              {day.customNotes && (
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  {day.customNotes}
+                </p>
+              )}
             </div>
           )}
         </div>

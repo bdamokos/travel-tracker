@@ -5,6 +5,7 @@
 export interface LocationWithDate {
   id: string;
   date: Date | string;
+  endDate?: Date | string | null;
   [key: string]: unknown;
 }
 
@@ -49,50 +50,76 @@ export function findClosestLocationToCurrentDate<T extends LocationWithDate>(
 ): T | null {
   if (!locations || locations.length === 0) return null;
 
+  type NormalizedLocation = {
+    original: T;
+    start: Date;
+    end: Date;
+  };
+
+  const normalizeLocation = (location: T): NormalizedLocation | null => {
+    const start = normalizeUtcDateToLocalDay(location.date);
+    if (!start) return null;
+
+    const rawEnd = location.endDate ?? null;
+    const parsedEnd = rawEnd ? normalizeUtcDateToLocalDay(rawEnd) : null;
+    const end = parsedEnd && parsedEnd >= start ? parsedEnd : start;
+
+    return {
+      original: location,
+      start,
+      end
+    };
+  };
+
+  const normalizedLocations: NormalizedLocation[] = locations
+    .map(normalizeLocation)
+    .filter((loc): loc is NormalizedLocation => loc !== null);
+
+  if (normalizedLocations.length === 0) return null;
+
   const now = new Date();
-  now.setHours(23, 59, 59, 999); // Set to end of today for comparison
-  
-  // Filter out locations without valid dates
-  const validLocations = locations.filter(location => {
-    return normalizeUtcDateToLocalDay(location.date) !== null;
-  });
-  
-  if (validLocations.length === 0) return null;
-  
-  // Separate past and future locations
-  const pastLocations: T[] = [];
-  const futureLocations: T[] = [];
-  
-  validLocations.forEach(location => {
-    const locationDate = normalizeUtcDateToLocalDay(location.date);
-    if (!locationDate) return;
-    if (locationDate <= now) {
-      pastLocations.push(location);
-    } else {
-      futureLocations.push(location);
-    }
-  });
-  
-  // If we have past locations, return the latest one
-  if (pastLocations.length > 0) {
-    return pastLocations.reduce((latest, current) => {
-      const latestDate = normalizeUtcDateToLocalDay(latest.date);
-      const currentDate = normalizeUtcDateToLocalDay(current.date);
-      if (!latestDate) return current;
-      if (!currentDate) return latest;
-      return currentDate > latestDate ? current : latest;
-    });
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const activeLocations = normalizedLocations.filter(({ start, end }) => start <= today && today <= end);
+  if (activeLocations.length > 0) {
+    const active = activeLocations.reduce<NormalizedLocation | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      if (candidate.start > selected.start) return candidate;
+      if (candidate.start.getTime() === selected.start.getTime() && candidate.end > selected.end) {
+        return candidate;
+      }
+      return selected;
+    }, null);
+
+    return active?.original ?? null;
   }
-  
-  // If all locations are in the future, return the earliest one (closest to today)
+
+  const futureLocations = normalizedLocations.filter(({ start }) => start > today);
   if (futureLocations.length > 0) {
-    return futureLocations.reduce((closest, current) => {
-      const closestDate = normalizeUtcDateToLocalDay(closest.date);
-      const currentDate = normalizeUtcDateToLocalDay(current.date);
-      if (!closestDate) return current;
-      if (!currentDate) return closest;
-      return currentDate < closestDate ? current : closest;
-    });
+    const future = futureLocations.reduce<NormalizedLocation | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      if (candidate.start < selected.start) return candidate;
+      if (candidate.start.getTime() === selected.start.getTime() && candidate.end < selected.end) {
+        return candidate;
+      }
+      return selected;
+    }, null);
+
+    return future?.original ?? null;
+  }
+
+  const pastLocations = normalizedLocations.filter(({ end }) => end < today);
+  if (pastLocations.length > 0) {
+    const latest = pastLocations.reduce<NormalizedLocation | null>((selected, candidate) => {
+      if (!selected) return candidate;
+      if (candidate.end > selected.end) return candidate;
+      if (candidate.end.getTime() === selected.end.getTime() && candidate.start > selected.start) {
+        return candidate;
+      }
+      return selected;
+    }, null);
+
+    return latest?.original ?? null;
   }
 
   return null;
