@@ -177,6 +177,7 @@ export default function TripCalendar({
               monthCalendar={monthCalendar}
               selectedDate={selectedDate}
               onLocationSelect={handleLocationSelect}
+              locationColors={calendarData.locationColors}
             />
           </div>
         ))}

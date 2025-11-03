@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarCell, CalendarDay } from '@/app/lib/calendarUtils';
+import { CalendarCell, CalendarDay, muteColor } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
 import WeatherIcon from '../Weather/WeatherIcon';
 import { useMemo } from 'react';
@@ -14,13 +14,15 @@ interface CalendarDayCellProps {
     location: Location,
     options?: { isSideTrip?: boolean; baseLocation?: Location }
   ) => void;
+  locationColors: Map<string, string>;
 }
 
 export default function CalendarDayCell({
   cell,
   isSelected,
   isToday,
-  onSelectLocation
+  onSelectLocation,
+  locationColors
 }: CalendarDayCellProps) {
   const { day, backgroundColor, textColor, diagonalSplit, mergeInfo } = cell;
   const hasSideTrips = !!day.sideTrips && day.sideTrips.length > 0;
@@ -142,22 +144,32 @@ export default function CalendarDayCell({
       {/* Side trip badges */}
       {hasSideTrips && !diagonalSplit && (
         <div className="absolute left-1 right-1 bottom-1 z-10 flex flex-wrap items-center justify-center gap-1">
-          {day.sideTrips!.map(sideTrip => (
-            <button
-              key={sideTrip.id}
-              type="button"
-              onClick={event => {
-                event.stopPropagation();
-                onSelectLocation(day, sideTrip, {
-                  isSideTrip: true,
-                  baseLocation: baseLocation ?? undefined
-                });
-              }}
-              className="px-2 py-0.5 rounded-full bg-white/85 text-xs font-semibold text-gray-700 shadow-sm hover:bg-white transition"
-            >
-               {sideTrip.name}
-            </button>
-          ))}
+          {day.sideTrips!.map(sideTrip => {
+            const color = locationColors.get(sideTrip.name);
+            const background = color ? muteColor(color, 0.2) : 'rgba(255,255,255,0.85)';
+            const border = color ?? 'rgba(17,24,39,0.15)';
+            return (
+              <button
+                key={sideTrip.id}
+                type="button"
+                onClick={event => {
+                  event.stopPropagation();
+                  onSelectLocation(day, sideTrip, {
+                    isSideTrip: true,
+                    baseLocation: baseLocation ?? undefined
+                  });
+                }}
+                className="px-2 py-0.5 rounded-full border text-xs font-semibold shadow-sm transition hover:shadow"
+                style={{
+                  backgroundColor: background,
+                  borderColor: border,
+                  color: color ? '#1f2937' : '#374151'
+                }}
+              >
+                 {sideTrip.name}
+              </button>
+            );
+          })}
         </div>
       )}
       

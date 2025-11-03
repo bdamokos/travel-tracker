@@ -13,6 +13,7 @@ interface CalendarGridProps {
     location: Location,
     options?: { isSideTrip?: boolean; baseLocation?: Location }
   ) => void;
+  locationColors: Map<string, string>;
 }
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -20,7 +21,8 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function CalendarGrid({
   monthCalendar,
   selectedDate,
-  onLocationSelect
+  onLocationSelect,
+  locationColors
 }: CalendarGridProps) {
   
   const weeks = monthCalendar.weeks;
@@ -50,6 +52,7 @@ export default function CalendarGrid({
                 onSelectLocation={(day, location, options) =>
                   onLocationSelect(day, location, options)
                 }
+                locationColors={locationColors}
               />
             ))}
           </div>
