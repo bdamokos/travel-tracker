@@ -59,7 +59,7 @@ export default function DeleteWarningDialog({
   return (
     <OverlayContainer>
       <FocusScope contain restoreFocus autoFocus>
-        <div {...underlayProps} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div {...underlayProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
             {...overlayProps}
             {...dialogProps}

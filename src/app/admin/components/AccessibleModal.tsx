@@ -79,7 +79,7 @@ export default function AccessibleModal({
   return (
     <OverlayContainer>
       <div
-        className={`fixed inset-0 flex items-center justify-center p-4 z-50 ${showOverlay ? 'bg-black bg-opacity-50' : ''}`}
+        className={`fixed inset-0 flex items-center justify-center p-4 z-50 ${showOverlay ? 'bg-black/50' : ''}`}
         {...underlayProps}
       >
         <FocusScope contain restoreFocus autoFocus>

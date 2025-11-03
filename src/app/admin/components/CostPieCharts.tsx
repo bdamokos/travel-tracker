@@ -200,7 +200,15 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     if (!name) {
       return null;
     }
-    const percentValue = Math.round((percent ?? 0) * 1000) / 10;
+    const percentNumber = typeof percent === 'number'
+      ? percent
+      : percent !== undefined
+        ? Number(percent)
+        : 0;
+    if (!Number.isFinite(percentNumber)) {
+      return null;
+    }
+    const percentValue = Math.round(percentNumber * 1000) / 10;
     if (percentValue < 4) {
       // Skip rendering extremely small slices to avoid clutter
       return null;

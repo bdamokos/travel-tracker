@@ -1,3 +1,5 @@
+@reference "../../globals.css";
+
 /* Trip Calendar Styles */
 
 .tripCalendar {
@@ -77,24 +79,20 @@
 
 /* Day number */
 .dayNumber {
-  @apply absolute top-1 left-2 text-sm font-medium z-10;
-  @apply bg-white bg-opacity-80 rounded px-1;
+  @apply absolute top-1 left-2 text-sm font-medium z-10 bg-white/80 rounded px-1;
 }
 
 /* Location labels */
 .locationLabel {
-  @apply text-xs font-medium truncate text-center;
-  @apply bg-black bg-opacity-20 rounded px-1 py-0.5;
+  @apply text-xs font-medium truncate text-center bg-black/20 rounded px-1 py-0.5;
 }
 
 .locationLabelMerged {
-  @apply text-sm font-semibold text-center px-2;
-  @apply bg-black bg-opacity-20 rounded;
+  @apply text-sm font-semibold text-center px-2 bg-black/20 rounded;
 }
 
 .transitionLabels {
-  @apply text-xs font-medium;
-  @apply bg-white bg-opacity-80 rounded px-1;
+  @apply text-xs font-medium bg-white/80 rounded px-1;
 }
 
 /* Location legend */
@@ -126,7 +124,7 @@
 
 .planningMode .calendarCell.nonPublic::after {
   content: "";
-  @apply absolute inset-0 bg-gray-500 bg-opacity-20 pointer-events-none;
+  @apply absolute inset-0 pointer-events-none bg-gray-500/20;
 }
 
 /* Responsive adjustments */

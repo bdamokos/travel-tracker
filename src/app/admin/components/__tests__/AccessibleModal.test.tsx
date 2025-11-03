@@ -149,13 +149,14 @@ describe('AccessibleModal', () => {
       render(<AccessibleModal {...defaultProps} onClose={onClose} />);
       
       // Verify backdrop element exists
-      const backdrop = document.querySelector('.bg-black.bg-opacity-50');
+      const backdrop = document.querySelector('[class*="bg-black/50"]');
       expect(backdrop).toBeInTheDocument();
       
       // The backdrop click functionality is handled by React Aria's useOverlay hook
       // In a real browser environment, clicking the backdrop would trigger onClose
       // For testing purposes, we'll verify the backdrop exists and is properly configured
-      expect(backdrop).toHaveClass('fixed', 'inset-0', 'bg-black', 'bg-opacity-50');
+      expect(backdrop).toHaveClass('fixed', 'inset-0');
+      expect(backdrop?.className).toContain('bg-black/50');
     });
 
     it('does not close modal when backdrop is clicked and isDismissable is false', async () => {

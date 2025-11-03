@@ -130,10 +130,10 @@ export default function CalendarDayCell({
       {/* Transition day labels */}
       {diagonalSplit && day.primaryLocation && day.secondaryLocation && (
         <>
-          <div className="absolute top-1 left-1 text-xs font-medium z-10 bg-white bg-opacity-80 rounded px-1">
+          <div className="absolute top-1 left-1 text-xs font-medium z-10 bg-white/80 rounded px-1">
             {day.primaryLocation.name.slice(0, 3)}
           </div>
-          <div className="absolute bottom-1 right-1 text-xs font-medium z-10 bg-white bg-opacity-80 rounded px-1">
+          <div className="absolute bottom-1 right-1 text-xs font-medium z-10 bg-white/80 rounded px-1">
             {day.secondaryLocation.name.slice(0, 3)}
           </div>
         </>
@@ -155,7 +155,7 @@ export default function CalendarDayCell({
               }}
               className="px-2 py-0.5 rounded-full bg-white/85 text-xs font-semibold text-gray-700 shadow-sm hover:bg-white transition"
             >
-              🧭 {sideTrip.name}
+               {sideTrip.name}
             </button>
           ))}
         </div>
@@ -163,7 +163,7 @@ export default function CalendarDayCell({
       
       {/* Outside trip or month styling */}
       {(day.isOutsideTrip || day.isOutsideMonth) && (
-        <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 opacity-50" />
+        <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800/50 opacity-50" />
       )}
     </div>
   );

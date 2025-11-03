@@ -47,7 +47,7 @@ function InPlaceEditor<T>({
         <div className="relative">
           {editor(data, handleSave, handleCancel)}
           {isLoading && (
-            <div className="absolute inset-0 bg-white bg-opacity-75 dark:bg-gray-800 dark:bg-opacity-75 flex items-center justify-center rounded-lg">
+            <div className="absolute inset-0 bg-white/75 dark:bg-gray-800/75 flex items-center justify-center rounded-lg">
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                 <span className="text-sm text-gray-600 dark:text-gray-300">Saving...</span>
