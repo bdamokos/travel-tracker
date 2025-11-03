@@ -214,6 +214,7 @@ export default function ExpenseInlineEditor({
             expenseId={formData.id}
             tripId={tripId}
             travelLookup={travelLookup}
+            transactionDate={formData.date}
             onReferenceChange={(travelLinkInfo) => {
               setSelectedTravelLinkInfo(travelLinkInfo);
               setFormData(prev => ({

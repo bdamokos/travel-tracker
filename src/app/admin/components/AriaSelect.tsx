@@ -5,6 +5,8 @@ import React from 'react';
 interface SelectOption {
   value: string;
   label: string;
+  disabled?: boolean;
+  key?: string;
 }
 
 interface AriaSelectProps {
@@ -64,7 +66,11 @@ export default function AriaSelect({
         <option value="">{placeholder}</option>
       )}
       {options.map(option => (
-        <option key={option.value} value={option.value}>
+        <option
+          key={option.key ?? option.value}
+          value={option.value}
+          disabled={option.disabled}
+        >
           {option.label}
         </option>
       ))}

@@ -520,6 +520,7 @@ export default function CashTransactionManager({
                   onReferenceChange={travelLink => handleAllocationChange(group.currency, { travelLink })}
                   className="bg-white dark:bg-gray-900/40 rounded border border-gray-200 dark:border-gray-700 p-3"
                   initialValue={allocationForm.travelLink}
+                  transactionDate={allocationForm.date}
                 />
               </div>
 

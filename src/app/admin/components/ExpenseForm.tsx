@@ -286,6 +286,7 @@ export default function ExpenseForm({
             expenseId={currentExpense.id ?? 'new-expense'}
             tripId={tripId}
             travelLookup={travelLookup}
+            transactionDate={currentExpense.date}
             initialValue={selectedTravelLinkInfo}
             onReferenceChange={(travelLinkInfo) => {
               setSelectedTravelLinkInfo(travelLinkInfo);

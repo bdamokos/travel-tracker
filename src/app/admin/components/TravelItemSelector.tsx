@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Location, Transportation, Accommodation } from '../../types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
 import { useExpenseLinks } from '../../hooks/useExpenseLinks';
@@ -16,6 +16,68 @@ interface TravelItem {
   locationName?: string; // For accommodations
 }
 
+const normalizeDateString = (dateValue?: string | Date | null) => {
+  if (!dateValue) {
+    return null;
+  }
+
+  if (dateValue instanceof Date) {
+    return Number.isNaN(dateValue.getTime())
+      ? null
+      : dateValue.toISOString().split('T')[0];
+  }
+
+  if (typeof dateValue === 'string') {
+    const trimmed = dateValue.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const isoMatch = trimmed.match(/^\d{4}-\d{2}-\d{2}/);
+    if (isoMatch) {
+      return isoMatch[0];
+    }
+
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime())
+      ? null
+      : parsed.toISOString().split('T')[0];
+  }
+
+  return null;
+};
+
+const formatItemLabel = (item: TravelItem) => {
+  const dateLabel = item.date ? item.date : 'Date not set';
+
+  if (item.type === 'accommodation') {
+    const locationSuffix = item.locationName ? ` (in ${item.locationName})` : '';
+    return `${item.name}${locationSuffix} - ${dateLabel}`;
+  }
+
+  return `${item.name} - ${dateLabel}`;
+};
+
+const formatContextLabel = (
+  item: TravelItem,
+  context?: 'matching' | 'previous' | 'next'
+) => {
+  const baseLabel = formatItemLabel(item);
+
+  if (!context) {
+    return baseLabel;
+  }
+
+  const contextSuffix =
+    context === 'matching'
+      ? ' [matching date]'
+      : context === 'previous'
+        ? ' [previous date]'
+        : ' [next date]';
+
+  return `${baseLabel}${contextSuffix}`;
+};
+
 interface TravelItemSelectorProps {
   expenseId: string;
   tripId: string;
@@ -24,6 +86,7 @@ interface TravelItemSelectorProps {
   onReferenceChange: (travelLinkInfo: TravelLinkInfo | undefined) => void;
   className?: string;
   initialValue?: TravelLinkInfo;
+  transactionDate?: Date | string | null;
 }
 
 export default function TravelItemSelector({
@@ -31,7 +94,8 @@ export default function TravelItemSelector({
   tripId,
   onReferenceChange,
   className = '',
-  initialValue
+  initialValue,
+  transactionDate
 }: TravelItemSelectorProps) {
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,6 +199,114 @@ export default function TravelItemSelector({
     loadTravelItems();
   }, [tripId]);
 
+  const transactionDateString = useMemo(
+    () => normalizeDateString(transactionDate ?? null),
+    [transactionDate]
+  );
+
+  const itemsForSelectedType = useMemo(() => {
+    type TravelItemWithMeta = TravelItem & {
+      normalizedDate: string | null;
+      timestamp: number | null;
+    };
+
+    const withMeta: TravelItemWithMeta[] = travelItems
+      .filter(item => item.type === selectedType)
+      .map(item => {
+        const normalizedDate = normalizeDateString(item.date);
+        const timestamp = normalizedDate ? Date.parse(normalizedDate) : null;
+        return {
+          ...item,
+          normalizedDate,
+          timestamp
+        };
+      });
+
+    withMeta.sort((a, b) => {
+      if (a.timestamp === null && b.timestamp === null) {
+        return a.name.localeCompare(b.name);
+      }
+      if (a.timestamp === null) {
+        return 1;
+      }
+      if (b.timestamp === null) {
+        return -1;
+      }
+      if (a.timestamp !== b.timestamp) {
+        return a.timestamp - b.timestamp;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return withMeta;
+  }, [selectedType, travelItems]);
+
+  const selectOptions = useMemo(() => {
+    type SelectOption = { value: string; label: string; disabled?: boolean; key?: string };
+
+    const buildBaseOptions = (): SelectOption[] =>
+      itemsForSelectedType.map(item => ({
+        value: item.id,
+        label: formatContextLabel(item, undefined),
+        key: `base-${item.id}`
+      }));
+
+    if (!transactionDateString || !itemsForSelectedType.length) {
+      return buildBaseOptions();
+    }
+
+    const transactionTimestamp = Date.parse(transactionDateString);
+    if (Number.isNaN(transactionTimestamp)) {
+      return buildBaseOptions();
+    }
+
+    const matchingItems = itemsForSelectedType.filter(
+      item => item.normalizedDate === transactionDateString
+    );
+
+    const previousItem = [...itemsForSelectedType]
+      .reverse()
+      .find(item => item.timestamp !== null && item.timestamp < transactionTimestamp);
+
+    const nextItem = itemsForSelectedType.find(
+      item => item.timestamp !== null && item.timestamp > transactionTimestamp
+    );
+
+    const topEntries: Array<{ item: TravelItem; context: 'matching' | 'previous' | 'next' }> = [];
+
+    matchingItems.forEach(item => {
+      topEntries.push({ item, context: 'matching' });
+    });
+
+    if (previousItem && !matchingItems.some(item => item.id === previousItem.id)) {
+      topEntries.push({ item: previousItem, context: 'previous' });
+    }
+
+    if (
+      nextItem &&
+      !matchingItems.some(item => item.id === nextItem.id) &&
+      (!previousItem || previousItem.id !== nextItem.id)
+    ) {
+      topEntries.push({ item: nextItem, context: 'next' });
+    }
+
+    if (!topEntries.length) {
+      return buildBaseOptions();
+    }
+
+    const topOptions: SelectOption[] = topEntries.map(entry => ({
+      value: entry.item.id,
+      label: formatContextLabel(entry.item, entry.context),
+      key: `priority-${entry.context}-${entry.item.id}`
+    }));
+
+    return [
+      ...topOptions,
+      { value: '__separator__', label: '----', disabled: true, key: 'separator' },
+      ...buildBaseOptions()
+    ];
+  }, [itemsForSelectedType, transactionDateString]);
+
   const handleTypeChange = (type: string) => {
     setSelectedType(type as 'location' | 'accommodation' | 'route' | '');
     setSelectedItem('');
@@ -142,6 +314,10 @@ export default function TravelItemSelector({
   };
 
   const handleItemChange = (itemId: string) => {
+    if (itemId === '__separator__') {
+      return;
+    }
+
     setSelectedItem(itemId);
     updateReference(selectedType, itemId, description);
   };
@@ -189,10 +365,6 @@ export default function TravelItemSelector({
     );
   }
 
-  const filteredItems = travelItems.filter(item => {
-    return item.type === selectedType;
-  });
-
   return (
     <div className={`space-y-3 ${className}`}>
       <div>
@@ -222,12 +394,7 @@ export default function TravelItemSelector({
             id="travel-item-select"
             value={selectedItem}
             onChange={(value) => handleItemChange(value)}
-            options={filteredItems.map(item => ({
-              value: item.id,
-              label: item.type === 'accommodation' ? 
-                `${item.name} (in ${item.locationName}) - ${item.date}` :
-                `${item.name} - ${item.date}`
-            }))}
+            options={selectOptions}
             placeholder={`Select ${selectedType}...`}
           />
         </div>
