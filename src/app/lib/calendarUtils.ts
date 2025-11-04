@@ -1,6 +1,7 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { pickDistinctColors } from 'pick-distinct-colors';
 import { Trip, Location } from '@/app/types';
+import { buildSideTripMap } from './sideTripUtils';
 
 function toCalendarDay(value: string | Date): Date {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
@@ -188,72 +189,6 @@ export function getAllMonthsInTrip(tripStart: Date, tripEnd: Date): Date[] {
   }
   
   return months;
-}
-
-type LocationRange = {
-  location: Location;
-  start: Date;
-  end: Date;
-};
-
-function getLocationRange(location: Location): LocationRange | null {
-  const start = toCalendarDay(location.date);
-  if (isNaN(start.getTime())) {
-    return null;
-  }
-
-  const rawEnd = location.endDate ? toCalendarDay(location.endDate) : start;
-  const end = isNaN(rawEnd.getTime()) || rawEnd < start ? start : rawEnd;
-
-  return {
-    location,
-    start,
-    end
-  };
-}
-
-function detectSideTrips(locations: Location[]): Map<string, Location> {
-  const ranges = locations
-    .map(getLocationRange)
-    .filter((range): range is LocationRange => range !== null);
-
-  const sideTripMap = new Map<string, Location>();
-
-  ranges.forEach(range => {
-    const containingLocations = ranges.filter(candidate => {
-      if (candidate.location.id === range.location.id) return false;
-      const startsBefore = candidate.start <= range.start;
-      const endsAfter = candidate.end >= range.end;
-      const strictlyContains = candidate.start < range.start || candidate.end > range.end;
-      return startsBefore && endsAfter && strictlyContains;
-    });
-
-    if (containingLocations.length === 0) {
-      return;
-    }
-
-    const base = containingLocations.reduce<LocationRange | null>((selected, candidate) => {
-      if (!selected) return candidate;
-      const selectedDuration = selected.end.getTime() - selected.start.getTime();
-      const candidateDuration = candidate.end.getTime() - candidate.start.getTime();
-
-      if (candidateDuration > selectedDuration) {
-        return candidate;
-      }
-
-      if (candidateDuration === selectedDuration && candidate.start < selected.start) {
-        return candidate;
-      }
-
-      return selected;
-    }, null);
-
-    if (base) {
-      sideTripMap.set(range.location.id, base.location);
-    }
-  });
-
-  return sideTripMap;
 }
 
 export function calculateLocationPeriodsForMonth(
@@ -484,7 +419,7 @@ export async function generateTripCalendars(trip: Trip): Promise<{
   
   // Generate location colors first
   const locationColors = await generateLocationColors(trip.locations);
-  const sideTripMap = detectSideTrips(trip.locations);
+  const sideTripMap = buildSideTripMap(trip.locations);
   
   const monthCalendars = months.map(month => {
     // Calculate location periods for this specific month

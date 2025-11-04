@@ -5,6 +5,7 @@ import { Location, Transportation, Accommodation } from '../../types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
 import { useExpenseLinks } from '../../hooks/useExpenseLinks';
 import AriaSelect from './AriaSelect';
+import { buildSideTripMap } from '../../lib/sideTripUtils';
 
 interface TravelItem {
   id: string;
@@ -14,6 +15,7 @@ interface TravelItem {
   date: string;
   tripTitle: string;
   locationName?: string; // For accommodations
+  baseLocationId?: string;
 }
 
 const normalizeDateString = (dateValue?: string | Date | null) => {
@@ -60,7 +62,7 @@ const formatItemLabel = (item: TravelItem) => {
 
 const formatContextLabel = (
   item: TravelItem,
-  context?: 'matching' | 'previous' | 'next'
+  context?: 'matching' | 'previous' | 'next' | 'base'
 ) => {
   const baseLabel = formatItemLabel(item);
 
@@ -73,7 +75,9 @@ const formatContextLabel = (
       ? ' [matching date]'
       : context === 'previous'
         ? ' [previous date]'
-        : ' [next date]';
+        : context === 'next'
+          ? ' [next date]'
+          : ' [base stay]';
 
   return `${baseLabel}${contextSuffix}`;
 };
@@ -140,17 +144,21 @@ export default function TravelItemSelector({
         const tripData = await response.json();
         
         const allItems: TravelItem[] = [];
-        
+
+        const sideTripMap = buildSideTripMap(tripData.locations || []);
+
         // Add locations
         if (tripData.locations) {
           tripData.locations.forEach((location: Location) => {
+            const baseLocation = sideTripMap.get(location.id);
             allItems.push({
               id: location.id,
               type: 'location',
               name: location.name,
               description: location.notes || '',
               date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date,
-              tripTitle: tripData.title
+              tripTitle: tripData.title,
+              baseLocationId: baseLocation?.id
             });
           });
         }
@@ -255,6 +263,8 @@ export default function TravelItemSelector({
       return buildBaseOptions();
     }
 
+    const travelItemById = new Map(travelItems.map(item => [item.id, item]));
+
     const transactionTimestamp = Date.parse(transactionDateString);
     if (Number.isNaN(transactionTimestamp)) {
       return buildBaseOptions();
@@ -272,14 +282,38 @@ export default function TravelItemSelector({
       item => item.timestamp !== null && item.timestamp > transactionTimestamp
     );
 
-    const topEntries: Array<{ item: TravelItem; context: 'matching' | 'previous' | 'next' }> = [];
+    const topOptions: SelectOption[] = [];
+    const priorityIds = new Set<string>();
+
+    const addPriorityOption = (item: TravelItem, context: 'matching' | 'previous' | 'next' | 'base') => {
+      if (priorityIds.has(item.id)) {
+        return;
+      }
+      priorityIds.add(item.id);
+      topOptions.push({
+        value: item.id,
+        label: formatContextLabel(item, context),
+        key: `priority-${context}-${item.id}`
+      });
+    };
+
+    const includeBaseIfNeeded = (item: TravelItem) => {
+      if (selectedType !== 'location') return;
+      const baseId = item.baseLocationId;
+      if (!baseId || baseId === item.id) return;
+      const baseItem = travelItemById.get(baseId);
+      if (!baseItem || baseItem.type !== 'location') return;
+      addPriorityOption(baseItem, 'base');
+    };
 
     matchingItems.forEach(item => {
-      topEntries.push({ item, context: 'matching' });
+      addPriorityOption(item, 'matching');
+      includeBaseIfNeeded(item);
     });
 
     if (previousItem && !matchingItems.some(item => item.id === previousItem.id)) {
-      topEntries.push({ item: previousItem, context: 'previous' });
+      addPriorityOption(previousItem, 'previous');
+      includeBaseIfNeeded(previousItem);
     }
 
     if (
@@ -287,25 +321,20 @@ export default function TravelItemSelector({
       !matchingItems.some(item => item.id === nextItem.id) &&
       (!previousItem || previousItem.id !== nextItem.id)
     ) {
-      topEntries.push({ item: nextItem, context: 'next' });
+      addPriorityOption(nextItem, 'next');
+      includeBaseIfNeeded(nextItem);
     }
 
-    if (!topEntries.length) {
+    if (!topOptions.length) {
       return buildBaseOptions();
     }
-
-    const topOptions: SelectOption[] = topEntries.map(entry => ({
-      value: entry.item.id,
-      label: formatContextLabel(entry.item, entry.context),
-      key: `priority-${entry.context}-${entry.item.id}`
-    }));
 
     return [
       ...topOptions,
       { value: '__separator__', label: '----', disabled: true, key: 'separator' },
       ...buildBaseOptions()
     ];
-  }, [itemsForSelectedType, transactionDateString]);
+  }, [itemsForSelectedType, transactionDateString, selectedType, travelItems]);
 
   const handleTypeChange = (type: string) => {
     setSelectedType(type as 'location' | 'accommodation' | 'route' | '');
