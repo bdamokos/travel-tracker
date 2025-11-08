@@ -62,6 +62,7 @@ export default function ExpenseManager({
   const [bulkTravelLink, setBulkTravelLink] = useState<TravelLinkInfo | undefined>(undefined);
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showUnlinkedOnly, setShowUnlinkedOnly] = useState(false);
 
   const { expenseLinks, isLoading: expenseLinksLoading, mutate: mutateExpenseLinks } = useExpenseLinks(tripId);
   const { trigger: linkExpense, isMutating: isLinkingExpense } = useLinkExpense();
@@ -72,8 +73,6 @@ export default function ExpenseManager({
     if (!isBulkLinkMode) return;
     setSelectedExpenseIds(prev => prev.filter(id => costData.expenses.some(expense => expense.id === id)));
   }, [costData.expenses, isBulkLinkMode]);
-
-  const allExpenseIds = useMemo(() => costData.expenses.map(expense => expense.id), [costData.expenses]);
 
   const expensesById = useMemo(
     () => new Map(costData.expenses.map(expense => [expense.id, expense])),
@@ -89,17 +88,44 @@ export default function ExpenseManager({
 
     selectedExpenseIds.forEach(expenseId => {
       const expense = expensesById.get(expenseId);
-      if (!expense?.date) {
-        return;
+      if (expense?.date) {
+        dates.push(expense.date);
       }
-
-      dates.push(expense.date);
     });
 
     return dates;
   }, [expensesById, isBulkLinkMode, selectedExpenseIds]);
-
   const bulkOperationInFlight = isApplyingBulk || isLinkingExpense || isMovingExpenseLink;
+
+  const filteredExpenses = useMemo(() => {
+    const sortedExpenses = [...costData.expenses].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    if (!showUnlinkedOnly) {
+      return sortedExpenses;
+    }
+
+    return sortedExpenses.filter(expense => {
+      if (travelLookup) {
+        return !travelLookup.getTravelLinkForExpense(expense.id);
+      }
+
+      return !expense.travelReference;
+    });
+  }, [costData.expenses, showUnlinkedOnly, travelLookup]);
+
+  const totalExpensesCount = costData.expenses.length;
+
+  useEffect(() => {
+    if (!isBulkLinkMode) {
+      return;
+    }
+
+    setSelectedExpenseIds(prev =>
+      prev.filter(id => filteredExpenses.some(expense => expense.id === id))
+    );
+  }, [filteredExpenses, isBulkLinkMode]);
 
   const toggleBulkLinkMode = () => {
     setIsBulkLinkMode(prev => {
@@ -112,8 +138,29 @@ export default function ExpenseManager({
     });
   };
 
+  const visibleExpenseIds = useMemo(
+    () => filteredExpenses.map(expense => expense.id),
+    [filteredExpenses]
+  );
+
+  const areAllVisibleSelected = useMemo(
+    () =>
+      visibleExpenseIds.length > 0 &&
+      visibleExpenseIds.every(id => selectedExpenseIds.includes(id)),
+    [visibleExpenseIds, selectedExpenseIds]
+  );
+
   const toggleSelectAll = () => {
-    setSelectedExpenseIds(prev => (prev.length === allExpenseIds.length ? [] : [...allExpenseIds]));
+    setSelectedExpenseIds(prev => {
+      const allVisibleSelected =
+        visibleExpenseIds.length > 0 && visibleExpenseIds.every(id => prev.includes(id));
+
+      if (allVisibleSelected) {
+        return prev.filter(id => !visibleExpenseIds.includes(id));
+      }
+
+      return [...visibleExpenseIds];
+    });
   };
 
   const handleExpenseSelection = (expenseId: string) => {
@@ -338,7 +385,7 @@ export default function ExpenseManager({
               onClick={toggleSelectAll}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              {selectedExpenseIds.length === allExpenseIds.length ? 'Clear Selection' : 'Select All'}
+              {areAllVisibleSelected ? 'Clear Selection' : 'Select All'}
             </button>
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Choose a travel item to apply to all selected expenses.
@@ -384,11 +431,23 @@ export default function ExpenseManager({
 
       {costData.expenses.length > 0 && (
         <div>
-          <h4 className="font-medium mb-2">Expenses ({costData.expenses.length})</h4>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+            <h4 className="font-medium">
+              Expenses ({filteredExpenses.length}
+              {showUnlinkedOnly ? ` of ${totalExpensesCount}` : ''})
+            </h4>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={showUnlinkedOnly}
+                onChange={(event) => setShowUnlinkedOnly(event.target.checked)}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              />
+              Show only unlinked expenses
+            </label>
+          </div>
           <div className="space-y-4 max-h-96 overflow-y-auto">
-            {costData.expenses
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .map((expense) => (
+            {filteredExpenses.map((expense) => (
               <div key={expense.id} className={isBulkLinkMode ? 'flex gap-3 items-start' : ''}>
                 {isBulkLinkMode && (
                   <div className="pt-2">
@@ -452,6 +511,11 @@ export default function ExpenseManager({
                 </div>
               </div>
             ))}
+            {filteredExpenses.length === 0 && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                No expenses match the current filter.
+              </p>
+            )}
           </div>
         </div>
       )}
