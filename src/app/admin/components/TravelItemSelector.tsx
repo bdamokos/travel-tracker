@@ -91,6 +91,7 @@ interface TravelItemSelectorProps {
   className?: string;
   initialValue?: TravelLinkInfo;
   transactionDate?: Date | string | null;
+  transactionDates?: Array<Date | string | null>;
 }
 
 export default function TravelItemSelector({
@@ -99,7 +100,8 @@ export default function TravelItemSelector({
   onReferenceChange,
   className = '',
   initialValue,
-  transactionDate
+  transactionDate,
+  transactionDates
 }: TravelItemSelectorProps) {
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,10 +209,24 @@ export default function TravelItemSelector({
     loadTravelItems();
   }, [tripId]);
 
-  const transactionDateString = useMemo(
-    () => normalizeDateString(transactionDate ?? null),
-    [transactionDate]
-  );
+  const normalizedTransactionDates = useMemo(() => {
+    const values: Array<Date | string | null | undefined> = [transactionDate];
+
+    if (Array.isArray(transactionDates)) {
+      values.push(...transactionDates);
+    }
+
+    const uniqueDates = new Set<string>();
+
+    values.forEach(value => {
+      const normalized = normalizeDateString(value ?? null);
+      if (normalized) {
+        uniqueDates.add(normalized);
+      }
+    });
+
+    return Array.from(uniqueDates).sort((a, b) => Date.parse(a) - Date.parse(b));
+  }, [transactionDate, transactionDates]);
 
   const itemsForSelectedType = useMemo(() => {
     type TravelItemWithMeta = TravelItem & {
@@ -259,28 +275,15 @@ export default function TravelItemSelector({
         key: `base-${item.id}`
       }));
 
-    if (!transactionDateString || !itemsForSelectedType.length) {
+    if (!selectedType || !itemsForSelectedType.length) {
       return buildBaseOptions();
     }
 
     const travelItemById = new Map(travelItems.map(item => [item.id, item]));
 
-    const transactionTimestamp = Date.parse(transactionDateString);
-    if (Number.isNaN(transactionTimestamp)) {
+    if (!normalizedTransactionDates.length) {
       return buildBaseOptions();
     }
-
-    const matchingItems = itemsForSelectedType.filter(
-      item => item.normalizedDate === transactionDateString
-    );
-
-    const previousItem = [...itemsForSelectedType]
-      .reverse()
-      .find(item => item.timestamp !== null && item.timestamp < transactionTimestamp);
-
-    const nextItem = itemsForSelectedType.find(
-      item => item.timestamp !== null && item.timestamp > transactionTimestamp
-    );
 
     const topOptions: SelectOption[] = [];
     const priorityIds = new Set<string>();
@@ -306,24 +309,55 @@ export default function TravelItemSelector({
       addPriorityOption(baseItem, 'base');
     };
 
-    matchingItems.forEach(item => {
-      addPriorityOption(item, 'matching');
-      includeBaseIfNeeded(item);
+    const findPreviousItem = (timestamp: number) => {
+      for (let index = itemsForSelectedType.length - 1; index >= 0; index -= 1) {
+        const candidate = itemsForSelectedType[index];
+        if (candidate.timestamp !== null && candidate.timestamp < timestamp) {
+          return candidate;
+        }
+      }
+      return undefined;
+    };
+
+    const findNextItem = (timestamp: number) => {
+      for (let index = 0; index < itemsForSelectedType.length; index += 1) {
+        const candidate = itemsForSelectedType[index];
+        if (candidate.timestamp !== null && candidate.timestamp > timestamp) {
+          return candidate;
+        }
+      }
+      return undefined;
+    };
+
+    normalizedTransactionDates.forEach(dateString => {
+      const transactionTimestamp = Date.parse(dateString);
+      if (Number.isNaN(transactionTimestamp)) {
+        return;
+      }
+
+      const matchingItems = itemsForSelectedType.filter(item => item.normalizedDate === dateString);
+
+      matchingItems.forEach(item => {
+        addPriorityOption(item, 'matching');
+        includeBaseIfNeeded(item);
+      });
+
+      const previousItem = findPreviousItem(transactionTimestamp);
+      if (previousItem && !matchingItems.some(item => item.id === previousItem.id)) {
+        addPriorityOption(previousItem, 'previous');
+        includeBaseIfNeeded(previousItem);
+      }
+
+      const nextItem = findNextItem(transactionTimestamp);
+      if (
+        nextItem &&
+        !matchingItems.some(item => item.id === nextItem.id) &&
+        (!previousItem || previousItem.id !== nextItem.id)
+      ) {
+        addPriorityOption(nextItem, 'next');
+        includeBaseIfNeeded(nextItem);
+      }
     });
-
-    if (previousItem && !matchingItems.some(item => item.id === previousItem.id)) {
-      addPriorityOption(previousItem, 'previous');
-      includeBaseIfNeeded(previousItem);
-    }
-
-    if (
-      nextItem &&
-      !matchingItems.some(item => item.id === nextItem.id) &&
-      (!previousItem || previousItem.id !== nextItem.id)
-    ) {
-      addPriorityOption(nextItem, 'next');
-      includeBaseIfNeeded(nextItem);
-    }
 
     if (!topOptions.length) {
       return buildBaseOptions();
@@ -334,7 +368,7 @@ export default function TravelItemSelector({
       { value: '__separator__', label: '----', disabled: true, key: 'separator' },
       ...buildBaseOptions()
     ];
-  }, [itemsForSelectedType, transactionDateString, selectedType, travelItems]);
+  }, [itemsForSelectedType, normalizedTransactionDates, selectedType, travelItems]);
 
   const handleTypeChange = (type: string) => {
     setSelectedType(type as 'location' | 'accommodation' | 'route' | '');
