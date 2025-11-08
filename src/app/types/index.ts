@@ -224,6 +224,10 @@ export type Expense = {
   // Travel integration (private)
   travelReference?: TravelReference;
   cashTransaction?: CashTransactionDetails;
+  source?: string;
+  hash?: string;
+  ynabTransactionId?: string;
+  ynabImportId?: string;
 };
 
 export type CostTrackingData = {
@@ -436,6 +440,24 @@ export type YnabTransactionFilterResult = {
   lastTransactionFound: boolean;
 };
 
+export type YnabDuplicateMatchType =
+  | 'transactionId'
+  | 'importId'
+  | 'hash'
+  | 'payeeDateAmount';
+
+export type YnabDuplicateMatch = {
+  expenseId: string;
+  description: string;
+  date: string;
+  amount: number;
+  currency: string;
+  daysApart: number;
+  matchType: YnabDuplicateMatchType;
+  exactAmountMatch: boolean;
+  amountDifference: number;
+};
+
 export type ProcessedYnabTransaction = {
   originalTransaction: YnabTransaction;
   amount: number;
@@ -446,6 +468,9 @@ export type ProcessedYnabTransaction = {
   isGeneralExpense: boolean;
   hash: string; // unique identifier to prevent duplicates
   expenseType?: ExpenseType; // Optional expense type, defaults to 'actual'
+  ynabTransactionId?: string; // YNAB API transaction ID when available
+  importId?: string; // YNAB API import ID when available
+  possibleDuplicateMatches?: YnabDuplicateMatch[];
 };
 
 // Shadow Trip Planning Types
