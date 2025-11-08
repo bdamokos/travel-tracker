@@ -74,8 +74,6 @@ export default function ExpenseManager({
     setSelectedExpenseIds(prev => prev.filter(id => costData.expenses.some(expense => expense.id === id)));
   }, [costData.expenses, isBulkLinkMode]);
 
-  const allExpenseIds = useMemo(() => costData.expenses.map(expense => expense.id), [costData.expenses]);
-
   const bulkOperationInFlight = isApplyingBulk || isLinkingExpense || isMovingExpenseLink;
 
   const filteredExpenses = useMemo(() => {
@@ -119,8 +117,29 @@ export default function ExpenseManager({
     });
   };
 
+  const visibleExpenseIds = useMemo(
+    () => filteredExpenses.map(expense => expense.id),
+    [filteredExpenses]
+  );
+
+  const areAllVisibleSelected = useMemo(
+    () =>
+      visibleExpenseIds.length > 0 &&
+      visibleExpenseIds.every(id => selectedExpenseIds.includes(id)),
+    [visibleExpenseIds, selectedExpenseIds]
+  );
+
   const toggleSelectAll = () => {
-    setSelectedExpenseIds(prev => (prev.length === allExpenseIds.length ? [] : [...allExpenseIds]));
+    setSelectedExpenseIds(prev => {
+      const allVisibleSelected =
+        visibleExpenseIds.length > 0 && visibleExpenseIds.every(id => prev.includes(id));
+
+      if (allVisibleSelected) {
+        return prev.filter(id => !visibleExpenseIds.includes(id));
+      }
+
+      return [...visibleExpenseIds];
+    });
   };
 
   const handleExpenseSelection = (expenseId: string) => {
@@ -345,7 +364,7 @@ export default function ExpenseManager({
               onClick={toggleSelectAll}
               className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              {selectedExpenseIds.length === allExpenseIds.length ? 'Clear Selection' : 'Select All'}
+              {areAllVisibleSelected ? 'Clear Selection' : 'Select All'}
             </button>
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Choose a travel item to apply to all selected expenses.
