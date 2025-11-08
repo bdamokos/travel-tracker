@@ -82,7 +82,9 @@ export async function GET(request: NextRequest) {
           mappedCountry: '', // Will be determined by category mapping
           isGeneralExpense: false, // Will be determined by category mapping
           hash: ynabUtils.generateTransactionHash(txn),
-          expenseType: 'actual'
+          expenseType: 'actual',
+          ynabTransactionId: txn.id,
+          importId: txn.import_id
         };
       });
 
@@ -256,7 +258,9 @@ export async function POST(request: NextRequest) {
           mappedCountry,
           isGeneralExpense,
           hash: ynabUtils.generateTransactionHash(txn),
-          expenseType: 'actual'
+          expenseType: 'actual',
+          ynabTransactionId: txn.id,
+          importId: txn.import_id
         };
       });
 

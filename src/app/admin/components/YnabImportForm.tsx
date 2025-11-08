@@ -1,15 +1,19 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { 
-  YnabCategoryMapping, 
-  ProcessedYnabTransaction, 
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import {
+  YnabCategoryMapping,
+  ProcessedYnabTransaction,
   CostTrackingData,
-  YnabCategory
+  YnabCategory,
+  Expense,
+  YnabDuplicateMatch
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import AriaSelect from './AriaSelect';
 import AccessibleModal from './AccessibleModal';
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 interface YnabImportFormProps {
   isOpen: boolean;
@@ -60,9 +64,176 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   );
 
   const availableCountries = costData.countryBudgets.map(b => b.country);
-  
+
   // Use the app's standard categories - either custom or the default EXPENSE_CATEGORIES
   const availableCategories = costData.customCategories || [...EXPENSE_CATEGORIES];
+
+  const duplicateCount = useMemo(() =>
+    processedTransactions.filter(txn => (txn.possibleDuplicateMatches?.length ?? 0) > 0).length,
+    [processedTransactions]
+  );
+
+  type NormalizedExpense = {
+    id: string;
+    description: string;
+    normalizedDescription: string;
+    amount: number;
+    currency: string;
+    date: Date;
+    hash?: string;
+    ynabTransactionId?: string;
+    ynabImportId?: string;
+  };
+
+  const normalizedExistingExpenses = useMemo<NormalizedExpense[]>(() => {
+    const expenses: Expense[] = costData.expenses || [];
+
+    return expenses
+      .map((expense) => {
+        const dateValue = expense.date instanceof Date ? expense.date : new Date(expense.date);
+
+        if (Number.isNaN(dateValue.getTime())) {
+          return null;
+        }
+
+        return {
+          id: expense.id,
+          description: expense.description,
+          normalizedDescription: (expense.description || '').trim().toLowerCase(),
+          amount: expense.amount,
+          currency: expense.currency,
+          date: dateValue,
+          hash: expense.hash,
+          ynabTransactionId: expense.ynabTransactionId,
+          ynabImportId: expense.ynabImportId
+        } as NormalizedExpense;
+      })
+      .filter((expense): expense is NormalizedExpense => expense !== null);
+  }, [costData.expenses]);
+
+  const currencyFormatter = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: costData.currency || 'USD'
+      });
+    } catch {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD'
+      });
+    }
+  }, [costData.currency]);
+
+  const formatAmountForCurrency = useCallback((amount: number, currencyCode?: string) => {
+    const fallbackCurrency = costData.currency || 'USD';
+
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currencyCode || fallbackCurrency
+      }).format(amount);
+    } catch {
+      return `${amount.toFixed(2)}${currencyCode ? ` ${currencyCode}` : ''}`;
+    }
+  }, [costData.currency]);
+
+  const normalizeString = (value?: string | null) => value ? value.trim().toLowerCase() : '';
+
+  const findPotentialDuplicates = useCallback((transaction: ProcessedYnabTransaction): YnabDuplicateMatch[] => {
+    if (!transaction) {
+      return [];
+    }
+
+    const transactionDate = new Date(transaction.date);
+    if (Number.isNaN(transactionDate.getTime())) {
+      return [];
+    }
+
+    const normalizedPayee = normalizeString(transaction.description || transaction.originalTransaction?.Payee);
+    const transactionAmount = Math.abs(transaction.amount);
+
+    const matches = new Map<string, YnabDuplicateMatch>();
+
+    normalizedExistingExpenses.forEach(expense => {
+      let matchType: YnabDuplicateMatch['matchType'] | null = null;
+
+      if (transaction.ynabTransactionId && expense.ynabTransactionId && expense.ynabTransactionId === transaction.ynabTransactionId) {
+        matchType = 'transactionId';
+      } else if (transaction.importId && expense.ynabImportId && expense.ynabImportId === transaction.importId) {
+        matchType = 'importId';
+      } else if (expense.hash && expense.hash === transaction.hash) {
+        matchType = 'hash';
+      } else {
+        if (!normalizedPayee || normalizedPayee !== expense.normalizedDescription) {
+          return;
+        }
+
+        const amountDifference = Math.abs(Math.abs(expense.amount) - transactionAmount);
+        if (amountDifference > 0.01) {
+          return;
+        }
+
+        const diffDays = Math.round(Math.abs(expense.date.getTime() - transactionDate.getTime()) / MS_PER_DAY);
+        if (diffDays > 1) {
+          return;
+        }
+
+        matchType = 'payeeDateAmount';
+      }
+
+      const diffDays = Math.round(Math.abs(expense.date.getTime() - transactionDate.getTime()) / MS_PER_DAY);
+      const match: YnabDuplicateMatch = {
+        expenseId: expense.id,
+        description: expense.description,
+        date: expense.date.toISOString().split('T')[0],
+        amount: expense.amount,
+        currency: expense.currency,
+        daysApart: diffDays,
+        matchType,
+        exactAmountMatch: Math.abs(Math.abs(expense.amount) - transactionAmount) < 0.005,
+        amountDifference: Math.abs(Math.abs(expense.amount) - transactionAmount)
+      };
+
+      matches.set(expense.id, match);
+    });
+
+    return Array.from(matches.values());
+  }, [normalizedExistingExpenses]);
+
+  const annotateTransactionsWithDuplicates = useCallback((transactions: ProcessedYnabTransaction[]) => {
+    return transactions.map(transaction => {
+      const duplicateMatches = findPotentialDuplicates(transaction);
+      return duplicateMatches.length > 0
+        ? { ...transaction, possibleDuplicateMatches: duplicateMatches }
+        : { ...transaction, possibleDuplicateMatches: [] };
+    });
+  }, [findPotentialDuplicates]);
+
+  const getDuplicateMatchDescription = (match: YnabDuplicateMatch) => {
+    switch (match.matchType) {
+      case 'transactionId':
+        return 'Matches an existing expense by YNAB transaction ID.';
+      case 'importId':
+        return 'Matches an existing expense by YNAB import ID.';
+      case 'hash':
+        return 'Matches an existing expense with the same transaction hash.';
+      case 'payeeDateAmount':
+      default:
+        {
+          const baseMessage = match.daysApart === 0
+            ? 'Same payee, amount, and date as an existing expense.'
+            : `Same payee and amount as an existing expense (date differs by ${match.daysApart} day${match.daysApart === 1 ? '' : 's'}).`;
+
+          if (!match.exactAmountMatch && match.amountDifference > 0) {
+            const formattedDifference = formatAmountForCurrency(match.amountDifference, match.currency);
+            return `${baseMessage} Amount differs by ${formattedDifference}.`;
+          }
+
+          return baseMessage;
+        }
+    }
+  };
 
   useEffect(() => {
     setPayeeCategoryDefaults({ ...(costData.ynabImportData?.payeeCategoryDefaults ?? {}) });
@@ -251,9 +422,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
-        setProcessedTransactions(result.transactions);
+        const annotatedTransactions = annotateTransactionsWithDuplicates(result.transactions ?? []);
+        setProcessedTransactions(annotatedTransactions);
         setTotalTransactions(result.totalCount || result.transactions.length);
         setLastServerKnowledge(result.serverKnowledge || 0);
 
@@ -273,7 +445,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         }
 
         // Initialize selected transactions with all available ones
-        const initialSelections: TransactionSelection[] = result.transactions.map((txn: ProcessedYnabTransaction) => ({
+        const initialSelections: TransactionSelection[] = annotatedTransactions.map((txn: ProcessedYnabTransaction) => ({
           transactionHash: txn.hash,
           expenseCategory: getDefaultCategoryForTransaction(txn)
         }));
@@ -322,7 +494,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       }
 
       const result = await response.json();
-      setProcessedTransactions(result.transactions);
+        const annotatedTransactions = annotateTransactionsWithDuplicates(result.transactions ?? []);
+      setProcessedTransactions(annotatedTransactions);
       setFilteredCount(result.filteredCount || 0);
       setLastTransactionFound(result.lastImportedTransactionFound || false);
       setTotalTransactions(result.totalTransactions || result.transactions.length);
@@ -335,7 +508,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       }
 
       // Initialize selected transactions with all available ones
-      const initialSelections: TransactionSelection[] = result.transactions.map((txn: ProcessedYnabTransaction) => ({
+      const initialSelections: TransactionSelection[] = annotatedTransactions.map((txn: ProcessedYnabTransaction) => ({
         transactionHash: txn.hash,
         expenseCategory: getDefaultCategoryForTransaction(txn)
       }));
@@ -419,7 +592,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             isGeneralExpense: transaction.isGeneralExpense,
             expenseType: 'actual',
             source: 'ynab-api',
-            hash: transaction.hash
+            hash: transaction.hash,
+            ynabTransactionId: transaction.ynabTransactionId,
+            ynabImportId: transaction.importId
           };
         });
 
@@ -861,9 +1036,28 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           {currentStep === 3 && (
             <div className="space-y-4">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                Select which transactions to import and assign categories. 
+                Select which transactions to import and assign categories.
                 Only new transactions (not previously imported) are shown.
+                Potential duplicates are highlighted so you can review them before importing.
               </p>
+
+              {duplicateCount > 0 && (
+                <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-900/20">
+                  <div className="flex items-start space-x-2">
+                    <svg className="h-5 w-5 text-yellow-600 dark:text-yellow-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.721-1.36 3.486 0l6.451 11.487c.75 1.336-.213 3.014-1.743 3.014H3.55c-1.53 0-2.493-1.678-1.743-3.014L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-2a.75.75 0 01-.75-.75V8.75a.75.75 0 011.5 0v2.5A.75.75 0 0110 12z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-100">
+                        {duplicateCount} potential duplicate transaction{duplicateCount === 1 ? '' : 's'} detected.
+                      </p>
+                      <p className="text-xs text-yellow-700 dark:text-yellow-200">
+                        Compare the highlighted items below with existing expenses to avoid double-counting.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Filtering Indicator */}
               {lastTransactionFound && filteredCount > 0 && (
@@ -926,7 +1120,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                         } else {
                           setSelectedTransactions(processedTransactions.map(txn => ({
                             transactionHash: txn.hash,
-                            expenseCategory: availableCategories[0]
+                            expenseCategory: getDefaultCategoryForTransaction(txn)
                           })));
                         }
                       }}
@@ -943,20 +1137,29 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                 {processedTransactions.map((txn) => {
                   const isSelected = selectedTransactions.some(s => s.transactionHash === txn.hash);
                   const selection = selectedTransactions.find(s => s.transactionHash === txn.hash);
-                  
+                  const duplicateMatches = txn.possibleDuplicateMatches ?? [];
+                  const hasPossibleDuplicates = duplicateMatches.length > 0;
+                  const cardClasses = [
+                    'p-3 rounded-lg border transition-colors',
+                    hasPossibleDuplicates
+                      ? 'border-yellow-300 bg-yellow-50 dark:border-yellow-600 dark:bg-yellow-900/20'
+                      : isSelected
+                        ? 'border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-700'
+                        : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700',
+                    isSelected ? 'ring-1 ring-blue-400 dark:ring-blue-500' : ''
+                  ].join(' ').trim();
+
                   return (
-                    <div key={txn.hash} className={`p-3 rounded-lg border ${
-                      isSelected ? 'border-blue-300 bg-blue-50 dark:bg-blue-950 dark:border-blue-700' : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700'
-                    }`}>
-                      <div className="flex items-center space-x-4">
+                    <div key={txn.hash} className={cardClasses}>
+                      <div className="flex items-start space-x-4">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleTransactionToggle(txn.hash)}
                           className="w-4 h-4 text-blue-600"
                         />
-                        
-                        <div className="flex-1">
+
+                        <div className="flex-1 space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="font-medium text-gray-800 dark:text-gray-100">{txn.description}</p>
@@ -964,14 +1167,41 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                               {txn.memo && <p className="text-sm text-gray-500 dark:text-gray-400">{txn.memo}</p>}
                             </div>
                             <div className="text-right">
-                              <p className="font-medium text-gray-800 dark:text-gray-100">€{txn.amount.toFixed(2)}</p>
+                              <p className="font-medium text-gray-800 dark:text-gray-100">{currencyFormatter.format(txn.amount)}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-300">
                                 {txn.isGeneralExpense ? 'General' : txn.mappedCountry}
                               </p>
                             </div>
                           </div>
+
+                          {hasPossibleDuplicates && (
+                            <div className="rounded-md border border-yellow-200 bg-yellow-100/60 p-3 text-xs text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-100">
+                              <div className="flex items-start space-x-2">
+                                <svg className="h-4 w-4 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.721-1.36 3.486 0l6.451 11.487c.75 1.336-.213 3.014-1.743 3.014H3.55c-1.53 0-2.493-1.678-1.743-3.014L8.257 3.1zM11 14a1 1 0 10-2 0 1 1 0 002 0zm-1-2a.75.75 0 01-.75-.75V8.75a.75.75 0 011.5 0v2.5A.75.75 0 0110 12z" clipRule="evenodd" />
+                                </svg>
+                                <div className="space-y-1">
+                                  <p className="font-semibold">Possible match with existing expenses:</p>
+                                  <ul className="space-y-1">
+                                    {duplicateMatches.map(match => (
+                                      <li key={match.expenseId}>
+                                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                          <span className="font-medium">{match.date}</span>
+                                          <span>{formatAmountForCurrency(match.amount, match.currency)}</span>
+                                          <span>{match.description}</span>
+                                        </div>
+                                        <p className="text-[11px] text-yellow-700 dark:text-yellow-200">
+                                          {getDuplicateMatchDescription(match)}
+                                        </p>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        
+
                         {isSelected && (
                           <AriaSelect
                             id={`expense-category-${txn.hash}`}
