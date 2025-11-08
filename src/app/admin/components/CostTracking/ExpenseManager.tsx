@@ -74,6 +74,27 @@ export default function ExpenseManager({
     setSelectedExpenseIds(prev => prev.filter(id => costData.expenses.some(expense => expense.id === id)));
   }, [costData.expenses, isBulkLinkMode]);
 
+  const expensesById = useMemo(
+    () => new Map(costData.expenses.map(expense => [expense.id, expense])),
+    [costData.expenses]
+  );
+
+  const selectedTransactionDates = useMemo(() => {
+    if (!isBulkLinkMode || selectedExpenseIds.length === 0) {
+      return [] as Array<Date | string>;
+    }
+
+    const dates: Array<Date | string> = [];
+
+    selectedExpenseIds.forEach(expenseId => {
+      const expense = expensesById.get(expenseId);
+      if (expense?.date) {
+        dates.push(expense.date);
+      }
+    });
+
+    return dates;
+  }, [expensesById, isBulkLinkMode, selectedExpenseIds]);
   const bulkOperationInFlight = isApplyingBulk || isLinkingExpense || isMovingExpenseLink;
 
   const filteredExpenses = useMemo(() => {
@@ -377,6 +398,7 @@ export default function ExpenseManager({
             onReferenceChange={(link) => setBulkTravelLink(link)}
             initialValue={bulkTravelLink}
             className="bg-white dark:bg-gray-800 p-3 rounded border border-blue-100 dark:border-blue-700"
+            transactionDates={selectedTransactionDates}
           />
 
           <div className="flex flex-wrap items-center gap-3">
