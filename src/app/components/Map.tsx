@@ -412,7 +412,32 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       return next;
     });
   }, [groups]);
-  
+
+  useEffect(() => {
+    if (!closestLocation) return;
+
+    const highlightedGroup = groups.find(group =>
+      group.items.some(({ location }) => location.id === closestLocation.id)
+    );
+
+    if (!highlightedGroup || highlightedGroup.items.length <= 1) {
+      return;
+    }
+
+    if (expandedGroups.has(highlightedGroup.key)) {
+      return;
+    }
+
+    setExpandedGroups(prev => {
+      if (prev.has(highlightedGroup.key)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(highlightedGroup.key);
+      return next;
+    });
+  }, [closestLocation?.id, groups, expandedGroups]);
+
   if (!journey) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
