@@ -107,15 +107,18 @@ export default function ExpenseManager({
     }
 
     return sortedExpenses.filter(expense => {
-      if (travelLookup) {
-        return !travelLookup.getTravelLinkForExpense(expense.id);
-      }
-
-      return !expense.travelReference;
+      const travelLink = travelLookup?.getTravelLinkForExpense(expense.id);
+      return !(travelLink || expense.travelReference);
     });
   }, [costData.expenses, showUnlinkedOnly, travelLookup]);
 
   const totalExpensesCount = costData.expenses.length;
+
+  useEffect(() => {
+    if (travelLookup) {
+      travelLookup.hydrateFromExpenses(costData.expenses);
+    }
+  }, [costData.expenses, travelLookup]);
 
   useEffect(() => {
     if (!isBulkLinkMode) {

@@ -3,7 +3,7 @@
  */
 
 import { ExpenseTravelLookup, TripData } from '../../lib/expenseTravelLookup';
-import { Location, Accommodation, Transportation, CostTrackingLink } from '../../types';
+import { Location, Accommodation, Transportation, CostTrackingLink, Expense } from '../../types';
 
 describe('ExpenseTravelLookup', () => {
   const mockTripData: TripData = {
@@ -58,7 +58,7 @@ describe('ExpenseTravelLookup', () => {
   describe('constructor with trip data', () => {
     it('should build index from provided trip data', () => {
       const lookup = new ExpenseTravelLookup('trip1', mockTripData);
-      
+
       // Verify location mappings
       const locationLink = lookup.getTravelLinkForExpense('exp1');
       expect(locationLink).toEqual({
@@ -108,6 +108,125 @@ describe('ExpenseTravelLookup', () => {
         name: 'Paris → London',
         tripTitle: 'Test Trip'
       });
+    });
+  });
+
+  describe('travelReference support', () => {
+    const travelReferenceTripData: TripData = {
+      title: 'Legacy Trip',
+      locations: [
+        {
+          id: 'legacy-location',
+          name: 'Ushuaia',
+          coordinates: [-54.8019, -68.303],
+          date: new Date('2024-02-01'),
+          createdAt: '2024-01-01T00:00:00Z'
+        } as Location
+      ],
+      accommodations: [],
+      routes: [
+        {
+          id: 'legacy-route',
+          type: 'plane',
+          from: 'Buenos Aires',
+          to: 'Ushuaia',
+          costTrackingLinks: []
+        } as Transportation
+      ]
+    };
+
+    const baseExpense: Expense = {
+      id: 'legacy-expense',
+      date: new Date('2024-02-02'),
+      amount: 100,
+      currency: 'USD',
+      category: 'Cash',
+      country: 'Argentina',
+      description: 'Antarctica tour deposit',
+      notes: 'Linked via travelReference only',
+      isGeneralExpense: false,
+      expenseType: 'actual',
+      travelReference: undefined
+    };
+
+    it('indexes expenses using travelReference data when provided via costData', () => {
+      const expenses: Expense[] = [
+        {
+          ...baseExpense,
+          travelReference: {
+            type: 'location',
+            locationId: 'legacy-location',
+            description: 'Stay in Ushuaia'
+          }
+        }
+      ];
+
+      const lookup = new ExpenseTravelLookup('trip1', {
+        ...travelReferenceTripData,
+        costData: { expenses }
+      });
+
+      expect(lookup.getTravelLinkForExpense('legacy-expense')).toEqual({
+        type: 'location',
+        id: 'legacy-location',
+        name: 'Stay in Ushuaia',
+        tripTitle: 'Legacy Trip'
+      });
+    });
+
+    it('hydrates travelReference mappings when expenses are updated later', () => {
+      const expenses: Expense[] = [
+        {
+          ...baseExpense,
+          travelReference: {
+            type: 'location',
+            locationId: 'legacy-location'
+          }
+        }
+      ];
+
+      const lookup = new ExpenseTravelLookup('trip1', travelReferenceTripData);
+
+      expect(lookup.getTravelLinkForExpense('legacy-expense')).toBeNull();
+
+      lookup.hydrateFromExpenses(expenses);
+
+      expect(lookup.getTravelLinkForExpense('legacy-expense')).toEqual({
+        type: 'location',
+        id: 'legacy-location',
+        name: 'Ushuaia',
+        tripTitle: 'Legacy Trip'
+      });
+    });
+
+    it('removes hydrated travelReference mappings when reference is cleared', () => {
+      const expensesWithReference: Expense[] = [
+        {
+          ...baseExpense,
+          travelReference: {
+            type: 'location',
+            locationId: 'legacy-location'
+          }
+        }
+      ];
+
+      const expensesWithoutReference: Expense[] = [
+        {
+          ...baseExpense,
+          travelReference: undefined
+        }
+      ];
+
+      const lookup = new ExpenseTravelLookup('trip1', {
+        ...travelReferenceTripData,
+        costData: { expenses: expensesWithReference }
+      });
+
+      expect(lookup.getTravelLinkForExpense('legacy-expense')).not.toBeNull();
+
+      lookup.hydrateFromExpenses(expensesWithoutReference);
+
+      expect(lookup.getTravelLinkForExpense('legacy-expense')).toBeNull();
     });
   });
 

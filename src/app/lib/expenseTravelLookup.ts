@@ -32,6 +32,10 @@ export interface TripData {
 export class ExpenseTravelLookup {
   private expenseToTravelMap = new Map<string, TravelLinkInfo>();
   private tripTitle: string = '';
+  private locations: Location[] = [];
+  private accommodations: Accommodation[] = [];
+  private routes: Transportation[] = [];
+  private travelReferenceHydratedExpenseIds: Set<string> = new Set();
 
   constructor(_tripId: string, tripData?: TripData) {
     // tripId is used for initialization but not stored
@@ -46,14 +50,18 @@ export class ExpenseTravelLookup {
    */
   buildIndexFromData(tripData: TripData): void {
     this.tripTitle = tripData.title || '';
+    this.locations = tripData.locations ?? [];
+    this.accommodations = tripData.accommodations ?? [];
+    this.routes = tripData.routes ?? [];
+    this.travelReferenceHydratedExpenseIds = new Set();
 
     // Clear existing mappings
     this.expenseToTravelMap.clear();
 
     // PHASE 1: Index from costTrackingLinks (modern system)
     // Index locations
-    if (tripData.locations) {
-      tripData.locations.forEach((location: Location) => {
+    if (this.locations) {
+      this.locations.forEach((location: Location) => {
         if (location.costTrackingLinks) {
           location.costTrackingLinks.forEach((link: CostTrackingLink) => {
             this.expenseToTravelMap.set(link.expenseId, {
@@ -68,12 +76,12 @@ export class ExpenseTravelLookup {
     }
 
     // Index accommodations
-    if (tripData.accommodations) {
-      tripData.accommodations.forEach((accommodation: Accommodation) => {
+    if (this.accommodations) {
+      this.accommodations.forEach((accommodation: Accommodation) => {
         if (accommodation.costTrackingLinks) {
           accommodation.costTrackingLinks.forEach((link: CostTrackingLink) => {
             // Find the location name for this accommodation
-            const location = tripData.locations?.find((loc: Location) => loc.id === accommodation.locationId);
+            const location = this.locations?.find((loc: Location) => loc.id === accommodation.locationId);
             const locationName = location?.name || 'Unknown location';
 
             this.expenseToTravelMap.set(link.expenseId, {
@@ -89,8 +97,8 @@ export class ExpenseTravelLookup {
     }
 
     // Index routes
-    if (tripData.routes) {
-      tripData.routes.forEach((route: Transportation) => {
+    if (this.routes) {
+      this.routes.forEach((route: Transportation) => {
         if (route.costTrackingLinks) {
           route.costTrackingLinks.forEach((link: CostTrackingLink) => {
             this.expenseToTravelMap.set(link.expenseId, {
@@ -107,46 +115,43 @@ export class ExpenseTravelLookup {
     // PHASE 2: Index from travelReference (legacy system) - only if not already found
     // This handles cases like Antarctica Hostel where costTrackingLinks is empty but travelReference exists
     if (tripData.costData?.expenses) {
-      tripData.costData.expenses.forEach((expense: Expense) => {
-        if (expense.travelReference && !this.expenseToTravelMap.has(expense.id)) {
-          const travelRef = expense.travelReference;
-
-          // Find the travel item based on the reference
-          let travelItem: Location | Accommodation | Transportation | null = null;
-          let locationName: string | undefined = undefined;
-
-          if (travelRef.type === 'location' && travelRef.locationId) {
-            travelItem = tripData.locations?.find((loc: Location) => loc.id === travelRef.locationId) || null;
-          } else if (travelRef.type === 'accommodation' && travelRef.accommodationId) {
-            travelItem = tripData.accommodations?.find((acc: Accommodation) => acc.id === travelRef.accommodationId) || null;
-            if (travelItem) {
-              const location = tripData.locations?.find((loc: Location) => loc.id === (travelItem as Accommodation).locationId);
-              locationName = location?.name || 'Unknown location';
-            }
-          } else if (travelRef.type === 'route' && travelRef.routeId) {
-            travelItem = tripData.routes?.find((route: Transportation) => route.id === travelRef.routeId) || null;
-          }
-
-          if (travelItem) {
-            const itemName = 'name' in travelItem ? travelItem.name : `${(travelItem as Transportation).from} → ${(travelItem as Transportation).to}`;
-            const linkInfo: TravelLinkInfo = {
-              type: travelRef.type,
-              id: travelItem.id,
-              name: travelRef.description || itemName,
-              tripTitle: this.tripTitle
-            };
-
-            if (locationName) {
-              linkInfo.locationName = locationName;
-            }
-
-            this.expenseToTravelMap.set(expense.id, linkInfo);
-          }
-        }
-      });
+      this.hydrateFromExpenses(tripData.costData.expenses);
     }
 
     console.log('Expense-travel index built:', this.expenseToTravelMap.size, 'mappings (from both costTrackingLinks and travelReference)');
+  }
+
+  hydrateFromExpenses(expenses: Expense[]): void {
+    if (!expenses || expenses.length === 0) {
+      if (this.travelReferenceHydratedExpenseIds.size > 0) {
+        this.travelReferenceHydratedExpenseIds.forEach(expenseId => {
+          this.expenseToTravelMap.delete(expenseId);
+        });
+        this.travelReferenceHydratedExpenseIds = new Set();
+      }
+      return;
+    }
+
+    const updatedHydratedIds = new Set<string>();
+
+    expenses.forEach((expense: Expense) => {
+      const linkInfo = this.resolveTravelLinkFromReference(expense);
+
+      if (linkInfo) {
+        this.expenseToTravelMap.set(expense.id, linkInfo);
+        updatedHydratedIds.add(expense.id);
+      } else if (this.travelReferenceHydratedExpenseIds.has(expense.id)) {
+        this.expenseToTravelMap.delete(expense.id);
+      }
+    });
+
+    this.travelReferenceHydratedExpenseIds.forEach(expenseId => {
+      if (!updatedHydratedIds.has(expenseId)) {
+        this.expenseToTravelMap.delete(expenseId);
+      }
+    });
+
+    this.travelReferenceHydratedExpenseIds = updatedHydratedIds;
   }
 
   /**
@@ -183,6 +188,51 @@ export class ExpenseTravelLookup {
    */
   hasExpenseTravelLink(expenseId: string): boolean {
     return this.expenseToTravelMap.has(expenseId);
+  }
+
+  private resolveTravelLinkFromReference(expense: Expense): TravelLinkInfo | null {
+    const travelRef = expense.travelReference;
+    if (!travelRef) {
+      return null;
+    }
+
+    if (this.expenseToTravelMap.has(expense.id) && !this.travelReferenceHydratedExpenseIds.has(expense.id)) {
+      // Existing link came from costTrackingLinks; no need to override
+      return null;
+    }
+
+    let travelItem: Location | Accommodation | Transportation | null = null;
+    let locationName: string | undefined = undefined;
+
+    if (travelRef.type === 'location' && travelRef.locationId) {
+      travelItem = this.locations.find((loc: Location) => loc.id === travelRef.locationId) || null;
+    } else if (travelRef.type === 'accommodation' && travelRef.accommodationId) {
+      travelItem = this.accommodations.find((acc: Accommodation) => acc.id === travelRef.accommodationId) || null;
+      if (travelItem) {
+        const location = this.locations.find((loc: Location) => loc.id === (travelItem as Accommodation).locationId);
+        locationName = location?.name || 'Unknown location';
+      }
+    } else if (travelRef.type === 'route' && travelRef.routeId) {
+      travelItem = this.routes.find((route: Transportation) => route.id === travelRef.routeId) || null;
+    }
+
+    if (!travelItem) {
+      return null;
+    }
+
+    const itemName = 'name' in travelItem ? travelItem.name : `${(travelItem as Transportation).from} → ${(travelItem as Transportation).to}`;
+    const linkInfo: TravelLinkInfo = {
+      type: travelRef.type,
+      id: travelItem.id,
+      name: travelRef.description || itemName,
+      tripTitle: this.tripTitle
+    };
+
+    if (locationName) {
+      linkInfo.locationName = locationName;
+    }
+
+    return linkInfo;
   }
 }
 
