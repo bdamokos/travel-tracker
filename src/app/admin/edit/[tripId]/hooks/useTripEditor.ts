@@ -231,7 +231,10 @@ export function useTripEditor(tripId: string | null) {
             title: tripData.title,
             locations: tripData.locations,
             accommodations: accommodations,
-            routes: transportationRoutes
+            routes: transportationRoutes,
+            costData: {
+              expenses: costData.expenses
+            }
           });
           setTravelLookup(lookup);
         } else {

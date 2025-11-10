@@ -228,7 +228,10 @@ export function useShadowTripEditor(tripId: string) {
                 type: route.transportType,
                 departureTime: route.date?.toISOString(),
                 privateNotes: route.privateNotes
-              }))
+              })),
+              costData: {
+                expenses: costData.expenses
+              }
             };
             const lookup = new ExpenseTravelLookup(tripId, tripData);
             setTravelLookup(lookup);

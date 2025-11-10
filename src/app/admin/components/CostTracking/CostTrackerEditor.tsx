@@ -137,7 +137,10 @@ export default function CostTrackerEditor({
           title: tripData.title,
           locations: tripData.locations,
           accommodations: tripData.accommodations,
-          routes: tripData.routes
+          routes: tripData.routes,
+          costData: {
+            expenses: costData.expenses
+          }
         });
         setTravelLookup(lookup);
       } else {
@@ -161,6 +164,12 @@ export default function CostTrackerEditor({
       setCostSummary(summary);
     }
   }, [costData]);
+
+  useEffect(() => {
+    if (travelLookup) {
+      travelLookup.hydrateFromExpenses(costData.expenses);
+    }
+  }, [costData.expenses, travelLookup]);
 
   const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo) => {
     let expense: Expense = { ...incomingExpense };
