@@ -499,6 +499,13 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const state = groupLayers.get(groupKey);
       if (!state) return;
 
+      const containsHighlighted = closestLocation
+        ? state.group.items.some(location => location.id === closestLocation.id)
+        : false;
+      if (containsHighlighted) {
+        return;
+      }
+
       state.childMarkers.forEach(marker => marker.remove());
       state.childMarkers = [];
       state.legs.forEach(leg => leg.remove());
@@ -555,6 +562,13 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         if (!validKeys.has(key)) {
           expanded.delete(key);
         }
+      }
+
+      const highlightedGroup = closestLocation
+        ? groups.find(group => group.items.some(location => location.id === closestLocation.id))
+        : undefined;
+      if (highlightedGroup && highlightedGroup.items.length > 1 && !expanded.has(highlightedGroup.key)) {
+        expanded.add(highlightedGroup.key);
       }
 
       groups.forEach(group => {
