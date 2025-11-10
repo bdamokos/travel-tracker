@@ -20,6 +20,7 @@ interface LocationItemProps {
   onLocationDelete: () => void;
   onViewPosts: () => void;
   onGeocode: (locationName: string) => Promise<[number, number]>;
+  showLocationHeader?: boolean;
 }
 
 export default function LocationItem({
@@ -31,6 +32,7 @@ export default function LocationItem({
   onLocationDelete,
   onViewPosts,
   onGeocode,
+  showLocationHeader = true,
 }: LocationItemProps) {
   const handleAccommodationIdsChange = (newIds: string[]) => {
     const updatedLocation = { ...location, accommodationIds: newIds };
@@ -69,6 +71,7 @@ export default function LocationItem({
               showAccommodations={false}
               linkedExpenses={[]}
               tripId={tripId}
+              showHeader={showLocationHeader}
             />
             
             {/* Accommodation Display */}
