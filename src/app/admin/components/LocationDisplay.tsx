@@ -16,6 +16,9 @@ interface LocationDisplayProps {
   showAccommodations?: boolean;
   linkedExpenses?: Array<{ description: string; amount: number; currency: string }>;
   tripId?: string; // Optional for backward compatibility
+  className?: string;
+  frameless?: boolean;
+  showHeader?: boolean;
 }
 
 export default function LocationDisplay({
@@ -25,7 +28,10 @@ export default function LocationDisplay({
   onViewPosts,
   showAccommodations = false,
   linkedExpenses = [],
-  tripId
+  tripId,
+  className,
+  frameless = false,
+  showHeader = true
 }: LocationDisplayProps) {
   const formatDate = (date: string | Date) => {
     return formatUtcDate(date, 'en-GB', {
@@ -53,57 +59,67 @@ export default function LocationDisplay({
 
   const hasCoords = location.coordinates[0] !== 0 || location.coordinates[1] !== 0;
 
+  const containerClassName = [
+    frameless
+      ? ''
+      : 'border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow',
+    className
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex-1">
-          <h4 className="font-semibold text-gray-900 dark:text-white text-lg">
-            {location.name}
-          </h4>
-          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {location.endDate ? (
-              <span>
-                {formatDate(location.date)} - {formatDate(location.endDate)}
-                {location.duration && (
-                  <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
-                    ({formatDuration(location.duration, location.date, location.endDate)})
-                  </span>
-                )}
-              </span>
-            ) : (
-              formatDate(location.date)
+    <div className={containerClassName || undefined}>
+      {showHeader && (
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1">
+            <h4 className="font-semibold text-gray-900 dark:text-white text-lg">
+              {location.name}
+            </h4>
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {location.endDate ? (
+                <span>
+                  {formatDate(location.date)} - {formatDate(location.endDate)}
+                  {location.duration && (
+                    <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                      ({formatDuration(location.duration, location.date, location.endDate)})
+                    </span>
+                  )}
+                </span>
+              ) : (
+                formatDate(location.date)
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 ml-4">
+            {onViewPosts && (
+              <button
+                onClick={onViewPosts}
+                className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
+                title="View/Add Posts"
+              >
+                Posts ({(location.instagramPosts?.length || 0) + (location.blogPosts?.length || 0)})
+              </button>
+            )}
+            <button
+              onClick={onEdit}
+              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
+            >
+              Edit
+            </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
+              >
+                Delete
+              </button>
             )}
           </div>
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 ml-4">
-          {onViewPosts && (
-            <button
-              onClick={onViewPosts}
-              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-              title="View/Add Posts"
-            >
-              Posts ({(location.instagramPosts?.length || 0) + (location.blogPosts?.length || 0)})
-            </button>
-          )}
-          <button
-            onClick={onEdit}
-            className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-          >
-            Edit
-          </button>
-          {onDelete && (
-            <button
-              onClick={onDelete}
-              className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Location Details */}
       <div className="space-y-2">
