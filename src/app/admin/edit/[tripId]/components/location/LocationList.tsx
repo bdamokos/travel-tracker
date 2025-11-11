@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Location } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { buildSideTripMap } from '@/app/lib/sideTripUtils';
 import LocationItem from './LocationItem';
 import LocationPosts from './LocationPosts';
 
@@ -49,6 +50,9 @@ export default function LocationList({
   onAddBlogPost,
 }: LocationListProps) {
   const [collapsedLocations, setCollapsedLocations] = useState<Record<string, boolean>>({});
+  
+  // Build side-trip map once and memoize it
+  const sideTripMap = useMemo(() => buildSideTripMap(locations), [locations]);
 
   useEffect(() => {
     const today = getTodayMidnight();
@@ -58,7 +62,7 @@ export default function LocationList({
       let changed = false;
 
       locations.forEach(location => {
-        const defaultCollapsed = getDefaultCollapsedState(location, today);
+        const defaultCollapsed = getDefaultCollapsedState(location, today, locations, sideTripMap);
         if (Object.prototype.hasOwnProperty.call(prev, location.id)) {
           next[location.id] = prev[location.id];
         } else {
@@ -79,7 +83,7 @@ export default function LocationList({
 
       return changed ? next : prev;
     });
-  }, [locations]);
+  }, [locations, sideTripMap]);
 
   useEffect(() => {
     if (selectedLocationForPosts === null) {
@@ -127,7 +131,7 @@ export default function LocationList({
             const hasCustomState = Object.prototype.hasOwnProperty.call(collapsedLocations, location.id);
             const isCollapsed = hasCustomState
               ? collapsedLocations[location.id]
-              : getDefaultCollapsedState(location, today);
+              : getDefaultCollapsedState(location, today, locations, sideTripMap);
 
             return (
               <div key={location.id} className="space-y-3">
@@ -184,7 +188,12 @@ function normalizeDate(value: string | Date): Date {
   return date;
 }
 
-function getDefaultCollapsedState(location: Location, today: Date): boolean {
+function getDefaultCollapsedState(
+  location: Location,
+  today: Date,
+  allLocations: Location[],
+  sideTripMap: Map<string, Location>
+): boolean {
   const start = normalizeDate(location.date);
   if (Number.isNaN(start.getTime())) {
     return false;
@@ -196,5 +205,35 @@ function getDefaultCollapsedState(location: Location, today: Date): boolean {
   const isCurrent = today >= start && today <= end;
   const isFuture = start > today;
 
-  return !isCurrent && !isFuture;
+  // If location is current or future, don't collapse
+  if (isCurrent || isFuture) {
+    return false;
+  }
+
+  // Check if this location is the base city of a currently active side-trip
+  // If we're currently on a side-trip, its base city should remain expanded
+  for (const otherLocation of allLocations) {
+    const otherStart = normalizeDate(otherLocation.date);
+    if (Number.isNaN(otherStart.getTime())) {
+      continue;
+    }
+
+    const otherRawEnd = otherLocation.endDate ? normalizeDate(otherLocation.endDate) : otherStart;
+    const otherEnd = Number.isNaN(otherRawEnd.getTime()) || otherRawEnd < otherStart ? otherStart : otherRawEnd;
+
+    // Check if this other location is currently active
+    const isOtherCurrent = today >= otherStart && today <= otherEnd;
+    
+    if (isOtherCurrent) {
+      // Check if this other location is a side-trip and if the location we're checking is its base
+      const baseLocation = sideTripMap.get(otherLocation.id);
+      if (baseLocation && baseLocation.id === location.id) {
+        // This location is the base city of a currently active side-trip, so don't collapse
+        return false;
+      }
+    }
+  }
+
+  // Location is in the past and not related to any current side-trip
+  return true;
 }
