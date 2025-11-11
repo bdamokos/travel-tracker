@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Location } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import LocationItem from './LocationItem';
 import LocationPosts from './LocationPosts';
-import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface LocationListProps {
   locations: Location[];
@@ -49,110 +48,103 @@ export default function LocationList({
   onAddTikTokPost,
   onAddBlogPost,
 }: LocationListProps) {
-  const [openLocations, setOpenLocations] = useState<Record<string, boolean>>({});
-
-  const sortedLocations = useMemo(
-    () =>
-      [...locations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
-    [locations]
-  );
+  const [collapsedLocations, setCollapsedLocations] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setOpenLocations(prev => {
-      const today = getTodayMidnight();
+    const today = getTodayMidnight();
+
+    setCollapsedLocations(prev => {
       const next: Record<string, boolean> = {};
       let changed = false;
 
-      for (const location of sortedLocations) {
-        const defaultOpen = getDefaultOpenState(location, today);
+      locations.forEach(location => {
+        const defaultCollapsed = getDefaultCollapsedState(location, today);
         if (Object.prototype.hasOwnProperty.call(prev, location.id)) {
           next[location.id] = prev[location.id];
         } else {
-          next[location.id] = defaultOpen;
+          next[location.id] = defaultCollapsed;
+          changed = true;
+        }
+      });
+
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      if (!changed) {
+        if (prevKeys.length !== nextKeys.length) {
+          changed = true;
+        } else if (prevKeys.some(id => !nextKeys.includes(id))) {
           changed = true;
         }
       }
 
-      for (const key of Object.keys(prev)) {
-        if (!Object.prototype.hasOwnProperty.call(next, key)) {
-          changed = true;
-        }
-      }
-
-      if (changed || Object.keys(prev).length !== Object.keys(next).length) {
-        return next;
-      }
-
-      return prev;
+      return changed ? next : prev;
     });
-  }, [sortedLocations]);
+  }, [locations]);
 
   useEffect(() => {
     if (selectedLocationForPosts === null) {
       return;
     }
 
+    const sortedLocations = [...locations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const targetLocation = sortedLocations[selectedLocationForPosts];
     if (!targetLocation) {
       return;
     }
 
-    setOpenLocations(prev => {
-      if (prev[targetLocation.id]) {
+    setCollapsedLocations(prev => {
+      if (prev[targetLocation.id] === false) {
         return prev;
       }
 
-      return { ...prev, [targetLocation.id]: true };
+      return { ...prev, [targetLocation.id]: false };
     });
-  }, [selectedLocationForPosts, sortedLocations]);
+  }, [selectedLocationForPosts, locations]);
+
+  const today = getTodayMidnight();
+
+  const handleToggleCollapse = (locationId: string, isOpen: boolean) => {
+    setCollapsedLocations(prev => {
+      const nextValue = !isOpen;
+      if (prev[locationId] === nextValue) {
+        return prev;
+      }
+      return { ...prev, [locationId]: nextValue };
+    });
+  };
 
   if (locations.length === 0) {
     return null;
   }
 
-  const today = getTodayMidnight();
-
   return (
     <div className="space-y-6">
       <h4 className="font-medium mb-4 text-gray-900 dark:text-white">Added Locations ({locations.length})</h4>
       <div className="space-y-6">
-        {sortedLocations.map((location, index) => {
-          const defaultOpen = getDefaultOpenState(location, today);
-          const isOpen = openLocations[location.id] ?? defaultOpen;
+        {locations
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .map((location, index) => {
+            const hasCustomState = Object.prototype.hasOwnProperty.call(collapsedLocations, location.id);
+            const isCollapsed = hasCustomState
+              ? collapsedLocations[location.id]
+              : getDefaultCollapsedState(location, today);
 
-          return (
-            <div key={location.id} className="space-y-3">
-              <button
-                type="button"
-                onClick={() => toggleLocation(location, setOpenLocations)}
-                className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left text-gray-900 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700"
-                aria-expanded={isOpen}
-              >
-                <div>
-                  <div className="font-medium">{location.name}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    {formatDateRange(location)}
-                  </div>
-                </div>
-                <span className="ml-4 text-xl text-gray-500 dark:text-gray-400">
-                  {isOpen ? '▾' : '▸'}
-                </span>
-              </button>
+            return (
+              <div key={location.id} className="space-y-3">
+                <LocationItem
+                  location={location}
+                  tripId={tripId}
+                  travelLookup={travelLookup}
+                  costData={costData}
+                  onLocationUpdate={(updatedLocation) => onLocationUpdate(index, updatedLocation)}
+                  onLocationDelete={() => onLocationDelete(index)}
+                  onViewPosts={() => onViewPosts(index)}
+                  onGeocode={onGeocode}
+                  isCollapsed={isCollapsed}
+                  onToggleCollapse={(isOpen) => handleToggleCollapse(location.id, isOpen)}
+                />
 
-              {isOpen && (
-                <div className="space-y-3">
-                  <LocationItem
-                    location={location}
-                    tripId={tripId}
-                    travelLookup={travelLookup}
-                    costData={costData}
-                    onLocationUpdate={(updatedLocation) => onLocationUpdate(index, updatedLocation)}
-                    onLocationDelete={() => onLocationDelete(index)}
-                    onViewPosts={() => onViewPosts(index)}
-                    onGeocode={onGeocode}
-                    showLocationHeader={false}
-                  />
-
+                {!isCollapsed && (
                   <LocationPosts
                     location={location}
                     isVisible={selectedLocationForPosts === index}
@@ -167,64 +159,13 @@ export default function LocationList({
                     onAddTikTokPost={() => onAddTikTokPost(index)}
                     onAddBlogPost={() => onAddBlogPost(index)}
                   />
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })}
       </div>
     </div>
   );
-}
-
-function formatDateRange(location: Location): string {
-  const formatDate = (date: string | Date) =>
-    formatUtcDate(date, 'en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-
-  if (location.endDate) {
-    return `${formatDate(location.date)} - ${formatDate(location.endDate)}`;
-  }
-
-  return formatDate(location.date);
-}
-
-function toggleLocation(
-  location: Location,
-  setOpenLocations: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-) {
-  setOpenLocations(prev => {
-    const today = getTodayMidnight();
-    const defaultOpen = getDefaultOpenState(location, today);
-    const current = Object.prototype.hasOwnProperty.call(prev, location.id)
-      ? prev[location.id]
-      : defaultOpen;
-    const nextValue = !current;
-
-    if (prev[location.id] === nextValue) {
-      return prev;
-    }
-
-    return { ...prev, [location.id]: nextValue };
-  });
-}
-
-function getDefaultOpenState(location: Location, today: Date): boolean {
-  const start = normalizeDate(location.date);
-  if (Number.isNaN(start.getTime())) {
-    return true;
-  }
-
-  const rawEnd = location.endDate ? normalizeDate(location.endDate) : start;
-  const end = Number.isNaN(rawEnd.getTime()) || rawEnd < start ? start : rawEnd;
-
-  const isCurrent = today >= start && today <= end;
-  const isFuture = start > today;
-
-  return isCurrent || isFuture;
 }
 
 function getTodayMidnight(): Date {
@@ -241,4 +182,19 @@ function normalizeDate(value: string | Date): Date {
 
   date.setHours(0, 0, 0, 0);
   return date;
+}
+
+function getDefaultCollapsedState(location: Location, today: Date): boolean {
+  const start = normalizeDate(location.date);
+  if (Number.isNaN(start.getTime())) {
+    return false;
+  }
+
+  const rawEnd = location.endDate ? normalizeDate(location.endDate) : start;
+  const end = Number.isNaN(rawEnd.getTime()) || rawEnd < start ? start : rawEnd;
+
+  const isCurrent = today >= start && today <= end;
+  const isFuture = start > today;
+
+  return !isCurrent && !isFuture;
 }
