@@ -59,11 +59,6 @@ export default function LinkedExpensesDisplay({
     return null;
   }
 
-  const totalAmount = linkedExpenses.reduce((sum, expense) => {
-    // Convert all to EUR for simplicity (in a real app, you'd want proper currency conversion)
-    return sum + expense.amount;
-  }, 0);
-
   return (
     <div className={`mt-2 ${className}`}>
       <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -82,11 +77,6 @@ export default function LinkedExpensesDisplay({
             </div>
           </div>
         ))}
-        {linkedExpenses.length > 1 && (
-          <div className="flex justify-end text-xs font-medium text-green-700 dark:text-green-300 pt-1 border-t border-green-200 dark:border-green-800">
-            Total: {formatCurrency(totalAmount, 'EUR')}
-          </div>
-        )}
       </div>
     </div>
   );
