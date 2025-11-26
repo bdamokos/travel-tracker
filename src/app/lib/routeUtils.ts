@@ -264,11 +264,16 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
 export const generateRoutePoints = async (
   transportation: Transportation
 ): Promise<[number, number][]> => {
-  const { type, fromCoordinates, toCoordinates } = transportation;
+  const { type, fromCoordinates, toCoordinates, routePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined
   if (!fromCoordinates || !toCoordinates) {
     return [];
+  }
+  
+  // For boats, allow manual override when provided
+  if (type === 'boat' && useManualRoutePoints && routePoints?.length) {
+    return routePoints;
   }
   
   // Create cache key
@@ -280,7 +285,7 @@ export const generateRoutePoints = async (
   }
   
   let routePoints: [number, number][] = [];
-  
+
   switch (type) {
     case 'plane':
       // Use real great circle calculation for flights
@@ -329,11 +334,16 @@ export const generateRoutePoints = async (
 export const generateRoutePointsSync = (
   transportation: Transportation
 ): [number, number][] => {
-  const { type, fromCoordinates, toCoordinates } = transportation;
+  const { type, fromCoordinates, toCoordinates, routePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined
   if (!fromCoordinates || !toCoordinates) {
     return [];
+  }
+  
+  // For boats, allow manual override when provided
+  if (type === 'boat' && useManualRoutePoints && routePoints?.length) {
+    return routePoints;
   }
   
   // Create cache key

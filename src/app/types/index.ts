@@ -65,6 +65,8 @@ export interface Transportation {
   fromCoordinates?: [number, number]; // [latitude, longitude]
   toCoordinates?: [number, number]; // [latitude, longitude]
   routePoints?: [number, number][]; // Pre-generated route points for better performance
+  // When true (and boat), render stored routePoints instead of generated arc
+  useManualRoutePoints?: boolean;
   // Private fields (admin only)
   privateNotes?: string; // Travel company, station info, reminders
   costTrackingLinks?: CostTrackingLink[];
@@ -86,6 +88,8 @@ export interface TravelRoute {
   costTrackingLinks?: CostTrackingLink[];
   // Pre-generated route points for better performance
   routePoints?: [number, number][];
+  // When true (and boat), render stored routePoints instead of generated arc
+  useManualRoutePoints?: boolean;
   // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
   isReadOnly?: boolean;
 }
