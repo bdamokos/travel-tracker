@@ -264,7 +264,7 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
 export const generateRoutePoints = async (
   transportation: Transportation
 ): Promise<[number, number][]> => {
-  const { type, fromCoordinates, toCoordinates, routePoints, useManualRoutePoints } = transportation;
+  const { type, fromCoordinates, toCoordinates, routePoints: storedRoutePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined
   if (!fromCoordinates || !toCoordinates) {
@@ -272,8 +272,8 @@ export const generateRoutePoints = async (
   }
   
   // For boats, allow manual override when provided
-  if (type === 'boat' && useManualRoutePoints && routePoints?.length) {
-    return routePoints;
+  if (type === 'boat' && useManualRoutePoints && storedRoutePoints?.length) {
+    return storedRoutePoints;
   }
   
   // Create cache key
@@ -334,7 +334,7 @@ export const generateRoutePoints = async (
 export const generateRoutePointsSync = (
   transportation: Transportation
 ): [number, number][] => {
-  const { type, fromCoordinates, toCoordinates, routePoints, useManualRoutePoints } = transportation;
+  const { type, fromCoordinates, toCoordinates, routePoints: storedRoutePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined
   if (!fromCoordinates || !toCoordinates) {
@@ -342,8 +342,8 @@ export const generateRoutePointsSync = (
   }
   
   // For boats, allow manual override when provided
-  if (type === 'boat' && useManualRoutePoints && routePoints?.length) {
-    return routePoints;
+  if (type === 'boat' && useManualRoutePoints && storedRoutePoints?.length) {
+    return storedRoutePoints;
   }
   
   // Create cache key
