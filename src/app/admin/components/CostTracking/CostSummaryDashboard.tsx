@@ -171,6 +171,12 @@ export default function CostSummaryDashboard({
               }
             })()}
           </p>
+          {costSummary.tripStatus === 'during' && costSummary.daysCompleted > 0 && (
+            <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800 dark:bg-orange-900/40 dark:text-orange-100">
+              <span className="h-2 w-2 rounded-full bg-orange-500" aria-hidden="true" />
+              {costSummary.daysCompleted} day{costSummary.daysCompleted === 1 ? '' : 's'} completed
+            </div>
+          )}
         </div>
       </div>
 
