@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Location, Transportation, CostTrackingLink } from '@/app/types';
+import { Location, TravelRoute } from '@/app/types';
 import RouteForm from '../../../components/RouteForm';
 import LinkedExpensesDisplay from '../../../components/LinkedExpensesDisplay';
 import InPlaceEditor from '../../../components/InPlaceEditor';
@@ -32,21 +32,6 @@ function RouteExpensesDisplay({ tripId, routeId, routeName }: { tripId: string; 
     </div>
   );
 }
-
-// Type for travel routes - matches the interface in useTripEditor
-type TravelRoute = {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: Transportation['type'];
-  date: Date;
-  duration?: string;
-  notes?: string;
-  privateNotes?: string;
-  costTrackingLinks?: CostTrackingLink[];
-};
 
 interface TravelData {
   id?: string;

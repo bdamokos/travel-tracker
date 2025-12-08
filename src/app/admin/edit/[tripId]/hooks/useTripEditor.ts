@@ -60,7 +60,8 @@ export function useTripEditor(tripId: string | null) {
     duration: '',
     notes: '',
     privateNotes: '',
-    costTrackingLinks: []
+    costTrackingLinks: [],
+    useManualRoutePoints: false
   });
 
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
@@ -390,27 +391,33 @@ export function useTripEditor(tripId: string | null) {
       updatedLocations.push(toLocation);
     }
 
-    // Pre-generate route points for better public map performance
-    try {
-      const transportation: Transportation = {
-        id: newRoute.id,
-        type: newRoute.transportType,
-        from: newRoute.from,
-        to: newRoute.to,
-        fromCoordinates: newRoute.fromCoords,
-        toCoordinates: newRoute.toCoords
-      };
-      
-      console.log(`[handleRouteAdded] Generating route points for ${newRoute.from} → ${newRoute.to}`);
-      const routePoints = await generateRoutePoints(transportation);
-      newRoute.routePoints = routePoints;
-      console.log(`[handleRouteAdded] Generated ${routePoints.length} route points, assigned to newRoute`);
-      console.log(`[handleRouteAdded] newRoute.routePoints length:`, newRoute.routePoints?.length);
-    } catch (error) {
-      console.warn('Failed to pre-generate route points:', error);
-      // Don't block route creation if route generation fails
-      newRoute.routePoints = [newRoute.fromCoords, newRoute.toCoords];
-      console.log(`[handleRouteAdded] Fallback: assigned ${newRoute.routePoints?.length} fallback points`);
+    // Pre-generate route points for better public map performance (skip when manual override provided)
+    const hasManualRoute = newRoute.useManualRoutePoints && (newRoute.routePoints?.length || 0) > 0;
+    if (!hasManualRoute) {
+      try {
+        const transportation: Transportation = {
+          id: newRoute.id,
+          type: newRoute.transportType,
+          from: newRoute.from,
+          to: newRoute.to,
+          fromCoordinates: newRoute.fromCoords,
+          toCoordinates: newRoute.toCoords,
+          useManualRoutePoints: newRoute.useManualRoutePoints
+        };
+        
+        console.log(`[handleRouteAdded] Generating route points for ${newRoute.from} → ${newRoute.to}`);
+        const routePoints = await generateRoutePoints(transportation);
+        newRoute.routePoints = routePoints;
+        newRoute.useManualRoutePoints = false; // generated, not manual
+        console.log(`[handleRouteAdded] Generated ${routePoints.length} route points, assigned to newRoute`);
+        console.log(`[handleRouteAdded] newRoute.routePoints length:`, newRoute.routePoints?.length);
+      } catch (error) {
+        console.warn('Failed to pre-generate route points:', error);
+        // Don't block route creation if route generation fails
+        newRoute.routePoints = [newRoute.fromCoords, newRoute.toCoords];
+        newRoute.useManualRoutePoints = false;
+        console.log(`[handleRouteAdded] Fallback: assigned ${newRoute.routePoints?.length} fallback points`);
+      }
     }
 
     if (editingRouteIndex !== null) {
@@ -548,6 +555,15 @@ export function useTripEditor(tripId: string | null) {
   const recalculateRoutePoints = async (index: number) => {
     const route = travelData.routes[index];
     
+    // Protect manual imports from silent overwrite
+    if (route.useManualRoutePoints && (route.routePoints?.length || 0) > 0) {
+      const proceed = confirm('This route uses manually imported coordinates. Recalculating will overwrite them. Continue?');
+      if (!proceed) {
+        showNotification('Manual route kept. No changes made.', 'info');
+        return;
+      }
+    }
+    
     try {
       // Create transportation object for route generation
       const transportation: Transportation = {
@@ -556,7 +572,8 @@ export function useTripEditor(tripId: string | null) {
         from: route.from,
         to: route.to,
         fromCoordinates: route.fromCoords,
-        toCoordinates: route.toCoords
+        toCoordinates: route.toCoords,
+        useManualRoutePoints: false
       };
       
       console.log(`[recalculateRoutePoints] Regenerating route points for ${route.from} → ${route.to}`);
@@ -566,7 +583,7 @@ export function useTripEditor(tripId: string | null) {
       setTravelData(prev => ({
         ...prev,
         routes: prev.routes.map((r, i) => 
-          i === index ? { ...r, routePoints } : r
+          i === index ? { ...r, routePoints, useManualRoutePoints: false } : r
         )
       }));
       

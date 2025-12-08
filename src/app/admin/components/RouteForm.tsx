@@ -75,6 +75,7 @@ export default function RouteForm({
       duration: data.duration as string || '',
       // Private fields
       privateNotes: data.privateNotes as string || '',
+      useManualRoutePoints: false,
       costTrackingLinks: currentRoute.costTrackingLinks || []
     };
 
@@ -107,7 +108,8 @@ export default function RouteForm({
       notes: '',
       duration: '',
       privateNotes: '',
-      costTrackingLinks: []
+      costTrackingLinks: [],
+      useManualRoutePoints: false
     });
     
     if (editingRouteIndex !== null) {
@@ -274,7 +276,8 @@ export default function RouteForm({
                   notes: '',
                   duration: '',
                   privateNotes: '',
-                  costTrackingLinks: []
+                  costTrackingLinks: [],
+                  useManualRoutePoints: false
                 });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"

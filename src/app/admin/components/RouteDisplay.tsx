@@ -1,23 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Transportation, CostTrackingLink } from '../../types';
+import { Transportation, TravelRoute } from '../../types';
 import { transportationLabels } from '../../lib/routeUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';
-
-interface TravelRoute {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: Transportation['type'];
-  date: Date;
-  duration?: string;
-  notes?: string;
-  privateNotes?: string;
-  costTrackingLinks?: CostTrackingLink[];
-}
 
 interface RouteDisplayProps {
   route: TravelRoute;
@@ -81,6 +67,14 @@ export default function RouteDisplay({
               <>
                 <span className="mx-2">•</span>
                 <span>{route.duration}</span>
+              </>
+            )}
+            {route.useManualRoutePoints && (
+              <>
+                <span className="mx-2">•</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                  Manual route
+                </span>
               </>
             )}
           </div>

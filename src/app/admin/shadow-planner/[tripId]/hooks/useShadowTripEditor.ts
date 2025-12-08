@@ -42,7 +42,8 @@ export function useShadowTripEditor(tripId: string) {
     duration: '',
     notes: '',
     privateNotes: '',
-    costTrackingLinks: []
+    costTrackingLinks: [],
+    useManualRoutePoints: false
   });
 
   const [currentAccommodation, setCurrentAccommodation] = useState<Partial<Accommodation>>({
@@ -351,7 +352,8 @@ export function useShadowTripEditor(tripId: string) {
       duration: '',
       notes: '',
       privateNotes: '',
-      costTrackingLinks: []
+      costTrackingLinks: [],
+      useManualRoutePoints: false
     });
   }, []);
 
@@ -479,6 +481,14 @@ export function useShadowTripEditor(tripId: string) {
     if (!travelData || !travelData.routes[index]) return;
     
     const route = travelData.routes[index];
+
+    if (route.useManualRoutePoints && (route.routePoints?.length || 0) > 0) {
+      const proceed = confirm('This route uses manually imported coordinates. Recalculating will overwrite them. Continue?');
+      if (!proceed) {
+        showNotification('Manual route kept. No changes made.', 'info');
+        return;
+      }
+    }
     
     try {
       // Create transportation object for route generation
@@ -488,7 +498,8 @@ export function useShadowTripEditor(tripId: string) {
         from: route.from,
         to: route.to,
         fromCoordinates: route.fromCoords,
-        toCoordinates: route.toCoords
+        toCoordinates: route.toCoords,
+        useManualRoutePoints: false
       };
       
       console.log(`[recalculateRoutePoints] Regenerating route points for ${route.from} → ${route.to}`);
@@ -500,7 +511,7 @@ export function useShadowTripEditor(tripId: string) {
         return {
           ...prev,
           routes: prev.routes.map((r, i) => 
-            i === index ? { ...r, routePoints } : r
+            i === index ? { ...r, routePoints, useManualRoutePoints: false } : r
           )
         };
       });
