@@ -8,7 +8,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "mcp:server": "bun mcp/server.ts",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --testEnvironment=jsdom",
     "test:integration": "JEST_INTEGRATION_TESTS=true jest --testEnvironment=node",
@@ -51,7 +50,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
-    "@modelcontextprotocol/sdk": "^1.24.3",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -68,8 +66,7 @@
     "jest-environment-jsdom": "^30.2.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
-    "typescript": "^5.9.3",
-    "zod": "^3.23.8"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "zod": "3.23.8"

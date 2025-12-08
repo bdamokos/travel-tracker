@@ -58,36 +58,6 @@ bun run dev
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-## MCP server (for LLM tool access)
-
-We ship a lightweight MCP server exposing public data to LLMs via tools:
-
-- `get_next_steps(tripId)` → `/api/travel-data/{tripId}/next-steps`
-- `get_trip(tripId)` → `/api/travel-data?id={tripId}`
-- `get_public_page_html(path)` → `/map/{id}` or `/embed/{id}`
-
-Run locally:
-
-```bash
-TRAVEL_TRACKER_BASE_URL=http://localhost:3000 bun run mcp:server
-```
-
-Configure in Claude Desktop `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "travel-tracker": {
-      "command": "/usr/local/bin/bun",
-      "args": ["run", "mcp:server"],
-      "env": {
-        "TRAVEL_TRACKER_BASE_URL": "https://your.public.domain"
-      }
-    }
-  }
-}
-```
-
 ### Installation (for production)
 
 See the [deploy](./deploy) directory for example instructions on how to deploy the application.
@@ -124,7 +94,6 @@ Potential expected issues:
 ---
 
 **Note:** This project uses [Bun](https://bun.sh/) for dependency management and scripts. Bun is much faster than npm/yarn and fully compatible with Next.js projects. Npm should still work.
-
 
 
 

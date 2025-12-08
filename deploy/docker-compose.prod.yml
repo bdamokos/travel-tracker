@@ -15,8 +15,6 @@ services:
       - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
       - ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - EMBED_DOMAIN=${EMBED_DOMAIN}
-      - MCP_LOGGING=true
-      - MCP_LEGACY_SSE=false
     restart: unless-stopped
     networks:
       - travel-network
@@ -41,8 +39,6 @@ services:
       - NEXT_PUBLIC_EMBED_DOMAIN=${EMBED_DOMAIN}
       - ADMIN_DOMAIN=${ADMIN_DOMAIN}
       - EMBED_DOMAIN=${EMBED_DOMAIN}
-      - MCP_LOGGING=true
-      - MCP_LEGACY_SSE=false
     restart: unless-stopped
     networks:
       - travel-network

@@ -10,7 +10,6 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_APP_MODE=admin
-      - MCP_LOGGING=true
     restart: unless-stopped
     
   travel-tracker-embed:
@@ -22,7 +21,6 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_APP_MODE=embed
-      - MCP_LOGGING=true
     restart: unless-stopped
 
 volumes:

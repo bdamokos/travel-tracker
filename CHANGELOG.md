@@ -7,14 +7,13 @@
 ### Highlights
 - Trip calendar and map experiences now color-code side trips, group nearby markers, and surface richer popups with weather, Wikipedia, and TikTok context.
 - Cost tracking adds CSV/Excel exports plus chart totals, daily budget history, cash handling, and custom-category support for more reliable reporting.
-- Operational tooling gains MCP server integrations, deployment backups, and tighter caching so scripted and production flows stay predictable.
+- Operational tooling is streamlined after retiring the MCP server, with deployment backups and tighter caching keeping scripted and production flows predictable.
 
 ### Added
 - Side-trip highlighting and location color mapping throughout TripCalendar for clearer differentiation of alternate journeys.
 - ExportDataMenu for cost tracking, enabling CSV and Excel downloads of spending data.
 - Bulk travel-expense linking workflows with supporting data migrations to keep legacy and modern references in sync.
 - TikTok post surfacing across map,  and calendar popups with caption support alongside existing social content.
-- Model Context Protocol server tools (logging toggles, legacy SSE fallback, trip retrieval helpers) to power CLI and automation use cases.
 
 ### Changed
 - Cost reporting refinements: chart totals with dark mode styling, timezone-safe summaries, daily budget visualizations, custom categories, and payee default handling for YNAB imports.
@@ -30,7 +29,7 @@
 
 ### Infrastructure
 - Deployment workflow gains backup retention policies, configurable image registries, and cache-control headers for map, weather, and YNAB endpoints.
-- MCP tooling now documented and configurable via new environment switches for logging and legacy streaming support.
+- MCP server tooling removed, along with related environment toggles, dependencies, and API endpoints.
 - Dependency stack refreshed across Next.js, React Aria, SWR, Jest, ESLint, Zod, and supporting libraries.
 
 ---

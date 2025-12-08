@@ -1,11 +1,10 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+// import { createRequire } from 'module';
+// const require = createRequire(import.meta.url);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  transpilePackages: ['@modelcontextprotocol/sdk'],
   // Add this section to ensure images from OpenStreetMap are allowed
   images: {
     domains: ['tile.openstreetmap.org'],
@@ -75,7 +74,7 @@ const nextConfig = {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      zod: require.resolve('zod')
+      
     };
     return config;
   },
