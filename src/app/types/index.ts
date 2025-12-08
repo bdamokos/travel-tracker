@@ -258,6 +258,7 @@ export type CostSummary = {
   remainingBudget: number;
   totalDays: number;
   remainingDays: number;
+  daysCompleted: number;
   averageSpentPerDay: number;
   suggestedDailyBudget: number;
   dailyBudgetBasisDays: number;
