@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
 import type { TooltipProps } from 'recharts';
+import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { CostSummary, CountryBreakdown } from '../../types';
 import { formatCurrency } from '../../lib/costUtils';
 import AriaSelect from './AriaSelect';
@@ -229,15 +230,13 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     );
   }, [labelColor]);
 
-  type TooltipEntry = {
-    name: string;
-    value: number;
+  type TooltipEntry = Payload<number, string> & {
     payload: ChartData;
     percent?: number;
   };
 
   type CustomTooltipProps = TooltipProps<number, string> & {
-    payload?: TooltipEntry[];
+    payload?: ReadonlyArray<TooltipEntry>;
   };
 
   // Custom tooltip for better formatting
@@ -248,10 +247,16 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
       }
 
       const data = payload[0];
-      const chartTotal = data?.payload?.chartTotal ?? 0;
+
+      if (typeof data?.value !== 'number') {
+        return null;
+      }
+
+      const value = data.value;
+      const chartTotal = data.payload?.chartTotal ?? 0;
       const percentValue =
         chartTotal > 0
-          ? Math.round((data.value / chartTotal) * 1000) / 10
+          ? Math.round((value / chartTotal) * 1000) / 10
           : null;
 
       return (
@@ -259,8 +264,8 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
           <p className="font-medium">{data.name}</p>
           <p className={`mt-1 font-semibold ${tooltipValueClass}`}>
             {countryBasis === 'daily' && data.payload.country ? 
-              `${formatCurrency(data.value, currency)} per day` :
-              formatCurrency(data.value, currency)
+              `${formatCurrency(value, currency)} per day` :
+              formatCurrency(value, currency)
             }
           </p>
           {percentValue !== null && (
