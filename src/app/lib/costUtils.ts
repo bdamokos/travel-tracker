@@ -96,14 +96,28 @@ function getExpensesBeforeDate(expenses: Expense[], date: Date, expenseType?: Ex
  */
 export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const totalBudget = costData.overallBudget;
-  
+
   const today = new Date();
   const startDate = new Date(costData.tripStartDate);
   const endDate = new Date(costData.tripEndDate);
+  const msPerDay = 1000 * 3600 * 24;
   
   // Calculate total days and remaining days
-  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-  const remainingDays = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / msPerDay) + 1;
+  const remainingDays = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / msPerDay));
+  const daysCompleted = (() => {
+    if (today < startDate) {
+      return 0;
+    }
+
+    const elapsedDays = Math.floor((today.getTime() - startDate.getTime()) / msPerDay) + 1;
+
+    if (today > endDate) {
+      return totalDays;
+    }
+
+    return Math.min(Math.max(elapsedDays, 1), totalDays);
+  })();
   
   // Determine trip status
   let tripStatus: 'before' | 'during' | 'after';
@@ -158,8 +172,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     averageSpentPerTripDay = 0;
   } else if (tripStatus === 'during') {
     // During trip: average based on days elapsed in the trip (inclusive)
-    const daysElapsedRaw = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-    const daysElapsedInTrip = Math.min(Math.max(daysElapsedRaw, 1), totalDays);
+    const daysElapsedInTrip = Math.min(Math.max(daysCompleted, 1), totalDays);
     averageSpentPerDay = daysElapsedInTrip > 0 ? tripSpent / daysElapsedInTrip : 0;
     averageSpentPerTripDay = averageSpentPerDay;
   } else {
@@ -249,6 +262,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     remainingBudget,
     totalDays,
     remainingDays,
+    daysCompleted,
     averageSpentPerDay,
     suggestedDailyBudget,
     dailyBudgetBasisDays,
