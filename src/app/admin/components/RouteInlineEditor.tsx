@@ -262,6 +262,20 @@ export default function RouteInlineEditor({
           />
         </div>
 
+        {/* Return Route Checkbox */}
+        <div className="flex items-center">
+          <input
+            id="route-inline-is-return"
+            type="checkbox"
+            checked={formData.isReturn || false}
+            onChange={(e) => setFormData(prev => ({ ...prev, isReturn: e.target.checked }))}
+            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label htmlFor="route-inline-is-return" className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
+            Return Route (shown as ⇆)
+          </label>
+        </div>
+
         {/* Public Notes */}
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

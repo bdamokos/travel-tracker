@@ -67,6 +67,8 @@ export interface Transportation {
   routePoints?: [number, number][]; // Pre-generated route points for better performance
   // When true (and boat), render stored routePoints instead of generated arc
   useManualRoutePoints?: boolean;
+  // When true, this is a return route
+  isReturn?: boolean;
   // Private fields (admin only)
   privateNotes?: string; // Travel company, station info, reminders
   costTrackingLinks?: CostTrackingLink[];
@@ -90,6 +92,8 @@ export interface TravelRoute {
   routePoints?: [number, number][];
   // When true (and boat), render stored routePoints instead of generated arc
   useManualRoutePoints?: boolean;
+  // When true, this is a return route
+  isReturn?: boolean;
   // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
   isReadOnly?: boolean;
 }

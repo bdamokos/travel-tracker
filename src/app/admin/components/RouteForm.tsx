@@ -76,6 +76,7 @@ export default function RouteForm({
       // Private fields
       privateNotes: data.privateNotes as string || '',
       useManualRoutePoints: false,
+      isReturn: data.isReturn === 'on',
       costTrackingLinks: currentRoute.costTrackingLinks || []
     };
 
@@ -109,7 +110,8 @@ export default function RouteForm({
       duration: '',
       privateNotes: '',
       costTrackingLinks: [],
-      useManualRoutePoints: false
+      useManualRoutePoints: false,
+      isReturn: false
     });
     
     if (editingRouteIndex !== null) {
@@ -127,10 +129,10 @@ export default function RouteForm({
       <h4 className="font-medium mb-3">
         {editingRouteIndex !== null ? 'Edit Route' : 'Add Route'}
       </h4>
-      
-      <form 
-        key={editingRouteIndex !== null ? `edit-${currentRoute.id}` : 'new'} 
-        action={submitRouteAction} 
+
+      <form
+        key={editingRouteIndex !== null ? `edit-${currentRoute.id}` : 'new'}
+        action={submitRouteAction}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <div>
@@ -207,6 +209,19 @@ export default function RouteForm({
           />
         </div>
 
+        <div className="flex items-center mt-6">
+          <input
+            id="route-is-return"
+            name="isReturn"
+            type="checkbox"
+            defaultChecked={currentRoute.isReturn}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label htmlFor="route-is-return" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+            Return Route (shown as ⇆)
+          </label>
+        </div>
+
 
         <div className="md:col-span-2">
           <label htmlFor="route-notes" className="block text-sm font-medium text-gray-700 mb-1">
@@ -277,7 +292,8 @@ export default function RouteForm({
                   duration: '',
                   privateNotes: '',
                   costTrackingLinks: [],
-                  useManualRoutePoints: false
+                  useManualRoutePoints: false,
+                  isReturn: false
                 });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"

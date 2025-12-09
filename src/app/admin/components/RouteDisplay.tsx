@@ -56,7 +56,7 @@ export default function RouteDisplay({
           <div className="flex items-center gap-2">
             <span className="text-lg">{getTransportIcon(route.transportType)}</span>
             <h4 className="font-semibold text-gray-900 dark:text-white">
-              {route.from} → {route.to}
+              {route.from} {route.isReturn ? '⇆' : '→'} {route.to}
             </h4>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
