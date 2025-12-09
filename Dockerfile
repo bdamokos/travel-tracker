@@ -1,5 +1,5 @@
 # Multi-stage build for production
-FROM oven/bun:1.2.18-alpine AS base
+FROM oven/bun:alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/app/.next/cache \
     bun run build
 
 # Production image - optimized Alpine
-FROM oven/bun:1.2.18-alpine AS runner
+FROM oven/bun:alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
