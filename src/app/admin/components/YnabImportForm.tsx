@@ -254,6 +254,39 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     return fallback;
   };
 
+  const hasCategoryMapChanges = (
+    existingMappings: YnabCategoryMapping[],
+    incomingMappings: YnabCategoryMapping[]
+  ) => {
+    if (existingMappings.length !== incomingMappings.length) {
+      return true;
+    }
+
+    const sortMappings = (mappings: YnabCategoryMapping[]) =>
+      [...mappings]
+        .sort((a, b) => a.ynabCategory.localeCompare(b.ynabCategory))
+        .map(mapping => ({
+          ynabCategory: mapping.ynabCategory,
+          ynabCategoryId: mapping.ynabCategoryId,
+          mappingType: mapping.mappingType,
+          countryName: mapping.countryName || undefined
+        }));
+
+    const normalizedExisting = sortMappings(existingMappings);
+    const normalizedIncoming = sortMappings(incomingMappings);
+
+    return normalizedExisting.some((mapping, index) => {
+      const incoming = normalizedIncoming[index];
+
+      return (
+        mapping.ynabCategory !== incoming.ynabCategory ||
+        mapping.ynabCategoryId !== incoming.ynabCategoryId ||
+        mapping.mappingType !== incoming.mappingType ||
+        (mapping.countryName || undefined) !== (incoming.countryName || undefined)
+      );
+    });
+  };
+
   // Helper function to determine sinceDate based on sync mode
   const getSinceDateForSyncMode = (mode: 'last-sync' | 'last-import' | 'all', ynabConfig?: { lastTransactionSync?: Date; lastTransactionImport?: Date }) => {
     if (mode === 'all') return undefined;
@@ -285,7 +318,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           serverKnowledge: costData.ynabConfig.categoryServerKnowledge.toString()
         })
       });
-      
+
       const response = await fetch(`${baseUrl}/api/ynab/categories?${params}`, {
         method: 'GET',
         headers: {
@@ -299,10 +332,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.categories) {
         setYnabCategories(result.categories);
-        
+
         // Initialize category mappings with existing ones if available
         const existingMappings = costData.ynabImportData?.mappings || [];
         const newMappings: YnabCategoryMapping[] = result.categories.map((category: YnabCategory) => {
@@ -317,7 +350,12 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         });
 
         setCategoryMappings(newMappings);
-        setCurrentStep(2); // Skip to mapping step
+
+        if (hasCategoryMapChanges(existingMappings, newMappings)) {
+          setCurrentStep(2); // Only show mapping step when there are changes
+        } else {
+          await loadTransactionsFromApi(newMappings);
+        }
       } else {
         throw new Error('Invalid response format from YNAB API');
       }
@@ -366,7 +404,12 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       });
 
       setCategoryMappings(newMappings);
-      setCurrentStep(2);
+
+      if (hasCategoryMapChanges(existingMappings, newMappings)) {
+        setCurrentStep(2);
+      } else {
+        await loadTransactions(false, newMappings, result);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload file');
     } finally {
@@ -388,7 +431,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   };
 
   // Load transactions from API directly
-  const loadTransactionsFromApi = async () => {
+  const loadTransactionsFromApi = async (mappingOverride?: YnabCategoryMapping[]) => {
     if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
       setError('YNAB API configuration not found. Please setup YNAB API first.');
       return;
@@ -408,7 +451,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         body: JSON.stringify({
           apiKey: costData.ynabConfig.apiKey,
           budgetId: costData.ynabConfig.selectedBudgetId,
-          categoryMappings: categoryMappings.map(mapping => ({
+          categoryMappings: (mappingOverride ?? categoryMappings).map(mapping => ({
             ynabCategoryId: mapping.ynabCategoryId,
             mappingType: mapping.mappingType,
             countryName: mapping.countryName
@@ -466,13 +509,18 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     }
   };
 
-  const loadTransactions = async (showAll: boolean = false) => {
+  const loadTransactions = async (
+    showAll: boolean = false,
+    mappingOverride?: YnabCategoryMapping[],
+    uploadResultOverride?: UploadResult
+  ) => {
     if (importMethod === 'api') {
-      await loadTransactionsFromApi();
+      await loadTransactionsFromApi(mappingOverride);
       return;
     }
 
-    if (!uploadResult) return;
+    const uploadData = uploadResultOverride ?? uploadResult;
+    if (!uploadData) return;
 
     setIsLoading(true);
     setError(null);
@@ -485,8 +533,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         },
         body: JSON.stringify({
           action: 'process',
-          tempFileId: uploadResult.tempFileId,
-          mappings: categoryMappings,
+          tempFileId: uploadData.tempFileId,
+          mappings: mappingOverride ?? categoryMappings,
           showAll: showAll
         })
       });
