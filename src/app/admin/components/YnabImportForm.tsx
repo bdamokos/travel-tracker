@@ -86,7 +86,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   };
 
   const normalizedExistingExpenses = useMemo<NormalizedExpense[]>(() => {
-    const expenses: Expense[] = costData.expenses || [];
+    const expenses: Expense[] = (costData.expenses || []).filter(
+      expense => !expense.isPendingYnabImport
+    );
 
     return expenses
       .map((expense) => {
