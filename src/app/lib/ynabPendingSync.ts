@@ -1,6 +1,7 @@
 import { YnabApiClient, ynabUtils } from './ynabApiClient';
-import { UnifiedTripData, Expense, YnabApiTransaction, YnabConfig } from '../types';
 import { updateCostData } from './unifiedDataService';
+import { UnifiedTripData } from './dataMigration';
+import { Expense, YnabApiTransaction, YnabConfig } from '../types';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -112,8 +113,8 @@ export async function maybeSyncPendingYnabTransactions(
   const pendingExpenses: Expense[] = [];
 
   for (const txn of transactionResult.transactions) {
-    const mapping = mappingLookup.get(txn.category_id) || {};
-    const expense = mapTransactionToExpense(txn, costData.currency, mapping);
+    const mapping = txn.category_id ? mappingLookup.get(txn.category_id) : undefined;
+    const expense = mapTransactionToExpense(txn, costData.currency, mapping || {});
 
     if (!hasDuplicate(expense, [...existingExpenses, ...pendingExpenses])) {
       pendingExpenses.push(expense);
