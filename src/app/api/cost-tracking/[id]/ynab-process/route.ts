@@ -302,6 +302,9 @@ async function handleImportTransactions(
     importedTransactions.push(processedTxn);
   }
 
+  // Remove any pending YNAB shadow transactions before importing new ones
+  costData.expenses = costData.expenses.filter(expense => !expense.isPendingYnabImport);
+
   // Add new expenses to cost data
   costData.expenses.push(...newExpenses);
   costData.ynabImportData.importedTransactionHashes.push(...newHashes);
@@ -322,6 +325,13 @@ async function handleImportTransactions(
     countryBudgets: costData.countryBudgets,
     expenses: costData.expenses,
     ynabImportData: costData.ynabImportData,
+    ynabConfig: costData.ynabConfig
+      ? {
+          ...costData.ynabConfig,
+          lastTransactionImport: new Date(),
+          lastAutomaticTransactionSync: new Date()
+        }
+      : undefined,
     tripTitle: unifiedTrip.title,
     tripStartDate: unifiedTrip.startDate,
     tripEndDate: unifiedTrip.endDate,

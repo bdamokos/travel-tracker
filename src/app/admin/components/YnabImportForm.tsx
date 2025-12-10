@@ -571,6 +571,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       if (importMethod === 'api') {
         // API-based import: send transactions directly to cost tracking API
         const updatedPayeeCategoryDefaults = { ...payeeCategoryDefaults };
+        const existingExpenses = (costData.expenses || []).filter(expense => !expense.isPendingYnabImport);
         const expensesToAdd = selectedTransactions.map(selection => {
           const transaction = processedTransactions.find(t => t.hash === selection.transactionHash);
           if (!transaction) throw new Error(`Transaction not found: ${selection.transactionHash}`);
@@ -606,7 +607,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            expenses: [...(costData.expenses || []), ...expensesToAdd],
+            expenses: [...existingExpenses, ...expensesToAdd],
             ynabImportData: {
               ...costData.ynabImportData,
               mappings: categoryMappings,
@@ -617,7 +618,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             ynabConfig: {
               ...costData.ynabConfig,
               lastTransactionImport: new Date(),
-              transactionServerKnowledge: lastServerKnowledge
+              transactionServerKnowledge: lastServerKnowledge,
+              lastAutomaticTransactionSync: new Date(),
+              automaticTransactionServerKnowledge: lastServerKnowledge
             }
           }),
         });

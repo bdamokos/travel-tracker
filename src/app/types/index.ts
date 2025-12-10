@@ -227,6 +227,7 @@ export type Expense = {
   description: string;
   notes?: string;
   isGeneralExpense?: boolean; // For expenses not tied to a specific country
+  isPendingYnabImport?: boolean; // For shadow expenses created by hourly YNAB syncs
   expenseType: ExpenseType; // Type of expense for different budget calculations
   originalPlannedId?: string; // For linking actual expenses to original planned expenses
   // Travel integration (private)
@@ -362,6 +363,8 @@ export interface YnabConfig {
   lastTransactionSync?: Date;
   lastTransactionImport?: Date;
   transactionServerKnowledge?: number;
+  lastAutomaticTransactionSync?: Date;
+  automaticTransactionServerKnowledge?: number;
 }
 
 // YNAB API Budget from SDK
