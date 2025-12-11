@@ -6,7 +6,7 @@ import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
 import type { TooltipProps } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { CostSummary, CountryBreakdown } from '../../types';
-import { formatCurrency } from '../../lib/costUtils';
+import { formatCurrency, formatCurrencyWithRefunds } from '../../lib/costUtils';
 import AriaSelect from './AriaSelect';
 
 interface CostPieChartsProps {
@@ -195,6 +195,27 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     () => categoryData.map(dataPoint => ({ ...dataPoint, chartTotal: categoryTotal })),
     [categoryData, categoryTotal]
   );
+
+  const filteredSummary = useMemo(() => {
+    const totalNetSpent = filteredCountries.reduce((sum, country) => sum + (country.spentAmount - country.refundAmount), 0);
+    const totalRefunds = filteredCountries.reduce((sum, country) => sum + country.refundAmount, 0);
+    const includedCountryDays = filteredCountries
+      .filter(country => country.country !== 'General')
+      .reduce((sum, country) => sum + country.days, 0);
+
+    const hasGeneral = filteredCountries.some(country => country.country === 'General');
+    const effectiveDays = includedCountryDays || (hasGeneral ? costSummary.totalDays : 0);
+    const averagePerDay = effectiveDays > 0 ? totalNetSpent / effectiveDays : 0;
+
+    return {
+      totalNetSpent,
+      totalRefunds,
+      averagePerDay,
+      effectiveDays,
+      countryCount: filteredCountries.length,
+      categoryCount: categoryData.length
+    };
+  }, [categoryData.length, costSummary.totalDays, filteredCountries]);
   const pieChartMargin = { top: 24, right: 16, bottom: 16, left: 16 };
   const renderSliceLabel = useCallback((props: PieLabelRenderProps | undefined) => {
     if (!props) {
@@ -356,6 +377,45 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
             Excluding: {excludedCountries.join(', ')}
           </p>
         )}
+      </div>
+
+      {/* Filtered statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700">
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Included spending</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {(() => {
+              const refundDisplay = formatCurrencyWithRefunds(filteredSummary.totalNetSpent, filteredSummary.totalRefunds, currency);
+              return refundDisplay.displayText;
+            })()}
+          </p>
+          {filteredSummary.totalRefunds > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">Includes refunds from included countries</p>
+          )}
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Daily average (included)</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {filteredSummary.effectiveDays > 0
+              ? formatCurrency(filteredSummary.averagePerDay, currency)
+              : 'N/A'}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Calculated over {filteredSummary.effectiveDays || 0} day{filteredSummary.effectiveDays === 1 ? '' : 's'}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Countries included</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {filteredSummary.countryCount}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Categories in view</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {filteredSummary.categoryCount}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
