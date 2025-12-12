@@ -696,10 +696,20 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const halfViewWidth = Math.max((viewSize.x - paddingWidth) / 2, 0);
           const halfViewHeight = Math.max((viewSize.y - paddingHeight) / 2, 0);
 
-          const minX = Math.min(...projectedCoords.map(point => point.x));
-          const maxX = Math.max(...projectedCoords.map(point => point.x));
-          const minY = Math.min(...projectedCoords.map(point => point.y));
-          const maxY = Math.max(...projectedCoords.map(point => point.y));
+          const { minX, maxX, minY, maxY } = projectedCoords.reduce(
+            (bounds, point) => ({
+              minX: Math.min(bounds.minX, point.x),
+              maxX: Math.max(bounds.maxX, point.x),
+              minY: Math.min(bounds.minY, point.y),
+              maxY: Math.max(bounds.maxY, point.y)
+            }),
+            {
+              minX: Infinity,
+              maxX: -Infinity,
+              minY: Infinity,
+              maxY: -Infinity
+            }
+          );
 
           const clampCenter = (value: number, min: number, max: number, halfSpan: number) => {
             const minAllowed = min + halfSpan;
@@ -726,13 +736,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       map.setView(center, finalZoom);
 
       if (bounds) {
-        const panOptions: L.FitBoundsOptions = {
-          paddingTopLeft: padding,
-          paddingBottomRight: padding
-        };
-
-        map.panInsideBounds(bounds, panOptions);
-
         if (closestLocation?.coordinates) {
           const highlightedLatLng = L.latLng(closestLocation.coordinates[0], closestLocation.coordinates[1]);
           if (!map.getBounds().contains(highlightedLatLng)) {
