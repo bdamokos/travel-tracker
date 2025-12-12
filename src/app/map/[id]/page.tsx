@@ -350,17 +350,16 @@ export default async function MapPage({ params }: {
                               href={post.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm underline block"
+                              className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium underline"
                               title={post.caption || post.url}
                             >
-                              <span className="flex items-center space-x-2">
-                                <InstagramIcon containerClassName="w-6 h-6" iconClassName="w-3.5 h-3.5" ariaLabel="Instagram" />
-                                <span>Instagram Post</span>
-                              </span>
+                              <InstagramIcon
+                                containerClassName="w-6 h-6"
+                                iconClassName="w-3.5 h-3.5"
+                                ariaLabel="Instagram"
+                              />
+                              <span>{post.caption || 'Instagram Post'}</span>
                             </a>
-                            {post.caption && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>
-                            )}
                           </div>
                         ))}
                       </div>
@@ -377,21 +376,16 @@ export default async function MapPage({ params }: {
                               href={post.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm underline block"
+                              className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm font-medium underline"
                               title={post.caption || post.url}
                             >
-                              <span className="flex items-center space-x-2">
-                                <TikTokIcon
-                                  containerClassName="w-6 h-6"
-                                  iconClassName="w-3.5 h-3.5"
-                                  ariaLabel="TikTok"
-                                />
-                                <span>TikTok Clip</span>
-                              </span>
+                              <TikTokIcon
+                                containerClassName="w-6 h-6"
+                                iconClassName="w-3.5 h-3.5"
+                                ariaLabel="TikTok"
+                              />
+                              <span>{post.caption || 'TikTok Clip'}</span>
                             </a>
-                            {post.caption && (
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.caption}</p>
-                            )}
                           </div>
                         ))}
                       </div>
