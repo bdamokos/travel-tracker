@@ -667,9 +667,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         allCoords.push(route.fromCoords, route.toCoords);
       });
 
-      const hasBounds = allCoords.length > 1;
+      const allLatLngs = allCoords.map(coord => L.latLng(coord[0], coord[1]));
+
+      const hasBounds = allLatLngs.length > 1;
       const bounds = hasBounds
-        ? L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])))
+        ? L.latLngBounds(allLatLngs)
         : null;
       const padding = L.point(MAP_PADDING_X, MAP_PADDING_Y);
       const baseZoom = hasBounds && bounds
@@ -689,7 +691,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         if (targetZoom > baseZoom && closestLocation?.coordinates) {
           const highlightedLatLng = L.latLng(closestLocation.coordinates[0], closestLocation.coordinates[1]);
           const highlightedPoint = map.project(highlightedLatLng, finalZoom);
-          const projectedCoords = allCoords.map(coord => map.project(L.latLng(coord[0], coord[1]), finalZoom));
+          const projectedCoords = allLatLngs.map(latlng => map.project(latlng, finalZoom));
 
           const paddingWidth = padding.x * 2;
           const paddingHeight = padding.y * 2;
@@ -697,20 +699,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const halfViewWidth = Math.max((viewSize.x - paddingWidth) / 2, 0);
           const halfViewHeight = Math.max((viewSize.y - paddingHeight) / 2, 0);
 
-          const { minX, maxX, minY, maxY } = projectedCoords.reduce(
-            (bounds, point) => ({
-              minX: Math.min(bounds.minX, point.x),
-              maxX: Math.max(bounds.maxX, point.x),
-              minY: Math.min(bounds.minY, point.y),
-              maxY: Math.max(bounds.maxY, point.y)
-            }),
-            {
-              minX: Infinity,
-              maxX: -Infinity,
-              minY: Infinity,
-              maxY: -Infinity
-            }
-          );
+          const projectedBounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+          projectedCoords.forEach(point => {
+            projectedBounds.minX = Math.min(projectedBounds.minX, point.x);
+            projectedBounds.maxX = Math.max(projectedBounds.maxX, point.x);
+            projectedBounds.minY = Math.min(projectedBounds.minY, point.y);
+            projectedBounds.maxY = Math.max(projectedBounds.maxY, point.y);
+          });
+          const { minX, maxX, minY, maxY } = projectedBounds;
 
           const clampCenter = (value: number, min: number, max: number, halfSpan: number) => {
             const minAllowed = min + halfSpan;
