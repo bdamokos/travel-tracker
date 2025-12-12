@@ -11,6 +11,9 @@
 - Bun is the package manager/runtime (`bun.lock`, Docker uses `oven/bun`).
 - Jest for unit/integration tests (`@/` alias points to `src/`), ESLint + TypeScript config in repo.
 
+## Before finalising a PR
+- Ensure the app builds with `bun run build`
+
 ## Runbook (local)
 - Install: `bun install`.
 - Dev: `bun run dev` (defaults to port 3000; set `NEXT_PUBLIC_APP_MODE=admin` or `embed` for role-specific UIs).
