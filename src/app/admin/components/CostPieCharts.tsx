@@ -6,7 +6,7 @@ import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
 import type { TooltipProps } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { CostSummary, CountryBreakdown } from '../../types';
-import { formatCurrency } from '../../lib/costUtils';
+import { formatCurrency, formatCurrencyWithRefunds } from '../../lib/costUtils';
 import AriaSelect from './AriaSelect';
 
 interface CostPieChartsProps {
@@ -92,6 +92,7 @@ const useAccessiblePieStyles = () => {
 const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) => {
   const [countryBasis, setCountryBasis] = useState<'total' | 'daily'>('total');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
   const {
     colors,
     labelColor,
@@ -101,8 +102,13 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     tooltipMutedClass
   } = useAccessiblePieStyles();
 
+  const filteredCountries = useMemo(
+    () => costSummary.countryBreakdown.filter(country => !excludedCountries.includes(country.country)),
+    [costSummary.countryBreakdown, excludedCountries]
+  );
+
   const countryData = useMemo<ChartData[]>(() => {
-    const baseData = costSummary.countryBreakdown
+    const baseData = filteredCountries
       .filter(country => country.spentAmount > 0)
       .map(country => {
         let value = country.spentAmount;
@@ -119,7 +125,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
       });
 
     const data = [...baseData];
-    const generalExpenses = costSummary.countryBreakdown.find(c => c.country === 'General');
+    const generalExpenses = filteredCountries.find(c => c.country === 'General');
 
     if (generalExpenses && generalExpenses.spentAmount > 0) {
       let generalValue = generalExpenses.spentAmount;
@@ -145,13 +151,13 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     }
 
     return data;
-  }, [costSummary, countryBasis]);
+  }, [countryBasis, costSummary.totalDays, filteredCountries]);
 
   const categoryData = useMemo<ChartData[]>(() => {
-    let targetCountries: CountryBreakdown[] = costSummary.countryBreakdown;
+    let targetCountries: CountryBreakdown[] = filteredCountries;
 
     if (categoryFilter !== 'all') {
-      targetCountries = costSummary.countryBreakdown.filter(c => c.country === categoryFilter);
+      targetCountries = filteredCountries.filter(c => c.country === categoryFilter);
     }
 
     const categoryMap = new Map<string, number>();
@@ -171,7 +177,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         category
       }))
       .sort((a, b) => b.value - a.value);
-  }, [costSummary, categoryFilter]);
+  }, [categoryFilter, filteredCountries]);
 
   const countryTotal = useMemo(
     () => countryData.reduce((sum, d) => sum + d.value, 0),
@@ -189,6 +195,27 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     () => categoryData.map(dataPoint => ({ ...dataPoint, chartTotal: categoryTotal })),
     [categoryData, categoryTotal]
   );
+
+  const filteredSummary = useMemo(() => {
+    const totalNetSpent = filteredCountries.reduce((sum, country) => sum + (country.spentAmount - country.refundAmount), 0);
+    const totalRefunds = filteredCountries.reduce((sum, country) => sum + country.refundAmount, 0);
+    const includedCountryDays = filteredCountries
+      .filter(country => country.country !== 'General')
+      .reduce((sum, country) => sum + country.days, 0);
+
+    const hasGeneral = filteredCountries.some(country => country.country === 'General');
+    const effectiveDays = includedCountryDays || (hasGeneral ? costSummary.totalDays : 0);
+    const averagePerDay = effectiveDays > 0 ? totalNetSpent / effectiveDays : 0;
+
+    return {
+      totalNetSpent,
+      totalRefunds,
+      averagePerDay,
+      effectiveDays,
+      countryCount: filteredCountries.length,
+      categoryCount: categoryData.length
+    };
+  }, [categoryData.length, costSummary.totalDays, filteredCountries]);
   const pieChartMargin = { top: 24, right: 16, bottom: 16, left: 16 };
   const renderSliceLabel = useCallback((props: PieLabelRenderProps | undefined) => {
     if (!props) {
@@ -284,17 +311,113 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   const countries = useMemo(
     () => [
       'all',
-      ...costSummary.countryBreakdown
+      ...filteredCountries
         .filter(c => c.spentAmount > 0)
         .map(c => c.country)
     ],
-    [costSummary]
+    [filteredCountries]
+  );
+
+  useEffect(() => {
+    if (categoryFilter === 'all') {
+      return;
+    }
+
+    if (!countries.includes(categoryFilter)) {
+      setCategoryFilter('all');
+    }
+  }, [categoryFilter, countries]);
+
+  const toggleExcludedCountry = useCallback((country: string) => {
+    setExcludedCountries(prev => (
+      prev.includes(country)
+        ? prev.filter(c => c !== country)
+        : [...prev, country]
+    ));
+  }, []);
+
+  const availableCountryOptions = useMemo(
+    () => costSummary.countryBreakdown
+      .filter(country => country.spentAmount > 0)
+      .map(country => country.country)
+      .sort((a, b) => a.localeCompare(b)),
+    [costSummary.countryBreakdown]
   );
 
   return (
     <div className="space-y-6 text-gray-900 dark:text-gray-100" data-testid="cost-pie-charts">
       <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-4">Spending Analysis</h4>
-      
+
+      <div className="flex flex-col gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 p-4 rounded-lg">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-700 dark:text-gray-200">Exclude countries from charts & summary:</p>
+          <div className="flex flex-wrap gap-2">
+            {availableCountryOptions.map(country => {
+              const isExcluded = excludedCountries.includes(country);
+              return (
+                <button
+                  key={country}
+                  type="button"
+                  onClick={() => toggleExcludedCountry(country)}
+                  className={`px-3 py-1 rounded-full border text-sm transition-colors ${
+                    isExcluded
+                      ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700'
+                      : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600'
+                  }`}
+                  aria-pressed={isExcluded}
+                >
+                  {isExcluded ? 'Excluded' : 'Include'} {country}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {excludedCountries.length > 0 && (
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            Excluding: {excludedCountries.join(', ')}
+          </p>
+        )}
+      </div>
+
+      {/* Filtered statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700">
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Included spending</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {(() => {
+              const refundDisplay = formatCurrencyWithRefunds(filteredSummary.totalNetSpent, filteredSummary.totalRefunds, currency);
+              return refundDisplay.displayText;
+            })()}
+          </p>
+          {filteredSummary.totalRefunds > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">Includes refunds from included countries</p>
+          )}
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Daily average (included)</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {filteredSummary.effectiveDays > 0
+              ? formatCurrency(filteredSummary.averagePerDay, currency)
+              : 'N/A'}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Calculated over {filteredSummary.effectiveDays || 0} day{filteredSummary.effectiveDays === 1 ? '' : 's'}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Countries included</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {filteredSummary.countryCount}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Categories in view</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {filteredSummary.categoryCount}
+          </p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Country Spending Chart */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700">
