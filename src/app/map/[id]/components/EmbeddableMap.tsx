@@ -84,10 +84,10 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   description?: string;
 }) => {
   const isDarkMode = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const popupStyles = isDarkMode 
+  const popupStyles = isDarkMode
     ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
     : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
-  
+
   let popupContent = `
     <div style="padding: 12px; max-width: 400px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
       <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${location.name}</h4>
@@ -109,7 +109,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
   // Add Wikipedia section
   if (wikipediaData) {
     popupContent += `
@@ -125,7 +125,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
   // Add Instagram posts
   if (location.instagramPosts && location.instagramPosts.length > 0) {
     popupContent += `
@@ -155,7 +155,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
           <span>TikTok</span>
         </div>
         ${location.tikTokPosts
-          .map((post, index) => `
+        .map((post, index) => `
             <div style="margin-top: 2px;">
               <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
                 TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}
@@ -163,7 +163,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
               ${post.caption ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #e5e7eb;' : 'color: #6b7280;'}">${post.caption}</div>` : ''}
             </div>
           `)
-          .join('')}
+        .join('')}
       </div>
     `;
   }
@@ -184,7 +184,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
   popupContent += '</div>';
   return popupContent;
 };
@@ -193,7 +193,8 @@ const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
 const DEFAULT_MIN_ZOOM = 0;
 const DEFAULT_MAX_ZOOM = 19;
-const MAP_PADDING_PX = 20;
+const MAP_PADDING_X = 20;
+const MAP_PADDING_Y = 50;
 
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
@@ -201,14 +202,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
-  
+
   // Simplified - no more client-side route generation
-  
+
   // Initialize client-side state
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   // Log what route data we received
   useEffect(() => {
     console.log(`[EmbeddableMap] Received travel data for trip ${travelData.id} with ${travelData.routes.length} routes`);
@@ -217,14 +218,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       console.log(`[EmbeddableMap] Received route ${index} (${route.id}): ${routePointsCount} route points`);
     });
   }, [travelData.id, travelData.routes]);
-  
+
   // Load Leaflet dynamically
   useEffect(() => {
     if (!isClient) return;
-    
+
     import('leaflet').then((leaflet) => {
       setL(leaflet);
-      
+
       // Fix Leaflet icon issues
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (leaflet.Icon.Default.prototype as any)._getIconUrl;
@@ -233,7 +234,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         iconUrl: '/images/marker-icon.png',
         shadowUrl: '/images/marker-shadow.png',
       });
-      
+
       // Create highlighted icon
       const highlightedIcon = leaflet.divIcon({
         className: 'custom-highlighted-marker',
@@ -252,11 +253,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         iconAnchor: [12, 41],
         popupAnchor: [1, -34]
       });
-      
+
       setHighlightedIcon(highlightedIcon);
     });
   }, [isClient]);
-  
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
 
@@ -480,7 +481,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
                 weatherBlock = { icon: today.conditions?.icon || '⛅', temp: today.temperature?.average ?? null, description: today.conditions?.description };
               }
             }
-          } catch {}
+          } catch { }
 
           const updatedPopupContent = generatePopupHTML(
             location,
@@ -635,7 +636,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     travelData.routes.forEach(async (route) => {
       // Use pre-generated route points if available, fallback to generating sync
       let routePoints: [number, number][] = [];
-      
+
       if (route.routePoints && route.routePoints.length > 0) {
         // Use pre-generated points for better performance and accuracy
         console.log(`[EmbeddableMap] Using pre-generated route points for ${route.id}: ${route.routePoints.length} points`);
@@ -645,9 +646,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         console.log(`[EmbeddableMap] No pre-generated points for ${route.id}, using straight line fallback`);
         routePoints = [route.fromCoords, route.toCoords];
       }
-      
+
       const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
-      
+
       if (routePoints.length > 0) {
         L.polyline(routePoints, {
           color: routeStyle.color,
@@ -670,7 +671,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const bounds = hasBounds
         ? L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])))
         : null;
-      const padding = L.point(MAP_PADDING_PX, MAP_PADDING_PX);
+      const padding = L.point(MAP_PADDING_X, MAP_PADDING_Y);
       const baseZoom = hasBounds && bounds
         ? map.getBoundsZoom(bounds, true, padding)
         : 10;
@@ -758,7 +759,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
   if (!isClient) {
     return (
-      <div 
+      <div
         className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-gray-900"
         style={{ minHeight: '400px' }}
       >
