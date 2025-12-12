@@ -1,7 +1,233 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Location } from '@/app/types';
+
+const updatePost = <T extends { id: string }>(
+  posts: T[] | undefined,
+  postId: string,
+  updates: Partial<T>
+): T[] | undefined => posts?.map(post => (post.id === postId ? { ...post, ...updates } : post));
+
+type InstagramPost = NonNullable<Location['instagramPosts']>[number];
+type TikTokPost = NonNullable<Location['tikTokPosts']>[number];
+type BlogPost = NonNullable<Location['blogPosts']>[number];
+
+interface InstagramPostItemProps {
+  post: InstagramPost;
+  onUpdate: (postId: string, updates: Partial<{ url: string; caption: string }>) => void;
+  onRemove: (postId: string) => void;
+}
+
+const InstagramPostItem = ({ post, onUpdate, onRemove }: InstagramPostItemProps) => {
+  const [url, setUrl] = useState(post.url);
+  const [caption, setCaption] = useState(post.caption || '');
+
+  useEffect(() => {
+    setUrl(post.url);
+  }, [post.url]);
+
+  useEffect(() => {
+    setCaption(post.caption || '');
+  }, [post.caption]);
+
+  const handleUrlBlur = () => {
+    if (url !== post.url) {
+      onUpdate(post.id, { url });
+    }
+  };
+
+  const handleCaptionBlur = () => {
+    if (caption !== (post.caption || '')) {
+      onUpdate(post.id, { caption });
+    }
+  };
+
+  return (
+    <div className="bg-white p-2 rounded-sm text-sm space-y-2">
+      <div className="flex gap-2 items-center">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={handleUrlBlur}
+          className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
+          placeholder="Instagram post URL"
+        />
+        <a
+          href={post.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:underline whitespace-nowrap"
+        >
+          Open
+        </a>
+        <button onClick={() => onRemove(post.id)} className="text-red-500 hover:text-red-700 ml-2">
+          ×
+        </button>
+      </div>
+      <input
+        type="text"
+        value={caption}
+        onChange={(e) => setCaption(e.target.value)}
+        onBlur={handleCaptionBlur}
+        className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
+        placeholder="Caption (optional)"
+      />
+    </div>
+  );
+};
+
+interface TikTokPostItemProps {
+  post: TikTokPost;
+  onUpdate: (postId: string, updates: Partial<{ url: string; caption: string }>) => void;
+  onRemove: (postId: string) => void;
+}
+
+const TikTokPostItem = ({ post, onUpdate, onRemove }: TikTokPostItemProps) => {
+  const [url, setUrl] = useState(post.url);
+  const [caption, setCaption] = useState(post.caption || '');
+
+  useEffect(() => {
+    setUrl(post.url);
+  }, [post.url]);
+
+  useEffect(() => {
+    setCaption(post.caption || '');
+  }, [post.caption]);
+
+  const handleUrlBlur = () => {
+    if (url !== post.url) {
+      onUpdate(post.id, { url });
+    }
+  };
+
+  const handleCaptionBlur = () => {
+    if (caption !== (post.caption || '')) {
+      onUpdate(post.id, { caption });
+    }
+  };
+
+  return (
+    <div className="bg-white p-2 rounded-sm text-sm space-y-2">
+      <div className="flex gap-2 items-center">
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={handleUrlBlur}
+          className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
+          placeholder="TikTok post URL"
+        />
+        <a
+          href={post.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-purple-600 hover:underline whitespace-nowrap"
+        >
+          Open
+        </a>
+        <button onClick={() => onRemove(post.id)} className="text-red-500 hover:text-red-700 ml-2">
+          ×
+        </button>
+      </div>
+      <input
+        type="text"
+        value={caption}
+        onChange={(e) => setCaption(e.target.value)}
+        onBlur={handleCaptionBlur}
+        className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
+        placeholder="Caption (optional)"
+      />
+    </div>
+  );
+};
+
+interface BlogPostItemProps {
+  post: BlogPost;
+  onUpdate: (postId: string, updates: Partial<{ title: string; url: string; excerpt: string }>) => void;
+  onRemove: (postId: string) => void;
+}
+
+const BlogPostItem = ({ post, onUpdate, onRemove }: BlogPostItemProps) => {
+  const [title, setTitle] = useState(post.title);
+  const [url, setUrl] = useState(post.url);
+  const [excerpt, setExcerpt] = useState(post.excerpt || '');
+
+  useEffect(() => {
+    setTitle(post.title);
+  }, [post.title]);
+
+  useEffect(() => {
+    setUrl(post.url);
+  }, [post.url]);
+
+  useEffect(() => {
+    setExcerpt(post.excerpt || '');
+  }, [post.excerpt]);
+
+  const handleTitleBlur = () => {
+    if (title !== post.title) {
+      onUpdate(post.id, { title });
+    }
+  };
+
+  const handleUrlBlur = () => {
+    if (url !== post.url) {
+      onUpdate(post.id, { url });
+    }
+  };
+
+  const handleExcerptBlur = () => {
+    if (excerpt !== (post.excerpt || '')) {
+      onUpdate(post.id, { excerpt });
+    }
+  };
+
+  return (
+    <div className="bg-white p-2 rounded-sm text-sm space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={handleTitleBlur}
+          className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
+          placeholder="Post title"
+        />
+        <div className="flex gap-2 items-center">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onBlur={handleUrlBlur}
+            className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
+            placeholder="Blog post URL"
+          />
+          <a
+            href={post.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline whitespace-nowrap"
+          >
+            Open
+          </a>
+          <button onClick={() => onRemove(post.id)} className="text-red-500 hover:text-red-700 ml-2">
+            ×
+          </button>
+        </div>
+      </div>
+      <input
+        type="text"
+        value={excerpt}
+        onChange={(e) => setExcerpt(e.target.value)}
+        onBlur={handleExcerptBlur}
+        className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
+        placeholder="Excerpt (optional)"
+      />
+    </div>
+  );
+};
 
 interface LocationPostsProps {
   location: Location;
@@ -47,14 +273,7 @@ export default function LocationPosts({
   const handleUpdateInstagramPost = (postId: string, updates: Partial<{ url: string; caption: string }>) => {
     const updatedLocation = {
       ...location,
-      instagramPosts: location.instagramPosts?.map(post =>
-        post.id === postId
-          ? {
-              ...post,
-              ...updates,
-            }
-          : post
-      ),
+      instagramPosts: updatePost(location.instagramPosts, postId, updates),
     };
     onLocationUpdate(updatedLocation);
   };
@@ -70,14 +289,7 @@ export default function LocationPosts({
   const handleUpdateTikTokPost = (postId: string, updates: Partial<{ url: string; caption: string }>) => {
     const updatedLocation = {
       ...location,
-      tikTokPosts: location.tikTokPosts?.map(post =>
-        post.id === postId
-          ? {
-              ...post,
-              ...updates,
-            }
-          : post
-      ),
+      tikTokPosts: updatePost(location.tikTokPosts, postId, updates),
     };
     onLocationUpdate(updatedLocation);
   };
@@ -96,14 +308,7 @@ export default function LocationPosts({
   ) => {
     const updatedLocation = {
       ...location,
-      blogPosts: location.blogPosts?.map(post =>
-        post.id === postId
-          ? {
-              ...post,
-              ...updates,
-            }
-          : post
-      ),
+      blogPosts: updatePost(location.blogPosts, postId, updates),
     };
     onLocationUpdate(updatedLocation);
   };
@@ -141,38 +346,12 @@ export default function LocationPosts({
         {location.instagramPosts && location.instagramPosts.length > 0 && (
           <div className="space-y-2">
             {location.instagramPosts.map((post) => (
-              <div key={post.id} className="bg-white p-2 rounded-sm text-sm space-y-2">
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="url"
-                    value={post.url}
-                    onChange={(e) => handleUpdateInstagramPost(post.id, { url: e.target.value })}
-                    className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                    placeholder="Instagram post URL"
-                  />
-                  <a
-                    href={post.url}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-blue-500 hover:underline whitespace-nowrap"
-                  >
-                    Open
-                  </a>
-                  <button
-                    onClick={() => handleRemoveInstagramPost(post.id)}
-                    className="text-red-500 hover:text-red-700 ml-2"
-                  >
-                    ×
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={post.caption || ''}
-                  onChange={(e) => handleUpdateInstagramPost(post.id, { caption: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                  placeholder="Caption (optional)"
-                />
-              </div>
+              <InstagramPostItem
+                key={post.id}
+                post={post}
+                onUpdate={handleUpdateInstagramPost}
+                onRemove={handleRemoveInstagramPost}
+              />
             ))}
           </div>
         )}
@@ -207,38 +386,12 @@ export default function LocationPosts({
         {location.tikTokPosts && location.tikTokPosts.length > 0 && (
           <div className="space-y-2">
             {location.tikTokPosts.map((post) => (
-              <div key={post.id} className="bg-white p-2 rounded-sm text-sm space-y-2">
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="url"
-                    value={post.url}
-                    onChange={(e) => handleUpdateTikTokPost(post.id, { url: e.target.value })}
-                    className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                    placeholder="TikTok post URL"
-                  />
-                  <a
-                    href={post.url}
-                    target="_blank"
-                    rel="noopener"
-                    className="text-purple-600 hover:underline whitespace-nowrap"
-                  >
-                    Open
-                  </a>
-                  <button
-                    onClick={() => handleRemoveTikTokPost(post.id)}
-                    className="text-red-500 hover:text-red-700 ml-2"
-                  >
-                    ×
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={post.caption || ''}
-                  onChange={(e) => handleUpdateTikTokPost(post.id, { caption: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                  placeholder="Caption (optional)"
-                />
-              </div>
+              <TikTokPostItem
+                key={post.id}
+                post={post}
+                onUpdate={handleUpdateTikTokPost}
+                onRemove={handleRemoveTikTokPost}
+              />
             ))}
           </div>
         )}
@@ -282,47 +435,12 @@ export default function LocationPosts({
         {location.blogPosts && location.blogPosts.length > 0 && (
           <div className="space-y-2">
             {location.blogPosts.map((post) => (
-              <div key={post.id} className="bg-white p-2 rounded-sm text-sm space-y-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center">
-                  <input
-                    type="text"
-                    value={post.title}
-                    onChange={(e) => handleUpdateBlogPost(post.id, { title: e.target.value })}
-                    className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                    placeholder="Post title"
-                  />
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="url"
-                      value={post.url}
-                      onChange={(e) => handleUpdateBlogPost(post.id, { url: e.target.value })}
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                      placeholder="Blog post URL"
-                    />
-                    <a
-                      href={post.url}
-                      target="_blank"
-                      rel="noopener"
-                      className="text-blue-500 hover:underline whitespace-nowrap"
-                    >
-                      Open
-                    </a>
-                    <button
-                      onClick={() => handleRemoveBlogPost(post.id)}
-                      className="text-red-500 hover:text-red-700 ml-2"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  value={post.excerpt || ''}
-                  onChange={(e) => handleUpdateBlogPost(post.id, { excerpt: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
-                  placeholder="Excerpt (optional)"
-                />
-              </div>
+              <BlogPostItem
+                key={post.id}
+                post={post}
+                onUpdate={handleUpdateBlogPost}
+                onRemove={handleRemoveBlogPost}
+              />
             ))}
           </div>
         )}
