@@ -191,6 +191,9 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
 
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
+const DEFAULT_MIN_ZOOM = 0;
+const DEFAULT_MAX_ZOOM = 19;
+const MAP_PADDING_PX = 20;
 
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
@@ -558,7 +561,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const otherItems = items.filter(item => item.id !== target.id);
       if (!otherItems.length) return startingZoom;
 
-      const maxZoom = mapInstance.getMaxZoom() ?? 19;
+      const maxZoom = mapInstance.getMaxZoom() ?? DEFAULT_MAX_ZOOM;
       const targetLatLng = L.latLng(target.coordinates[0], target.coordinates[1]);
       const otherLatLngs = otherItems.map(item => L.latLng(item.coordinates[0], item.coordinates[1]));
 
@@ -667,7 +670,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const bounds = hasBounds
         ? L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])))
         : null;
-      const padding = L.point(20, 20);
+      const padding = L.point(MAP_PADDING_PX, MAP_PADDING_PX);
       const baseZoom = hasBounds && bounds
         ? map.getBoundsZoom(bounds, true, padding)
         : 10;
@@ -676,15 +679,49 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         ? getIsolationZoom(map, closestLocation, travelData.locations, baseZoom)
         : baseZoom;
 
-      const minZoom = map.getMinZoom() ?? 0;
-      const maxZoom = map.getMaxZoom() ?? 19;
+      const minZoom = map.getMinZoom() ?? DEFAULT_MIN_ZOOM;
+      const maxZoom = map.getMaxZoom() ?? DEFAULT_MAX_ZOOM;
       const finalZoom = Math.min(Math.max(targetZoom, minZoom), maxZoom);
 
-      const center = hasBounds && bounds
-        ? (targetZoom > baseZoom && closestLocation?.coordinates
-          ? L.latLng(closestLocation.coordinates[0], closestLocation.coordinates[1])
-          : bounds.getCenter())
-        : allCoords[0];
+      let center: L.LatLngExpression;
+      if (hasBounds && bounds) {
+        if (targetZoom > baseZoom && closestLocation?.coordinates) {
+          const highlightedLatLng = L.latLng(closestLocation.coordinates[0], closestLocation.coordinates[1]);
+          const highlightedPoint = map.project(highlightedLatLng, finalZoom);
+          const projectedCoords = allCoords.map(coord => map.project(L.latLng(coord[0], coord[1]), finalZoom));
+
+          const paddingWidth = padding.x * 2;
+          const paddingHeight = padding.y * 2;
+          const viewSize = map.getSize();
+          const halfViewWidth = Math.max((viewSize.x - paddingWidth) / 2, 0);
+          const halfViewHeight = Math.max((viewSize.y - paddingHeight) / 2, 0);
+
+          const minX = Math.min(...projectedCoords.map(point => point.x));
+          const maxX = Math.max(...projectedCoords.map(point => point.x));
+          const minY = Math.min(...projectedCoords.map(point => point.y));
+          const maxY = Math.max(...projectedCoords.map(point => point.y));
+
+          const clampCenter = (value: number, min: number, max: number, halfSpan: number) => {
+            const minAllowed = min + halfSpan;
+            const maxAllowed = max - halfSpan;
+
+            if (minAllowed > maxAllowed) {
+              return (min + max) / 2;
+            }
+
+            return Math.min(Math.max(value, minAllowed), maxAllowed);
+          };
+
+          const clampedX = clampCenter(highlightedPoint.x, minX, maxX, halfViewWidth);
+          const clampedY = clampCenter(highlightedPoint.y, minY, maxY, halfViewHeight);
+
+          center = map.unproject(L.point(clampedX, clampedY), finalZoom);
+        } else {
+          center = bounds.getCenter();
+        }
+      } else {
+        center = allCoords[0];
+      }
 
       map.setView(center, finalZoom);
 
@@ -695,6 +732,13 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         };
 
         map.panInsideBounds(bounds, panOptions);
+
+        if (closestLocation?.coordinates) {
+          const highlightedLatLng = L.latLng(closestLocation.coordinates[0], closestLocation.coordinates[1]);
+          if (!map.getBounds().contains(highlightedLatLng)) {
+            map.panTo(highlightedLatLng, { animate: false });
+          }
+        }
       }
     }
 
