@@ -553,6 +553,33 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       expanded.add(groupKey);
     };
 
+    const getIsolationZoom = (
+      mapInstance: L.Map,
+      target: GroupItem,
+      items: GroupItem[],
+      startingZoom: number,
+      pixelThreshold = GROUP_PIXEL_THRESHOLD
+    ) => {
+      const otherItems = items.filter(item => item.id !== target.id);
+      if (!otherItems.length) return startingZoom;
+
+      const maxZoom = mapInstance.getMaxZoom() ?? 19;
+      const targetLatLng = L.latLng(target.coordinates[0], target.coordinates[1]);
+      const otherLatLngs = otherItems.map(item => L.latLng(item.coordinates[0], item.coordinates[1]));
+
+      const overlapsAtZoom = (zoomLevel: number) => {
+        const targetPoint = mapInstance.project(targetLatLng, zoomLevel);
+        return otherLatLngs.some(latlng => targetPoint.distanceTo(mapInstance.project(latlng, zoomLevel)) <= pixelThreshold);
+      };
+
+      let zoomLevel = startingZoom;
+      while (overlapsAtZoom(zoomLevel) && zoomLevel < maxZoom) {
+        zoomLevel += 1;
+      }
+
+      return zoomLevel;
+    };
+
     const renderGroups = () => {
       clearAllMarkers();
 
@@ -633,20 +660,39 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }
     });
 
-    // Fit map to show all locations
+    // Fit map to show all locations while keeping highlighted pin visible without spidering
     if (travelData.locations.length > 0) {
       const allCoords = travelData.locations.map(loc => loc.coordinates);
-      
-      // Add route coordinates
+
       travelData.routes.forEach(route => {
         allCoords.push(route.fromCoords, route.toCoords);
       });
-      
-      if (allCoords.length > 1) {
-        const bounds = L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])));
-        map.fitBounds(bounds, { padding: [20, 20] });
-      } else if (allCoords.length === 1) {
-        map.setView(allCoords[0], 10);
+
+      const hasBounds = allCoords.length > 1;
+      const bounds = hasBounds
+        ? L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])))
+        : null;
+      const padding: L.PointExpression = [20, 20];
+      const baseZoom = hasBounds && bounds
+        ? map.getBoundsZoom(bounds, true, padding)
+        : 10;
+
+      const targetZoom = closestLocation
+        ? getIsolationZoom(map, closestLocation, travelData.locations, baseZoom)
+        : baseZoom;
+
+      const minZoom = map.getMinZoom() ?? 0;
+      const maxZoom = map.getMaxZoom() ?? 19;
+      const finalZoom = Math.min(Math.max(targetZoom, minZoom), maxZoom);
+
+      const center = hasBounds && bounds ? bounds.getCenter() : allCoords[0];
+      map.setView(center, finalZoom);
+
+      if (bounds) {
+        map.panInsideBounds(bounds, {
+          paddingTopLeft: [padding[0], padding[1]],
+          paddingBottomRight: [padding[0], padding[1]]
+        });
       }
     }
 
