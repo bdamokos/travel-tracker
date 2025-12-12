@@ -318,12 +318,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     // Add markers for locations with grouping + spiderfy
     // Find the location closest to current date
-    const closestLocation = findClosestLocationToCurrentDate(
-      travelData.locations.map(location => ({
-        ...location,
-        date: new Date(location.date)
-      }))
-    );
+    const closestLocation = findClosestLocationToCurrentDate(travelData.locations);
 
     type GroupItem = TravelData['locations'][0];
     type Group = { key: string; center: [number, number]; items: GroupItem[] };
@@ -694,10 +689,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       map.setView(center, finalZoom);
 
       if (bounds) {
-        map.panInsideBounds(bounds, {
+        const panOptions: L.FitBoundsOptions = {
           paddingTopLeft: padding,
           paddingBottomRight: padding
-        });
+        };
+
+        map.panInsideBounds(bounds, panOptions);
       }
     }
 
