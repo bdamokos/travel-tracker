@@ -13,13 +13,17 @@ type InstagramPost = NonNullable<Location['instagramPosts']>[number];
 type TikTokPost = NonNullable<Location['tikTokPosts']>[number];
 type BlogPost = NonNullable<Location['blogPosts']>[number];
 
-interface InstagramPostItemProps {
-  post: InstagramPost;
-  onUpdate: (postId: string, updates: Partial<{ url: string; caption: string }>) => void;
+type MediaPostUpdateHandler = (postId: string, updates: Partial<{ url: string; caption: string }>) => void;
+
+interface MediaPostItemProps {
+  post: { id: string; url: string; caption?: string };
+  onUpdate: MediaPostUpdateHandler;
   onRemove: (postId: string) => void;
+  urlPlaceholder: string;
+  linkColorClassName: string;
 }
 
-const InstagramPostItem = ({ post, onUpdate, onRemove }: InstagramPostItemProps) => {
+const MediaPostItem = ({ post, onUpdate, onRemove, urlPlaceholder, linkColorClassName }: MediaPostItemProps) => {
   const [url, setUrl] = useState(post.url);
   const [caption, setCaption] = useState(post.caption || '');
 
@@ -52,13 +56,13 @@ const InstagramPostItem = ({ post, onUpdate, onRemove }: InstagramPostItemProps)
           onChange={(e) => setUrl(e.target.value)}
           onBlur={handleUrlBlur}
           className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-          placeholder="Instagram post URL"
+          placeholder={urlPlaceholder}
         />
         <a
           href={post.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-500 hover:underline whitespace-nowrap"
+          className={`${linkColorClassName} hover:underline whitespace-nowrap`}
         >
           Open
         </a>
@@ -77,71 +81,38 @@ const InstagramPostItem = ({ post, onUpdate, onRemove }: InstagramPostItemProps)
     </div>
   );
 };
+
+interface InstagramPostItemProps {
+  post: InstagramPost;
+  onUpdate: MediaPostUpdateHandler;
+  onRemove: (postId: string) => void;
+}
+
+const InstagramPostItem = ({ post, onUpdate, onRemove }: InstagramPostItemProps) => (
+  <MediaPostItem
+    post={post}
+    onUpdate={onUpdate}
+    onRemove={onRemove}
+    urlPlaceholder="Instagram post URL"
+    linkColorClassName="text-blue-500"
+  />
+);
 
 interface TikTokPostItemProps {
   post: TikTokPost;
-  onUpdate: (postId: string, updates: Partial<{ url: string; caption: string }>) => void;
+  onUpdate: MediaPostUpdateHandler;
   onRemove: (postId: string) => void;
 }
 
-const TikTokPostItem = ({ post, onUpdate, onRemove }: TikTokPostItemProps) => {
-  const [url, setUrl] = useState(post.url);
-  const [caption, setCaption] = useState(post.caption || '');
-
-  useEffect(() => {
-    setUrl(post.url);
-  }, [post.url]);
-
-  useEffect(() => {
-    setCaption(post.caption || '');
-  }, [post.caption]);
-
-  const handleUrlBlur = () => {
-    if (url !== post.url) {
-      onUpdate(post.id, { url });
-    }
-  };
-
-  const handleCaptionBlur = () => {
-    if (caption !== (post.caption || '')) {
-      onUpdate(post.id, { caption });
-    }
-  };
-
-  return (
-    <div className="bg-white p-2 rounded-sm text-sm space-y-2">
-      <div className="flex gap-2 items-center">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onBlur={handleUrlBlur}
-          className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
-          placeholder="TikTok post URL"
-        />
-        <a
-          href={post.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-purple-600 hover:underline whitespace-nowrap"
-        >
-          Open
-        </a>
-        <button onClick={() => onRemove(post.id)} className="text-red-500 hover:text-red-700 ml-2">
-          ×
-        </button>
-      </div>
-      <input
-        type="text"
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        onBlur={handleCaptionBlur}
-        className="w-full px-2 py-1 border border-gray-300 rounded-sm text-sm"
-        placeholder="Caption (optional)"
-      />
-    </div>
-  );
-};
+const TikTokPostItem = ({ post, onUpdate, onRemove }: TikTokPostItemProps) => (
+  <MediaPostItem
+    post={post}
+    onUpdate={onUpdate}
+    onRemove={onRemove}
+    urlPlaceholder="TikTok post URL"
+    linkColorClassName="text-purple-600"
+  />
+);
 
 interface BlogPostItemProps {
   post: BlogPost;
