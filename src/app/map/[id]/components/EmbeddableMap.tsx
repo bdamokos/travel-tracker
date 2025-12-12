@@ -672,7 +672,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const bounds = hasBounds
         ? L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])))
         : null;
-      const padding: L.PointExpression = [20, 20];
+      const padding = L.point(20, 20);
       const baseZoom = hasBounds && bounds
         ? map.getBoundsZoom(bounds, true, padding)
         : 10;
@@ -685,13 +685,18 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const maxZoom = map.getMaxZoom() ?? 19;
       const finalZoom = Math.min(Math.max(targetZoom, minZoom), maxZoom);
 
-      const center = hasBounds && bounds ? bounds.getCenter() : allCoords[0];
+      const center = hasBounds && bounds
+        ? (targetZoom > baseZoom && closestLocation?.coordinates
+          ? L.latLng(closestLocation.coordinates[0], closestLocation.coordinates[1])
+          : bounds.getCenter())
+        : allCoords[0];
+
       map.setView(center, finalZoom);
 
       if (bounds) {
         map.panInsideBounds(bounds, {
-          paddingTopLeft: [padding[0], padding[1]],
-          paddingBottomRight: [padding[0], padding[1]]
+          paddingTopLeft: padding,
+          paddingBottomRight: padding
         });
       }
     }
