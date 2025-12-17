@@ -327,13 +327,15 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     });
   });
   
-  // Add expenses to countries
+  // Add expenses to countries (including unassigned as a pseudo-country)
   costData.expenses.forEach(expense => {
-    if (!expense.isGeneralExpense && expense.country) {
-      if (!countryMap.has(expense.country)) {
-        // Create entry for countries without explicit budget
-        countryMap.set(expense.country, {
-          country: expense.country,
+    if (!expense.isGeneralExpense) {
+      const countryName = expense.country && expense.country.trim() !== '' ? expense.country : 'Unassigned';
+
+      if (!countryMap.has(countryName)) {
+        // Create entry for countries without explicit budget (or unassigned)
+        countryMap.set(countryName, {
+          country: countryName,
           budgetAmount: 0, // Will be undefined amount in budget
           spentAmount: 0,
           refundAmount: 0,
@@ -354,7 +356,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
         });
       }
       
-      const countryData = countryMap.get(expense.country)!;
+      const countryData = countryMap.get(countryName)!;
       const expenseType = expense.expenseType || 'actual';
       
       // Handle different expense types (with automatic post-trip detection)

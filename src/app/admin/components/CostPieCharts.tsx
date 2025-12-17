@@ -93,6 +93,18 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   const [countryBasis, setCountryBasis] = useState<'total' | 'daily'>('total');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
+  const derivedExcludedCountries = useMemo(() => {
+    const set = new Set(excludedCountries);
+    // If General is excluded, also exclude unassigned/no-country expenses by default.
+    if (excludedCountries.includes('General')) {
+      set.add('Unassigned');
+    }
+    return set;
+  }, [excludedCountries]);
+  const derivedExcludedList = useMemo(
+    () => Array.from(derivedExcludedCountries),
+    [derivedExcludedCountries]
+  );
   const {
     colors,
     labelColor,
@@ -103,8 +115,8 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   } = useAccessiblePieStyles();
 
   const filteredCountries = useMemo(
-    () => costSummary.countryBreakdown.filter(country => !excludedCountries.includes(country.country)),
-    [costSummary.countryBreakdown, excludedCountries]
+    () => costSummary.countryBreakdown.filter(country => !derivedExcludedCountries.has(country.country)),
+    [costSummary.countryBreakdown, derivedExcludedCountries]
   );
 
   const countryData = useMemo<ChartData[]>(() => {
@@ -197,14 +209,21 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
   );
 
   const filteredSummary = useMemo(() => {
-    const totalNetSpent = filteredCountries.reduce((sum, country) => sum + (country.spentAmount - country.refundAmount), 0);
+    const totalNetSpent = filteredCountries.reduce(
+      (sum, country) => sum + (country.spentAmount - country.refundAmount),
+      0
+    );
     const totalRefunds = filteredCountries.reduce((sum, country) => sum + country.refundAmount, 0);
+
     const includedCountryDays = filteredCountries
       .filter(country => country.country !== 'General')
       .reduce((sum, country) => sum + country.days, 0);
 
-    const hasGeneral = filteredCountries.some(country => country.country === 'General');
-    const effectiveDays = includedCountryDays || (hasGeneral ? costSummary.totalDays : 0);
+    // Align with top-level “Trip Average/Day” when nothing is excluded; otherwise use included-country days with a safe fallback.
+    const effectiveDays = excludedCountries.length === 0
+      ? costSummary.daysCompleted
+      : (includedCountryDays || costSummary.daysCompleted);
+
     const averagePerDay = effectiveDays > 0 ? totalNetSpent / effectiveDays : 0;
 
     return {
@@ -215,7 +234,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
       countryCount: filteredCountries.length,
       categoryCount: categoryData.length
     };
-  }, [categoryData.length, costSummary.totalDays, filteredCountries]);
+  }, [categoryData.length, costSummary.daysCompleted, excludedCountries, filteredCountries]);
   const pieChartMargin = { top: 24, right: 16, bottom: 16, left: 16 };
   const renderSliceLabel = useCallback((props: PieLabelRenderProps | undefined) => {
     if (!props) {
@@ -353,7 +372,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
           <p className="text-sm text-gray-700 dark:text-gray-200">Exclude countries from charts & summary:</p>
           <div className="flex flex-wrap gap-2">
             {availableCountryOptions.map(country => {
-              const isExcluded = excludedCountries.includes(country);
+              const isExcluded = derivedExcludedCountries.has(country);
               return (
                 <button
                   key={country}
@@ -372,9 +391,9 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
             })}
           </div>
         </div>
-        {excludedCountries.length > 0 && (
+        {derivedExcludedCountries.size > 0 && (
           <p className="text-xs text-gray-600 dark:text-gray-400">
-            Excluding: {excludedCountries.join(', ')}
+            Excluding: {derivedExcludedList.join(', ')}
           </p>
         )}
       </div>
