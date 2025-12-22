@@ -177,11 +177,14 @@ function createSegmentsFromSources(
   if (Math.abs(localDiscrepancy) > CURRENCY_EPSILON && segments.length > 0) {
     const lastSegment = segments[segments.length - 1];
     const lastSource = sortedSources.find(source => source.id === lastSegment.sourceExpenseId);
-    lastSegment.localAmount = roundCurrency(lastSegment.localAmount + localDiscrepancy, 6);
-    if (lastSource && isCashSource(lastSource)) {
-      const availableLocal = roundCurrency(lastSource.cashTransaction.remainingLocalAmount, 6);
-      lastSegment.baseAmount = calculateBaseForSegment(lastSource, lastSegment.localAmount, availableLocal);
+    if (!lastSource || !isCashSource(lastSource)) {
+      throw new Error(
+        'Failed to find a valid cash source for the final allocation segment adjustment.'
+      );
     }
+    lastSegment.localAmount = roundCurrency(lastSegment.localAmount + localDiscrepancy, 6);
+    const availableLocal = roundCurrency(lastSource.cashTransaction.remainingLocalAmount, 6);
+    lastSegment.baseAmount = calculateBaseForSegment(lastSource, lastSegment.localAmount, availableLocal);
   }
 
   return segments;
