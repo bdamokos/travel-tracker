@@ -34,6 +34,8 @@ export async function GET(
     const forceRefresh = searchParams.get('refresh') === 'true';
     const wikipediaRef = searchParams.get('wikipediaRef');
 
+    const locale = request.headers.get('accept-language')?.split(',')[0]?.trim();
+
     // Build location object
     const location = {
       id: 'temp-id', // Temporary ID for API calls
@@ -44,7 +46,7 @@ export async function GET(
     };
 
     // Get Wikipedia data (cached or fresh)
-    const wikipediaData = await wikipediaService.getLocationData(location, forceRefresh);
+    const wikipediaData = await wikipediaService.getLocationData(location, forceRefresh, locale);
 
     if (!wikipediaData) {
       return NextResponse.json({
@@ -98,6 +100,7 @@ export async function PUT(
     const { locationName: rawLocationName } = await params;
     const locationName = decodeURIComponent(rawLocationName);
     const body = await request.json();
+    const locale = request.headers.get('accept-language')?.split(',')[0]?.trim();
     
     const { wikipediaRef, coordinates } = body;
 
@@ -118,7 +121,7 @@ export async function PUT(
     };
 
     // Force refresh with new reference
-    const wikipediaData = await wikipediaService.getLocationData(location, true);
+    const wikipediaData = await wikipediaService.getLocationData(location, true, locale);
 
     if (!wikipediaData) {
       return NextResponse.json({

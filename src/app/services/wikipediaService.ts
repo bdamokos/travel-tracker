@@ -8,10 +8,11 @@ import path from 'path';
 import { 
   WikipediaAPIResponse, 
   WikipediaGeosearchResponse,
+  WikidataEntitiesResponse,
   StoredWikipediaData, 
   WikipediaErrorType,
   LocationMatchingResult,
-  WikipediaServiceConfig 
+  WikipediaServiceConfig,
 } from '../types/wikipedia';
 import { Location } from '../types';
 import { 
@@ -154,9 +155,38 @@ class WikipediaService {
   }
 
   /**
+   * Resolve a Wikidata Q-ID to a Wikipedia article title.
+   */
+  private async resolveWikidataTitle(wikidataId: string, locale?: string): Promise<string | null> {
+    const effectiveLocale = locale || Intl.DateTimeFormat().resolvedOptions().locale;
+    const localeLanguage = effectiveLocale?.split('-')[0];
+    const preferredSite = localeLanguage ? `${localeLanguage}wiki` : null;
+
+    const url = `https://www.wikidata.org/w/api.php?` + new URLSearchParams({
+      action: 'wbgetentities',
+      ids: wikidataId,
+      props: 'sitelinks',
+      format: 'json',
+      origin: '*',
+    });
+
+    const response = await this.makeAPIRequest(url);
+    const data = await response.json() as WikidataEntitiesResponse;
+
+    const sitelinks = data.entities?.[wikidataId]?.sitelinks;
+    const rawTitle = (preferredSite && sitelinks?.[preferredSite]?.title) || sitelinks?.enwiki?.title;
+
+    if (!rawTitle) {
+      return null;
+    }
+
+    return rawTitle;
+  }
+
+  /**
    * Find best Wikipedia article match for a location
    */
-  private async findLocationMatch(location: Location): Promise<LocationMatchingResult> {
+  private async findLocationMatch(location: Location, locale?: string): Promise<LocationMatchingResult> {
     const locationName = location.name;
 
     try {
@@ -172,9 +202,28 @@ class WikipediaService {
             confidence: 1.0,
           };
         } else if (wikipediaRef.type === 'wikidata') {
-          // TODO: Implement Wikidata ID to Wikipedia article resolution
-          // For now, fall back to name-based search
-          console.log(`Wikidata reference ${wikipediaRef.value} not yet implemented, falling back to name search`);
+          const wikidataId = wikipediaRef.value!;
+          try {
+            const resolvedTitle = await this.resolveWikidataTitle(wikidataId, locale);
+            if (resolvedTitle) {
+              return {
+                success: true,
+                articleTitle: resolvedTitle,
+                matchType: 'exact',
+                confidence: 1.0,
+              };
+            }
+            console.log(
+              'No sitelink found for Wikidata reference %s, falling back to name search',
+              wikidataId
+            );
+          } catch (error) {
+            console.log(
+              'Failed to resolve Wikidata reference %s, falling back to name search: %s',
+              wikidataId,
+              error instanceof Error ? error.message : 'Unknown error'
+            );
+          }
         }
       }
 
@@ -328,10 +377,10 @@ class WikipediaService {
   /**
    * Fetch fresh Wikipedia data for a location
    */
-  async fetchLocationData(location: Location): Promise<StoredWikipediaData | null> {
+  async fetchLocationData(location: Location, locale?: string): Promise<StoredWikipediaData | null> {
     try {
       // Find best Wikipedia article match
-      const matchResult = await this.findLocationMatch(location);
+      const matchResult = await this.findLocationMatch(location, locale);
       
       if (!matchResult.success || !matchResult.articleTitle) {
         console.log(`No Wikipedia article found for location: ${location.name}`);
@@ -359,7 +408,11 @@ class WikipediaService {
   /**
    * Get Wikipedia data for a location (cached or fresh)
    */
-  async getLocationData(location: Location, forceRefresh = false): Promise<StoredWikipediaData | null> {
+  async getLocationData(
+    location: Location,
+    forceRefresh = false,
+    locale?: string
+  ): Promise<StoredWikipediaData | null> {
     if (!forceRefresh) {
       // Try cache first
       const cachedData = await this.getCachedData(location);
@@ -369,7 +422,7 @@ class WikipediaService {
     }
 
     // Fetch fresh data
-    return await this.fetchLocationData(location);
+    return await this.fetchLocationData(location, locale);
   }
 
   /**
