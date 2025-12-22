@@ -151,4 +151,67 @@ describe('cash transaction utilities', () => {
     expect(restored[0].cashTransaction.remainingLocalAmount).toBeCloseTo(17000, 5);
     expect(restored[1].cashTransaction.remainingLocalAmount).toBeCloseTo(20000, 5);
   });
+
+  test('cash allocation uses remaining balances when spanning multiple exchanges', () => {
+    const firstSource = createCashSourceExpense({
+      id: 'cash-source-1',
+      date: baseDate,
+      baseAmount: 20,
+      localAmount: 20000,
+      localCurrency: 'ARS',
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const secondSource = createCashSourceExpense({
+      id: 'cash-source-2',
+      date: new Date('2024-01-02T00:00:00Z'),
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'ARS',
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const { expense: firstAllocation, segments: firstSegments } = createCashAllocationExpense({
+      id: 'cash-allocation-4',
+      sources: [firstSource, secondSource],
+      localAmount: 19000,
+      date: new Date('2024-01-03T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      category: 'Shopping'
+    });
+
+    const updatedSources = applyAllocationSegmentsToSources(
+      [firstSource, secondSource],
+      firstSegments,
+      firstAllocation.id
+    );
+
+    const { expense: secondAllocation, segments: secondSegments } = createCashAllocationExpense({
+      id: 'cash-allocation-5',
+      sources: updatedSources,
+      localAmount: 1500,
+      date: new Date('2024-01-04T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      category: 'Food & Dining'
+    });
+
+    expect(secondSegments).toHaveLength(2);
+    expect(secondSegments[0].sourceExpenseId).toBe(firstSource.id);
+    expect(secondSegments[0].localAmount).toBeCloseTo(1000, 5);
+    expect(secondSegments[0].baseAmount).toBeCloseTo(1, 5);
+    expect(secondSegments[1].sourceExpenseId).toBe(secondSource.id);
+    expect(secondSegments[1].localAmount).toBeCloseTo(500, 5);
+    expect(secondSegments[1].baseAmount).toBeCloseTo(0.5, 5);
+
+    const finalSources = applyAllocationSegmentsToSources(
+      updatedSources,
+      secondSegments,
+      secondAllocation.id
+    );
+
+    expect(finalSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(finalSources[1].cashTransaction.remainingLocalAmount).toBeCloseTo(9500, 5);
+  });
 });
