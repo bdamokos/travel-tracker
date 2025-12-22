@@ -39,7 +39,11 @@ export default function LocationInlineEditor({
       return;
     }
 
-    onSave(formData);
+    const wikipediaRef = formData.wikipediaRef?.trim();
+    onSave({
+      ...formData,
+      wikipediaRef: wikipediaRef || undefined
+    });
   };
 
   const handleGeocoding = async () => {
@@ -170,6 +174,19 @@ export default function LocationInlineEditor({
             className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             rows={2}
             placeholder="What you did here..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Wikipedia override
+          </label>
+          <input
+            type="text"
+            value={formData.wikipediaRef || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, wikipediaRef: e.target.value }))}
+            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            placeholder="e.g. Paris or Q90 (leave blank for auto)"
           />
         </div>
 

@@ -36,6 +36,7 @@ interface TravelData {
     date: string;
     endDate?: string;
     notes?: string;
+    wikipediaRef?: string;
     instagramPosts?: Array<{
       id: string;
       url: string;
@@ -467,7 +468,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       marker.bindPopup(initialPopupContent, { maxWidth: 400, className: 'wikipedia-popup' });
 
       try {
-        const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?lat=${location.coordinates[0]}&lon=${location.coordinates[1]}`);
+        const wikipediaParams = new URLSearchParams({
+          lat: location.coordinates[0].toString(),
+          lon: location.coordinates[1].toString()
+        });
+        if (location.wikipediaRef?.trim()) {
+          wikipediaParams.set('wikipediaRef', location.wikipediaRef);
+        }
+        const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?${wikipediaParams.toString()}`);
         if (response.ok) {
           const wikipediaResponse = await response.json();
           // Weather fetch (always today's weather at this location)
