@@ -177,11 +177,12 @@ export default function LocationInlineEditor({
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+         <div>
+          <label htmlFor="location-inline-wikipedia-ref" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Wikipedia override
           </label>
           <input
+            id="location-inline-wikipedia-ref"
             type="text"
             value={formData.wikipediaRef || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, wikipediaRef: e.target.value }))}
