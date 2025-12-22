@@ -62,6 +62,8 @@ export default function LocationForm({
       Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
       undefined;
     
+    const wikipediaRef = typeof data.wikipediaRef === 'string' ? data.wikipediaRef.trim() : '';
+
     // Create location object
     const location: Location = {
       id: editingLocationIndex !== null ? currentLocation.id! : generateId(),
@@ -81,7 +83,8 @@ export default function LocationForm({
       // Backward compatibility
       accommodationData: currentLocation.accommodationData,
       isAccommodationPublic: currentLocation.isAccommodationPublic || false,
-      costTrackingLinks: currentLocation.costTrackingLinks || []
+      costTrackingLinks: currentLocation.costTrackingLinks || [],
+      wikipediaRef: wikipediaRef || undefined
     };
 
       // Validate required fields
@@ -107,7 +110,8 @@ export default function LocationForm({
         accommodationIds: [],
         accommodationData: '',
         isAccommodationPublic: false,
-        costTrackingLinks: []
+        costTrackingLinks: [],
+        wikipediaRef: ''
       });
       
       if (editingLocationIndex !== null) {
@@ -224,6 +228,24 @@ export default function LocationForm({
           />
         </div>
 
+        <div className="md:col-span-2">
+          <label htmlFor="location-wikipedia-ref" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+            Wikipedia override (optional)
+          </label>
+          <input
+            id="location-wikipedia-ref"
+            name="wikipediaRef"
+            type="text"
+            defaultValue={currentLocation.wikipediaRef || ''}
+            onChange={(e) => setCurrentLocation((prev: Partial<Location>) => ({ ...prev, wikipediaRef: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            placeholder="e.g. Paris or Q90"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Leave blank to use automatic Wikipedia matching.
+          </p>
+        </div>
+
         <div>
           <label htmlFor="location-latitude" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
             Coordinates
@@ -308,7 +330,8 @@ export default function LocationForm({
                   accommodationIds: [],
                   accommodationData: '',
                   isAccommodationPublic: false,
-                  costTrackingLinks: []
+                  costTrackingLinks: [],
+                  wikipediaRef: ''
                 });
               }}
               className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
