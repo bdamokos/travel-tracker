@@ -154,6 +154,43 @@ class WikipediaService {
   }
 
   /**
+   * Resolve a Wikidata Q-ID to a Wikipedia article title.
+   */
+  private async resolveWikidataTitle(wikidataId: string): Promise<string | null> {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    const localeLanguage = locale?.split('-')[0];
+    const preferredSite = localeLanguage ? `${localeLanguage}wiki` : null;
+
+    const url = `https://www.wikidata.org/w/api.php?` + new URLSearchParams({
+      action: 'wbgetentities',
+      ids: wikidataId,
+      props: 'sitelinks',
+      format: 'json',
+      origin: '*',
+    });
+
+    const response = await this.makeAPIRequest(url);
+    const data = await response.json() as {
+      entities?: Record<string, { sitelinks?: Record<string, { title?: string }> }>;
+    };
+
+    const sitelinks = data.entities?.[wikidataId]?.sitelinks;
+    const rawTitle = (preferredSite && sitelinks?.[preferredSite]?.title)
+      ? sitelinks?.[preferredSite]?.title
+      : sitelinks?.enwiki?.title;
+
+    if (!rawTitle) {
+      return null;
+    }
+
+    try {
+      return decodeURIComponent(rawTitle);
+    } catch {
+      return rawTitle;
+    }
+  }
+
+  /**
    * Find best Wikipedia article match for a location
    */
   private async findLocationMatch(location: Location): Promise<LocationMatchingResult> {
@@ -172,9 +209,24 @@ class WikipediaService {
             confidence: 1.0,
           };
         } else if (wikipediaRef.type === 'wikidata') {
-          // TODO: Implement Wikidata ID to Wikipedia article resolution
-          // For now, fall back to name-based search
-          console.log(`Wikidata reference ${wikipediaRef.value} not yet implemented, falling back to name search`);
+          const wikidataId = wikipediaRef.value!;
+          try {
+            const resolvedTitle = await this.resolveWikidataTitle(wikidataId);
+            if (resolvedTitle) {
+              return {
+                success: true,
+                articleTitle: resolvedTitle,
+                matchType: 'exact',
+                confidence: 1.0,
+              };
+            }
+            console.log(`No sitelink found for Wikidata reference ${wikidataId}, falling back to name search`);
+          } catch (error) {
+            console.log(
+              `Failed to resolve Wikidata reference ${wikidataId}, falling back to name search:`,
+              error instanceof Error ? error.message : 'Unknown error'
+            );
+          }
         }
       }
 
