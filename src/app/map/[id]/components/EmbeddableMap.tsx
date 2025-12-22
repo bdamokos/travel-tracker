@@ -472,8 +472,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           lat: location.coordinates[0].toString(),
           lon: location.coordinates[1].toString()
         });
-        if (location.wikipediaRef?.trim()) {
-          wikipediaParams.set('wikipediaRef', location.wikipediaRef);
+        const trimmedWikipediaRef = location.wikipediaRef?.trim();
+        if (trimmedWikipediaRef) {
+          wikipediaParams.set('wikipediaRef', trimmedWikipediaRef);
         }
         const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?${wikipediaParams.toString()}`);
         if (response.ok) {
