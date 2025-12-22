@@ -220,10 +220,14 @@ class WikipediaService {
                 confidence: 1.0,
               };
             }
-            console.log(`No sitelink found for Wikidata reference ${wikidataId}, falling back to name search`);
+            console.log(
+              'No sitelink found for Wikidata reference %s, falling back to name search',
+              wikidataId
+            );
           } catch (error) {
             console.log(
-              `Failed to resolve Wikidata reference ${wikidataId}, falling back to name search:`,
+              'Failed to resolve Wikidata reference %s, falling back to name search: %s',
+              wikidataId,
               error instanceof Error ? error.message : 'Unknown error'
             );
           }
