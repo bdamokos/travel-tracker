@@ -8,6 +8,7 @@ import path from 'path';
 import { 
   WikipediaAPIResponse, 
   WikipediaGeosearchResponse,
+  WikidataEntitiesResponse,
   StoredWikipediaData, 
   WikipediaErrorType,
   LocationMatchingResult,
@@ -170,9 +171,7 @@ class WikipediaService {
     });
 
     const response = await this.makeAPIRequest(url);
-    const data = await response.json() as {
-      entities?: Record<string, { sitelinks?: Record<string, { title?: string }> }>;
-    };
+    const data = await response.json() as WikidataEntitiesResponse;
 
     const sitelinks = data.entities?.[wikidataId]?.sitelinks;
     const rawTitle = (preferredSite && sitelinks?.[preferredSite]?.title)

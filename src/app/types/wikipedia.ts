@@ -58,6 +58,19 @@ export interface WikipediaGeosearchResponse {
   };
 }
 
+// Wikidata API response for sitelink resolution
+export interface WikidataSitelink {
+  title?: string;
+}
+
+export interface WikidataEntity {
+  sitelinks?: Record<string, WikidataSitelink>;
+}
+
+export interface WikidataEntitiesResponse {
+  entities?: Record<string, WikidataEntity>;
+}
+
 // Stored Wikipedia data structure (for JSON files)
 export interface StoredWikipediaData {
   title: string;
