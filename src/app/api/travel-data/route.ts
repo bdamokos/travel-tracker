@@ -3,6 +3,8 @@ import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '../
 import { filterTravelDataForServer } from '../../lib/serverPrivacyUtils';
 import { isAdminDomain } from '../../lib/server-domains';
 
+const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
+
 export async function POST(request: NextRequest) {
   try {
     const travelData = await request.json();
@@ -55,14 +57,14 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    console.log(`[GET] Loading trip ${id}, has ${unifiedData.travelData?.routes?.length || 0} routes`);
-    
-    // Log route points info
-    if (unifiedData.travelData?.routes) {
-      unifiedData.travelData.routes.forEach((route: { id: string; routePoints?: [number, number][] }, index: number) => {
-        const routePointsCount = route.routePoints ? route.routePoints.length : 0;
-        console.log(`[GET] Route ${index} (${route.id}): ${routePointsCount} route points`);
-      });
+    if (DEBUG_TRAVEL_DATA) {
+      console.log(`[GET] Loading trip ${id}, has ${unifiedData.travelData?.routes?.length || 0} routes`);
+      unifiedData.travelData?.routes?.forEach(
+        (route: { id: string; routePoints?: [number, number][] }, index: number) => {
+          const routePointsCount = route.routePoints ? route.routePoints.length : 0;
+          console.log(`[GET] Route ${index} (${route.id}): ${routePointsCount} route points`);
+        }
+      );
     }
     
     // Return the travel data portion for backward compatibility, including accommodations
@@ -82,8 +84,7 @@ export async function GET(request: NextRequest) {
     const host = request.headers.get('host');
     const filteredData = filterTravelDataForServer(travelData, host);
     
-    // Log route points after filtering
-    if (filteredData.routes) {
+    if (DEBUG_TRAVEL_DATA && filteredData.routes) {
       filteredData.routes.forEach((route: { id: string; routePoints?: [number, number][] }, index: number) => {
         const routePointsCount = route.routePoints ? route.routePoints.length : 0;
         console.log(`[GET] After filtering - Route ${index} (${route.id}): ${routePointsCount} route points`);
@@ -119,11 +120,18 @@ export async function PUT(request: NextRequest) {
     
     const updatedData = await request.json();
     
-    // Log what we received
-    console.log(`[PUT] Received data for trip ${id}, ${updatedData.routes?.length || 0} routes`);
-    updatedData.routes?.forEach((route: { id: string; from: string; to: string; routePoints?: [number, number][] }, index: number) => {
-      console.log(`[PUT] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${route.routePoints?.length || 'undefined'}`);
-    });
+    if (DEBUG_TRAVEL_DATA) {
+      console.log(`[PUT] Received data for trip ${id}, ${updatedData.routes?.length || 0} routes`);
+      updatedData.routes?.forEach(
+        (route: { id: string; from: string; to: string; routePoints?: [number, number][] }, index: number) => {
+          console.log(
+            `[PUT] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${
+              route.routePoints?.length || 'undefined'
+            }`
+          );
+        }
+      );
+    }
     
     // Use unified data service to update travel data
     await updateTravelData(id, {

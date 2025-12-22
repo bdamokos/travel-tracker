@@ -13,20 +13,20 @@ interface LocationListProps {
   tripId: string;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
-  selectedLocationForPosts: number | null;
+  selectedLocationForPosts: string | null;
   newInstagramPost: Partial<{ url: string; caption: string }>;
   setNewInstagramPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newTikTokPost: Partial<{ url: string; caption: string }>;
   setNewTikTokPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newBlogPost: Partial<{ title: string; url: string; excerpt: string }>;
   setNewBlogPost: React.Dispatch<React.SetStateAction<Partial<{ title: string; url: string; excerpt: string }>>>;
-  onLocationUpdate: (index: number, updatedLocation: Location) => void;
-  onLocationDelete: (index: number) => void;
-  onViewPosts: (index: number) => void;
+  onLocationUpdate: (locationId: string, updatedLocation: Location) => void;
+  onLocationDelete: (locationId: string) => void;
+  onViewPosts: (locationId: string) => void;
   onGeocode: (locationName: string) => Promise<[number, number]>;
-  onAddInstagramPost: (index: number) => void;
-  onAddTikTokPost: (index: number) => void;
-  onAddBlogPost: (index: number) => void;
+  onAddInstagramPost: (locationId: string) => void;
+  onAddTikTokPost: (locationId: string) => void;
+  onAddBlogPost: (locationId: string) => void;
 }
 
 export default function LocationList({
@@ -50,7 +50,12 @@ export default function LocationList({
   onAddBlogPost,
 }: LocationListProps) {
   const [collapsedLocations, setCollapsedLocations] = useState<Record<string, boolean>>({});
-  
+
+  const sortedLocations = useMemo(
+    () => [...locations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [locations]
+  );
+
   // Build side-trip map once and memoize it
   const sideTripMap = useMemo(() => buildSideTripMap(locations), [locations]);
 
@@ -90,20 +95,14 @@ export default function LocationList({
       return;
     }
 
-    const sortedLocations = [...locations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const targetLocation = sortedLocations[selectedLocationForPosts];
-    if (!targetLocation) {
-      return;
-    }
-
     setCollapsedLocations(prev => {
-      if (prev[targetLocation.id] === false) {
+      if (prev[selectedLocationForPosts] === false) {
         return prev;
       }
 
-      return { ...prev, [targetLocation.id]: false };
+      return { ...prev, [selectedLocationForPosts]: false };
     });
-  }, [selectedLocationForPosts, locations]);
+  }, [selectedLocationForPosts]);
 
   const today = getTodayMidnight();
 
@@ -125,9 +124,7 @@ export default function LocationList({
     <div className="space-y-6">
       <h4 className="font-medium mb-4 text-gray-900 dark:text-white">Added Locations ({locations.length})</h4>
       <div className="space-y-6">
-        {locations
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-          .map((location, index) => {
+        {sortedLocations.map((location) => {
             const hasCustomState = Object.prototype.hasOwnProperty.call(collapsedLocations, location.id);
             const isCollapsed = hasCustomState
               ? collapsedLocations[location.id]
@@ -140,9 +137,9 @@ export default function LocationList({
                   tripId={tripId}
                   travelLookup={travelLookup}
                   costData={costData}
-                  onLocationUpdate={(updatedLocation) => onLocationUpdate(index, updatedLocation)}
-                  onLocationDelete={() => onLocationDelete(index)}
-                  onViewPosts={() => onViewPosts(index)}
+                  onLocationUpdate={(updatedLocation) => onLocationUpdate(location.id, updatedLocation)}
+                  onLocationDelete={() => onLocationDelete(location.id)}
+                  onViewPosts={() => onViewPosts(location.id)}
                   onGeocode={onGeocode}
                   isCollapsed={isCollapsed}
                   onToggleCollapse={(isOpen) => handleToggleCollapse(location.id, isOpen)}
@@ -151,17 +148,17 @@ export default function LocationList({
                 {!isCollapsed && (
                   <LocationPosts
                     location={location}
-                    isVisible={selectedLocationForPosts === index}
+                    isVisible={selectedLocationForPosts === location.id}
                     newInstagramPost={newInstagramPost}
                     setNewInstagramPost={setNewInstagramPost}
                     newTikTokPost={newTikTokPost}
                     setNewTikTokPost={setNewTikTokPost}
                     newBlogPost={newBlogPost}
                     setNewBlogPost={setNewBlogPost}
-                    onLocationUpdate={(updatedLocation) => onLocationUpdate(index, updatedLocation)}
-                    onAddInstagramPost={() => onAddInstagramPost(index)}
-                    onAddTikTokPost={() => onAddTikTokPost(index)}
-                    onAddBlogPost={() => onAddBlogPost(index)}
+                    onLocationUpdate={(updatedLocation) => onLocationUpdate(location.id, updatedLocation)}
+                    onAddInstagramPost={() => onAddInstagramPost(location.id)}
+                    onAddTikTokPost={() => onAddTikTokPost(location.id)}
+                    onAddBlogPost={() => onAddBlogPost(location.id)}
                   />
                 )}
               </div>

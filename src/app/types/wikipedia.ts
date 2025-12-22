@@ -82,6 +82,11 @@ export interface StoredWikipediaData {
     // Note: License info NOT available from REST API
   };
   url: string; // Desktop Wikipedia URL
+  /**
+   * The explicit reference used to fetch this data (article title or Wikidata ID like Q90).
+   * Stored to ensure cache invalidation when the override changes.
+   */
+  wikipediaRef?: string;
   attribution: {
     text: string; // "Source: Wikipedia"
     url: string;  // Original article URL

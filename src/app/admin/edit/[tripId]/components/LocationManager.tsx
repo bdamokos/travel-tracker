@@ -40,8 +40,8 @@ interface LocationManagerProps {
   setCurrentLocation: React.Dispatch<React.SetStateAction<Partial<Location>>>;
   editingLocationIndex: number | null;
   setEditingLocationIndex: React.Dispatch<React.SetStateAction<number | null>>;
-  selectedLocationForPosts: number | null;
-  setSelectedLocationForPosts: React.Dispatch<React.SetStateAction<number | null>>;
+  selectedLocationForPosts: string | null;
+  setSelectedLocationForPosts: React.Dispatch<React.SetStateAction<string | null>>;
   newInstagramPost: Partial<{ url: string; caption: string }>;
   setNewInstagramPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newTikTokPost: Partial<{ url: string; caption: string }>;
@@ -134,18 +134,41 @@ export default function LocationManager({
         setNewTikTokPost={setNewTikTokPost}
         newBlogPost={newBlogPost}
         setNewBlogPost={setNewBlogPost}
-        onLocationUpdate={(index, updatedLocation) => {
-          const updatedLocations = [...travelData.locations];
-          updatedLocations[index] = updatedLocation;
-          setTravelData(prev => ({ ...prev, locations: updatedLocations }));
+        onLocationUpdate={(locationId, updatedLocation) => {
+          setTravelData(prev => ({
+            ...prev,
+            locations: prev.locations.map(location => (location.id === locationId ? updatedLocation : location))
+          }));
           setHasUnsavedChanges(true);
         }}
-        onLocationDelete={deleteLocation}
-        onViewPosts={(index) => setSelectedLocationForPosts(selectedLocationForPosts === index ? null : index)}
+        onLocationDelete={(locationId) => {
+          const index = travelData.locations.findIndex(location => location.id === locationId);
+          if (index !== -1) {
+            deleteLocation(index);
+          }
+        }}
+        onViewPosts={(locationId) =>
+          setSelectedLocationForPosts(selectedLocationForPosts === locationId ? null : locationId)
+        }
         onGeocode={geocodeLocation}
-        onAddInstagramPost={addInstagramPost}
-        onAddTikTokPost={addTikTokPost}
-        onAddBlogPost={addBlogPost}
+        onAddInstagramPost={(locationId) => {
+          const index = travelData.locations.findIndex(location => location.id === locationId);
+          if (index !== -1) {
+            addInstagramPost(index);
+          }
+        }}
+        onAddTikTokPost={(locationId) => {
+          const index = travelData.locations.findIndex(location => location.id === locationId);
+          if (index !== -1) {
+            addTikTokPost(index);
+          }
+        }}
+        onAddBlogPost={(locationId) => {
+          const index = travelData.locations.findIndex(location => location.id === locationId);
+          if (index !== -1) {
+            addBlogPost(index);
+          }
+        }}
       />
     </div>
   );

@@ -57,7 +57,7 @@ export function useShadowTripEditor(tripId: string) {
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
   const [editingRouteIndex, setEditingRouteIndex] = useState<number | null>(null);
   const [editingAccommodationIndex, setEditingAccommodationIndex] = useState<number | null>(null);
-  const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<number | null>(null);
+  const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<string | null>(null);
   
   // New post forms
   const [newInstagramPost, setNewInstagramPost] = useState<Partial<InstagramPost>>({

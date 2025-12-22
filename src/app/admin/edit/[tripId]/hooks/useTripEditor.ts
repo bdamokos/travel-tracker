@@ -66,7 +66,7 @@ export function useTripEditor(tripId: string | null) {
 
   const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
   const [editingRouteIndex, setEditingRouteIndex] = useState<number | null>(null);
-  const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<number | null>(null);
+  const [selectedLocationForPosts, setSelectedLocationForPosts] = useState<string | null>(null);
   
   // New post forms
   const [newInstagramPost, setNewInstagramPost] = useState<Partial<InstagramPost>>({
@@ -268,11 +268,17 @@ export function useTripEditor(tripId: string | null) {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
       
-      // Log what we're about to send
-      console.log(`[autoSaveTravelData] Saving ${travelData.routes.length} routes`);
-      travelData.routes.forEach((route, index) => {
-        console.log(`[autoSaveTravelData] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${route.routePoints?.length || 'undefined'}`);
-      });
+      const debugAutoSave = process.env.NEXT_PUBLIC_DEBUG_AUTOSAVE === 'true';
+      if (debugAutoSave) {
+        console.log(`[autoSaveTravelData] Saving ${travelData.routes.length} routes`);
+        travelData.routes.forEach((route, index) => {
+          console.log(
+            `[autoSaveTravelData] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${
+              route.routePoints?.length || 'undefined'
+            }`
+          );
+        });
+      }
       
       const response = await fetch(url, {
         method,

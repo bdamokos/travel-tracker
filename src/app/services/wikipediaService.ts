@@ -46,6 +46,11 @@ class WikipediaService {
   private lastRequestTime = 0;
   private dataDir: string;
 
+  private normalizeWikipediaRef(wikipediaRef?: string): string | undefined {
+    const trimmed = typeof wikipediaRef === 'string' ? wikipediaRef.trim() : '';
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
   constructor(config: Partial<WikipediaServiceConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.dataDir = path.join(process.cwd(), 'data', 'wikipedia');
@@ -306,7 +311,8 @@ class WikipediaService {
    */
   private transformToStoredData(
     apiResponse: WikipediaAPIResponse,
-    cacheKey: string
+    cacheKey: string,
+    wikipediaRef?: string
   ): StoredWikipediaData {
     return {
       title: apiResponse.title,
@@ -317,6 +323,7 @@ class WikipediaService {
         height: apiResponse.thumbnail.height,
       } : undefined,
       url: apiResponse.content_urls.desktop.page,
+      wikipediaRef: this.normalizeWikipediaRef(wikipediaRef),
       attribution: {
         text: 'Source: Wikipedia',
         url: apiResponse.content_urls.desktop.page,
@@ -344,6 +351,15 @@ class WikipediaService {
       
       const data = await fs.readFile(filePath, 'utf8');
       const parsedData = JSON.parse(data) as StoredWikipediaData;
+
+      // Invalidate cache when the explicit Wikipedia/Wikidata override changes.
+      // Older cache files won't have `wikipediaRef`, which correctly forces a refetch
+      // the first time an override is provided.
+      const requestedRef = this.normalizeWikipediaRef(location.wikipediaRef);
+      const cachedRef = this.normalizeWikipediaRef(parsedData.wikipediaRef);
+      if (requestedRef !== cachedRef) {
+        return null;
+      }
       
       // Check if cache is expired
       if (isCacheExpired(parsedData.lastFetched, this.config.cache.refreshIntervalDays)) {
@@ -392,7 +408,7 @@ class WikipediaService {
       
       // Transform and return stored data
       const cacheKey = generateWikipediaFilename(location.name, location.coordinates);
-      const storedData = this.transformToStoredData(apiResponse, cacheKey);
+      const storedData = this.transformToStoredData(apiResponse, cacheKey, location.wikipediaRef);
       
       // Store in cache
       await this.storeData(location, storedData);
