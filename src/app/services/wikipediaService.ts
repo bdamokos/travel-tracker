@@ -13,7 +13,6 @@ import {
   WikipediaErrorType,
   LocationMatchingResult,
   WikipediaServiceConfig,
-  WikidataEntitiesResponse
 } from '../types/wikipedia';
 import { Location } from '../types';
 import { 
