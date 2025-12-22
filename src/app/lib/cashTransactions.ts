@@ -117,6 +117,24 @@ function createSegmentsFromSources(
   const segments: CashTransactionAllocationSegment[] = [];
   let remaining = roundCurrency(requestedLocalAmount, 6);
 
+  const calculateBaseForSegment = (source: Expense, localAmount: number, availableLocal: number): number => {
+    if (!isCashSource(source)) {
+      throw new Error('Cannot calculate base amount for non-cash source.');
+    }
+
+    const usesFullSource = Math.abs(localAmount - availableLocal) <= CURRENCY_EPSILON;
+    if (usesFullSource) {
+      return roundCurrency(source.cashTransaction.remainingBaseAmount);
+    }
+
+    const baseRate =
+      source.cashTransaction.originalLocalAmount > 0
+        ? source.cashTransaction.originalBaseAmount / source.cashTransaction.originalLocalAmount
+        : 0;
+
+    return roundCurrency(localAmount * baseRate);
+  };
+
   for (const source of sortedSources) {
     if (!isCashSource(source)) {
       continue;
@@ -132,13 +150,8 @@ function createSegmentsFromSources(
       continue;
     }
 
-    const baseRate =
-      source.cashTransaction.originalLocalAmount > 0
-        ? source.cashTransaction.originalBaseAmount / source.cashTransaction.originalLocalAmount
-        : 0;
-
     const roundedLocalToUse = roundCurrency(localToUse, 6);
-    const baseToUse = roundCurrency(roundedLocalToUse * baseRate);
+    const baseToUse = calculateBaseForSegment(source, roundedLocalToUse, availableLocal);
 
     segments.push({
       sourceExpenseId: source.id,
@@ -163,7 +176,12 @@ function createSegmentsFromSources(
   const localDiscrepancy = roundCurrency(requestedLocalAmount - totalLocal, 6);
   if (Math.abs(localDiscrepancy) > CURRENCY_EPSILON && segments.length > 0) {
     const lastSegment = segments[segments.length - 1];
+    const lastSource = sortedSources.find(source => source.id === lastSegment.sourceExpenseId);
     lastSegment.localAmount = roundCurrency(lastSegment.localAmount + localDiscrepancy, 6);
+    if (lastSource && isCashSource(lastSource)) {
+      const availableLocal = roundCurrency(lastSource.cashTransaction.remainingLocalAmount, 6);
+      lastSegment.baseAmount = calculateBaseForSegment(lastSource, lastSegment.localAmount, availableLocal);
+    }
   }
 
   return segments;
