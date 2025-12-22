@@ -58,7 +58,7 @@ export interface WikipediaGeosearchResponse {
   };
 }
 
-// Wikidata API response for sitelink resolution
+// Wikidata API response types
 export interface WikidataSitelink {
   title?: string;
 }

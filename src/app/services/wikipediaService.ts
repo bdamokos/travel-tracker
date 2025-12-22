@@ -12,7 +12,8 @@ import {
   StoredWikipediaData, 
   WikipediaErrorType,
   LocationMatchingResult,
-  WikipediaServiceConfig 
+  WikipediaServiceConfig,
+  WikidataEntitiesResponse
 } from '../types/wikipedia';
 import { Location } from '../types';
 import { 
@@ -157,9 +158,9 @@ class WikipediaService {
   /**
    * Resolve a Wikidata Q-ID to a Wikipedia article title.
    */
-  private async resolveWikidataTitle(wikidataId: string): Promise<string | null> {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-    const localeLanguage = locale?.split('-')[0];
+  private async resolveWikidataTitle(wikidataId: string, locale?: string): Promise<string | null> {
+    const effectiveLocale = locale || Intl.DateTimeFormat().resolvedOptions().locale;
+    const localeLanguage = effectiveLocale?.split('-')[0];
     const preferredSite = localeLanguage ? `${localeLanguage}wiki` : null;
 
     const url = `https://www.wikidata.org/w/api.php?` + new URLSearchParams({
@@ -174,25 +175,19 @@ class WikipediaService {
     const data = await response.json() as WikidataEntitiesResponse;
 
     const sitelinks = data.entities?.[wikidataId]?.sitelinks;
-    const rawTitle = (preferredSite && sitelinks?.[preferredSite]?.title)
-      ? sitelinks?.[preferredSite]?.title
-      : sitelinks?.enwiki?.title;
+    const rawTitle = (preferredSite && sitelinks?.[preferredSite]?.title) || sitelinks?.enwiki?.title;
 
     if (!rawTitle) {
       return null;
     }
 
-    try {
-      return decodeURIComponent(rawTitle);
-    } catch {
-      return rawTitle;
-    }
+    return rawTitle;
   }
 
   /**
    * Find best Wikipedia article match for a location
    */
-  private async findLocationMatch(location: Location): Promise<LocationMatchingResult> {
+  private async findLocationMatch(location: Location, locale?: string): Promise<LocationMatchingResult> {
     const locationName = location.name;
 
     try {
@@ -210,7 +205,7 @@ class WikipediaService {
         } else if (wikipediaRef.type === 'wikidata') {
           const wikidataId = wikipediaRef.value!;
           try {
-            const resolvedTitle = await this.resolveWikidataTitle(wikidataId);
+            const resolvedTitle = await this.resolveWikidataTitle(wikidataId, locale);
             if (resolvedTitle) {
               return {
                 success: true,
@@ -383,10 +378,10 @@ class WikipediaService {
   /**
    * Fetch fresh Wikipedia data for a location
    */
-  async fetchLocationData(location: Location): Promise<StoredWikipediaData | null> {
+  async fetchLocationData(location: Location, locale?: string): Promise<StoredWikipediaData | null> {
     try {
       // Find best Wikipedia article match
-      const matchResult = await this.findLocationMatch(location);
+      const matchResult = await this.findLocationMatch(location, locale);
       
       if (!matchResult.success || !matchResult.articleTitle) {
         console.log(`No Wikipedia article found for location: ${location.name}`);
@@ -414,7 +409,11 @@ class WikipediaService {
   /**
    * Get Wikipedia data for a location (cached or fresh)
    */
-  async getLocationData(location: Location, forceRefresh = false): Promise<StoredWikipediaData | null> {
+  async getLocationData(
+    location: Location,
+    forceRefresh = false,
+    locale?: string
+  ): Promise<StoredWikipediaData | null> {
     if (!forceRefresh) {
       // Try cache first
       const cachedData = await this.getCachedData(location);
@@ -424,7 +423,7 @@ class WikipediaService {
     }
 
     // Fetch fresh data
-    return await this.fetchLocationData(location);
+    return await this.fetchLocationData(location, locale);
   }
 
   /**

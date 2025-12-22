@@ -22,6 +22,7 @@ export async function GET(
     }
 
     const host = request.headers.get('host');
+    const locale = request.headers.get('accept-language')?.split(',')[0]?.trim();
     const travelData = filterTravelDataForServer({
       id: unified.id,
       title: unified.title,
@@ -66,7 +67,7 @@ export async function GET(
     try {
       const target = currentLocation || inferredNextLocation || null;
       if (target) {
-        const wiki = await wikipediaService.getLocationData(target as Location);
+        const wiki = await wikipediaService.getLocationData(target as Location, false, locale);
         wikipediaData = wiki || null;
       }
     } catch {}
@@ -92,5 +93,4 @@ export async function GET(
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-
 
