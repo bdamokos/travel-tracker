@@ -161,6 +161,7 @@ export interface TravelLink {
 export type CashTransactionSourceDetails = {
   kind: 'source';
   cashTransactionId: string;
+  sourceType?: 'exchange' | 'refund';
   localCurrency: string;
   originalLocalAmount: number;
   remainingLocalAmount: number;

@@ -1,6 +1,7 @@
 import {
   applyAllocationSegmentsToSources,
   createCashAllocationExpense,
+  createCashRefundExpense,
   createCashSourceExpense,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
@@ -27,10 +28,30 @@ describe('cash transaction utilities', () => {
     expect(source.category).toBe(CASH_CATEGORY_NAME);
     expect(source.cashTransaction).toBeDefined();
     expect(source.cashTransaction?.cashTransactionId).toBe(source.id);
+    expect(source.cashTransaction?.sourceType).toBe('exchange');
     expect(source.cashTransaction?.originalBaseAmount).toBe(50);
     expect(source.cashTransaction?.originalLocalAmount).toBe(10000);
     expect(source.cashTransaction?.remainingBaseAmount).toBe(50);
     expect(source.cashTransaction?.remainingLocalAmount).toBe(10000);
+  });
+
+  test('createCashRefundExpense creates a negative refund expense with cash on hand', () => {
+    const refund = createCashRefundExpense({
+      id: 'cash-refund-1',
+      date: baseDate,
+      localAmount: 10000,
+      localCurrency: 'ARS',
+      exchangeRate: 0.005,
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    expect(refund.amount).toBeCloseTo(-50, 5);
+    expect(refund.category).toBe(CASH_CATEGORY_NAME);
+    expect(refund.cashTransaction).toBeDefined();
+    expect(refund.cashTransaction?.sourceType).toBe('refund');
+    expect(refund.cashTransaction?.originalBaseAmount).toBeCloseTo(50, 5);
+    expect(refund.cashTransaction?.remainingLocalAmount).toBeCloseTo(10000, 5);
   });
 
   test('createCashAllocationExpense converts amounts using source exchange rate', () => {
@@ -81,6 +102,34 @@ describe('cash transaction utilities', () => {
     expect(restoredSource.cashTransaction?.remainingBaseAmount).toBeCloseTo(50, 5);
     expect(restoredSource.amount).toBeCloseTo(50, 5);
     expect(restoredSource.cashTransaction?.allocationIds).not.toContain(allocationExpense.id);
+  });
+
+  test('refund sources keep the original refund amount when allocations are applied', () => {
+    const refund = createCashRefundExpense({
+      id: 'cash-refund-2',
+      date: baseDate,
+      localAmount: 10000,
+      localCurrency: 'ARS',
+      exchangeRate: 0.005,
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const { expense: allocationExpense, segments } = createCashAllocationExpense({
+      id: 'cash-allocation-refund-1',
+      sources: [refund],
+      localAmount: 2000,
+      date: baseDate,
+      trackingCurrency: 'EUR',
+      category: 'Food & Dining'
+    });
+
+    const updatedSources = applyAllocationSegmentsToSources([refund], segments, allocationExpense.id);
+    const updatedRefund = updatedSources[0];
+
+    expect(updatedRefund.cashTransaction?.remainingLocalAmount).toBeCloseTo(8000, 5);
+    expect(updatedRefund.cashTransaction?.remainingBaseAmount).toBeCloseTo(40, 5);
+    expect(updatedRefund.amount).toBeCloseTo(-50, 5);
   });
 
   test('createCashAllocationExpense throws when overspending remaining cash', () => {

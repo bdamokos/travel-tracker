@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { CostTrackingData, Expense } from '../../../types';
 import AccessibleDatePicker from '../AccessibleDatePicker';
 import AriaSelect from '../AriaSelect';
@@ -6,6 +6,7 @@ import TravelItemSelector from '../TravelItemSelector';
 import { TravelLinkInfo } from '../../../lib/expenseTravelLookup';
 import {
   createCashAllocationExpense,
+  createCashRefundExpense,
   createCashSourceExpense,
   getAllocationSegments,
   getAllocationsForSource,
@@ -45,11 +46,31 @@ type CashAllocationFormState = {
   travelLink?: TravelLinkInfo;
 };
 
+type CashRefundFormState = {
+  date: Date | null;
+  localAmount: string;
+  localCurrency: string;
+  exchangeRate: string;
+  country: string;
+  description: string;
+  notes: string;
+};
+
 const INITIAL_SOURCE_FORM: CashSourceFormState = {
   date: new Date(),
   baseAmount: '',
   localAmount: '',
   localCurrency: '',
+  country: '',
+  description: '',
+  notes: ''
+};
+
+const INITIAL_REFUND_FORM: CashRefundFormState = {
+  date: new Date(),
+  localAmount: '',
+  localCurrency: '',
+  exchangeRate: '',
   country: '',
   description: '',
   notes: ''
@@ -77,6 +98,7 @@ export default function CashTransactionManager({
   onExpenseAdded
 }: CashTransactionManagerProps) {
   const [sourceForm, setSourceForm] = useState<CashSourceFormState>(INITIAL_SOURCE_FORM);
+  const [refundForm, setRefundForm] = useState<CashRefundFormState>(INITIAL_REFUND_FORM);
   const [allocationForms, setAllocationForms] = useState<Record<string, CashAllocationFormState>>({});
 
   const spendingCategories = useMemo(
@@ -91,6 +113,23 @@ export default function CashTransactionManager({
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     [costData.expenses]
   );
+
+  const lastExchangeRates = useMemo(() => {
+    const rateMap = new Map<string, number>();
+
+    cashSources.forEach(source => {
+      const { localCurrency, originalLocalAmount, originalBaseAmount } = source.cashTransaction;
+      if (originalBaseAmount <= 0) {
+        return;
+      }
+      const localPerBase = roundCurrency(originalLocalAmount / originalBaseAmount, 6);
+      if (localPerBase > 0) {
+        rateMap.set(localCurrency, localPerBase);
+      }
+    });
+
+    return rateMap;
+  }, [cashSources]);
 
   type CashCurrencyGroup = {
     currency: string;
@@ -203,6 +242,85 @@ export default function CashTransactionManager({
     }
   };
 
+  const handleCreateCashRefund = async () => {
+    if (!refundForm.date) {
+      alert('Please select the refund date.');
+      return;
+    }
+
+    const localAmount = parseFloat(refundForm.localAmount);
+    const localCurrency = refundForm.localCurrency.trim().toUpperCase();
+    const exchangeRateLocalPerBase = parseFloat(refundForm.exchangeRate);
+
+    if (Number.isNaN(localAmount) || localAmount <= 0) {
+      alert('Enter the refunded cash amount (must be greater than zero).');
+      return;
+    }
+
+    if (!localCurrency) {
+      alert('Please provide the local currency code (e.g., ARS).');
+      return;
+    }
+
+    if (Number.isNaN(exchangeRateLocalPerBase) || exchangeRateLocalPerBase <= 0) {
+      alert('Provide an exchange rate to calculate the refund in your tracking currency.');
+      return;
+    }
+
+    const exchangeRateBasePerLocal = 1 / exchangeRateLocalPerBase;
+
+    try {
+      const expense = createCashRefundExpense({
+        date: refundForm.date,
+        localAmount,
+        localCurrency,
+        exchangeRate: exchangeRateBasePerLocal,
+        trackingCurrency: currency,
+        country: refundForm.country,
+        description: refundForm.description || undefined,
+        notes: refundForm.notes || undefined,
+        isGeneralExpense: !refundForm.country
+      });
+
+      await onExpenseAdded(expense);
+      setRefundForm({
+        ...INITIAL_REFUND_FORM,
+        localCurrency,
+        exchangeRate: refundForm.exchangeRate,
+        country: refundForm.country
+      });
+    } catch (error) {
+      console.error('Failed to create cash refund:', error);
+      alert(error instanceof Error ? error.message : 'Unable to create cash refund.');
+    }
+  };
+
+  const handleRefundCurrencyChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextCurrency = event.target.value.trim().toUpperCase();
+    setRefundForm(prev => {
+      const shouldRefreshRate = prev.localCurrency !== nextCurrency;
+      const nextRate = shouldRefreshRate
+        ? lastExchangeRates.get(nextCurrency)?.toString() ?? ''
+        : prev.exchangeRate;
+
+      return {
+        ...prev,
+        localCurrency: nextCurrency,
+        exchangeRate: nextRate
+      };
+    });
+  };
+
+  const estimatedRefundBaseAmount = useMemo(() => {
+    const pendingLocal = parseFloat(refundForm.localAmount);
+    const rate = parseFloat(refundForm.exchangeRate);
+    if (Number.isNaN(pendingLocal) || Number.isNaN(rate) || pendingLocal <= 0 || rate <= 0) {
+      return null;
+    }
+
+    return roundCurrency(pendingLocal / rate);
+  }, [refundForm.localAmount, refundForm.exchangeRate]);
+
   const handleAllocationChange = (currencyKey: string, updates: Partial<CashAllocationFormState>) => {
     setAllocationForms(prev => ({
       ...prev,
@@ -292,6 +410,7 @@ export default function CashTransactionManager({
 
     const allocations = getAllocationsForSource(costData.expenses, source.id);
     const { cashTransaction } = source;
+    const isRefundSource = cashTransaction.sourceType === 'refund';
     const remainingLocal = cashTransaction.remainingLocalAmount;
     const remainingBase = cashTransaction.remainingBaseAmount;
     const originalLocal = cashTransaction.originalLocalAmount;
@@ -308,10 +427,11 @@ export default function CashTransactionManager({
         <div className="flex flex-wrap justify-between gap-3">
           <div>
             <h5 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-              {source.description || 'Cash exchange'}
+              {source.description || (isRefundSource ? 'Cash refund' : 'Cash exchange')}
             </h5>
             <p className="text-xs text-yellow-800 dark:text-yellow-200">
-              Original: {originalBase.toFixed(2)} {currency} • {originalLocal.toFixed(2)} {localCurrency}
+              {isRefundSource ? 'Refund received' : 'Original'}: {originalBase.toFixed(2)} {currency} •{' '}
+              {originalLocal.toFixed(2)} {localCurrency}
             </p>
             {exchangeRate !== undefined && (
               <p className="text-xs text-yellow-800 dark:text-yellow-200">
@@ -410,7 +530,7 @@ export default function CashTransactionManager({
               {group.currency} cash on hand
             </h4>
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              Total exchanged: {totalOriginalBase.toFixed(2)} {currency} • {totalOriginalLocal.toFixed(2)}
+              Total received/exchanged: {totalOriginalBase.toFixed(2)} {currency} • {totalOriginalLocal.toFixed(2)}
               {' '}
               {group.currency}
             </p>
@@ -547,7 +667,7 @@ export default function CashTransactionManager({
           Cash handling
         </h3>
         <p className="text-sm text-yellow-900 dark:text-yellow-100 mb-4">
-          Track cash exchanges and allocate spending later. Remaining balances stay under the
+          Track cash exchanges or refunds and allocate spending later. Remaining balances stay under the
           "{CASH_CATEGORY_NAME}" category until assigned.
         </p>
 
@@ -654,6 +774,132 @@ export default function CashTransactionManager({
               className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
             >
               Add cash transaction
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+        <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
+          Cash refunds
+        </h3>
+        <p className="text-sm text-yellow-900 dark:text-yellow-100 mb-4">
+          Log cash refunds to increase your on-hand balance and track them as income.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Refund date *
+            </label>
+            <AccessibleDatePicker
+              id="cash-refund-date"
+              value={refundForm.date}
+              onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Refunded local amount *
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={refundForm.localAmount}
+              onChange={e => setRefundForm(prev => ({ ...prev, localAmount: e.target.value }))}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Local currency code *
+            </label>
+            <input
+              type="text"
+              value={refundForm.localCurrency}
+              onChange={handleRefundCurrencyChange}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
+              placeholder="e.g., ARS"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Exchange rate (1 {currency} = X {refundForm.localCurrency || 'local'}) *
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.0001"
+              value={refundForm.exchangeRate}
+              onChange={e => setRefundForm(prev => ({ ...prev, exchangeRate: e.target.value }))}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+              placeholder={refundForm.localCurrency ? `e.g., ${refundForm.localCurrency} per ${currency}` : 'e.g., 1000'}
+            />
+            {estimatedRefundBaseAmount !== null && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                ≈ {estimatedRefundBaseAmount.toFixed(2)} {currency}
+              </p>
+            )}
+            {!refundForm.exchangeRate && refundForm.localCurrency && !lastExchangeRates.get(refundForm.localCurrency) && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                No saved exchange rate found for {refundForm.localCurrency}. Please enter one.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Country
+            </label>
+            <AriaSelect
+              id="cash-refund-country"
+              value={refundForm.country}
+              onChange={value => setRefundForm(prev => ({ ...prev, country: value }))}
+              options={countryOptions.map(country => ({ value: country, label: country }))}
+              placeholder="General / multiple"
+              className="w-full text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Description
+            </label>
+            <input
+              type="text"
+              value={refundForm.description}
+              onChange={e => setRefundForm(prev => ({ ...prev, description: e.target.value }))}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+              placeholder="e.g., Split bill refund"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Notes
+            </label>
+            <input
+              type="text"
+              value={refundForm.notes}
+              onChange={e => setRefundForm(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+              placeholder="Optional internal notes"
+            />
+          </div>
+
+          <div className="md:col-span-2 flex justify-end">
+            <button
+              type="button"
+              onClick={handleCreateCashRefund}
+              className="px-4 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
+            >
+              Add cash refund
             </button>
           </div>
         </div>

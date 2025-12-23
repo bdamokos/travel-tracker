@@ -35,6 +35,30 @@ export interface CashSourceParams {
   isGeneralExpense?: boolean;
 }
 
+export interface CashRefundParams {
+  id?: string;
+  date: Date;
+  localAmount: number;
+  localCurrency: string;
+  exchangeRate: number;
+  trackingCurrency: string;
+  country?: string;
+  description?: string;
+  notes?: string;
+  isGeneralExpense?: boolean;
+}
+
+function getSourceType(details: CashTransactionSourceDetails): 'exchange' | 'refund' {
+  return details.sourceType ?? 'exchange';
+}
+
+function getSourceDisplayAmount(details: CashTransactionSourceDetails): number {
+  if (getSourceType(details) === 'refund') {
+    return roundCurrency(-details.originalBaseAmount);
+  }
+  return roundCurrency(details.remainingBaseAmount);
+}
+
 export function createCashSourceExpense(params: CashSourceParams): Expense {
   if (params.baseAmount <= 0 || params.localAmount <= 0) {
     throw new Error('Cash source amounts must be greater than zero.');
@@ -61,12 +85,58 @@ export function createCashSourceExpense(params: CashSourceParams): Expense {
     cashTransaction: {
       kind: 'source',
       cashTransactionId: id,
+      sourceType: 'exchange',
       localCurrency: params.localCurrency,
       originalLocalAmount: roundedLocal,
       remainingLocalAmount: roundedLocal,
       originalBaseAmount: roundedBase,
       remainingBaseAmount: roundedBase,
       exchangeRate,
+      allocationIds: []
+    }
+  };
+}
+
+export function createCashRefundExpense(params: CashRefundParams): Expense {
+  if (params.localAmount <= 0) {
+    throw new Error('Refund amount must be greater than zero.');
+  }
+
+  if (params.exchangeRate <= 0) {
+    throw new Error('Exchange rate must be greater than zero.');
+  }
+
+  const id = params.id ?? generateId();
+  const roundedLocal = roundCurrency(params.localAmount);
+  const roundedBase = roundCurrency(roundedLocal * params.exchangeRate);
+
+  if (roundedBase <= 0) {
+    throw new Error('Refund base amount must be greater than zero.');
+  }
+
+  return {
+    id,
+    date: params.date,
+    amount: -roundedBase,
+    currency: params.trackingCurrency,
+    category: CASH_CATEGORY_NAME,
+    country: params.country || '',
+    description:
+      params.description ||
+      `Cash refund (${roundedLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${params.localCurrency})`,
+    notes: params.notes,
+    isGeneralExpense: params.isGeneralExpense ?? !params.country,
+    expenseType: 'actual',
+    cashTransaction: {
+      kind: 'source',
+      cashTransactionId: id,
+      sourceType: 'refund',
+      localCurrency: params.localCurrency,
+      originalLocalAmount: roundedLocal,
+      remainingLocalAmount: roundedLocal,
+      originalBaseAmount: roundedBase,
+      remainingBaseAmount: roundedBase,
+      exchangeRate: params.exchangeRate,
       allocationIds: []
     }
   };
@@ -287,7 +357,7 @@ function applyAllocationSegmentToSource(
 
   return {
     ...source,
-    amount: roundCurrency(updatedMeta.remainingBaseAmount),
+    amount: getSourceDisplayAmount(updatedMeta),
     cashTransaction: updatedMeta
   };
 }
@@ -318,7 +388,7 @@ function restoreAllocationSegmentOnSource(
 
   return {
     ...source,
-    amount: roundCurrency(updatedMeta.remainingBaseAmount),
+    amount: getSourceDisplayAmount(updatedMeta),
     cashTransaction: updatedMeta
   };
 }
