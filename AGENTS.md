@@ -28,3 +28,7 @@
 - Multi-stage Dockerfile installs/builds with Bun and runs the Next standalone output on port 3000 via `bun server.js`.
 - `docker-compose.yml` defines two services: admin UI on host port 3001 and embeddable/public maps on 3002 (both mount the shared `travel-data` volume and set `NEXT_PUBLIC_APP_MODE`).
 - For production setup references, see the `deploy/` directory. 
+
+# Tests
+
+Always run all relevant tests before finalising a PR/task.
