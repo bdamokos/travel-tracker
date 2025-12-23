@@ -199,6 +199,32 @@ export default function CostTrackerEditor({
 
     let updatedExpenses = [...costData.expenses];
 
+    if (isCashSource(expense) && expense.cashTransaction.fundingSegments?.length) {
+      const segments = expense.cashTransaction.fundingSegments;
+      const missingSource = segments.find(
+        segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
+      );
+
+      if (missingSource) {
+        alert(
+          'Unable to find one of the funding exchanges referenced by this transaction. Please refresh and try again.'
+        );
+        return;
+      }
+
+      try {
+        updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
+      } catch (error) {
+        console.error('Failed to apply funding segments to cash sources:', error);
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Unable to apply the funding exchanges to this transaction.'
+        );
+        return;
+      }
+    }
+
     if (isCashAllocation(expense) && editingExpenseIndex === null) {
       const segments = getAllocationSegments(expense.cashTransaction);
       const missingSource = segments.find(

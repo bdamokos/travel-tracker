@@ -48,6 +48,34 @@ export interface CashRefundParams {
   isGeneralExpense?: boolean;
 }
 
+export interface CashConversionParams {
+  id?: string;
+  sources: Expense[];
+  sourceLocalAmount: number;
+  targetLocalAmount: number;
+  targetCurrency: string;
+  date: Date;
+  trackingCurrency: string;
+  country?: string;
+  description?: string;
+  notes?: string;
+  isGeneralExpense?: boolean;
+}
+
+export interface CashRefundToBaseParams {
+  id?: string;
+  sources: Expense[];
+  localAmount: number;
+  exchangeRateBasePerLocal: number;
+  date: Date;
+  trackingCurrency: string;
+  country?: string;
+  description?: string;
+  notes?: string;
+  isGeneralExpense?: boolean;
+  exchangeFeeCategory?: string;
+}
+
 function getSourceType(details: CashTransactionSourceDetails): 'exchange' | 'refund' {
   return details.sourceType ?? 'exchange';
 }
@@ -140,6 +168,21 @@ export function createCashRefundExpense(params: CashRefundParams): Expense {
       allocationIds: []
     }
   };
+}
+
+export function validateSourceCurrencyConsistency(sources: Expense[]): string {
+  const cashSources = sources.filter(isCashSource);
+  if (cashSources.length === 0) {
+    throw new Error('No valid cash transactions provided for this operation.');
+  }
+
+  const referenceCurrency = cashSources[0].cashTransaction.localCurrency;
+  const mismatchedCurrency = cashSources.find(source => getSourceCurrency(source) !== referenceCurrency);
+  if (mismatchedCurrency) {
+    throw new Error('All cash transactions must be in the same local currency for this operation.');
+  }
+
+  return referenceCurrency;
 }
 
 export interface CashAllocationParams {
@@ -274,11 +317,7 @@ export function createCashAllocationExpense(params: CashAllocationParams): CashA
     throw new Error('No valid cash transactions provided for allocation.');
   }
 
-  const referenceCurrency = getSourceCurrency(cashSources[0]);
-  const mismatchedCurrency = cashSources.find(source => getSourceCurrency(source) !== referenceCurrency);
-  if (mismatchedCurrency) {
-    throw new Error('All cash transactions must be in the same local currency to allocate spending.');
-  }
+  const referenceCurrency = validateSourceCurrencyConsistency(cashSources);
 
   const segments = createSegmentsFromSources(cashSources, params.localAmount);
   const totalBaseAmount = roundCurrency(
@@ -453,4 +492,132 @@ export function getAllocationsForSource(expenses: Expense[], sourceId: string): 
   return expenses
     .filter(isCashAllocation)
     .filter(expense => getAllocationSegments(expense.cashTransaction).some(segment => segment.sourceExpenseId === sourceId));
+}
+
+export function createCashConversion(params: CashConversionParams) {
+  if (params.sourceLocalAmount <= 0 || params.targetLocalAmount <= 0) {
+    throw new Error('Conversion amounts must be greater than zero.');
+  }
+
+  const referenceCurrency = validateSourceCurrencyConsistency(params.sources);
+  const segments = createSegmentsFromSources(params.sources, params.sourceLocalAmount);
+  const totalBaseAmount = roundCurrency(segments.reduce((sum, segment) => sum + segment.baseAmount, 0));
+
+  if (totalBaseAmount <= 0) {
+    throw new Error('Unable to determine base amount for converted cash.');
+  }
+
+  const newSource = createCashSourceExpense({
+    id: params.id,
+    date: params.date,
+    baseAmount: totalBaseAmount,
+    localAmount: params.targetLocalAmount,
+    localCurrency: params.targetCurrency,
+    trackingCurrency: params.trackingCurrency,
+    country: params.country,
+    description:
+      params.description ||
+      `Cash conversion from ${referenceCurrency} to ${params.targetCurrency}`,
+    notes: params.notes,
+    isGeneralExpense: params.isGeneralExpense ?? !params.country
+  });
+
+  const updatedSources = applyAllocationSegmentsToSources(params.sources, segments, newSource.id);
+
+  return {
+    newSource: {
+      ...newSource,
+      cashTransaction: {
+        ...newSource.cashTransaction,
+        fundingSegments: segments
+      }
+    },
+    segments,
+    updatedSources
+  };
+}
+
+export function createCashRefundToBase(params: CashRefundToBaseParams) {
+  if (params.localAmount <= 0) {
+    throw new Error('Refund amount must be greater than zero.');
+  }
+
+  if (params.exchangeRateBasePerLocal <= 0) {
+    throw new Error('Exchange rate must be greater than zero.');
+  }
+
+  const referenceCurrency = validateSourceCurrencyConsistency(params.sources);
+  const segments = createSegmentsFromSources(params.sources, params.localAmount);
+  const baseFromSources = roundCurrency(segments.reduce((sum, segment) => sum + segment.baseAmount, 0));
+  const baseReceived = roundCurrency(params.localAmount * params.exchangeRateBasePerLocal);
+
+  if (baseFromSources <= 0) {
+    throw new Error('Unable to calculate the source base amount for the refund.');
+  }
+
+  const refundBaseAmount = baseReceived > baseFromSources ? baseReceived : baseFromSources;
+  const loss = baseFromSources > baseReceived ? roundCurrency(baseFromSources - baseReceived) : 0;
+  const profit = baseReceived > baseFromSources ? roundCurrency(baseReceived - baseFromSources) : 0;
+
+  const description =
+    params.description || `Cash refund to ${params.trackingCurrency} from ${referenceCurrency}`;
+
+  const notesParts: string[] = [];
+  if (loss > 0) {
+    notesParts.push(`Includes ${loss.toFixed(2)} ${params.trackingCurrency} exchange fees.`);
+  }
+  if (profit > 0) {
+    notesParts.push(`Exchange profit of ${profit.toFixed(2)} ${params.trackingCurrency}.`);
+  }
+  if (params.notes) {
+    notesParts.push(params.notes);
+  }
+
+  const refundExpense = createCashRefundExpense({
+    id: params.id,
+    date: params.date,
+    localAmount: params.localAmount,
+    localCurrency: referenceCurrency,
+    exchangeRate: refundBaseAmount / params.localAmount,
+    trackingCurrency: params.trackingCurrency,
+    country: params.country,
+    description,
+    notes: notesParts.length > 0 ? notesParts.join(' ') : undefined,
+    isGeneralExpense: params.isGeneralExpense ?? !params.country
+  });
+
+  const refundWithFunding = {
+    ...refundExpense,
+    cashTransaction: {
+      ...refundExpense.cashTransaction,
+      fundingSegments: segments
+    }
+  };
+
+  const feeExpense =
+    loss > 0
+      ? ({
+          id: generateId(),
+          date: params.date,
+          amount: loss,
+          currency: params.trackingCurrency,
+          category: params.exchangeFeeCategory || 'Exchange fees',
+          country: params.country || '',
+          description: params.description || `Exchange fees (${referenceCurrency} refund)`,
+          notes: params.notes,
+          isGeneralExpense: params.isGeneralExpense ?? !params.country,
+          expenseType: 'actual'
+        } satisfies Expense)
+      : undefined;
+
+  const updatedSources = applyAllocationSegmentsToSources(params.sources, segments, refundExpense.id);
+
+  return {
+    refundExpense: refundWithFunding,
+    feeExpense,
+    segments,
+    updatedSources,
+    loss,
+    profit
+  };
 }

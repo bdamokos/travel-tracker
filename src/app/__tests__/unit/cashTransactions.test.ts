@@ -1,7 +1,9 @@
 import {
   applyAllocationSegmentsToSources,
+  createCashConversion,
   createCashAllocationExpense,
   createCashRefundExpense,
+  createCashRefundToBase,
   createCashSourceExpense,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
@@ -262,5 +264,93 @@ describe('cash transaction utilities', () => {
 
     expect(finalSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(0, 5);
     expect(finalSources[1].cashTransaction.remainingLocalAmount).toBeCloseTo(9500, 5);
+  });
+
+  test('currency conversion creates a new source funded by prior exchanges', () => {
+    const clpSource = createCashSourceExpense({
+      id: 'clp-source-1',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'CLP',
+      trackingCurrency: 'EUR',
+      country: 'Chile'
+    });
+
+    const { newSource, updatedSources, segments } = createCashConversion({
+      sources: [clpSource],
+      sourceLocalAmount: 4000,
+      targetLocalAmount: 20,
+      targetCurrency: 'VES',
+      date: new Date('2024-02-01T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      country: 'Bolivia'
+    });
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].localAmount).toBeCloseTo(4000, 5);
+    expect(newSource.cashTransaction?.fundingSegments).toHaveLength(1);
+    expect(newSource.cashTransaction?.originalBaseAmount).toBeCloseTo(4, 5);
+    expect(newSource.cashTransaction?.localCurrency).toBe('VES');
+    expect(updatedSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(6000, 5);
+    expect(updatedSources[0].cashTransaction.remainingBaseAmount).toBeCloseTo(6, 5);
+  });
+
+  test('cash refund to base accounts for losses with exchange fee expense', () => {
+    const clpSource = createCashSourceExpense({
+      id: 'clp-source-2',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'CLP',
+      trackingCurrency: 'EUR',
+      country: 'Chile'
+    });
+
+    const { refundExpense, feeExpense, updatedSources, loss, profit } = createCashRefundToBase({
+      sources: [clpSource],
+      localAmount: 10000,
+      exchangeRateBasePerLocal: 0.0009, // Receive €9 back
+      date: new Date('2024-02-05T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      country: 'Chile',
+      exchangeFeeCategory: 'Exchange fees'
+    });
+
+    expect(refundExpense.amount).toBeCloseTo(-10, 5);
+    expect(feeExpense?.amount).toBeCloseTo(1, 5);
+    expect(loss).toBeCloseTo(1, 5);
+    expect(profit).toBeCloseTo(0, 5);
+    expect(updatedSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(updatedSources[0].cashTransaction.remainingBaseAmount).toBeCloseTo(0, 5);
+  });
+
+  test('cash refund to base captures exchange profit without fee expense', () => {
+    const clpSource = createCashSourceExpense({
+      id: 'clp-source-3',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'CLP',
+      trackingCurrency: 'EUR',
+      country: 'Chile'
+    });
+
+    const { refundExpense, feeExpense, updatedSources, loss, profit } = createCashRefundToBase({
+      sources: [clpSource],
+      localAmount: 10000,
+      exchangeRateBasePerLocal: 0.0011, // Receive €11 back
+      date: new Date('2024-02-06T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      country: 'Chile'
+    });
+
+    expect(refundExpense.amount).toBeCloseTo(-11, 5);
+    expect(refundExpense.cashTransaction?.fundingSegments?.[0].localAmount).toBeCloseTo(10000, 5);
+    expect(feeExpense).toBeUndefined();
+    expect(loss).toBeCloseTo(0, 5);
+    expect(profit).toBeCloseTo(1, 5);
+    expect(updatedSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(updatedSources[0].cashTransaction.remainingBaseAmount).toBeCloseTo(0, 5);
   });
 });

@@ -169,6 +169,9 @@ export type CashTransactionSourceDetails = {
   remainingBaseAmount: number;
   exchangeRate: number;
   allocationIds: string[];
+  // When a cash source is funded by another cash source (e.g., currency conversion),
+  // we keep the allocation segments so balances can be updated consistently.
+  fundingSegments?: CashTransactionAllocationSegment[];
 };
 
 export type CashTransactionAllocationSegment = {
