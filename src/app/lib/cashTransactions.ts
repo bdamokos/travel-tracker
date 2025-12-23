@@ -494,7 +494,11 @@ export function getAllocationsForSource(expenses: Expense[], sourceId: string): 
     .filter(expense => getAllocationSegments(expense.cashTransaction).some(segment => segment.sourceExpenseId === sourceId));
 }
 
-export function createCashConversion(params: CashConversionParams) {
+export function createCashConversion(params: CashConversionParams): {
+  newSource: Expense;
+  segments: CashTransactionAllocationSegment[];
+  updatedSources: Expense[];
+} {
   if (params.sourceLocalAmount <= 0 || params.targetLocalAmount <= 0) {
     throw new Error('Conversion amounts must be greater than zero.');
   }
