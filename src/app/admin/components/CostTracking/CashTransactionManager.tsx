@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { CostTrackingData, Expense } from '../../../types';
 import AccessibleDatePicker from '../AccessibleDatePicker';
 import AriaSelect from '../AriaSelect';
@@ -294,6 +294,32 @@ export default function CashTransactionManager({
       alert(error instanceof Error ? error.message : 'Unable to create cash refund.');
     }
   };
+
+  const handleRefundCurrencyChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextCurrency = event.target.value.trim().toUpperCase();
+    setRefundForm(prev => {
+      const shouldRefreshRate = prev.localCurrency !== nextCurrency;
+      const nextRate = shouldRefreshRate
+        ? lastExchangeRates.get(nextCurrency)?.toString() ?? ''
+        : prev.exchangeRate;
+
+      return {
+        ...prev,
+        localCurrency: nextCurrency,
+        exchangeRate: nextRate
+      };
+    });
+  };
+
+  const estimatedRefundBaseAmount = useMemo(() => {
+    const pendingLocal = parseFloat(refundForm.localAmount);
+    const rate = parseFloat(refundForm.exchangeRate);
+    if (Number.isNaN(pendingLocal) || Number.isNaN(rate) || pendingLocal <= 0 || rate <= 0) {
+      return null;
+    }
+
+    return roundCurrency(pendingLocal / rate);
+  }, [refundForm.localAmount, refundForm.exchangeRate]);
 
   const handleAllocationChange = (currencyKey: string, updates: Partial<CashAllocationFormState>) => {
     setAllocationForms(prev => ({
@@ -796,20 +822,7 @@ export default function CashTransactionManager({
             <input
               type="text"
               value={refundForm.localCurrency}
-              onChange={e => {
-                const nextCurrency = e.target.value.trim().toUpperCase();
-                setRefundForm(prev => {
-                  const shouldRefreshRate = prev.localCurrency !== nextCurrency;
-                  const nextRate = shouldRefreshRate
-                    ? lastExchangeRates.get(nextCurrency)?.toString() ?? ''
-                    : prev.exchangeRate;
-                  return {
-                    ...prev,
-                    localCurrency: nextCurrency,
-                    exchangeRate: nextRate
-                  };
-                });
-              }}
+              onChange={handleRefundCurrencyChange}
               className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
               placeholder="e.g., ARS"
             />
@@ -828,19 +841,11 @@ export default function CashTransactionManager({
               className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
               placeholder={refundForm.localCurrency ? `e.g., ${refundForm.localCurrency} per ${currency}` : 'e.g., 1000'}
             />
-            {(() => {
-              const pendingLocal = parseFloat(refundForm.localAmount);
-              const rate = parseFloat(refundForm.exchangeRate);
-              if (Number.isNaN(pendingLocal) || Number.isNaN(rate) || pendingLocal <= 0 || rate <= 0) {
-                return null;
-              }
-              const estimatedBase = roundCurrency(pendingLocal / rate);
-              return (
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  ≈ {estimatedBase.toFixed(2)} {currency}
-                </p>
-              );
-            })()}
+            {estimatedRefundBaseAmount !== null && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                ≈ {estimatedRefundBaseAmount.toFixed(2)} {currency}
+              </p>
+            )}
             {!refundForm.exchangeRate && refundForm.localCurrency && !lastExchangeRates.get(refundForm.localCurrency) && (
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 No saved exchange rate found for {refundForm.localCurrency}. Please enter one.
