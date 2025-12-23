@@ -122,6 +122,12 @@ const INITIAL_REFUND_TO_BASE_FORM: CashRefundToBaseFormState = {
   feeCategory: 'Exchange fees'
 };
 
+/**
+ * Create a new cash allocation form state prefilled with defaults and a generated expense id.
+ *
+ * @param sourceCountry - Preferred country code or name to prefill the form's `country` field; empty string if falsy
+ * @returns A `CashAllocationFormState` initialized with a unique `expenseId`, current `date`, empty inputs, and the provided `country`
+ */
 function createInitialAllocationForm(sourceCountry: string): CashAllocationFormState {
   return {
     expenseId: generateId(),
@@ -135,6 +141,21 @@ function createInitialAllocationForm(sourceCountry: string): CashAllocationFormS
   };
 }
 
+/**
+ * UI component that provides controls for creating and managing cash transactions (sources, refunds,
+ * conversions, refunds-to-base) and allocating cash spending across currencies.
+ *
+ * Renders sections to add cash exchanges and refunds, convert cash between local currencies,
+ * refund local cash back to the tracking currency, and view per-currency cash groups with allocation forms.
+ *
+ * @param props.costData - Current cost tracking data containing existing expenses.
+ * @param props.currency - Tracking currency code used as the base currency for conversions.
+ * @param props.categories - Available spending categories.
+ * @param props.countryOptions - List of selectable country values for transactions.
+ * @param props.tripId - Identifier of the trip used when linking allocations to travel items.
+ * @param props.onExpenseAdded - Callback invoked with newly created expense(s) to persist them; may include travel link info for allocations.
+ * @returns A React element containing the cash transaction management UI.
+ */
 export default function CashTransactionManager({
   costData,
   currency,
