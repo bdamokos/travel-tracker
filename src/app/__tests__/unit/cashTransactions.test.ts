@@ -318,6 +318,8 @@ describe('cash transaction utilities', () => {
     });
 
     expect(refundExpense.amount).toBeCloseTo(-10, 5);
+    expect(refundExpense.cashTransaction?.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(refundExpense.cashTransaction?.remainingBaseAmount).toBeCloseTo(0, 5);
     expect(feeExpense?.amount).toBeCloseTo(1, 5);
     expect(loss).toBeCloseTo(1, 5);
     expect(profit).toBeCloseTo(0, 5);
@@ -347,6 +349,8 @@ describe('cash transaction utilities', () => {
 
     expect(refundExpense.amount).toBeCloseTo(-11, 5);
     expect(refundExpense.cashTransaction?.fundingSegments?.[0].localAmount).toBeCloseTo(10000, 5);
+    expect(refundExpense.cashTransaction?.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(refundExpense.cashTransaction?.remainingBaseAmount).toBeCloseTo(0, 5);
     expect(feeExpense).toBeUndefined();
     expect(loss).toBeCloseTo(0, 5);
     expect(profit).toBeCloseTo(1, 5);

@@ -245,20 +245,28 @@ export default function CashTransactionManager({
   }, [cashGroups]);
 
   useEffect(() => {
-    if (cashGroups.length > 0 && !conversionForm.sourceCurrency) {
-      setConversionForm(prev => ({
-        ...prev,
-        sourceCurrency: cashGroups[0].currency
-      }));
+    if (cashGroups.length === 0) {
+      return;
     }
 
-    if (cashGroups.length > 0 && !refundToBaseForm.sourceCurrency) {
-      setRefundToBaseForm(prev => ({
-        ...prev,
-        sourceCurrency: cashGroups[0].currency
-      }));
-    }
-  }, [cashGroups, conversionForm.sourceCurrency, refundToBaseForm.sourceCurrency]);
+    setConversionForm(prev =>
+      prev.sourceCurrency
+        ? prev
+        : {
+            ...prev,
+            sourceCurrency: cashGroups[0].currency
+          }
+    );
+
+    setRefundToBaseForm(prev =>
+      prev.sourceCurrency
+        ? prev
+        : {
+            ...prev,
+            sourceCurrency: cashGroups[0].currency
+          }
+    );
+  }, [cashGroups]);
 
   const handleCreateCashSource = async () => {
     if (!sourceForm.date) {
@@ -1359,10 +1367,12 @@ export default function CashTransactionManager({
                 id="cash-refund-to-base-fee-category"
                 value={refundToBaseForm.feeCategory}
                 onChange={value => setRefundToBaseForm(prev => ({ ...prev, feeCategory: value }))}
-                options={[...new Set([...categories, 'Exchange fees'])].map(category => ({
-                  value: category,
-                  label: category
-                }))}
+                options={[...categories, 'Exchange fees']
+                  .filter((category, index, all) => all.indexOf(category) === index)
+                  .map(category => ({
+                    value: category,
+                    label: category
+                  }))}
                 placeholder="Exchange fees"
                 className="w-full text-sm"
               />

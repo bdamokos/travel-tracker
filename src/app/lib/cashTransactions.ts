@@ -527,12 +527,13 @@ export function createCashConversion(params: CashConversionParams): {
   });
 
   const updatedSources = applyAllocationSegmentsToSources(params.sources, segments, newSource.id);
+  const newSourceDetails = newSource.cashTransaction as CashTransactionSourceDetails;
 
   return {
     newSource: {
       ...newSource,
       cashTransaction: {
-        ...newSource.cashTransaction,
+        ...newSourceDetails,
         fundingSegments: segments
       }
     },
@@ -541,7 +542,14 @@ export function createCashConversion(params: CashConversionParams): {
   };
 }
 
-export function createCashRefundToBase(params: CashRefundToBaseParams) {
+export function createCashRefundToBase(params: CashRefundToBaseParams): {
+  refundExpense: Expense;
+  feeExpense: Expense | undefined;
+  segments: CashTransactionAllocationSegment[];
+  updatedSources: Expense[];
+  loss: number;
+  profit: number;
+} {
   if (params.localAmount <= 0) {
     throw new Error('Refund amount must be greater than zero.');
   }
@@ -568,7 +576,9 @@ export function createCashRefundToBase(params: CashRefundToBaseParams) {
 
   const notesParts: string[] = [];
   if (loss > 0) {
-    notesParts.push(`Includes ${loss.toFixed(2)} ${params.trackingCurrency} exchange fees.`);
+    notesParts.push(
+      `Exchange loss of ${loss.toFixed(2)} ${params.trackingCurrency} recorded as a separate fee expense.`
+    );
   }
   if (profit > 0) {
     notesParts.push(`Exchange profit of ${profit.toFixed(2)} ${params.trackingCurrency}.`);
@@ -590,10 +600,13 @@ export function createCashRefundToBase(params: CashRefundToBaseParams) {
     isGeneralExpense: params.isGeneralExpense ?? !params.country
   });
 
-  const refundWithFunding = {
+  const refundSourceDetails = refundExpense.cashTransaction as CashTransactionSourceDetails;
+  const refundWithFunding: Expense = {
     ...refundExpense,
     cashTransaction: {
-      ...refundExpense.cashTransaction,
+      ...refundSourceDetails,
+      remainingLocalAmount: 0,
+      remainingBaseAmount: 0,
       fundingSegments: segments
     }
   };
@@ -607,8 +620,8 @@ export function createCashRefundToBase(params: CashRefundToBaseParams) {
           currency: params.trackingCurrency,
           category: params.exchangeFeeCategory || 'Exchange fees',
           country: params.country || '',
-          description: params.description || `Exchange fees (${referenceCurrency} refund)`,
-          notes: params.notes,
+          description: `Exchange loss on ${referenceCurrency} refund`,
+          notes: `Associated with refund transaction: ${refundExpense.id}`,
           isGeneralExpense: params.isGeneralExpense ?? !params.country,
           expenseType: 'actual'
         } satisfies Expense)
