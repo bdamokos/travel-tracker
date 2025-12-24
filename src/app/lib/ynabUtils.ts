@@ -8,6 +8,12 @@ export interface YnabParseResult {
   skippedLines: number;
 }
 
+/**
+ * Generate a stable import key for a processed YNAB transaction for deduplication and tracking.
+ *
+ * @param transaction - Object containing `hash`, optional `instanceId`, and optional `sourceIndex`; `instanceId` is preferred when present
+ * @returns The import key: `instanceId` if present, otherwise `"<hash>-<sourceIndex>"` when `sourceIndex` is defined, otherwise the transaction `hash`
+ */
 export function getTransactionImportKey(
   transaction: Pick<ProcessedYnabTransaction, 'hash' | 'instanceId' | 'sourceIndex'>
 ): string {
@@ -22,7 +28,12 @@ export function getTransactionImportKey(
   return transaction.hash;
 }
 
-// Helper function to create hash for transaction deduplication
+/**
+ * Produces a deterministic fingerprint for a YNAB transaction used for deduplication.
+ *
+ * @param transaction - Transaction whose `Date`, `Payee`, `Category`, `Outflow`, and `Inflow` fields are used to build the fingerprint.
+ * @returns A lowercase hexadecimal SHA-256 digest representing the transaction's fingerprint.
+ */
 export function createTransactionHash(transaction: YnabTransaction): string {
   const hashString = `${transaction.Date}|${transaction.Payee}|${transaction.Category}|${transaction.Outflow}|${transaction.Inflow}`;
   return createHash('sha256').update(hashString).digest('hex');
@@ -214,6 +225,15 @@ export function filterNewTransactions(
   };
 }
 
+/**
+ * Update import tracking to reflect newly imported transactions.
+ *
+ * If `importedTransactions` is empty, returns `existingData` unchanged. Otherwise sets the last imported transaction hash and date to the most recent transaction from `importedTransactions` and appends each transaction's hash and import key to `existingData.importedTransactionHashes` while preserving order and avoiding duplicates.
+ *
+ * @param importedTransactions - Transactions that were just imported
+ * @param existingData - Current import tracking data to update
+ * @returns The updated `YnabImportData` with `lastImportedTransactionHash`, `lastImportedTransactionDate`, and an updated `importedTransactionHashes` array
+ */
 export function updateLastImportedTransaction(
   importedTransactions: ProcessedYnabTransaction[],
   existingData: YnabImportData
@@ -252,6 +272,11 @@ export function updateLastImportedTransaction(
   };
 }
 
+/**
+ * Selects the transaction with the most recent date.
+ *
+ * @returns The transaction with the latest `date`, or `null` if `transactions` is empty.
+ */
 export function findLatestTransaction(
   transactions: ProcessedYnabTransaction[]
 ): ProcessedYnabTransaction | null {
