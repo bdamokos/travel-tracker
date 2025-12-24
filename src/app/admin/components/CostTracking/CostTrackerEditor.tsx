@@ -35,6 +35,21 @@ interface CostTrackerEditorProps {
   onRefreshData?: () => Promise<void>;
 }
 
+/**
+ * Renders the CostTrackerEditor UI for creating and editing a cost-tracking dataset, including budget and country budgets, categories, expense tracking, YNAB import/mappings/setup, travel lookup and expense-to-travel linking.
+ *
+ * @param costData - The cost tracking dataset to display and edit
+ * @param setCostData - State setter to update the cost tracking dataset
+ * @param onSave - Callback invoked to persist the cost tracker
+ * @param existingTrips - List of available trips for travel-linked expenses
+ * @param selectedTrip - Currently selected trip or null
+ * @param setSelectedTrip - Setter to change the selected trip
+ * @param mode - Editor mode, either `'create'` or `'edit'`
+ * @param autoSaving - Whether auto-save is active (affects UI indicators)
+ * @param setHasUnsavedChanges - Setter to mark the form as having unsaved changes
+ * @param onRefreshData - Optional callback to refresh data from the server (used after imports)
+ * @returns The rendered CostTrackerEditor component tree
+ */
 export default function CostTrackerEditor({
   costData,
   setCostData,
@@ -198,6 +213,32 @@ export default function CostTrackerEditor({
     }
 
     let updatedExpenses = [...costData.expenses];
+
+    if (isCashSource(expense) && expense.cashTransaction.fundingSegments?.length) {
+      const segments = expense.cashTransaction.fundingSegments;
+      const missingSource = segments.find(
+        segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
+      );
+
+      if (missingSource) {
+        alert(
+          'Unable to find one of the funding exchanges referenced by this transaction. Please refresh and try again.'
+        );
+        return;
+      }
+
+      try {
+        updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
+      } catch (error) {
+        console.error('Failed to apply funding segments to cash sources:', error);
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Unable to apply the funding exchanges to this transaction.'
+        );
+        return;
+      }
+    }
 
     if (isCashAllocation(expense) && editingExpenseIndex === null) {
       const segments = getAllocationSegments(expense.cashTransaction);
