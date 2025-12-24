@@ -57,7 +57,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 }
 
-// Handle transaction processing (filtering/preview)
+/**
+ * Prepare a preview of YNAB transactions from a temporary upload, applying category mappings and duplicate filtering.
+ *
+ * Loads the temporary transaction file and the trip's cost-tracking data, maps eligible transactions using `mappings`,
+ * computes amounts and instance identifiers, excludes already-imported items, and applies optional filtering based on
+ * the last imported transaction unless `showAll` is true.
+ *
+ * @param id - The cost-tracking identifier or trip id (may include a 'cost-' prefix)
+ * @param tempFileId - Identifier of the temporary JSON file containing uploaded YNAB transactions (data/{tempFileId}.json)
+ * @param mappings - Category mapping definitions that determine which uploaded categories are eligible and how they map
+ * @param showAll - If true, skip filtering by the last imported transaction and return all processed transactions
+ * @returns A NextResponse with JSON payload:
+ * - On success (200): an object containing `transactions` (array of processed transactions), `totalCount`, `alreadyImportedCount`,
+ *   `filteredCount`, `lastImportedTransactionFound` (boolean), and `totalTransactions`.
+ * - If no new transactions are available (200): same shape with `transactions: []` and a `message` explaining why.
+ * - If `tempFileId` or `mappings` are missing (400): `{ error: string }`.
+ * - If cost-tracking data is not found for `id` (404): `{ error: string }`.
+ */
 async function handleProcessTransactions(
   id: string, 
   tempFileId: string, 
@@ -172,7 +189,25 @@ async function handleProcessTransactions(
   });
 }
 
-// Handle transaction importing (actual import)
+/**
+ * Import selected YNAB transactions into the trip's cost data, create corresponding expenses, and persist updates.
+ *
+ * Updates the trip's ynabImportData (mappings, imported transaction keys, payee defaults), appends new Expense entries,
+ * optionally auto-creates country budgets, updates import timestamps on the YNAB config, validates trip boundaries,
+ * and removes temporary import files.
+ *
+ * @param id - Trip identifier (may include a `cost-` prefix; the prefix is stripped for persistence)
+ * @param tempFileId - Identifier of the temporary JSON file containing parsed YNAB transactions
+ * @param mappings - Array of category mappings used to map YNAB categories to trip expense categories
+ * @param selectedTransactions - Array of selections specifying which transactions to import. Each entry must include:
+ *   - `transactionHash` (string): hash of the source transaction,
+ *   - `transactionId?` (string): optional instance identifier to distinguish duplicate hashes,
+ *   - `transactionSourceIndex?` (number): optional index into the temp file's transactions to resolve the original record,
+ *   - `expenseCategory` (string): target expense category to use for the created Expense
+ *
+ * @returns JSON with import results: `success` (boolean), `importedCount` (number of expenses added),
+ * `skippedCount` (number of selections skipped), and `totalExpenses` (total expense count after import).
+ */
 async function handleImportTransactions(
   id: string, 
   tempFileId: string, 

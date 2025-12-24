@@ -37,6 +37,18 @@ interface TransactionSelection {
   expenseCategory: string;
 }
 
+/**
+ * Modal component that guides users through importing YNAB transactions via file upload or the YNAB API.
+ *
+ * Renders a multi-step UI to choose an import method, load or upload YNAB data, map YNAB categories to project categories/countries,
+ * review detected duplicate matches, select transactions, and perform the final import into the cost tracking system.
+ *
+ * @param isOpen - Whether the import modal is open and visible
+ * @param costData - Cost tracking data and configuration used to prefill mappings, available countries/categories, and existing expenses
+ * @param onImportComplete - Callback invoked after a successful import (before the modal is closed)
+ * @param onClose - Callback to request closing the modal
+ * @returns A React element that displays the YNAB import modal and its interactive steps
+ */
 export default function YnabImportForm({ isOpen, costData, onImportComplete, onClose }: YnabImportFormProps) {
   const [currentStep, setCurrentStep] = useState(0); // Start with method selection
   const [isLoading, setIsLoading] = useState(false);
