@@ -76,6 +76,12 @@ export interface CashRefundToBaseParams {
   exchangeFeeCategory?: string;
 }
 
+/**
+ * Get the cash source type, defaulting to 'exchange' when not specified.
+ *
+ * @param details - Cash transaction source details; may include `sourceType` (`'exchange' | 'refund'`)
+ * @returns The source type: `'exchange'` if `details.sourceType` is undefined, otherwise the provided value
+ */
 function getSourceType(details: CashTransactionSourceDetails): 'exchange' | 'refund' {
   return details.sourceType ?? 'exchange';
 }
@@ -125,6 +131,13 @@ export function createCashSourceExpense(params: CashSourceParams): Expense {
   };
 }
 
+/**
+ * Create an Expense representing a cash refund funded in a local currency and recorded in a tracking currency.
+ *
+ * @param params - Parameters describing the refund (local amount and currency, exchange rate to the tracking currency, date, optional id, country, description, notes, and isGeneralExpense flag).
+ * @returns An Expense whose amount is the negative base (tracking-currency) amount and whose `cashTransaction` is a source of type `refund` containing original and remaining local/base amounts, exchange rate, local currency, and allocationIds.
+ * @throws Error if `localAmount` <= 0, if `exchangeRate` <= 0, or if the computed base amount (rounded) <= 0.
+ */
 export function createCashRefundExpense(params: CashRefundParams): Expense {
   if (params.localAmount <= 0) {
     throw new Error('Refund amount must be greater than zero.');
@@ -170,6 +183,14 @@ export function createCashRefundExpense(params: CashRefundParams): Expense {
   };
 }
 
+/**
+ * Ensure the provided expenses include at least one cash source and that all cash source transactions use the same local currency, returning that shared currency.
+ *
+ * @param sources - An array of expenses to validate; only expenses with a cash transaction of kind 'source' are considered.
+ * @returns The common local currency code used by all cash sources.
+ * @throws Error if no cash source expenses are present.
+ * @throws Error if cash source expenses use more than one local currency.
+ */
 export function validateSourceCurrencyConsistency(sources: Expense[]): string {
   const cashSources = sources.filter(isCashSource);
   if (cashSources.length === 0) {
@@ -303,6 +324,16 @@ function createSegmentsFromSources(
   return segments;
 }
 
+/**
+ * Create an expense that allocates a requested local cash spending amount across one or more cash source expenses.
+ *
+ * @param params - Parameters defining the allocation: cash sources, requested local amount, tracking currency, and optional metadata (id, date, category, description, notes, country, isGeneralExpense, travelReference).
+ * @returns An object containing the created allocation expense and the allocation segments that reference source expenses.
+ * @throws Error if `localAmount` is less than or equal to zero.
+ * @throws Error if no source transactions are provided or none are valid cash sources.
+ * @throws Error if the provided cash sources do not share the same local currency.
+ * @throws Error if allocation cannot be produced (no segments or non-positive total base amount).
+ */
 export function createCashAllocationExpense(params: CashAllocationParams): CashAllocationResult {
   if (params.localAmount <= 0) {
     throw new Error('Cash spending must be greater than zero.');
@@ -488,12 +519,38 @@ export function getAllocationSegments(details: CashTransactionAllocationDetails)
   ];
 }
 
+/**
+ * Finds all cash allocation expenses that include allocations referencing the specified cash source.
+ *
+ * @param expenses - Array of expenses to search for cash allocations
+ * @param sourceId - The id of the cash source to match in allocation segments
+ * @returns All allocation expenses that contain at least one segment with `sourceExpenseId` equal to `sourceId`
+ */
 export function getAllocationsForSource(expenses: Expense[], sourceId: string): Expense[] {
   return expenses
     .filter(isCashAllocation)
     .filter(expense => getAllocationSegments(expense.cashTransaction).some(segment => segment.sourceExpenseId === sourceId));
 }
 
+/**
+ * Create a new cash source representing a currency conversion funded from existing cash sources.
+ *
+ * @param params - Conversion parameters including:
+ *   - sources: array of existing cash source expenses used to fund the conversion
+ *   - sourceLocalAmount: total local amount to consume from the sources
+ *   - targetLocalAmount: local amount to create in the target currency
+ *   - targetCurrency: currency code for the newly created source's localCurrency
+ *   - date: date for the new source expense
+ *   - trackingCurrency: currency used for tracking the new source's base amount (optional)
+ *   - country, description, notes, isGeneralExpense, id: optional metadata for the created expense
+ * @returns An object containing:
+ *   - newSource: the created cash source expense with `cashTransaction.fundingSegments` set to the allocation segments
+ *   - segments: allocation segments describing how the conversion was funded from each source
+ *   - updatedSources: the original sources updated to reflect applied allocation segments
+ * @throws Error if `sourceLocalAmount` or `targetLocalAmount` is less than or equal to zero.
+ * @throws Error if the aggregated base amount for the conversion cannot be determined (<= 0).
+ * @throws Error if there are no cash sources or the sources do not share the same local currency.
+ */
 export function createCashConversion(params: CashConversionParams): {
   newSource: Expense;
   segments: CashTransactionAllocationSegment[];
@@ -542,6 +599,21 @@ export function createCashConversion(params: CashConversionParams): {
   };
 }
 
+/**
+ * Create a cash refund into the tracking (base) currency funded from the provided cash sources.
+ *
+ * @param params - Parameters controlling the refund creation (see `CashRefundToBaseParams`).
+ * @returns An object containing:
+ *  - `refundExpense`: the created refund `Expense` augmented with `fundingSegments`,
+ *  - `feeExpense`: an optional fee `Expense` representing exchange fees when there is a loss,
+ *  - `segments`: the allocation segments used to fund the refund,
+ *  - `updatedSources`: the original source `Expense[]` updated to reflect applied allocations,
+ *  - `loss`: numeric loss in tracking currency (zero if none),
+ *  - `profit`: numeric profit in tracking currency (zero if none).
+ * @throws If `params.localAmount` is not greater than zero.
+ * @throws If `params.exchangeRateBasePerLocal` is not greater than zero.
+ * @throws If the calculated base amount from sources is not greater than zero.
+ */
 export function createCashRefundToBase(params: CashRefundToBaseParams): {
   refundExpense: Expense;
   feeExpense: Expense | undefined;
