@@ -30,7 +30,9 @@ interface UploadResult {
 }
 
 interface TransactionSelection {
+  transactionId: string;
   transactionHash: string;
+  transactionSourceIndex?: number;
   expenseCategory: string;
 }
 
@@ -252,6 +254,13 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       return rememberedCategory;
     }
     return fallback;
+  };
+
+  const getTransactionId = (transaction: ProcessedYnabTransaction, index?: number) => {
+    if (transaction.instanceId) return transaction.instanceId;
+    if (transaction.sourceIndex !== undefined) return `${transaction.hash}-${transaction.sourceIndex}`;
+    if (index !== undefined) return `${transaction.hash}-${index}`;
+    return transaction.hash;
   };
 
   const hasCategoryMapChanges = (
@@ -490,8 +499,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         }
 
         // Initialize selected transactions with all available ones
-        const initialSelections: TransactionSelection[] = annotatedTransactions.map((txn: ProcessedYnabTransaction) => ({
+        const initialSelections: TransactionSelection[] = annotatedTransactions.map((txn: ProcessedYnabTransaction, index: number) => ({
+          transactionId: getTransactionId(txn, index),
           transactionHash: txn.hash,
+          transactionSourceIndex: txn.sourceIndex ?? index,
           expenseCategory: getDefaultCategoryForTransaction(txn)
         }));
 
@@ -558,8 +569,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       }
 
       // Initialize selected transactions with all available ones
-      const initialSelections: TransactionSelection[] = annotatedTransactions.map((txn: ProcessedYnabTransaction) => ({
+      const initialSelections: TransactionSelection[] = annotatedTransactions.map((txn: ProcessedYnabTransaction, index: number) => ({
+        transactionId: getTransactionId(txn, index),
         transactionHash: txn.hash,
+        transactionSourceIndex: txn.sourceIndex ?? index,
         expenseCategory: getDefaultCategoryForTransaction(txn)
       }));
 
@@ -576,32 +589,34 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     await loadTransactions(false);
   };
 
-  const handleTransactionToggle = (hash: string) => {
-    const exists = selectedTransactions.find(s => s.transactionHash === hash);
+  const handleTransactionToggle = (transactionId: string) => {
+    const exists = selectedTransactions.find(s => s.transactionId === transactionId);
     if (exists) {
-      setSelectedTransactions(prev => prev.filter(s => s.transactionHash !== hash));
+      setSelectedTransactions(prev => prev.filter(s => s.transactionId !== transactionId));
     } else {
-      const transaction = processedTransactions.find(t => t.hash === hash);
+      const transaction = processedTransactions.find(t => getTransactionId(t) === transactionId);
       const defaultCategory = transaction
         ? getDefaultCategoryForTransaction(transaction)
         : availableCategories[0];
       setSelectedTransactions(prev => [...prev, {
-        transactionHash: hash,
+        transactionId,
+        transactionHash: transaction?.hash || transactionId,
+        transactionSourceIndex: transaction?.sourceIndex,
         expenseCategory: defaultCategory
       }]);
     }
   };
 
-  const handleCategoryChange = (hash: string, category: string) => {
+  const handleCategoryChange = (transactionId: string, category: string) => {
     setSelectedTransactions(prev => 
       prev.map(s => 
-        s.transactionHash === hash 
+        s.transactionId === transactionId 
           ? { ...s, expenseCategory: category }
           : s
       )
     );
 
-    const transaction = processedTransactions.find(t => t.hash === hash);
+    const transaction = processedTransactions.find(t => getTransactionId(t) === transactionId);
     const normalizedPayee = transaction?.description?.trim();
     if (normalizedPayee) {
       setPayeeCategoryDefaults(prev => ({
@@ -623,8 +638,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         const updatedPayeeCategoryDefaults = { ...payeeCategoryDefaults };
         const existingExpenses = (costData.expenses || []).filter(expense => !expense.isPendingYnabImport);
         const expensesToAdd = selectedTransactions.map(selection => {
-          const transaction = processedTransactions.find(t => t.hash === selection.transactionHash);
-          if (!transaction) throw new Error(`Transaction not found: ${selection.transactionHash}`);
+          const transaction = processedTransactions.find(t => getTransactionId(t) === selection.transactionId);
+          if (!transaction) throw new Error(`Transaction not found: ${selection.transactionId}`);
 
           const normalizedPayee = transaction.description?.trim();
           if (normalizedPayee) {
@@ -649,7 +664,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           };
         });
 
-        const newTransactionHashes = selectedTransactions.map(s => s.transactionHash);
+        const newTransactionHashes = selectedTransactions.map(s => s.transactionId || s.transactionHash);
 
         response = await fetch(`/api/cost-tracking?id=${costData.id}`, {
           method: 'PUT',
@@ -1171,8 +1186,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                         if (selectedTransactions.length === processedTransactions.length) {
                           setSelectedTransactions([]);
                         } else {
-                          setSelectedTransactions(processedTransactions.map(txn => ({
+                          setSelectedTransactions(processedTransactions.map((txn, index) => ({
+                            transactionId: getTransactionId(txn, index),
                             transactionHash: txn.hash,
+                            transactionSourceIndex: txn.sourceIndex ?? index,
                             expenseCategory: getDefaultCategoryForTransaction(txn)
                           })));
                         }
@@ -1187,9 +1204,10 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                   </div>
               
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {processedTransactions.map((txn) => {
-                  const isSelected = selectedTransactions.some(s => s.transactionHash === txn.hash);
-                  const selection = selectedTransactions.find(s => s.transactionHash === txn.hash);
+                {processedTransactions.map((txn, index) => {
+                  const transactionId = getTransactionId(txn, index);
+                  const isSelected = selectedTransactions.some(s => s.transactionId === transactionId);
+                  const selection = selectedTransactions.find(s => s.transactionId === transactionId);
                   const duplicateMatches = txn.possibleDuplicateMatches ?? [];
                   const hasPossibleDuplicates = duplicateMatches.length > 0;
                   const cardClasses = [
@@ -1203,12 +1221,12 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                   ].join(' ').trim();
 
                   return (
-                    <div key={txn.hash} className={cardClasses}>
+                    <div key={transactionId} className={cardClasses}>
                       <div className="flex items-start space-x-4">
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => handleTransactionToggle(txn.hash)}
+                          onChange={() => handleTransactionToggle(transactionId)}
                           className="w-4 h-4 text-blue-600"
                         />
 
@@ -1257,9 +1275,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
                         {isSelected && (
                           <AriaSelect
-                            id={`expense-category-${txn.hash}`}
+                            id={`expense-category-${transactionId}`}
                             value={selection?.expenseCategory || availableCategories[0]}
-                            onChange={(value) => handleCategoryChange(txn.hash, value)}
+                            onChange={(value) => handleCategoryChange(transactionId, value)}
                             className="px-3 py-1 text-sm"
                             options={availableCategories.map(category => ({ value: category, label: category }))}
                             placeholder="Select Category"

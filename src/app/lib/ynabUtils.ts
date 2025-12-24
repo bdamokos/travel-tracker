@@ -8,6 +8,20 @@ export interface YnabParseResult {
   skippedLines: number;
 }
 
+export function getTransactionImportKey(
+  transaction: Pick<ProcessedYnabTransaction, 'hash' | 'instanceId' | 'sourceIndex'>
+): string {
+  if (transaction.instanceId) {
+    return transaction.instanceId;
+  }
+
+  if (transaction.sourceIndex !== undefined) {
+    return `${transaction.hash}-${transaction.sourceIndex}`;
+  }
+
+  return transaction.hash;
+}
+
 // Helper function to create hash for transaction deduplication
 export function createTransactionHash(transaction: YnabTransaction): string {
   const hashString = `${transaction.Date}|${transaction.Payee}|${transaction.Category}|${transaction.Outflow}|${transaction.Inflow}`;
@@ -219,7 +233,7 @@ export function updateLastImportedTransaction(
     lastImportedTransactionDate: latestTransaction.date,
     importedTransactionHashes: [
       ...existingData.importedTransactionHashes,
-      ...importedTransactions.map(t => t.hash)
+      ...importedTransactions.map(t => getTransactionImportKey(t))
     ]
   };
 }

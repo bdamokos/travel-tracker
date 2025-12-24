@@ -10,7 +10,7 @@ import {
   ExpenseType,
   YnabTransactionFilterResult
 } from '@/app/types';
-import { createTransactionHash, filterNewTransactions, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
+import { createTransactionHash, filterNewTransactions, getTransactionImportKey, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
 import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
@@ -89,13 +89,14 @@ async function handleProcessTransactions(
   const processedTransactions: ProcessedYnabTransaction[] = [];
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
-  for (const transaction of tempData.transactions) {
+  for (const [index, transaction] of tempData.transactions.entries()) {
     if (!mappedCategories.has(transaction.Category)) {
       continue; // Skip unmapped categories
     }
 
     const hash = createTransactionHash(transaction);
-    const isAlreadyImported = existingHashes.includes(hash);
+    const instanceId = `${hash}-${index}`;
+    const isAlreadyImported = existingHashes.includes(instanceId) || existingHashes.includes(hash);
 
     const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
     if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
@@ -121,7 +122,9 @@ async function handleProcessTransactions(
       memo: transaction.Memo,
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
       isGeneralExpense: mapping.mappingType === 'general',
-      hash: hash
+      hash: hash,
+      instanceId,
+      sourceIndex: index
     };
 
     // Only include if not already imported
@@ -169,7 +172,7 @@ async function handleImportTransactions(
   id: string, 
   tempFileId: string, 
   mappings: YnabCategoryMapping[], 
-  selectedTransactions: Array<{ transactionHash: string; expenseCategory: string }>
+  selectedTransactions: Array<{ transactionHash: string; transactionId?: string; transactionSourceIndex?: number; expenseCategory: string }>
 ): Promise<NextResponse> {
   if (!tempFileId || !mappings || !selectedTransactions) {
     return NextResponse.json({ 
@@ -207,21 +210,42 @@ async function handleImportTransactions(
   const newExpenses: Expense[] = [];
   const newHashes: string[] = [];
   const importedTransactions: ProcessedYnabTransaction[] = [];
+  const usedIndexes = new Set<number>();
 
   for (const selectedTxn of selectedTransactions) {
-    const { transactionHash, expenseCategory } = selectedTxn;
-    
-    // Check if already imported
-    if (costData.ynabImportData.importedTransactionHashes.includes(transactionHash)) {
+    const { transactionHash, transactionId, transactionSourceIndex, expenseCategory } = selectedTxn;
+    const targetIndex = typeof transactionSourceIndex === 'number' ? transactionSourceIndex : undefined;
+
+    // Check if already imported using either the unique id or the legacy hash
+    const importKey = getTransactionImportKey({
+      hash: transactionHash,
+      instanceId: transactionId,
+      sourceIndex: targetIndex
+    });
+    if (costData.ynabImportData.importedTransactionHashes.includes(importKey) || costData.ynabImportData.importedTransactionHashes.includes(transactionHash)) {
       continue;
     }
 
     // Find the original transaction
-    const originalTxn = tempData.transactions.find((t: YnabTransaction) => 
-      createTransactionHash(t) === transactionHash
-    );
+    let originalTxn: YnabTransaction | undefined;
+    let sourceIndex: number | undefined = undefined;
 
-    if (!originalTxn) {
+    if (targetIndex !== undefined && tempData.transactions[targetIndex]) {
+      originalTxn = tempData.transactions[targetIndex];
+      sourceIndex = targetIndex;
+    } else {
+      const foundIndex = tempData.transactions.findIndex((t: YnabTransaction, idx: number) => {
+        if (usedIndexes.has(idx)) return false;
+        return createTransactionHash(t) === transactionHash;
+      });
+
+      if (foundIndex !== -1) {
+        originalTxn = tempData.transactions[foundIndex];
+        sourceIndex = foundIndex;
+      }
+    }
+
+    if (originalTxn === undefined) {
       continue;
     }
 
@@ -256,12 +280,14 @@ async function handleImportTransactions(
       memo: originalTxn.Memo,
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
       isGeneralExpense: mapping.mappingType === 'general',
-      hash: transactionHash
+      hash: transactionHash,
+      instanceId: importKey,
+      sourceIndex
     };
 
     // Convert to our expense format
     const expense: Expense = {
-      id: `ynab-${transactionHash}`,
+      id: `ynab-${importKey}`,
       date: new Date(convertYnabDateToISO(originalTxn.Date)),
       amount: amount,
       currency: costData.currency,
@@ -298,8 +324,11 @@ async function handleImportTransactions(
     }
 
     newExpenses.push(expense);
-    newHashes.push(transactionHash);
+    newHashes.push(importKey);
     importedTransactions.push(processedTxn);
+    if (sourceIndex !== undefined) {
+      usedIndexes.add(sourceIndex);
+    }
   }
 
   // Remove any pending YNAB shadow transactions before importing new ones

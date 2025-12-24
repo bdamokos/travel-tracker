@@ -57,9 +57,10 @@ export async function GET(request: NextRequest) {
       );
 
       // Convert YNAB transactions to ProcessedYnabTransaction format
-      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map(txn => {
+      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map((txn, index) => {
         const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
         const isOutflow = txn.amount < 0;
+        const hash = ynabUtils.generateTransactionHash(txn);
 
         return {
           originalTransaction: {
@@ -81,7 +82,9 @@ export async function GET(request: NextRequest) {
           memo: txn.memo || '',
           mappedCountry: '', // Will be determined by category mapping
           isGeneralExpense: false, // Will be determined by category mapping
-          hash: ynabUtils.generateTransactionHash(txn),
+          hash,
+          instanceId: txn.id || `${hash}-${index}`,
+          sourceIndex: index,
           expenseType: 'actual',
           ynabTransactionId: txn.id,
           importId: txn.import_id
@@ -228,9 +231,10 @@ export async function POST(request: NextRequest) {
       });
 
       // Convert YNAB transactions to ProcessedYnabTransaction format with country mapping
-      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map(txn => {
+      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map((txn, index) => {
         const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
         const isOutflow = txn.amount < 0;
+        const hash = ynabUtils.generateTransactionHash(txn);
         
         // Find the mapping for this transaction's category
         const mapping = categoryMappingLookup.get(txn.category_id);
@@ -257,7 +261,9 @@ export async function POST(request: NextRequest) {
           memo: txn.memo || '',
           mappedCountry,
           isGeneralExpense,
-          hash: ynabUtils.generateTransactionHash(txn),
+          hash,
+          instanceId: txn.id || `${hash}-${index}`,
+          sourceIndex: index,
           expenseType: 'actual',
           ynabTransactionId: txn.id,
           importId: txn.import_id
