@@ -83,6 +83,11 @@ async function handleProcessTransactions(
   const costData = unifiedTrip.costData;
 
   const existingHashes = costData.ynabImportData?.importedTransactionHashes || [];
+  const existingBaseHashes = new Set(
+    existingHashes
+      .map((value: string) => value.match(/^([0-9a-f]{64})(?:-\d+)?$/i)?.[1])
+      .filter((value: string | undefined): value is string => Boolean(value))
+  );
   const lastImportedHash = costData.ynabImportData?.lastImportedTransactionHash;
 
   // Process transactions based on mappings
@@ -96,7 +101,7 @@ async function handleProcessTransactions(
 
     const hash = createTransactionHash(transaction);
     const instanceId = `${hash}-${index}`;
-    const isAlreadyImported = existingHashes.includes(instanceId) || existingHashes.includes(hash);
+    const isAlreadyImported = existingHashes.includes(instanceId) || existingBaseHashes.has(hash);
 
     const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
     if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
@@ -208,21 +213,27 @@ async function handleImportTransactions(
 
   // Process selected transactions
   const newExpenses: Expense[] = [];
-  const newHashes: string[] = [];
   const importedTransactions: ProcessedYnabTransaction[] = [];
   const usedIndexes = new Set<number>();
+  const importedTrackingKeys = costData.ynabImportData.importedTransactionHashes ?? [];
+  const importedKeySet = new Set(importedTrackingKeys);
+  const importedBaseHashSet = new Set(
+    importedTrackingKeys
+      .map((value: string) => value.match(/^([0-9a-f]{64})(?:-\d+)?$/i)?.[1])
+      .filter((value: string | undefined): value is string => Boolean(value))
+  );
+  const newKeySet = new Set<string>();
+  const newBaseHashSet = new Set<string>();
 
   for (const selectedTxn of selectedTransactions) {
     const { transactionHash, transactionId, transactionSourceIndex, expenseCategory } = selectedTxn;
     const targetIndex = typeof transactionSourceIndex === 'number' ? transactionSourceIndex : undefined;
 
-    // Check if already imported using either the unique id or the legacy hash
-    const importKey = getTransactionImportKey({
-      hash: transactionHash,
-      instanceId: transactionId,
-      sourceIndex: targetIndex
-    });
-    if (costData.ynabImportData.importedTransactionHashes.includes(importKey) || costData.ynabImportData.importedTransactionHashes.includes(transactionHash)) {
+    if (
+      importedBaseHashSet.has(transactionHash) ||
+      newBaseHashSet.has(transactionHash) ||
+      (transactionId ? importedKeySet.has(transactionId) || newKeySet.has(transactionId) : false)
+    ) {
       continue;
     }
 
@@ -246,6 +257,16 @@ async function handleImportTransactions(
     }
 
     if (originalTxn === undefined) {
+      continue;
+    }
+
+    const importKey = getTransactionImportKey({
+      hash: transactionHash,
+      instanceId: transactionId,
+      sourceIndex
+    });
+
+    if (importedKeySet.has(importKey) || newKeySet.has(importKey)) {
       continue;
     }
 
@@ -281,7 +302,7 @@ async function handleImportTransactions(
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
       isGeneralExpense: mapping.mappingType === 'general',
       hash: transactionHash,
-      instanceId: importKey,
+      instanceId: transactionId,
       sourceIndex
     };
 
@@ -324,8 +345,9 @@ async function handleImportTransactions(
     }
 
     newExpenses.push(expense);
-    newHashes.push(importKey);
     importedTransactions.push(processedTxn);
+    newKeySet.add(importKey);
+    newBaseHashSet.add(transactionHash);
     if (sourceIndex !== undefined) {
       usedIndexes.add(sourceIndex);
     }
@@ -336,7 +358,6 @@ async function handleImportTransactions(
 
   // Add new expenses to cost data
   costData.expenses.push(...newExpenses);
-  costData.ynabImportData.importedTransactionHashes.push(...newHashes);
   
   // Update last imported transaction tracking
   if (importedTransactions.length > 0) {

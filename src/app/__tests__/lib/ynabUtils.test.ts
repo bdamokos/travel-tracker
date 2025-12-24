@@ -141,6 +141,40 @@ describe('YNAB Transaction Filtering', () => {
       expect(result.importedTransactionHashes).toContain('hash5');
     });
 
+    it('should store both base hash and instance key when sourceIndex is present', () => {
+      const transactions: ProcessedYnabTransaction[] = [
+        { ...createMockTransaction(1, '2023-01-01', 'hash1'), sourceIndex: 7 },
+        { ...createMockTransaction(2, '2023-01-02', 'hash2'), sourceIndex: 8 }
+      ];
+
+      const existingData: YnabImportData = {
+        mappings: [],
+        importedTransactionHashes: []
+      };
+
+      const result = updateLastImportedTransaction(transactions, existingData);
+
+      expect(result.importedTransactionHashes).toContain('hash1');
+      expect(result.importedTransactionHashes).toContain('hash1-7');
+      expect(result.importedTransactionHashes).toContain('hash2');
+      expect(result.importedTransactionHashes).toContain('hash2-8');
+    });
+
+    it('should not duplicate imported transaction tracking keys', () => {
+      const transactions: ProcessedYnabTransaction[] = [
+        { ...createMockTransaction(1, '2023-01-01', 'hash1'), sourceIndex: 7 }
+      ];
+
+      const existingData: YnabImportData = {
+        mappings: [],
+        importedTransactionHashes: ['hash1', 'hash1-7']
+      };
+
+      const result = updateLastImportedTransaction(transactions, existingData);
+
+      expect(result.importedTransactionHashes).toEqual(['hash1', 'hash1-7']);
+    });
+
     it('should handle empty imported transactions', () => {
       const existingData: YnabImportData = {
         mappings: [],

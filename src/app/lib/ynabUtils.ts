@@ -222,19 +222,33 @@ export function updateLastImportedTransaction(
     return existingData;
   }
 
+  const appendUnique = (existing: string[], additions: string[]) => {
+    const seen = new Set(existing);
+    const merged = [...existing];
+    for (const value of additions) {
+      if (!seen.has(value)) {
+        seen.add(value);
+        merged.push(value);
+      }
+    }
+    return merged;
+  };
+
   // Find the chronologically latest imported transaction
   const latestTransaction = importedTransactions.reduce((latest, current) => {
     return new Date(current.date) > new Date(latest.date) ? current : latest;
+  });
+
+  const importTrackingKeys = importedTransactions.flatMap(transaction => {
+    const importKey = getTransactionImportKey(transaction);
+    return importKey === transaction.hash ? [transaction.hash] : [transaction.hash, importKey];
   });
 
   return {
     ...existingData,
     lastImportedTransactionHash: latestTransaction.hash,
     lastImportedTransactionDate: latestTransaction.date,
-    importedTransactionHashes: [
-      ...existingData.importedTransactionHashes,
-      ...importedTransactions.map(t => getTransactionImportKey(t))
-    ]
+    importedTransactionHashes: appendUnique(existingData.importedTransactionHashes, importTrackingKeys)
   };
 }
 
