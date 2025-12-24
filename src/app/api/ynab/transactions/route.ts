@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { YnabApiClient, ynabUtils } from '../../../lib/ynabApiClient';
 import { YnabApiError, ProcessedYnabTransaction, CategoryMapping } from '../../../types';
 
+/**
+ * Retrieve YNAB transactions filtered by mapped category IDs and return them in ProcessedYnabTransaction format.
+ *
+ * The response JSON contains `success`, `transactions` (array of processed transactions), `serverKnowledge`, and `totalCount` on success.
+ * On client errors returns 400 when required query parameters are missing; on YNAB API errors returns appropriate status and error code:
+ * 401 with code `INVALID_API_KEY`, 404 with code `BUDGET_NOT_FOUND`, 429 with code `RATE_LIMIT`, or 500 with code `YNAB_API_ERROR`.
+ *
+ * @returns A NextResponse whose JSON body on success includes:
+ * - `success`: `true`
+ * - `transactions`: `ProcessedYnabTransaction[]` (each transaction includes `originalTransaction`, `amount`, `date`, `description`, `memo`, `mappedCountry`, `isGeneralExpense`, `hash`, `instanceId`, `sourceIndex`, `expenseType`, `ynabTransactionId`, `importId`)
+ * - `serverKnowledge`: number
+ * - `totalCount`: number
+ *
+ * On error the JSON body includes `error` (message) and `code` (error identifier).
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -57,9 +72,10 @@ export async function GET(request: NextRequest) {
       );
 
       // Convert YNAB transactions to ProcessedYnabTransaction format
-      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map(txn => {
+      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map((txn, index) => {
         const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
         const isOutflow = txn.amount < 0;
+        const hash = ynabUtils.generateTransactionHash(txn);
 
         return {
           originalTransaction: {
@@ -81,7 +97,9 @@ export async function GET(request: NextRequest) {
           memo: txn.memo || '',
           mappedCountry: '', // Will be determined by category mapping
           isGeneralExpense: false, // Will be determined by category mapping
-          hash: ynabUtils.generateTransactionHash(txn),
+          hash,
+          instanceId: txn.id || `${hash}-${index}`,
+          sourceIndex: index,
           expenseType: 'actual',
           ynabTransactionId: txn.id,
           importId: txn.import_id
@@ -159,6 +177,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Handle POST requests to fetch YNAB transactions for mapped categories and return them in a processed import-ready format.
+ *
+ * @param request - Incoming NextRequest whose JSON body must include `apiKey` (string), `budgetId` (string), and `categoryMappings` (array). Optional body fields: `sinceDate` and `serverKnowledge`.
+ * @returns On success, a JSON object containing:
+ * - `success`: `true`
+ * - `transactions`: an array of processed transactions where each item includes `originalTransaction`, `amount`, `date`, `description`, `memo`, `mappedCountry`, `isGeneralExpense`, `hash`, `instanceId`, `sourceIndex`, `expenseType`, `ynabTransactionId`, and `importId`.
+ * - `serverKnowledge`: the YNAB delta sync cursor (number)
+ * - `totalCount`: number of returned transactions
+ *
+ * On error, a JSON object containing `error` (message) and `code` is returned with an appropriate HTTP status.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -228,9 +258,10 @@ export async function POST(request: NextRequest) {
       });
 
       // Convert YNAB transactions to ProcessedYnabTransaction format with country mapping
-      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map(txn => {
+      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map((txn, index) => {
         const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
         const isOutflow = txn.amount < 0;
+        const hash = ynabUtils.generateTransactionHash(txn);
         
         // Find the mapping for this transaction's category
         const mapping = categoryMappingLookup.get(txn.category_id);
@@ -257,7 +288,9 @@ export async function POST(request: NextRequest) {
           memo: txn.memo || '',
           mappedCountry,
           isGeneralExpense,
-          hash: ynabUtils.generateTransactionHash(txn),
+          hash,
+          instanceId: txn.id || `${hash}-${index}`,
+          sourceIndex: index,
           expenseType: 'actual',
           ynabTransactionId: txn.id,
           importId: txn.import_id

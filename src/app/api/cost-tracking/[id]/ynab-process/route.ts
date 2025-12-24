@@ -10,7 +10,7 @@ import {
   ExpenseType,
   YnabTransactionFilterResult
 } from '@/app/types';
-import { createTransactionHash, filterNewTransactions, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
+import { createTransactionHash, filterNewTransactions, getTransactionImportKey, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
 import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
@@ -57,7 +57,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 }
 
-// Handle transaction processing (filtering/preview)
+/**
+ * Prepare a preview of YNAB transactions from a temporary upload, applying category mappings and duplicate filtering.
+ *
+ * Loads the temporary transaction file and the trip's cost-tracking data, maps eligible transactions using `mappings`,
+ * computes amounts and instance identifiers, excludes already-imported items, and applies optional filtering based on
+ * the last imported transaction unless `showAll` is true.
+ *
+ * @param id - The cost-tracking identifier or trip id (may include a 'cost-' prefix)
+ * @param tempFileId - Identifier of the temporary JSON file containing uploaded YNAB transactions (data/{tempFileId}.json)
+ * @param mappings - Category mapping definitions that determine which uploaded categories are eligible and how they map
+ * @param showAll - If true, skip filtering by the last imported transaction and return all processed transactions
+ * @returns A NextResponse with JSON payload:
+ * - On success (200): an object containing `transactions` (array of processed transactions), `totalCount`, `alreadyImportedCount`,
+ *   `filteredCount`, `lastImportedTransactionFound` (boolean), and `totalTransactions`.
+ * - If no new transactions are available (200): same shape with `transactions: []` and a `message` explaining why.
+ * - If `tempFileId` or `mappings` are missing (400): `{ error: string }`.
+ * - If cost-tracking data is not found for `id` (404): `{ error: string }`.
+ */
 async function handleProcessTransactions(
   id: string, 
   tempFileId: string, 
@@ -83,19 +100,25 @@ async function handleProcessTransactions(
   const costData = unifiedTrip.costData;
 
   const existingHashes = costData.ynabImportData?.importedTransactionHashes || [];
+  const existingBaseHashes = new Set(
+    existingHashes
+      .map((value: string) => value.match(/^([0-9a-f]{64})(?:-\d+)?$/i)?.[1])
+      .filter((value: string | undefined): value is string => Boolean(value))
+  );
   const lastImportedHash = costData.ynabImportData?.lastImportedTransactionHash;
 
   // Process transactions based on mappings
   const processedTransactions: ProcessedYnabTransaction[] = [];
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
-  for (const transaction of tempData.transactions) {
+  for (const [index, transaction] of tempData.transactions.entries()) {
     if (!mappedCategories.has(transaction.Category)) {
       continue; // Skip unmapped categories
     }
 
     const hash = createTransactionHash(transaction);
-    const isAlreadyImported = existingHashes.includes(hash);
+    const instanceId = `${hash}-${index}`;
+    const isAlreadyImported = existingHashes.includes(instanceId) || existingBaseHashes.has(hash);
 
     const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
     if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
@@ -121,7 +144,9 @@ async function handleProcessTransactions(
       memo: transaction.Memo,
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
       isGeneralExpense: mapping.mappingType === 'general',
-      hash: hash
+      hash: hash,
+      instanceId,
+      sourceIndex: index
     };
 
     // Only include if not already imported
@@ -164,12 +189,30 @@ async function handleProcessTransactions(
   });
 }
 
-// Handle transaction importing (actual import)
+/**
+ * Import selected YNAB transactions into the trip's cost data, create corresponding expenses, and persist updates.
+ *
+ * Updates the trip's ynabImportData (mappings, imported transaction keys, payee defaults), appends new Expense entries,
+ * optionally auto-creates country budgets, updates import timestamps on the YNAB config, validates trip boundaries,
+ * and removes temporary import files.
+ *
+ * @param id - Trip identifier (may include a `cost-` prefix; the prefix is stripped for persistence)
+ * @param tempFileId - Identifier of the temporary JSON file containing parsed YNAB transactions
+ * @param mappings - Array of category mappings used to map YNAB categories to trip expense categories
+ * @param selectedTransactions - Array of selections specifying which transactions to import. Each entry must include:
+ *   - `transactionHash` (string): hash of the source transaction,
+ *   - `transactionId?` (string): optional instance identifier to distinguish duplicate hashes,
+ *   - `transactionSourceIndex?` (number): optional index into the temp file's transactions to resolve the original record,
+ *   - `expenseCategory` (string): target expense category to use for the created Expense
+ *
+ * @returns JSON with import results: `success` (boolean), `importedCount` (number of expenses added),
+ * `skippedCount` (number of selections skipped), and `totalExpenses` (total expense count after import).
+ */
 async function handleImportTransactions(
   id: string, 
   tempFileId: string, 
   mappings: YnabCategoryMapping[], 
-  selectedTransactions: Array<{ transactionHash: string; expenseCategory: string }>
+  selectedTransactions: Array<{ transactionHash: string; transactionId?: string; transactionSourceIndex?: number; expenseCategory: string }>
 ): Promise<NextResponse> {
   if (!tempFileId || !mappings || !selectedTransactions) {
     return NextResponse.json({ 
@@ -205,23 +248,60 @@ async function handleImportTransactions(
 
   // Process selected transactions
   const newExpenses: Expense[] = [];
-  const newHashes: string[] = [];
   const importedTransactions: ProcessedYnabTransaction[] = [];
+  const usedIndexes = new Set<number>();
+  const importedTrackingKeys = costData.ynabImportData.importedTransactionHashes ?? [];
+  const importedKeySet = new Set(importedTrackingKeys);
+  const importedBaseHashSet = new Set(
+    importedTrackingKeys
+      .map((value: string) => value.match(/^([0-9a-f]{64})(?:-\d+)?$/i)?.[1])
+      .filter((value: string | undefined): value is string => Boolean(value))
+  );
+  const newKeySet = new Set<string>();
+  const newBaseHashSet = new Set<string>();
 
   for (const selectedTxn of selectedTransactions) {
-    const { transactionHash, expenseCategory } = selectedTxn;
-    
-    // Check if already imported
-    if (costData.ynabImportData.importedTransactionHashes.includes(transactionHash)) {
+    const { transactionHash, transactionId, transactionSourceIndex, expenseCategory } = selectedTxn;
+    const targetIndex = typeof transactionSourceIndex === 'number' ? transactionSourceIndex : undefined;
+
+    if (
+      importedBaseHashSet.has(transactionHash) ||
+      newBaseHashSet.has(transactionHash) ||
+      (transactionId ? importedKeySet.has(transactionId) || newKeySet.has(transactionId) : false)
+    ) {
       continue;
     }
 
     // Find the original transaction
-    const originalTxn = tempData.transactions.find((t: YnabTransaction) => 
-      createTransactionHash(t) === transactionHash
-    );
+    let originalTxn: YnabTransaction | undefined;
+    let sourceIndex: number | undefined = undefined;
 
-    if (!originalTxn) {
+    if (targetIndex !== undefined && tempData.transactions[targetIndex]) {
+      originalTxn = tempData.transactions[targetIndex];
+      sourceIndex = targetIndex;
+    } else {
+      const foundIndex = tempData.transactions.findIndex((t: YnabTransaction, idx: number) => {
+        if (usedIndexes.has(idx)) return false;
+        return createTransactionHash(t) === transactionHash;
+      });
+
+      if (foundIndex !== -1) {
+        originalTxn = tempData.transactions[foundIndex];
+        sourceIndex = foundIndex;
+      }
+    }
+
+    if (originalTxn === undefined) {
+      continue;
+    }
+
+    const importKey = getTransactionImportKey({
+      hash: transactionHash,
+      instanceId: transactionId,
+      sourceIndex
+    });
+
+    if (importedKeySet.has(importKey) || newKeySet.has(importKey)) {
       continue;
     }
 
@@ -256,12 +336,14 @@ async function handleImportTransactions(
       memo: originalTxn.Memo,
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
       isGeneralExpense: mapping.mappingType === 'general',
-      hash: transactionHash
+      hash: transactionHash,
+      instanceId: transactionId,
+      sourceIndex
     };
 
     // Convert to our expense format
     const expense: Expense = {
-      id: `ynab-${transactionHash}`,
+      id: `ynab-${importKey}`,
       date: new Date(convertYnabDateToISO(originalTxn.Date)),
       amount: amount,
       currency: costData.currency,
@@ -298,8 +380,12 @@ async function handleImportTransactions(
     }
 
     newExpenses.push(expense);
-    newHashes.push(transactionHash);
     importedTransactions.push(processedTxn);
+    newKeySet.add(importKey);
+    newBaseHashSet.add(transactionHash);
+    if (sourceIndex !== undefined) {
+      usedIndexes.add(sourceIndex);
+    }
   }
 
   // Remove any pending YNAB shadow transactions before importing new ones
@@ -307,7 +393,6 @@ async function handleImportTransactions(
 
   // Add new expenses to cost data
   costData.expenses.push(...newExpenses);
-  costData.ynabImportData.importedTransactionHashes.push(...newHashes);
   
   // Update last imported transaction tracking
   if (importedTransactions.length > 0) {

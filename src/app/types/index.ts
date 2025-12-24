@@ -483,6 +483,8 @@ export type ProcessedYnabTransaction = {
   mappedCountry: string; // empty string for general expenses
   isGeneralExpense: boolean;
   hash: string; // unique identifier to prevent duplicates
+  instanceId?: string; // unique per-transaction identifier to distinguish identical hashes
+  sourceIndex?: number; // original index within the source dataset for deterministic matching
   expenseType?: ExpenseType; // Optional expense type, defaults to 'actual'
   ynabTransactionId?: string; // YNAB API transaction ID when available
   importId?: string; // YNAB API import ID when available
