@@ -391,6 +391,7 @@ export function useTripEditor(tripId: string | null) {
         date: newRoute.date,
         notes: '',
         instagramPosts: [],
+        tikTokPosts: [],
         blogPosts: [],
         accommodationData: '',
         isAccommodationPublic: false,

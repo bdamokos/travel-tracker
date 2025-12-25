@@ -3,13 +3,14 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTripEditor } from './hooks/useTripEditor';
+import { formatDateRange } from '@/app/lib/dateUtils';
+import { formatDate } from '@/app/lib/costUtils';
 import DeleteWarningDialog from '../../components/DeleteWarningDialog';
 import ReassignmentDialog from '../../components/ReassignmentDialog';
 import TripMetadataForm from './components/TripMetadataForm';
 import LocationManager from './components/LocationManager';
 import RouteManager from './components/RouteManager';
 import AccommodationManager from './components/AccommodationManager';
-
 
 export default function TripEditorPage() {
   const params = useParams();
@@ -94,26 +95,6 @@ export default function TripEditorPage() {
       .replace(/^-+|-+$/g, '') || 'trip-export';
   }, []);
 
-  const formatDate = useCallback((value?: Date | string) => {
-    if (!value) return '';
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-    return date.toISOString().split('T')[0];
-  }, []);
-
-  const formatDateRange = useCallback((start?: Date | string, end?: Date | string) => {
-    const startText = formatDate(start);
-    const endText = formatDate(end);
-
-    if (startText && endText && startText !== endText) {
-      return `${startText} → ${endText}`;
-    }
-
-    return startText || endText || '';
-  }, [formatDate]);
-
   const accommodationsByLocation = useMemo(() => {
     const map = new Map<string, string[]>();
     (travelData.accommodations || []).forEach(accommodation => {
@@ -139,7 +120,8 @@ export default function TripEditorPage() {
       }
     });
 
-    const totals: Record<string, { amount: number; currency?: string }> = {};
+    const trackingCurrency = costData.currency || 'USD';
+    const totals: Record<string, { amount: number; currency: string }> = {};
     const expenses = costData.expenses || [];
 
     expenses.forEach(expense => {
@@ -159,11 +141,15 @@ export default function TripEditorPage() {
         return;
       }
 
-      const currency = expense.currency || costData.currency;
-      const currentTotal = totals[locationId] || { amount: 0, currency };
+      const convertedAmount =
+        expense.cashTransaction && expense.cashTransaction.kind === 'allocation'
+          ? expense.cashTransaction.baseAmount
+          : (expense.amount || 0);
+
+      const currentTotal = totals[locationId] || { amount: 0, currency: trackingCurrency };
       totals[locationId] = {
-        amount: currentTotal.amount + (expense.amount || 0),
-        currency: currency || currentTotal.currency
+        amount: currentTotal.amount + convertedAmount,
+        currency: trackingCurrency
       };
     });
 
@@ -227,10 +213,10 @@ export default function TripEditorPage() {
         }
 
         if (location.arrivalTime || location.departureTime) {
-          const timing = [
-            location.arrivalTime ? `arrive ${location.arrivalTime}` : null,
-            location.departureTime ? `depart ${location.departureTime}` : null
-          ].filter(Boolean).join(' / ');
+        const timing = [
+          location.arrivalTime ? `arrive ${location.arrivalTime}` : null,
+          location.departureTime ? `depart ${location.departureTime}` : null
+        ].filter(Boolean).join(' / ');
           if (timing) {
             lines.push(`   - Timing: ${timing}`);
           }
@@ -250,10 +236,11 @@ export default function TripEditorPage() {
       lines.push('No routes added yet.');
     } else {
       sortedRoutes.forEach(route => {
-        const routeDate = formatDate(route.date) || 'Date TBD';
+        const formattedRouteDate = formatDate(route.date);
+        const routeDate = formattedRouteDate === 'Invalid Date' ? '' : formattedRouteDate;
         const duration = route.duration ? `, ${route.duration}` : '';
         const notes = route.notes ? ` — ${collapseText(route.notes)}` : '';
-        lines.push(`${routeDate}: ${route.from || 'Unknown'} → ${route.to || 'Unknown'} (${route.transportType}${duration})${notes}`);
+        lines.push(`${routeDate || 'Date TBD'}: ${route.from || 'Unknown'} → ${route.to || 'Unknown'} (${route.transportType}${duration})${notes}`);
       });
     }
 
@@ -263,8 +250,6 @@ export default function TripEditorPage() {
     collapseText,
     costData?.currency,
     expenseTotalsByLocation,
-    formatDate,
-    formatDateRange,
     travelData.description,
     travelData.endDate,
     travelData.locations,
