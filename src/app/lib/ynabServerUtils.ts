@@ -1,5 +1,6 @@
 import { readdir, stat, unlink } from 'fs/promises';
 import { join } from 'path';
+import { getTempYnabFilePath } from './dataFilePaths';
 
 /**
  * Clean up temporary YNAB files older than the specified age
@@ -39,7 +40,13 @@ export async function cleanupOldTempFiles(maxAgeHours: number = 2): Promise<void
  * @param tempFileId - The temporary file ID to clean up
  */
 export async function cleanupTempFile(tempFileId: string): Promise<void> {
-  const tempFilePath = join(process.cwd(), 'data', `${tempFileId}.json`);
+  let tempFilePath: string;
+  try {
+    tempFilePath = getTempYnabFilePath(tempFileId);
+  } catch (error) {
+    console.error('Could not delete temporary file due to invalid tempFileId:', tempFileId, error);
+    return;
+  }
   try {
     await unlink(tempFilePath);
     console.log('Successfully cleaned up temporary file:', tempFilePath);

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
-import { join } from 'path';
 import { parseYnabFile } from '@/app/lib/ynabUtils';
 import { cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import JSZip from 'jszip';
+import { getTempYnabFilePath } from '@/app/lib/dataFilePaths';
 
 // Security constants
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
@@ -123,7 +123,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Save parsed data temporarily
     const timestamp = Date.now();
-    const tempFilePath = join(process.cwd(), 'data', `temp-ynab-${id}-${timestamp}.json`);
+    const tempFileId = `temp-ynab-${id}-${timestamp}`;
+    let tempFilePath: string;
+    try {
+      tempFilePath = getTempYnabFilePath(tempFileId);
+    } catch {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    }
     await writeFile(tempFilePath, JSON.stringify({
       transactions: parseResult.transactions,
       categories: parseResult.categories,
@@ -135,7 +141,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       success: true,
       transactionCount: parseResult.transactions.length,
       categories: parseResult.categories,
-      tempFileId: `temp-ynab-${id}-${timestamp}`
+      tempFileId
     });
 
   } catch (error) {

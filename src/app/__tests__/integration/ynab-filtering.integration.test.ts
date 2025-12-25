@@ -362,7 +362,7 @@ describe('YNAB Import Filtering Integration', () => {
       });
 
       expect(processResponse.ok).toBe(false);
-      expect(processResponse.status).toBe(500);
+      expect(processResponse.status).toBe(400);
     });
   });
 });

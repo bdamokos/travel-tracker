@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
 import { 
   YnabCategoryMapping, 
   ProcessedYnabTransaction, 
@@ -16,6 +15,7 @@ import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils'
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
+import { getTempYnabFilePath } from '@/app/lib/dataFilePaths';
 
 // Type guard for customCategories
 function hasCustomCategories(obj: unknown): obj is { customCategories: string[] } {
@@ -103,7 +103,13 @@ async function handleProcessTransactions(
   }
 
   // Load the temporary file
-  const tempFilePath = join(process.cwd(), 'data', `${tempFileId}.json`);
+  let tempFilePath: string;
+  try {
+    tempFilePath = getTempYnabFilePath(tempFileId);
+  } catch {
+    return NextResponse.json({ error: 'Invalid tempFileId' }, { status: 400 });
+  }
+
   const tempFileContent = await readFile(tempFilePath, 'utf-8');
   const tempData = JSON.parse(tempFileContent);
 
@@ -236,7 +242,13 @@ async function handleImportTransactions(
   }
 
   // Load the temporary file
-  const tempFilePath = join(process.cwd(), 'data', `${tempFileId}.json`);
+  let tempFilePath: string;
+  try {
+    tempFilePath = getTempYnabFilePath(tempFileId);
+  } catch {
+    return NextResponse.json({ error: 'Invalid tempFileId' }, { status: 400 });
+  }
+
   const tempFileContent = await readFile(tempFilePath, 'utf-8');
   const tempData = JSON.parse(tempFileContent);
 

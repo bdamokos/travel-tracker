@@ -15,6 +15,7 @@ import {
 } from './dataMigration';
 import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '../types';
 import { backupService } from './backupService';
+import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
 
 const DATA_DIR = join(process.cwd(), 'data');
 const BACKUP_DIR = join(DATA_DIR, 'backups');
@@ -47,7 +48,7 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
     };
 
     const backupFilename = `deleted-trip-${id}-${timestamp}.json`;
-    const backupPath = join(BACKUP_DIR, backupFilename);
+    const backupPath = getBackupFilePath(backupFilename);
 
     await writeFile(backupPath, JSON.stringify(backupData, null, 2));
     console.log(`Created backup for trip ${id} at ${backupPath}`);
@@ -79,7 +80,7 @@ export async function deleteTripWithBackup(id: string): Promise<void> {
     await createTripBackup(id);
 
     // Remove unified trip file
-    const unifiedPath = join(DATA_DIR, `trip-${id}.json`);
+    const unifiedPath = getUnifiedTripFilePath(id);
     await unlink(unifiedPath);
     console.log(`Deleted unified trip file: ${unifiedPath}`);
 
@@ -96,7 +97,7 @@ export async function deleteTripWithBackup(id: string): Promise<void> {
 export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripData | null> {
   try {
     // Load unified file
-    const unifiedFilePath = join(DATA_DIR, `trip-${tripId}.json`);
+    const unifiedFilePath = getUnifiedTripFilePath(tripId);
     const unifiedContent = await readFile(unifiedFilePath, 'utf-8');
     const parsed = JSON.parse(unifiedContent, dateReviver);
 
@@ -123,7 +124,7 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
  * Saves data in unified format
  */
 export async function saveUnifiedTripData(data: UnifiedTripData): Promise<void> {
-  const filePath = join(DATA_DIR, `trip-${data.id}.json`);
+  const filePath = getUnifiedTripFilePath(data.id);
   await writeFile(filePath, JSON.stringify(data, null, 2));
 }
 
