@@ -148,7 +148,7 @@ export async function PUT(request: NextRequest) {
     // Validate trip boundaries after update
     const validation = validateAllTripBoundaries(unifiedData);
     if (!validation.isValid) {
-      console.warn(`Trip boundary violations detected in trip ${cleanId}:`, validation.errors);
+      console.warn('Trip boundary violations detected in trip %s:', cleanId, validation.errors);
       // Log warnings but don't fail the request - this is for monitoring
     }
     
