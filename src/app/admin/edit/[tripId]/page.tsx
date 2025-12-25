@@ -1,8 +1,10 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTripEditor } from './hooks/useTripEditor';
+import { formatDateRange } from '@/app/lib/dateUtils';
+import { formatDate } from '@/app/lib/costUtils';
 import DeleteWarningDialog from '../../components/DeleteWarningDialog';
 import ReassignmentDialog from '../../components/ReassignmentDialog';
 import TripMetadataForm from './components/TripMetadataForm';
@@ -10,13 +12,22 @@ import LocationManager from './components/LocationManager';
 import RouteManager from './components/RouteManager';
 import AccommodationManager from './components/AccommodationManager';
 
-
+/**
+ * Render the trip editor page for creating or editing a travel map, including metadata, locations, routes, accommodations, export, and admin access checks.
+ *
+ * The component verifies admin access, manages editor state via the trip hook, provides UI sections for metadata, locations, routes, and accommodations, and supports exporting an LLM-friendly plain-text itinerary (including optional automatic export via URL query). It also handles dialogs for safe deletion, reassignment of linked expenses, and transient toast notifications.
+ *
+ * @returns A JSX element that renders the full trip editor UI and associated dialogs/notifications.
+ */
 export default function TripEditorPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const tripId = params?.tripId as string;
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const hasAutoExportedRef = useRef(false);
 
   // Check admin access
   useEffect(() => {
@@ -66,6 +77,7 @@ export default function TripEditorPage() {
     deleteDialog,
     notification,
     setNotification,
+    showNotification,
     reassignDialog,
     setReassignDialog,
     handleLocationAdded,
@@ -82,6 +94,384 @@ export default function TripEditorPage() {
     cleanupExpenseLinks,
     reassignExpenseLinks,
   } = useTripEditor(tripId === 'new' ? null : tripId);
+
+  const slugify = useCallback((value: string) => {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'trip-export';
+  }, []);
+
+  const accommodationsByLocation = useMemo(() => {
+    const map = new Map<string, string[]>();
+    (travelData.accommodations || []).forEach(accommodation => {
+      if (!accommodation.locationId) {
+        return;
+      }
+      const existing = map.get(accommodation.locationId) || [];
+      existing.push(accommodation.name);
+      map.set(accommodation.locationId, existing);
+    });
+    return map;
+  }, [travelData.accommodations]);
+
+  const expenseTotalsByLocation = useMemo(() => {
+    if (!costData || !travelLookup) {
+      return null;
+    }
+
+    const accommodationLocationMap = new Map<string, string>();
+    (travelData.accommodations || []).forEach(accommodation => {
+      if (accommodation.locationId) {
+        accommodationLocationMap.set(accommodation.id, accommodation.locationId);
+      }
+    });
+
+    const trackingCurrency = costData.currency || 'USD';
+    const totals: Record<string, { amount: number; currency: string; unconverted?: Record<string, number> }> = {};
+    const expenses = costData.expenses || [];
+
+    expenses.forEach(expense => {
+      const link = travelLookup.getTravelLinkForExpense(expense.id);
+      if (!link) {
+        return;
+      }
+
+      let locationId: string | null = null;
+      if (link.type === 'location') {
+        locationId = link.id;
+      } else if (link.type === 'accommodation') {
+        locationId = accommodationLocationMap.get(link.id) || null;
+      }
+
+      if (!locationId) {
+        return;
+      }
+
+      const expenseCurrency = expense.currency || trackingCurrency;
+      const currentTotal = totals[locationId] || { amount: 0, currency: trackingCurrency };
+
+      if (expense.cashTransaction?.kind === 'allocation') {
+        totals[locationId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + expense.cashTransaction.baseAmount
+        };
+        return;
+      }
+
+      if (expense.cashTransaction?.kind === 'source') {
+        totals[locationId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + (expense.amount || 0)
+        };
+        return;
+      }
+
+      if (expenseCurrency !== trackingCurrency) {
+        totals[locationId] = {
+          ...currentTotal,
+          unconverted: {
+            ...(currentTotal.unconverted || {}),
+            [expenseCurrency]: (currentTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
+          }
+        };
+        return;
+      }
+
+      totals[locationId] = {
+        ...currentTotal,
+        amount: currentTotal.amount + (expense.amount || 0)
+      };
+    });
+
+    return totals;
+  }, [costData, travelLookup, travelData.accommodations]);
+
+  const expenseTotalsByRoute = useMemo(() => {
+    if (!costData || !travelLookup) {
+      return null;
+    }
+
+    const trackingCurrency = costData.currency || 'USD';
+    const totals: Record<string, { amount: number; currency: string; unconverted?: Record<string, number> }> = {};
+    const expenses = costData.expenses || [];
+
+    expenses.forEach(expense => {
+      const link = travelLookup.getTravelLinkForExpense(expense.id);
+      if (!link || link.type !== 'route') {
+        return;
+      }
+
+      const routeId = link.id;
+      const expenseCurrency = expense.currency || trackingCurrency;
+      const currentTotal = totals[routeId] || { amount: 0, currency: trackingCurrency };
+
+      if (expense.cashTransaction?.kind === 'allocation') {
+        totals[routeId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + expense.cashTransaction.baseAmount
+        };
+        return;
+      }
+
+      if (expense.cashTransaction?.kind === 'source') {
+        totals[routeId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + (expense.amount || 0)
+        };
+        return;
+      }
+
+      if (expenseCurrency !== trackingCurrency) {
+        totals[routeId] = {
+          ...currentTotal,
+          unconverted: {
+            ...(currentTotal.unconverted || {}),
+            [expenseCurrency]: (currentTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
+          }
+        };
+        return;
+      }
+
+      totals[routeId] = {
+        ...currentTotal,
+        amount: currentTotal.amount + (expense.amount || 0)
+      };
+    });
+
+    return totals;
+  }, [costData, travelLookup]);
+
+  const collapseText = useCallback((text?: string) => {
+    if (!text) {
+      return '';
+    }
+    return text.replace(/\s+/g, ' ').trim();
+  }, []);
+
+  const buildExportText = useCallback(() => {
+    const lines: string[] = [];
+    const tripTitle = travelData.title?.trim() || 'Untitled trip';
+    const tripDates = formatDateRange(travelData.startDate, travelData.endDate);
+
+    lines.push(`Trip: ${tripTitle}`);
+    if (tripDates) {
+      lines.push(`Dates: ${tripDates}`);
+    }
+    if (travelData.description) {
+      lines.push(`Description: ${collapseText(travelData.description)}`);
+    }
+
+    if (costData) {
+      const trackingCurrency = costData.currency || 'USD';
+      const budget = costData.overallBudget || 0;
+      const expenses = costData.expenses || [];
+      const totals = expenses.reduce<{ tracking: number; unconverted: Record<string, number> }>((acc, expense) => {
+        const expenseCurrency = expense.currency || trackingCurrency;
+
+        if (expense.cashTransaction?.kind === 'allocation') {
+          acc.tracking += expense.cashTransaction.baseAmount;
+          return acc;
+        }
+
+        if (expense.cashTransaction?.kind === 'source') {
+          acc.tracking += expense.amount || 0;
+          return acc;
+        }
+
+        if (expenseCurrency !== trackingCurrency) {
+          acc.unconverted[expenseCurrency] = (acc.unconverted[expenseCurrency] || 0) + (expense.amount || 0);
+          return acc;
+        }
+
+        acc.tracking += expense.amount || 0;
+        return acc;
+      }, { tracking: 0, unconverted: {} });
+
+      const remaining = budget - totals.tracking;
+      const unconvertedParts = Object.entries(totals.unconverted)
+        .filter(([code, amount]) => code && Math.abs(amount) > 0.000001)
+        .map(([code, amount]) => `${amount.toFixed(2)} ${code}`);
+
+      lines.push(`Cost: Budget ${budget.toFixed(2)} ${trackingCurrency}, Spent ${totals.tracking.toFixed(2)} ${trackingCurrency}, Remaining ${remaining.toFixed(2)} ${trackingCurrency}`);
+      if (unconvertedParts.length > 0) {
+        lines.push(`Cost (unconverted): ${unconvertedParts.join(', ')}`);
+      }
+    }
+    lines.push('');
+
+    const sortedLocations = [...travelData.locations].sort((a, b) => {
+      const aTime = a.date ? new Date(a.date).getTime() : 0;
+      const bTime = b.date ? new Date(b.date).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    lines.push('Locations:');
+    if (sortedLocations.length === 0) {
+      lines.push('No locations added yet.');
+    } else {
+      sortedLocations.forEach((location, index) => {
+        const dateRange = formatDateRange(location.date, location.endDate);
+        const locationLineParts = [`${index + 1}. ${location.name || 'Unnamed location'}`];
+        if (dateRange) {
+          locationLineParts.push(`(${dateRange})`);
+        }
+        lines.push(locationLineParts.join(' '));
+
+        const accommodationNames = accommodationsByLocation.get(location.id) || [];
+        if (accommodationNames.length > 0) {
+          lines.push(`   - Accommodations: ${accommodationNames.join('; ')}`);
+        } else if (location.accommodationData) {
+          lines.push(`   - Accommodation: ${collapseText(location.accommodationData)}`);
+        }
+
+        if (location.notes) {
+          lines.push(`   - Notes: ${collapseText(location.notes)}`);
+        }
+
+        const spend = expenseTotalsByLocation?.[location.id];
+        if (spend) {
+          const currency = spend.currency || costData?.currency || '';
+          const hasTrackingAmount = Math.abs(spend.amount) > 0.000001;
+          const unconvertedParts = spend.unconverted
+            ? Object.entries(spend.unconverted)
+              .filter(([code, amount]) => code && Math.abs(amount) > 0.000001)
+              .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+            : [];
+
+          if (hasTrackingAmount) {
+            const suffix = unconvertedParts.length > 0 ? ` (plus unconverted: ${unconvertedParts.join(', ')})` : '';
+            lines.push(`   - Linked spend: ${spend.amount.toFixed(2)} ${currency}${suffix}`.trim());
+          } else if (unconvertedParts.length > 0) {
+            lines.push(`   - Linked spend (unconverted): ${unconvertedParts.join(', ')}`.trim());
+          }
+        }
+
+        if (location.arrivalTime || location.departureTime) {
+          const startDay = location.date ? new Date(location.date).toISOString().split('T')[0] : '';
+          const endDay = location.endDate ? new Date(location.endDate).toISOString().split('T')[0] : startDay;
+          const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+          const isTimeOfDay = (value: string) => value.includes(':');
+
+          const arrivalValue = location.arrivalTime || '';
+          const departureValue = location.departureTime || '';
+          const arrivalIsRedundantDate = arrivalValue && isDateOnly(arrivalValue) && arrivalValue === startDay;
+          const departureIsRedundantDate = departureValue && isDateOnly(departureValue) && departureValue === endDay;
+
+          const timing = [
+            arrivalValue && (isTimeOfDay(arrivalValue) || (!isDateOnly(arrivalValue) && !arrivalIsRedundantDate))
+              ? `arrive ${arrivalValue}`
+              : null,
+            departureValue && (isTimeOfDay(departureValue) || (!isDateOnly(departureValue) && !departureIsRedundantDate))
+              ? `depart ${departureValue}`
+              : null
+          ].filter(Boolean).join(' / ');
+          if (timing) {
+            lines.push(`   - Timing: ${timing}`);
+          }
+        }
+      });
+    }
+
+    lines.push('');
+    const sortedRoutes = [...travelData.routes].sort((a, b) => {
+      const aTime = a.date ? new Date(a.date).getTime() : 0;
+      const bTime = b.date ? new Date(b.date).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    lines.push('Routes:');
+    if (sortedRoutes.length === 0) {
+      lines.push('No routes added yet.');
+    } else {
+      sortedRoutes.forEach(route => {
+        const formattedRouteDate = formatDate(route.date);
+        const routeDate = formattedRouteDate === 'Invalid Date' ? '' : formattedRouteDate;
+        const duration = route.duration ? `, ${route.duration}` : '';
+        const notes = route.notes ? ` — ${collapseText(route.notes)}` : '';
+        lines.push(`${routeDate || 'Date TBD'}: ${route.from || 'Unknown'} → ${route.to || 'Unknown'} (${route.transportType}${duration})${notes}`);
+
+        const spend = expenseTotalsByRoute?.[route.id];
+        if (spend) {
+          const currency = spend.currency || costData?.currency || '';
+          const hasTrackingAmount = Math.abs(spend.amount) > 0.000001;
+          const unconvertedParts = spend.unconverted
+            ? Object.entries(spend.unconverted)
+              .filter(([code, amount]) => code && Math.abs(amount) > 0.000001)
+              .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+            : [];
+
+          if (hasTrackingAmount) {
+            const suffix = unconvertedParts.length > 0 ? ` (plus unconverted: ${unconvertedParts.join(', ')})` : '';
+            lines.push(`   - Linked spend: ${spend.amount.toFixed(2)} ${currency}${suffix}`.trim());
+          } else if (unconvertedParts.length > 0) {
+            lines.push(`   - Linked spend (unconverted): ${unconvertedParts.join(', ')}`.trim());
+          }
+        }
+      });
+    }
+
+    return lines.join('\n');
+  }, [
+    accommodationsByLocation,
+    collapseText,
+    costData,
+    expenseTotalsByLocation,
+    expenseTotalsByRoute,
+    travelData.description,
+    travelData.endDate,
+    travelData.locations,
+    travelData.routes,
+    travelData.startDate,
+    travelData.title
+  ]);
+
+  const handleExportText = useCallback(() => {
+    if (travelData.locations.length === 0 && travelData.routes.length === 0) {
+      showNotification('Add some travel details before exporting.', 'error');
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const content = buildExportText();
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${slugify(travelData.title || 'trip')}-itinerary.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showNotification('Itinerary exported as text.', 'success');
+    } catch (error) {
+      console.error('Failed to export itinerary text', error);
+      showNotification('Failed to export itinerary text.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [buildExportText, showNotification, slugify, travelData.routes.length, travelData.title, travelData.locations.length]);
+
+  const exportQuery = searchParams?.get('exportText');
+
+  useEffect(() => {
+    const shouldAutoExport = exportQuery === '1' || exportQuery === 'true' || exportQuery === 'txt';
+    if (!shouldAutoExport || hasAutoExportedRef.current || loading || !isAuthorized) {
+      return;
+    }
+
+    if (tripId === 'new') {
+      return;
+    }
+
+    if (travelData.locations.length === 0 && travelData.routes.length === 0) {
+      return;
+    }
+
+    hasAutoExportedRef.current = true;
+    handleExportText();
+  }, [exportQuery, handleExportText, isAuthorized, loading, travelData.locations.length, travelData.routes.length, tripId]);
 
   // Toast Notification Component
   const ToastNotification: React.FC<{
@@ -190,6 +580,16 @@ export default function TripEditorPage() {
                   <span className="text-sm">All changes saved</span>
                 </div>
               )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportText}
+                disabled={isExporting}
+                className={`px-4 py-2 rounded-md text-white transition-colors ${isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                title="Quickly download an LLM-friendly text summary. Add ?exportText=1 to the URL to auto-download."
+              >
+                {isExporting ? 'Preparing export…' : 'Export LLM text'}
+              </button>
             </div>
           </div>
 

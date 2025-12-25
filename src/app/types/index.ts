@@ -107,6 +107,7 @@ export interface TravelData {
   endDate: Date;
   locations: Location[];
   routes: TravelRoute[];
+  accommodations?: Accommodation[];
 }
 
 // Instagram post reference

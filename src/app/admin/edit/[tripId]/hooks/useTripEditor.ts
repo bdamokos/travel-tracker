@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -19,6 +18,20 @@ interface ExistingTrip {
   createdAt: string;
 }
 
+/**
+ * Provides state and handlers for creating, editing, and listing travel trips.
+ *
+ * Initializes and manages travel-related state (trip metadata, locations, routes, accommodations,
+ * cost tracking, UI dialogs, and post drafts), performs data migration and loading, and exposes
+ * helpers for autosave, map generation, geocoding, and expense-link management.
+ *
+ * @param tripId - The ID of the trip to load for editing; pass `null` to operate in list/create mode.
+ * @returns An object containing current mode and loading flags, travel data and lookup helpers,
+ *          setters for UI/dialog state, and handler functions (loadExistingTrips, loadTripForEditing,
+ *          handleLocationAdded, handleRouteAdded, addInstagramPost, addTikTokPost, addBlogPost,
+ *          deleteLocation, deleteRoute, recalculateRoutePoints, generateMap, autoSaveTravelData,
+ *          geocodeLocation, and wrappers for map URL, duration calculation, and expense-link utilities).
+ */
 export function useTripEditor(tripId: string | null) {
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
@@ -31,7 +44,8 @@ export function useTripEditor(tripId: string | null) {
     startDate: new Date(),
     endDate: new Date(),
     locations: [],
-    routes: []
+    routes: [],
+    accommodations: []
   });
   const [costData, setCostData] = useState<CostTrackingData | null>(null);
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
@@ -168,7 +182,8 @@ export function useTripEditor(tripId: string | null) {
       startDate: tripData.startDate ? (tripData.startDate instanceof Date ? tripData.startDate : new Date(tripData.startDate)) : new Date(),
       endDate: tripData.endDate ? (tripData.endDate instanceof Date ? tripData.endDate : new Date(tripData.endDate)) : new Date(),
       locations: migratedLocations,
-      routes: migratedRoutes
+      routes: migratedRoutes,
+      accommodations: tripData.accommodations || []
     };
   }, []);
 
@@ -204,17 +219,8 @@ export function useTripEditor(tripId: string | null) {
           const costData = await costResponse.json();
           setCostData(costData);
           
-          // Load unified trip data to get accommodations
-          let accommodations: Accommodation[] = [];
-          try {
-            const unifiedResponse = await fetch(`/api/travel-data?id=${tripId}`);
-            if (unifiedResponse.ok) {
-              const unifiedData = await unifiedResponse.json();
-              accommodations = unifiedData.accommodations || [];
-            }
-          } catch (error) {
-            console.warn('Could not load accommodations for travel lookup:', error);
-          }
+          // Use accommodations from the already-fetched raw trip data (available after migration).
+          const accommodations: Accommodation[] = rawTripData.accommodations || [];
           
           // Initialize travel lookup with trip data
           // Convert TravelRoute[] to Transportation[] for compatibility
@@ -389,6 +395,7 @@ export function useTripEditor(tripId: string | null) {
         date: newRoute.date,
         notes: '',
         instagramPosts: [],
+        tikTokPosts: [],
         blogPosts: [],
         accommodationData: '',
         isAccommodationPublic: false,
