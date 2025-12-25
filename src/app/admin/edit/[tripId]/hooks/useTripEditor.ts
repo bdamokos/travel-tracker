@@ -31,7 +31,8 @@ export function useTripEditor(tripId: string | null) {
     startDate: new Date(),
     endDate: new Date(),
     locations: [],
-    routes: []
+    routes: [],
+    accommodations: []
   });
   const [costData, setCostData] = useState<CostTrackingData | null>(null);
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
@@ -168,7 +169,8 @@ export function useTripEditor(tripId: string | null) {
       startDate: tripData.startDate ? (tripData.startDate instanceof Date ? tripData.startDate : new Date(tripData.startDate)) : new Date(),
       endDate: tripData.endDate ? (tripData.endDate instanceof Date ? tripData.endDate : new Date(tripData.endDate)) : new Date(),
       locations: migratedLocations,
-      routes: migratedRoutes
+      routes: migratedRoutes,
+      accommodations: tripData.accommodations || []
     };
   }, []);
 
