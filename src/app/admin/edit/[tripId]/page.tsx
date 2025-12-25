@@ -187,6 +187,61 @@ export default function TripEditorPage() {
     return totals;
   }, [costData, travelLookup, travelData.accommodations]);
 
+  const expenseTotalsByRoute = useMemo(() => {
+    if (!costData || !travelLookup) {
+      return null;
+    }
+
+    const trackingCurrency = costData.currency || 'USD';
+    const totals: Record<string, { amount: number; currency: string; unconverted?: Record<string, number> }> = {};
+    const expenses = costData.expenses || [];
+
+    expenses.forEach(expense => {
+      const link = travelLookup.getTravelLinkForExpense(expense.id);
+      if (!link || link.type !== 'route') {
+        return;
+      }
+
+      const routeId = link.id;
+      const expenseCurrency = expense.currency || trackingCurrency;
+      const currentTotal = totals[routeId] || { amount: 0, currency: trackingCurrency };
+
+      if (expense.cashTransaction?.kind === 'allocation') {
+        totals[routeId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + expense.cashTransaction.baseAmount
+        };
+        return;
+      }
+
+      if (expense.cashTransaction?.kind === 'source') {
+        totals[routeId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + (expense.amount || 0)
+        };
+        return;
+      }
+
+      if (expenseCurrency !== trackingCurrency) {
+        totals[routeId] = {
+          ...currentTotal,
+          unconverted: {
+            ...(currentTotal.unconverted || {}),
+            [expenseCurrency]: (currentTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
+          }
+        };
+        return;
+      }
+
+      totals[routeId] = {
+        ...currentTotal,
+        amount: currentTotal.amount + (expense.amount || 0)
+      };
+    });
+
+    return totals;
+  }, [costData, travelLookup]);
+
   const collapseText = useCallback((text?: string) => {
     if (!text) {
       return '';
@@ -335,6 +390,24 @@ export default function TripEditorPage() {
         const duration = route.duration ? `, ${route.duration}` : '';
         const notes = route.notes ? ` — ${collapseText(route.notes)}` : '';
         lines.push(`${routeDate || 'Date TBD'}: ${route.from || 'Unknown'} → ${route.to || 'Unknown'} (${route.transportType}${duration})${notes}`);
+
+        const spend = expenseTotalsByRoute?.[route.id];
+        if (spend) {
+          const currency = spend.currency || costData?.currency || '';
+          const hasTrackingAmount = Math.abs(spend.amount) > 0.000001;
+          const unconvertedParts = spend.unconverted
+            ? Object.entries(spend.unconverted)
+              .filter(([code, amount]) => code && Math.abs(amount) > 0.000001)
+              .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+            : [];
+
+          if (hasTrackingAmount) {
+            const suffix = unconvertedParts.length > 0 ? ` (plus unconverted: ${unconvertedParts.join(', ')})` : '';
+            lines.push(`   - Linked spend: ${spend.amount.toFixed(2)} ${currency}${suffix}`.trim());
+          } else if (unconvertedParts.length > 0) {
+            lines.push(`   - Linked spend (unconverted): ${unconvertedParts.join(', ')}`.trim());
+          }
+        }
       });
     }
 
@@ -344,6 +417,7 @@ export default function TripEditorPage() {
     collapseText,
     costData,
     expenseTotalsByLocation,
+    expenseTotalsByRoute,
     travelData.description,
     travelData.endDate,
     travelData.locations,
