@@ -206,6 +206,43 @@ export default function TripEditorPage() {
     if (travelData.description) {
       lines.push(`Description: ${collapseText(travelData.description)}`);
     }
+
+    if (costData) {
+      const trackingCurrency = costData.currency || 'USD';
+      const budget = costData.overallBudget || 0;
+      const expenses = costData.expenses || [];
+      const totals = expenses.reduce<{ tracking: number; unconverted: Record<string, number> }>((acc, expense) => {
+        const expenseCurrency = expense.currency || trackingCurrency;
+
+        if (expense.cashTransaction?.kind === 'allocation') {
+          acc.tracking += expense.cashTransaction.baseAmount;
+          return acc;
+        }
+
+        if (expense.cashTransaction?.kind === 'source') {
+          acc.tracking += expense.amount || 0;
+          return acc;
+        }
+
+        if (expenseCurrency !== trackingCurrency) {
+          acc.unconverted[expenseCurrency] = (acc.unconverted[expenseCurrency] || 0) + (expense.amount || 0);
+          return acc;
+        }
+
+        acc.tracking += expense.amount || 0;
+        return acc;
+      }, { tracking: 0, unconverted: {} });
+
+      const remaining = budget - totals.tracking;
+      const unconvertedParts = Object.entries(totals.unconverted)
+        .filter(([code, amount]) => code && Math.abs(amount) > 0.000001)
+        .map(([code, amount]) => `${amount.toFixed(2)} ${code}`);
+
+      lines.push(`Cost: Budget ${budget.toFixed(2)} ${trackingCurrency}, Spent ${totals.tracking.toFixed(2)} ${trackingCurrency}, Remaining ${remaining.toFixed(2)} ${trackingCurrency}`);
+      if (unconvertedParts.length > 0) {
+        lines.push(`Cost (unconverted): ${unconvertedParts.join(', ')}`);
+      }
+    }
     lines.push('');
 
     const sortedLocations = [...travelData.locations].sort((a, b) => {
@@ -256,10 +293,24 @@ export default function TripEditorPage() {
         }
 
         if (location.arrivalTime || location.departureTime) {
-        const timing = [
-          location.arrivalTime ? `arrive ${location.arrivalTime}` : null,
-          location.departureTime ? `depart ${location.departureTime}` : null
-        ].filter(Boolean).join(' / ');
+          const startDay = location.date ? new Date(location.date).toISOString().split('T')[0] : '';
+          const endDay = location.endDate ? new Date(location.endDate).toISOString().split('T')[0] : startDay;
+          const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+          const isTimeOfDay = (value: string) => value.includes(':');
+
+          const arrivalValue = location.arrivalTime || '';
+          const departureValue = location.departureTime || '';
+          const arrivalIsRedundantDate = arrivalValue && isDateOnly(arrivalValue) && arrivalValue === startDay;
+          const departureIsRedundantDate = departureValue && isDateOnly(departureValue) && departureValue === endDay;
+
+          const timing = [
+            arrivalValue && (isTimeOfDay(arrivalValue) || (!isDateOnly(arrivalValue) && !arrivalIsRedundantDate))
+              ? `arrive ${arrivalValue}`
+              : null,
+            departureValue && (isTimeOfDay(departureValue) || (!isDateOnly(departureValue) && !departureIsRedundantDate))
+              ? `depart ${departureValue}`
+              : null
+          ].filter(Boolean).join(' / ');
           if (timing) {
             lines.push(`   - Timing: ${timing}`);
           }
@@ -291,7 +342,7 @@ export default function TripEditorPage() {
   }, [
     accommodationsByLocation,
     collapseText,
-    costData?.currency,
+    costData,
     expenseTotalsByLocation,
     travelData.description,
     travelData.endDate,
