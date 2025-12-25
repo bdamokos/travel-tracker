@@ -28,6 +28,14 @@ function hasCustomCategories(obj: unknown): obj is { customCategories: string[] 
   );
 }
 
+function isValidTempFileId(tempFileId: unknown): tempFileId is string {
+  return (
+    typeof tempFileId === 'string' &&
+    tempFileId.length > 0 &&
+    /^[A-Za-z0-9_-]+$/.test(tempFileId)
+  );
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Check if request is from admin domain
@@ -85,6 +93,13 @@ async function handleProcessTransactions(
     return NextResponse.json({ 
       error: 'Missing required data: tempFileId and mappings are required for processing' 
     }, { status: 400 });
+  }
+
+  if (!isValidTempFileId(tempFileId)) {
+    return NextResponse.json(
+      { error: 'Invalid tempFileId format' },
+      { status: 400 }
+    );
   }
 
   // Load the temporary file
