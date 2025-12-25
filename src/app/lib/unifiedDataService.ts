@@ -51,7 +51,7 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
     const backupPath = getBackupFilePath(backupFilename);
 
     await writeFile(backupPath, JSON.stringify(backupData, null, 2));
-    console.log(`Created backup for trip ${id} at ${backupPath}`);
+    console.log('Created backup for trip %s at %s', id, backupPath);
 
     // Add metadata entry using the new backup service
     try {
@@ -63,13 +63,13 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
         backupPath,
         deletionReason || 'trip_deletion'
       );
-      console.log(`Added backup metadata for trip ${id}`);
+      console.log('Added backup metadata for trip %s', id);
     } catch (metadataError) {
-      console.warn(`Failed to add backup metadata for trip ${id}:`, metadataError);
+      console.warn('Failed to add backup metadata for trip %s:', id, metadataError);
       // Don't fail the backup creation if metadata fails
     }
   } catch (error) {
-    console.error(`Failed to create backup for trip ${id}:`, error);
+    console.error('Failed to create backup for trip %s:', id, error);
     throw new Error(`Backup creation failed: ${error}`);
   }
 }
@@ -82,11 +82,11 @@ export async function deleteTripWithBackup(id: string): Promise<void> {
     // Remove unified trip file
     const unifiedPath = getUnifiedTripFilePath(id);
     await unlink(unifiedPath);
-    console.log(`Deleted unified trip file: ${unifiedPath}`);
+    console.log('Deleted unified trip file: %s', unifiedPath);
 
-    console.log(`Successfully deleted trip ${id} with backup`);
+    console.log('Successfully deleted trip %s with backup', id);
   } catch (error) {
-    console.error(`Failed to delete trip ${id}:`, error);
+    console.error('Failed to delete trip %s:', id, error);
     throw error;
   }
 }
@@ -332,7 +332,7 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
     // Log fixes if any were made
     if (tempLocationFixLog.length > 0) {
-      console.log(`Trip ${tripId} temp-location cleanup:`, tempLocationFixLog);
+      console.log('Trip %s temp-location cleanup:', tripId, tempLocationFixLog);
     }
   }
 

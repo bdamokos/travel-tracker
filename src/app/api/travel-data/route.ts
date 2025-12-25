@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const unifiedData = await loadUnifiedTripData(id);
     
     if (!unifiedData) {
-      console.log(`[GET] Trip ${id} not found`);
+      console.log('[GET] Trip %s not found', id);
       return NextResponse.json(
         { error: 'Travel data not found' },
         { status: 404 }
@@ -58,11 +58,11 @@ export async function GET(request: NextRequest) {
     }
     
     if (DEBUG_TRAVEL_DATA) {
-      console.log(`[GET] Loading trip ${id}, has ${unifiedData.travelData?.routes?.length || 0} routes`);
+      console.log('[GET] Loading trip %s, has %d routes', id, unifiedData.travelData?.routes?.length || 0);
       unifiedData.travelData?.routes?.forEach(
         (route: { id: string; routePoints?: [number, number][] }, index: number) => {
           const routePointsCount = route.routePoints ? route.routePoints.length : 0;
-          console.log(`[GET] Route ${index} (${route.id}): ${routePointsCount} route points`);
+          console.log('[GET] Route %d (%s): %d route points', index, route.id, routePointsCount);
         }
       );
     }
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     if (DEBUG_TRAVEL_DATA && filteredData.routes) {
       filteredData.routes.forEach((route: { id: string; routePoints?: [number, number][] }, index: number) => {
         const routePointsCount = route.routePoints ? route.routePoints.length : 0;
-        console.log(`[GET] After filtering - Route ${index} (${route.id}): ${routePointsCount} route points`);
+        console.log('[GET] After filtering - Route %d (%s): %d route points', index, route.id, routePointsCount);
       });
     }
     
@@ -121,13 +121,16 @@ export async function PUT(request: NextRequest) {
     const updatedData = await request.json();
     
     if (DEBUG_TRAVEL_DATA) {
-      console.log(`[PUT] Received data for trip ${id}, ${updatedData.routes?.length || 0} routes`);
+      console.log('[PUT] Received data for trip %s, %d routes', id, updatedData.routes?.length || 0);
       updatedData.routes?.forEach(
         (route: { id: string; from: string; to: string; routePoints?: [number, number][] }, index: number) => {
           console.log(
-            `[PUT] Route ${index} (${route.id}): ${route.from} → ${route.to}, routePoints: ${
-              route.routePoints?.length || 'undefined'
-            }`
+            '[PUT] Route %d (%s): %s → %s, routePoints: %s',
+            index,
+            route.id,
+            route.from,
+            route.to,
+            route.routePoints?.length ?? 'undefined'
           );
         }
       );
@@ -171,19 +174,19 @@ export async function PATCH(request: NextRequest) {
     // Handle batch route point updates
     if (updateRequest.batchRouteUpdate) {
       const updates = updateRequest.batchRouteUpdate as Array<{routeId: string, routePoints: [number, number][]}>;
-      console.log(`[PATCH] Processing batch route update for trip ${id} with ${updates.length} routes`);
+      console.log('[PATCH] Processing batch route update for trip %s with %d routes', id, updates.length);
       
       // Load current unified data
       const unifiedData = await loadUnifiedTripData(id);
       if (!unifiedData) {
-        console.log(`[PATCH] Trip ${id} not found`);
+        console.log('[PATCH] Trip %s not found', id);
         return NextResponse.json(
           { error: 'Travel data not found' },
           { status: 404 }
         );
       }
       
-      console.log(`[PATCH] Loaded trip ${id}, has ${unifiedData.travelData?.routes?.length || 0} routes`);
+      console.log('[PATCH] Loaded trip %s, has %d routes', id, unifiedData.travelData?.routes?.length || 0);
       
       // Update multiple routes with new route points
       if (unifiedData.travelData && unifiedData.travelData.routes) {
@@ -192,16 +195,21 @@ export async function PATCH(request: NextRequest) {
         for (const update of updates) {
           const routeIndex = unifiedData.travelData.routes.findIndex((route: { id: string }) => route.id === update.routeId);
           if (routeIndex >= 0) {
-            console.log(`[PATCH] Updating route ${update.routeId} at index ${routeIndex} with ${update.routePoints.length} points`);
+            console.log(
+              '[PATCH] Updating route %s at index %d with %d points',
+              update.routeId,
+              routeIndex,
+              update.routePoints.length
+            );
             (unifiedData.travelData.routes[routeIndex] as { routePoints?: [number, number][] }).routePoints = update.routePoints;
             updatedCount++;
           } else {
-            console.log(`[PATCH] Route ${update.routeId} not found in trip data`);
+            console.log('[PATCH] Route %s not found in trip data', update.routeId);
           }
         }
         
         if (updatedCount > 0) {
-          console.log(`[PATCH] Saving ${updatedCount} route updates to trip ${id}`);
+          console.log('[PATCH] Saving %d route updates to trip %s', updatedCount, id);
           // Save the updated data - pass only the route updates
           try {
             await updateTravelData(id, {
@@ -209,9 +217,9 @@ export async function PATCH(request: NextRequest) {
               locations: unifiedData.travelData.locations,
               days: unifiedData.travelData.days
             });
-            console.log(`[PATCH] Successfully saved trip ${id} with route updates`);
+            console.log('[PATCH] Successfully saved trip %s with route updates', id);
           } catch (error) {
-            console.error(`[PATCH] Failed to save trip ${id}:`, error);
+            console.error('[PATCH] Failed to save trip %s:', id, error);
             return NextResponse.json(
               { error: 'Failed to save route updates' },
               { status: 500 }
@@ -223,7 +231,7 @@ export async function PATCH(request: NextRequest) {
             message: `${updatedCount} route(s) updated successfully`
           });
         } else {
-          console.log(`[PATCH] No routes found to update for trip ${id}`);
+          console.log('[PATCH] No routes found to update for trip %s', id);
           return NextResponse.json(
             { error: 'No routes found to update' },
             { status: 404 }

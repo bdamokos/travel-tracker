@@ -132,7 +132,7 @@ export class BackupService {
       const backup = metadata.backups.find(b => b.id === backupId);
       
       if (!backup) {
-        console.warn(`Backup ${backupId} not found in metadata`);
+        console.warn('Backup %s not found in metadata', backupId);
         return false;
       }
 
@@ -141,7 +141,7 @@ export class BackupService {
       
       return currentChecksum === backup.checksum;
     } catch (error) {
-      console.error(`Failed to verify backup integrity for ${backupId}:`, error);
+      console.error('Failed to verify backup integrity for %s:', backupId, error);
       return false;
     }
   }
@@ -187,7 +187,7 @@ export class BackupService {
       
       return backupMetadata;
     } catch (error) {
-      console.error(`Failed to add backup metadata for ${originalId}:`, error);
+      console.error('Failed to add backup metadata for %s:', originalId, error);
       throw new Error(`Failed to add backup metadata: ${error}`);
     }
   }
@@ -244,7 +244,7 @@ export class BackupService {
       const metadata = await this.loadMetadata();
       return metadata.backups.find(b => b.id === backupId) || null;
     } catch (error) {
-      console.error(`Failed to get backup ${backupId}:`, error);
+      console.error('Failed to get backup %s:', backupId, error);
       return null;
     }
   }
@@ -327,7 +327,7 @@ export class BackupService {
 
       await this.saveMetadata(metadata);
     } catch (error) {
-      console.error(`Failed to remove backup metadata for ${backupId}:`, error);
+      console.error('Failed to remove backup metadata for %s:', backupId, error);
       throw new Error(`Failed to remove backup metadata: ${error}`);
     }
   }
