@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Validate trip boundaries
     const validation = validateAllTripBoundaries(costDataSource);
     if (!validation.isValid) {
-      console.warn(`Trip boundary violations detected in trip ${cleanId}:`, validation.errors);
+      console.warn('Trip boundary violations detected in trip %s:', cleanId, validation.errors);
       // Continue processing but log the violations
     }
     
