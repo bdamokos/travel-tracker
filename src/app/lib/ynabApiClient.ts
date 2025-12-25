@@ -149,7 +149,7 @@ export class YnabApiClient {
           };
         } catch (categoryError) {
           // Log error but don't fail entire operation for one category
-          console.warn(`Failed to fetch transactions for category ${categoryId}:`, categoryError);
+          console.warn('Failed to fetch transactions for category %s:', categoryId, this.handleError(categoryError));
           return { transactions: [], serverKnowledge: serverKnowledge || 0 };
         }
       });
