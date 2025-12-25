@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -19,6 +18,20 @@ interface ExistingTrip {
   createdAt: string;
 }
 
+/**
+ * Provides state and handlers for creating, editing, and listing travel trips.
+ *
+ * Initializes and manages travel-related state (trip metadata, locations, routes, accommodations,
+ * cost tracking, UI dialogs, and post drafts), performs data migration and loading, and exposes
+ * helpers for autosave, map generation, geocoding, and expense-link management.
+ *
+ * @param tripId - The ID of the trip to load for editing; pass `null` to operate in list/create mode.
+ * @returns An object containing current mode and loading flags, travel data and lookup helpers,
+ *          setters for UI/dialog state, and handler functions (loadExistingTrips, loadTripForEditing,
+ *          handleLocationAdded, handleRouteAdded, addInstagramPost, addTikTokPost, addBlogPost,
+ *          deleteLocation, deleteRoute, recalculateRoutePoints, generateMap, autoSaveTravelData,
+ *          geocodeLocation, and wrappers for map URL, duration calculation, and expense-link utilities).
+ */
 export function useTripEditor(tripId: string | null) {
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);

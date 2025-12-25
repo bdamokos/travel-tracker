@@ -12,6 +12,13 @@ import LocationManager from './components/LocationManager';
 import RouteManager from './components/RouteManager';
 import AccommodationManager from './components/AccommodationManager';
 
+/**
+ * Render the trip editor page for creating or editing a travel map, including metadata, locations, routes, accommodations, export, and admin access checks.
+ *
+ * The component verifies admin access, manages editor state via the trip hook, provides UI sections for metadata, locations, routes, and accommodations, and supports exporting an LLM-friendly plain-text itinerary (including optional automatic export via URL query). It also handles dialogs for safe deletion, reassignment of linked expenses, and transient toast notifications.
+ *
+ * @returns A JSX element that renders the full trip editor UI and associated dialogs/notifications.
+ */
 export default function TripEditorPage() {
   const params = useParams();
   const searchParams = useSearchParams();
