@@ -128,7 +128,7 @@ export default function TripEditorPage() {
     });
 
     const trackingCurrency = costData.currency || 'USD';
-    const totals: Record<string, { amount: number; currency: string }> = {};
+    const totals: Record<string, { amount: number; currency: string; unconverted?: Record<string, number> }> = {};
     const expenses = costData.expenses || [];
 
     expenses.forEach(expense => {
@@ -148,15 +148,39 @@ export default function TripEditorPage() {
         return;
       }
 
-      const convertedAmount =
-        expense.cashTransaction && expense.cashTransaction.kind === 'allocation'
-          ? expense.cashTransaction.baseAmount
-          : (expense.amount || 0);
-
+      const expenseCurrency = expense.currency || trackingCurrency;
       const currentTotal = totals[locationId] || { amount: 0, currency: trackingCurrency };
+
+      if (expense.cashTransaction?.kind === 'allocation') {
+        totals[locationId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + expense.cashTransaction.baseAmount
+        };
+        return;
+      }
+
+      if (expense.cashTransaction?.kind === 'source') {
+        totals[locationId] = {
+          ...currentTotal,
+          amount: currentTotal.amount + (expense.amount || 0)
+        };
+        return;
+      }
+
+      if (expenseCurrency !== trackingCurrency) {
+        totals[locationId] = {
+          ...currentTotal,
+          unconverted: {
+            ...(currentTotal.unconverted || {}),
+            [expenseCurrency]: (currentTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
+          }
+        };
+        return;
+      }
+
       totals[locationId] = {
-        amount: currentTotal.amount + convertedAmount,
-        currency: trackingCurrency
+        ...currentTotal,
+        amount: currentTotal.amount + (expense.amount || 0)
       };
     });
 
@@ -216,7 +240,19 @@ export default function TripEditorPage() {
         const spend = expenseTotalsByLocation?.[location.id];
         if (spend) {
           const currency = spend.currency || costData?.currency || '';
-          lines.push(`   - Linked spend: ${spend.amount.toFixed(2)} ${currency}`.trim());
+          const hasTrackingAmount = Math.abs(spend.amount) > 0.000001;
+          const unconvertedParts = spend.unconverted
+            ? Object.entries(spend.unconverted)
+              .filter(([code, amount]) => code && Math.abs(amount) > 0.000001)
+              .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+            : [];
+
+          if (hasTrackingAmount) {
+            const suffix = unconvertedParts.length > 0 ? ` (plus unconverted: ${unconvertedParts.join(', ')})` : '';
+            lines.push(`   - Linked spend: ${spend.amount.toFixed(2)} ${currency}${suffix}`.trim());
+          } else if (unconvertedParts.length > 0) {
+            lines.push(`   - Linked spend (unconverted): ${unconvertedParts.join(', ')}`.trim());
+          }
         }
 
         if (location.arrivalTime || location.departureTime) {

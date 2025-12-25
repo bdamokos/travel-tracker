@@ -219,17 +219,8 @@ export function useTripEditor(tripId: string | null) {
           const costData = await costResponse.json();
           setCostData(costData);
           
-          // Load unified trip data to get accommodations
-          let accommodations: Accommodation[] = [];
-          try {
-            const unifiedResponse = await fetch(`/api/travel-data?id=${tripId}`);
-            if (unifiedResponse.ok) {
-              const unifiedData = await unifiedResponse.json();
-              accommodations = unifiedData.accommodations || [];
-            }
-          } catch (error) {
-            console.warn('Could not load accommodations for travel lookup:', error);
-          }
+          // Use accommodations from the already-fetched raw trip data (available after migration).
+          const accommodations: Accommodation[] = rawTripData.accommodations || [];
           
           // Initialize travel lookup with trip data
           // Convert TravelRoute[] to Transportation[] for compatibility
