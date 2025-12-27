@@ -1,19 +1,18 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ExpenseForm from '../ExpenseForm';
-import { Expense, ExpenseType } from '../../../types';
-import { ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
+import { ExpenseType } from '../../../types';
+import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
+
+const mockFetch = jest.fn();
+
+jest.mock('../TravelItemSelector', () => ({
+  __esModule: true,
+  default: ({ tripId }: { tripId: string }) => (
+    <div data-testid="travel-item-selector">Link to travel item for {tripId}</div>
+  )
+}));
 
 describe('ExpenseForm', () => {
   const mockTripData = {
@@ -52,16 +51,17 @@ describe('ExpenseForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => []
+    } as Response);
+    global.fetch = mockFetch as unknown as typeof fetch;
   });
 
   it('renders expense form with all required fields', () => {
     render(<ExpenseForm {...defaultProps} />);
 
-    expect(screen.getByLabelText(/date/i)).toBeInTheDocument();
+    expect(screen.getByText(/date \*/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/amount/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/notes/i)).toBeInTheDocument();
