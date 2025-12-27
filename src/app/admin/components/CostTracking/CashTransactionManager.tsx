@@ -183,6 +183,11 @@ export default function CashTransactionManager({
     [costData.expenses]
   );
 
+  const totalAllocations = useMemo(
+    () => costData.expenses.filter(isCashAllocation).length,
+    [costData.expenses]
+  );
+
   const lastExchangeRates = useMemo(() => {
     const rateMap = new Map<string, number>();
 
@@ -287,6 +292,47 @@ export default function CashTransactionManager({
             sourceCurrency: cashGroups[0].currency
           }
     );
+  }, [cashGroups]);
+
+  const [openSections, setOpenSections] = useState({
+    sources: true,
+    refunds: false,
+    conversion: false,
+    refundToBase: false
+  });
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (key: keyof typeof openSections) =>
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  useEffect(() => {
+    setExpandedGroups(prev => {
+      const next = { ...prev };
+      cashGroups.forEach(group => {
+        if (next[group.currency] === undefined) {
+          next[group.currency] = cashGroups.length <= 2;
+        }
+      });
+      Object.keys(next).forEach(currencyKey => {
+        if (!cashGroups.some(group => group.currency === currencyKey)) {
+          delete next[currencyKey];
+        }
+      });
+      return next;
+    });
+  }, [cashGroups]);
+
+  const cashOverview = useMemo(() => {
+    const totalOriginalBase = cashGroups.reduce((sum, group) => sum + group.totalOriginalBase, 0);
+    const totalRemainingBase = cashGroups.reduce((sum, group) => sum + group.totalRemainingBase, 0);
+    const totalRemainingLocal = cashGroups.reduce((sum, group) => sum + group.totalRemainingLocal, 0);
+    return {
+      currencyCount: cashGroups.length,
+      totalOriginalBase: roundCurrency(totalOriginalBase),
+      totalRemainingBase: roundCurrency(totalRemainingBase),
+      totalRemainingLocal: roundCurrency(totalRemainingLocal)
+    };
   }, [cashGroups]);
 
   const handleCreateCashSource = async () => {
@@ -740,7 +786,7 @@ export default function CashTransactionManager({
     );
   };
 
-  const renderCurrencyGroup = (group: CashCurrencyGroup) => {
+  const renderCurrencyGroup = (group: CashCurrencyGroup, expanded: boolean, onToggle: () => void) => {
     const allocationForm =
       allocationForms[group.currency] || createInitialAllocationForm(group.defaultCountry);
     const totalOriginalLocal = roundCurrency(group.totalOriginalLocal);
@@ -775,475 +821,274 @@ export default function CashTransactionManager({
         key={group.currency}
         className="rounded-lg border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-4"
       >
-        <div className="flex flex-wrap justify-between gap-3">
-          <div>
-            <h4 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
-              {group.currency} cash on hand
-            </h4>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h4 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
+                {group.currency} cash on hand
+              </h4>
+              <span className="rounded-full bg-white/70 dark:bg-gray-900/40 px-2 py-0.5 text-xs text-yellow-900 dark:text-yellow-100 border border-yellow-200 dark:border-yellow-700">
+                {group.sources.length} source{group.sources.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              Total received/exchanged: {totalOriginalBase.toFixed(2)} {currency} • {totalOriginalLocal.toFixed(2)}
-              {' '}
+              Total received/exchanged: {totalOriginalBase.toFixed(2)} {currency} • {totalOriginalLocal.toFixed(2)}{' '}
               {group.currency}
             </p>
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
               Remaining: {totalRemainingBase.toFixed(2)} {currency} • {totalRemainingLocal.toFixed(2)} {group.currency}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
+            aria-expanded={expanded}
+          >
+            {expanded ? 'Hide allocations' : 'Show allocations'}
+          </button>
         </div>
 
-        <div className="space-y-3">
-          {group.sources.map(source => renderSourceSummary(source))}
-        </div>
-
-        <div className="rounded-md border border-yellow-200 dark:border-yellow-700 bg-white dark:bg-gray-900/60 p-3">
-          <h5 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
-            Add cash spending
-          </h5>
-          {totalRemainingLocal <= 0 ? (
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              All local cash for this currency has been allocated.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Spending date *
-                </label>
-                <AccessibleDatePicker
-                  id={`cash-allocation-date-${group.currency}`}
-                  value={allocationForm.date}
-                  onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Local amount ({group.currency}) *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={allocationForm.localAmount}
-                  onChange={e => handleAllocationChange(group.currency, { localAmount: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                  placeholder="0.00"
-                />
-                {pendingLocal > 0 && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    ≈ {estimatedBase.toFixed(2)} {currency}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
-                <AriaSelect
-                  id={`cash-allocation-category-${group.currency}`}
-                  value={allocationForm.category}
-                  onChange={value => handleAllocationChange(group.currency, { category: value })}
-                  options={spendingCategories.map(category => ({ value: category, label: category }))}
-                  placeholder="Select category"
-                  className="w-full text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Country ({totalRemainingLocal.toFixed(2)} {group.currency} left)
-                </label>
-                <AriaSelect
-                  id={`cash-allocation-country-${group.currency}`}
-                  value={allocationForm.country}
-                  onChange={value => handleAllocationChange(group.currency, { country: value })}
-                  options={countryOptions.map(country => ({ value: country, label: country }))}
-                  placeholder="General / multiple"
-                  className="w-full text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-                <input
-                  type="text"
-                  value={allocationForm.description}
-                  onChange={e => handleAllocationChange(group.currency, { description: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                  placeholder="e.g., Dinner in Buenos Aires"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                <input
-                  type="text"
-                  value={allocationForm.notes}
-                  onChange={e => handleAllocationChange(group.currency, { notes: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                  placeholder="Optional internal notes"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <TravelItemSelector
-                  expenseId={allocationForm.expenseId}
-                  tripId={tripId}
-                  onReferenceChange={travelLink => handleAllocationChange(group.currency, { travelLink })}
-                  className="bg-white dark:bg-gray-900/40 rounded border border-gray-200 dark:border-gray-700 p-3"
-                  initialValue={allocationForm.travelLink}
-                  transactionDate={allocationForm.date}
-                />
-              </div>
-
-              <div className="md:col-span-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => handleAddAllocation(group.currency)}
-                  className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
-                >
-                  Add cash spending
-                </button>
-              </div>
+        {expanded && (
+          <>
+            <div className="space-y-3">
+              {group.sources.map(source => renderSourceSummary(source))}
             </div>
-          )}
-        </div>
+
+            <div className="rounded-md border border-yellow-200 dark:border-yellow-700 bg-white dark:bg-gray-900/60 p-3">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div>
+                  <h5 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
+                    Add cash spending
+                  </h5>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">
+                    Allocate cash by category and optionally link to travel items.
+                  </p>
+                </div>
+                <div className="rounded-full bg-yellow-100 dark:bg-yellow-900/50 px-3 py-1 text-[11px] text-yellow-900 dark:text-yellow-100 border border-yellow-200 dark:border-yellow-700">
+                  {totalRemainingLocal.toFixed(2)} {group.currency} available
+                </div>
+              </div>
+              {totalRemainingLocal <= 0 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  All local cash for this currency has been allocated.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Spending date *
+                    </label>
+                    <AccessibleDatePicker
+                      id={`cash-allocation-date-${group.currency}`}
+                      value={allocationForm.date}
+                      onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Local amount ({group.currency}) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={allocationForm.localAmount}
+                      onChange={e => handleAllocationChange(group.currency, { localAmount: e.target.value })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                      placeholder="0.00"
+                    />
+                    {pendingLocal > 0 && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        ≈ {estimatedBase.toFixed(2)} {currency}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
+                    <AriaSelect
+                      id={`cash-allocation-category-${group.currency}`}
+                      value={allocationForm.category}
+                      onChange={value => handleAllocationChange(group.currency, { category: value })}
+                      options={spendingCategories.map(category => ({ value: category, label: category }))}
+                      placeholder="Select category"
+                      className="w-full text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Country
+                    </label>
+                    <AriaSelect
+                      id={`cash-allocation-country-${group.currency}`}
+                      value={allocationForm.country}
+                      onChange={value => handleAllocationChange(group.currency, { country: value })}
+                      options={countryOptions.map(country => ({ value: country, label: country }))}
+                      placeholder={`General / multiple (${totalRemainingLocal.toFixed(2)} ${group.currency} left)`}
+                      className="w-full text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <input
+                      type="text"
+                      value={allocationForm.description}
+                      onChange={e => handleAllocationChange(group.currency, { description: e.target.value })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                      placeholder="e.g., Dinner in Buenos Aires"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                    <input
+                      type="text"
+                      value={allocationForm.notes}
+                      onChange={e => handleAllocationChange(group.currency, { notes: e.target.value })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                      placeholder="Optional internal notes"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <TravelItemSelector
+                      expenseId={allocationForm.expenseId}
+                      tripId={tripId}
+                      onReferenceChange={travelLink => handleAllocationChange(group.currency, { travelLink })}
+                      className="bg-white dark:bg-gray-900/40 rounded border border-gray-200 dark:border-gray-700 p-3"
+                      initialValue={allocationForm.travelLink}
+                      transactionDate={allocationForm.date}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleAddAllocation(group.currency)}
+                      className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                    >
+                      Add cash spending
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     );
   };
 
   return (
     <div className="space-y-6">
-      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-        <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
-          Cash handling
-        </h3>
-        <p className="text-sm text-yellow-900 dark:text-yellow-100 mb-4">
-          Track cash exchanges or refunds and allocate spending later. Remaining balances stay under the
-          "{CASH_CATEGORY_NAME}" category until assigned.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Exchange date *
-            </label>
-            <AccessibleDatePicker
-              id="cash-source-date"
-              value={sourceForm.date}
-              onChange={date => setSourceForm(prev => ({ ...prev, date: date ?? null }))}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Amount in {currency} *
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={sourceForm.baseAmount}
-              onChange={e => setSourceForm(prev => ({ ...prev, baseAmount: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="0.00"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Local amount *
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={sourceForm.localAmount}
-              onChange={e => setSourceForm(prev => ({ ...prev, localAmount: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="0.00"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Local currency code *
-            </label>
-            <input
-              type="text"
-              value={sourceForm.localCurrency}
-              onChange={e => setSourceForm(prev => ({ ...prev, localCurrency: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
-              placeholder="e.g., ARS"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Country
-            </label>
-            <AriaSelect
-              id="cash-source-country"
-              value={sourceForm.country}
-              onChange={value => setSourceForm(prev => ({ ...prev, country: value }))}
-              options={countryOptions.map(country => ({ value: country, label: country }))}
-              placeholder="General / multiple"
-              className="w-full text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
-            <input
-              type="text"
-              value={sourceForm.description}
-              onChange={e => setSourceForm(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="e.g., Euros to pesos exchange"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes
-            </label>
-            <input
-              type="text"
-              value={sourceForm.notes}
-              onChange={e => setSourceForm(prev => ({ ...prev, notes: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="Optional internal notes"
-            />
-          </div>
-
-          <div className="md:col-span-2 flex justify-end">
-            <button
-              type="button"
-              onClick={handleCreateCashSource}
-              className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-            >
-              Add cash transaction
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-        <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
-          Cash refunds
-        </h3>
-        <p className="text-sm text-yellow-900 dark:text-yellow-100 mb-4">
-          Log cash refunds to increase your on-hand balance and track them as income.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Refund date *
-            </label>
-            <AccessibleDatePicker
-              id="cash-refund-date"
-              value={refundForm.date}
-              onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Refunded local amount *
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={refundForm.localAmount}
-              onChange={e => setRefundForm(prev => ({ ...prev, localAmount: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="0.00"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Local currency code *
-            </label>
-            <input
-              type="text"
-              value={refundForm.localCurrency}
-              onChange={handleRefundCurrencyChange}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
-              placeholder="e.g., ARS"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Exchange rate (1 {currency} = X {refundForm.localCurrency || 'local'}) *
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.0001"
-              value={refundForm.exchangeRate}
-              onChange={e => setRefundForm(prev => ({ ...prev, exchangeRate: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder={refundForm.localCurrency ? `e.g., ${refundForm.localCurrency} per ${currency}` : 'e.g., 1000'}
-            />
-            {estimatedRefundBaseAmount !== null && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                ≈ {estimatedRefundBaseAmount.toFixed(2)} {currency}
-              </p>
-            )}
-            {!refundForm.exchangeRate && refundForm.localCurrency && !lastExchangeRates.get(refundForm.localCurrency) && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                No saved exchange rate found for {refundForm.localCurrency}. Please enter one.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Country
-            </label>
-            <AriaSelect
-              id="cash-refund-country"
-              value={refundForm.country}
-              onChange={value => setRefundForm(prev => ({ ...prev, country: value }))}
-              options={countryOptions.map(country => ({ value: country, label: country }))}
-              placeholder="General / multiple"
-              className="w-full text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
-            <input
-              type="text"
-              value={refundForm.description}
-              onChange={e => setRefundForm(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="e.g., Split bill refund"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes
-            </label>
-            <input
-              type="text"
-              value={refundForm.notes}
-              onChange={e => setRefundForm(prev => ({ ...prev, notes: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-              placeholder="Optional internal notes"
-            />
-          </div>
-
-          <div className="md:col-span-2 flex justify-end">
-            <button
-              type="button"
-              onClick={handleCreateCashRefund}
-              className="px-4 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
-            >
-              Add cash refund
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-        <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
-          Convert cash between currencies
-        </h3>
-        <p className="text-sm text-yellow-900 dark:text-yellow-100 mb-4">
-          Move cash from one local currency to another while keeping the original exchange linkage.
-        </p>
-
-        {cashGroups.length === 0 ? (
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Add a cash exchange first to convert between currencies.
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-lg border border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/30 p-3">
+          <p className="text-xs uppercase tracking-wide text-yellow-800 dark:text-yellow-200">Currencies</p>
+          <p className="text-2xl font-semibold text-yellow-900 dark:text-yellow-100">
+            {cashOverview.currencyCount}
           </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <p className="text-[11px] text-yellow-800 dark:text-yellow-200 mt-1">active cash groups</p>
+        </div>
+        <div className="rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-3">
+          <p className="text-xs uppercase tracking-wide text-green-900 dark:text-green-100">On hand ({currency})</p>
+          <p className="text-2xl font-semibold text-green-900 dark:text-green-100">
+            {cashOverview.totalRemainingBase.toFixed(2)}
+          </p>
+          <p className="text-[11px] text-green-900 dark:text-green-100 mt-1">after allocations</p>
+        </div>
+        <div className="rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-3">
+          <p className="text-xs uppercase tracking-wide text-blue-900 dark:text-blue-100">Local value</p>
+          <p className="text-2xl font-semibold text-blue-900 dark:text-blue-100">
+            {cashOverview.totalRemainingLocal.toFixed(2)}
+          </p>
+          <p className="text-[11px] text-blue-900 dark:text-blue-100 mt-1">left to assign</p>
+        </div>
+        <div className="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3">
+          <p className="text-xs uppercase tracking-wide text-purple-900 dark:text-purple-100">Allocations</p>
+          <p className="text-2xl font-semibold text-purple-900 dark:text-purple-100">{totalAllocations}</p>
+          <p className="text-[11px] text-purple-900 dark:text-purple-100 mt-1">linked spend entries</p>
+        </div>
+      </div>
+
+      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100">
+              Cash handling
+            </h3>
+            <p className="text-sm text-yellow-900 dark:text-yellow-100">
+              Track cash exchanges or refunds and allocate spending later. Remaining balances stay under the
+              "{CASH_CATEGORY_NAME}" category until assigned.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('sources')}
+            className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
+            aria-expanded={openSections.sources}
+          >
+            {openSections.sources ? 'Hide form' : 'Show form'}
+          </button>
+        </div>
+
+        {openSections.sources && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Conversion date *
+                Exchange date *
               </label>
               <AccessibleDatePicker
-                id="cash-conversion-date"
-                value={conversionForm.date}
-                onChange={date => setConversionForm(prev => ({ ...prev, date: date ?? null }))}
+                id="cash-source-date"
+                value={sourceForm.date}
+                onChange={date => setSourceForm(prev => ({ ...prev, date: date ?? null }))}
                 required
               />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Source currency *
-              </label>
-              <AriaSelect
-                id="cash-conversion-source-currency"
-                value={conversionForm.sourceCurrency}
-                onChange={value => setConversionForm(prev => ({ ...prev, sourceCurrency: value }))}
-                options={cashGroups.map(group => ({
-                  value: group.currency,
-                  label: `${group.currency} (${group.totalRemainingLocal.toFixed(2)} available)`
-                }))}
-                placeholder="Select source currency"
-                className="w-full text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Source amount ({conversionForm.sourceCurrency || 'local'}) *
+                Amount in {currency} *
               </label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={conversionForm.sourceLocalAmount}
-                onChange={e => setConversionForm(prev => ({ ...prev, sourceLocalAmount: e.target.value }))}
+                value={sourceForm.baseAmount}
+                onChange={e => setSourceForm(prev => ({ ...prev, baseAmount: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                 placeholder="0.00"
               />
-              {estimatedConversionBaseAmount !== null && (
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  ≈ {estimatedConversionBaseAmount.toFixed(2)} {currency}
-                </p>
-              )}
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Target currency code *
+                Local amount *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={sourceForm.localAmount}
+                onChange={e => setSourceForm(prev => ({ ...prev, localAmount: e.target.value }))}
+                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Local currency code *
               </label>
               <input
                 type="text"
-                value={conversionForm.targetCurrency}
-                onChange={e => setConversionForm(prev => ({ ...prev, targetCurrency: e.target.value.toUpperCase() }))}
+                value={sourceForm.localCurrency}
+                onChange={e => setSourceForm(prev => ({ ...prev, localCurrency: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
-                placeholder="e.g., BOB"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Target amount ({conversionForm.targetCurrency || 'target currency'}) *
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={conversionForm.targetLocalAmount}
-                onChange={e => setConversionForm(prev => ({ ...prev, targetLocalAmount: e.target.value }))}
-                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                placeholder="0.00"
+                placeholder="e.g., ARS"
               />
             </div>
 
@@ -1252,9 +1097,9 @@ export default function CashTransactionManager({
                 Country
               </label>
               <AriaSelect
-                id="cash-conversion-country"
-                value={conversionForm.country}
-                onChange={value => setConversionForm(prev => ({ ...prev, country: value }))}
+                id="cash-source-country"
+                value={sourceForm.country}
+                onChange={value => setSourceForm(prev => ({ ...prev, country: value }))}
                 options={countryOptions.map(country => ({ value: country, label: country }))}
                 placeholder="General / multiple"
                 className="w-full text-sm"
@@ -1267,10 +1112,10 @@ export default function CashTransactionManager({
               </label>
               <input
                 type="text"
-                value={conversionForm.description}
-                onChange={e => setConversionForm(prev => ({ ...prev, description: e.target.value }))}
+                value={sourceForm.description}
+                onChange={e => setSourceForm(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                placeholder="e.g., Chilean pesos to bolivars"
+                placeholder="e.g., Euros to pesos exchange"
               />
             </div>
 
@@ -1280,8 +1125,8 @@ export default function CashTransactionManager({
               </label>
               <input
                 type="text"
-                value={conversionForm.notes}
-                onChange={e => setConversionForm(prev => ({ ...prev, notes: e.target.value }))}
+                value={sourceForm.notes}
+                onChange={e => setSourceForm(prev => ({ ...prev, notes: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                 placeholder="Optional internal notes"
               />
@@ -1290,10 +1135,10 @@ export default function CashTransactionManager({
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="button"
-                onClick={handleCreateConversion}
-                className="px-4 py-2 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600"
+                onClick={handleCreateCashSource}
+                className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
               >
-                Convert cash
+                Add cash transaction
               </button>
             </div>
           </div>
@@ -1301,45 +1146,36 @@ export default function CashTransactionManager({
       </div>
 
       <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-        <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100 mb-3">
-          Refund local cash to tracking currency
-        </h3>
-        <p className="text-sm text-yellow-900 dark:text-yellow-100 mb-4">
-          Return leftover local cash to {currency}, booking losses as exchange fees or noting profits.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100">
+              Cash refunds
+            </h3>
+            <p className="text-sm text-yellow-900 dark:text-yellow-100">
+              Log cash refunds to increase your on-hand balance and track them as income.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('refunds')}
+            className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
+            aria-expanded={openSections.refunds}
+          >
+            {openSections.refunds ? 'Hide form' : 'Show form'}
+          </button>
+        </div>
 
-        {cashGroups.length === 0 ? (
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Add a cash exchange first to process a refund back to {currency}.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {openSections.refunds && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Refund date *
               </label>
               <AccessibleDatePicker
-                id="cash-refund-to-base-date"
-                value={refundToBaseForm.date}
-                onChange={date => setRefundToBaseForm(prev => ({ ...prev, date: date ?? null }))}
+                id="cash-refund-date"
+                value={refundForm.date}
+                onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
                 required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Refund from currency *
-              </label>
-              <AriaSelect
-                id="cash-refund-to-base-currency"
-                value={refundToBaseForm.sourceCurrency}
-                onChange={value => setRefundToBaseForm(prev => ({ ...prev, sourceCurrency: value }))}
-                options={cashGroups.map(group => ({
-                  value: group.currency,
-                  label: `${group.currency} (${group.totalRemainingLocal.toFixed(2)} available)`
-                }))}
-                placeholder="Select currency"
-                className="w-full text-sm"
               />
             </div>
 
@@ -1351,8 +1187,8 @@ export default function CashTransactionManager({
                 type="number"
                 min="0"
                 step="0.01"
-                value={refundToBaseForm.localAmount}
-                onChange={e => setRefundToBaseForm(prev => ({ ...prev, localAmount: e.target.value }))}
+                value={refundForm.localAmount}
+                onChange={e => setRefundForm(prev => ({ ...prev, localAmount: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                 placeholder="0.00"
               />
@@ -1360,43 +1196,40 @@ export default function CashTransactionManager({
 
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Exchange rate (1 {refundToBaseForm.sourceCurrency || 'local'} = X {currency}) *
+                Local currency code *
+              </label>
+              <input
+                type="text"
+                value={refundForm.localCurrency}
+                onChange={handleRefundCurrencyChange}
+                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
+                placeholder="e.g., ARS"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Exchange rate (1 {currency} = X {refundForm.localCurrency || 'local'}) *
               </label>
               <input
                 type="number"
                 min="0"
                 step="0.0001"
-                value={refundToBaseForm.exchangeRateBasePerLocal}
-                onChange={e =>
-                  setRefundToBaseForm(prev => ({ ...prev, exchangeRateBasePerLocal: e.target.value }))
-                }
+                value={refundForm.exchangeRate}
+                onChange={e => setRefundForm(prev => ({ ...prev, exchangeRate: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                placeholder="e.g., 0.0009"
+                placeholder={refundForm.localCurrency ? `e.g., ${refundForm.localCurrency} per ${currency}` : 'e.g., 1000'}
               />
-              {estimatedRefundToBaseAmount !== null && (
+              {estimatedRefundBaseAmount !== null && (
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  ≈ {estimatedRefundToBaseAmount.toFixed(2)} {currency}
+                  ≈ {estimatedRefundBaseAmount.toFixed(2)} {currency}
                 </p>
               )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Exchange fee category
-              </label>
-              <AriaSelect
-                id="cash-refund-to-base-fee-category"
-                value={refundToBaseForm.feeCategory}
-                onChange={value => setRefundToBaseForm(prev => ({ ...prev, feeCategory: value }))}
-                options={[...categories, 'Exchange fees']
-                  .filter((category, index, all) => all.indexOf(category) === index)
-                  .map(category => ({
-                    value: category,
-                    label: category
-                  }))}
-                placeholder="Exchange fees"
-                className="w-full text-sm"
-              />
+              {!refundForm.exchangeRate && refundForm.localCurrency && !lastExchangeRates.get(refundForm.localCurrency) && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  No saved exchange rate found for {refundForm.localCurrency}. Please enter one.
+                </p>
+              )}
             </div>
 
             <div>
@@ -1404,9 +1237,9 @@ export default function CashTransactionManager({
                 Country
               </label>
               <AriaSelect
-                id="cash-refund-to-base-country"
-                value={refundToBaseForm.country}
-                onChange={value => setRefundToBaseForm(prev => ({ ...prev, country: value }))}
+                id="cash-refund-country"
+                value={refundForm.country}
+                onChange={value => setRefundForm(prev => ({ ...prev, country: value }))}
                 options={countryOptions.map(country => ({ value: country, label: country }))}
                 placeholder="General / multiple"
                 className="w-full text-sm"
@@ -1419,10 +1252,10 @@ export default function CashTransactionManager({
               </label>
               <input
                 type="text"
-                value={refundToBaseForm.description}
-                onChange={e => setRefundToBaseForm(prev => ({ ...prev, description: e.target.value }))}
+                value={refundForm.description}
+                onChange={e => setRefundForm(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                placeholder="e.g., Pesos back to euros"
+                placeholder="e.g., Split bill refund"
               />
             </div>
 
@@ -1432,8 +1265,8 @@ export default function CashTransactionManager({
               </label>
               <input
                 type="text"
-                value={refundToBaseForm.notes}
-                onChange={e => setRefundToBaseForm(prev => ({ ...prev, notes: e.target.value }))}
+                value={refundForm.notes}
+                onChange={e => setRefundForm(prev => ({ ...prev, notes: e.target.value }))}
                 className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
                 placeholder="Optional internal notes"
               />
@@ -1442,19 +1275,351 @@ export default function CashTransactionManager({
             <div className="md:col-span-2 flex justify-end">
               <button
                 type="button"
-                onClick={handleCreateRefundToBase}
-                className="px-4 py-2 bg-amber-500 text-white text-sm rounded hover:bg-amber-600"
+                onClick={handleCreateCashRefund}
+                className="px-4 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
               >
-                Refund to {currency}
+                Add cash refund
               </button>
             </div>
           </div>
         )}
       </div>
 
+      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100">
+              Convert cash between currencies
+            </h3>
+            <p className="text-sm text-yellow-900 dark:text-yellow-100">
+              Move cash from one local currency to another while keeping the original exchange linkage.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('conversion')}
+            className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
+            aria-expanded={openSections.conversion}
+          >
+            {openSections.conversion ? 'Hide form' : 'Show form'}
+          </button>
+        </div>
+
+        {openSections.conversion && (
+          <>
+            {cashGroups.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                Add a cash exchange first to convert between currencies.
+              </p>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Conversion date *
+                  </label>
+                  <AccessibleDatePicker
+                    id="cash-conversion-date"
+                    value={conversionForm.date}
+                    onChange={date => setConversionForm(prev => ({ ...prev, date: date ?? null }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Source currency *
+                  </label>
+                  <AriaSelect
+                    id="cash-conversion-source-currency"
+                    value={conversionForm.sourceCurrency}
+                    onChange={value => setConversionForm(prev => ({ ...prev, sourceCurrency: value }))}
+                    options={cashGroups.map(group => ({
+                      value: group.currency,
+                      label: `${group.currency} (${group.totalRemainingLocal.toFixed(2)} available)`
+                    }))}
+                    placeholder="Select source currency"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Source amount ({conversionForm.sourceCurrency || 'local'}) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={conversionForm.sourceLocalAmount}
+                    onChange={e => setConversionForm(prev => ({ ...prev, sourceLocalAmount: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="0.00"
+                  />
+                  {estimatedConversionBaseAmount !== null && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      ≈ {estimatedConversionBaseAmount.toFixed(2)} {currency}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Target currency code *
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionForm.targetCurrency}
+                    onChange={e => setConversionForm(prev => ({ ...prev, targetCurrency: e.target.value.toUpperCase() }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded uppercase"
+                    placeholder="e.g., BOB"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Target amount ({conversionForm.targetCurrency || 'target currency'}) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={conversionForm.targetLocalAmount}
+                    onChange={e => setConversionForm(prev => ({ ...prev, targetLocalAmount: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Country
+                  </label>
+                  <AriaSelect
+                    id="cash-conversion-country"
+                    value={conversionForm.country}
+                    onChange={value => setConversionForm(prev => ({ ...prev, country: value }))}
+                    options={countryOptions.map(country => ({ value: country, label: country }))}
+                    placeholder="General / multiple"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionForm.description}
+                    onChange={e => setConversionForm(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="e.g., Chilean pesos to bolivars"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={conversionForm.notes}
+                    onChange={e => setConversionForm(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="Optional internal notes"
+                  />
+                </div>
+
+                <div className="md:col-span-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCreateConversion}
+                    className="px-4 py-2 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600"
+                  >
+                    Convert cash
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="border border-yellow-200 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold text-yellow-900 dark:text-yellow-100">
+              Refund local cash to tracking currency
+            </h3>
+            <p className="text-sm text-yellow-900 dark:text-yellow-100">
+              Return leftover local cash to {currency}, booking losses as exchange fees or noting profits.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => toggleSection('refundToBase')}
+            className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
+            aria-expanded={openSections.refundToBase}
+          >
+            {openSections.refundToBase ? 'Hide form' : 'Show form'}
+          </button>
+        </div>
+
+        {openSections.refundToBase && (
+          <>
+            {cashGroups.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                Add a cash exchange first to process a refund back to {currency}.
+              </p>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Refund date *
+                  </label>
+                  <AccessibleDatePicker
+                    id="cash-refund-to-base-date"
+                    value={refundToBaseForm.date}
+                    onChange={date => setRefundToBaseForm(prev => ({ ...prev, date: date ?? null }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Refund from currency *
+                  </label>
+                  <AriaSelect
+                    id="cash-refund-to-base-currency"
+                    value={refundToBaseForm.sourceCurrency}
+                    onChange={value => setRefundToBaseForm(prev => ({ ...prev, sourceCurrency: value }))}
+                    options={cashGroups.map(group => ({
+                      value: group.currency,
+                      label: `${group.currency} (${group.totalRemainingLocal.toFixed(2)} available)`
+                    }))}
+                    placeholder="Select currency"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Refunded local amount *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={refundToBaseForm.localAmount}
+                    onChange={e => setRefundToBaseForm(prev => ({ ...prev, localAmount: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Exchange rate (1 {refundToBaseForm.sourceCurrency || 'local'} = X {currency}) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    value={refundToBaseForm.exchangeRateBasePerLocal}
+                    onChange={e =>
+                      setRefundToBaseForm(prev => ({ ...prev, exchangeRateBasePerLocal: e.target.value }))
+                    }
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="e.g., 0.0009"
+                  />
+                  {estimatedRefundToBaseAmount !== null && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      ≈ {estimatedRefundToBaseAmount.toFixed(2)} {currency}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Exchange fee category
+                  </label>
+                  <AriaSelect
+                    id="cash-refund-to-base-fee-category"
+                    value={refundToBaseForm.feeCategory}
+                    onChange={value => setRefundToBaseForm(prev => ({ ...prev, feeCategory: value }))}
+                    options={[...categories, 'Exchange fees']
+                      .filter((category, index, all) => all.indexOf(category) === index)
+                      .map(category => ({
+                        value: category,
+                        label: category
+                      }))}
+                    placeholder="Exchange fees"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Country
+                  </label>
+                  <AriaSelect
+                    id="cash-refund-to-base-country"
+                    value={refundToBaseForm.country}
+                    onChange={value => setRefundToBaseForm(prev => ({ ...prev, country: value }))}
+                    options={countryOptions.map(country => ({ value: country, label: country }))}
+                    placeholder="General / multiple"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={refundToBaseForm.description}
+                    onChange={e => setRefundToBaseForm(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="e.g., Pesos back to euros"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={refundToBaseForm.notes}
+                    onChange={e => setRefundToBaseForm(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
+                    placeholder="Optional internal notes"
+                  />
+                </div>
+
+                <div className="md:col-span-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCreateRefundToBase}
+                    className="px-4 py-2 bg-amber-500 text-white text-sm rounded hover:bg-amber-600"
+                  >
+                    Refund to {currency}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {cashGroups.length > 0 && (
         <div className="space-y-4">
-          {cashGroups.map(group => renderCurrencyGroup(group))}
+          {cashGroups.map(group =>
+            renderCurrencyGroup(group, expandedGroups[group.currency] ?? false, () =>
+              setExpandedGroups(prev => ({ ...prev, [group.currency]: !prev[group.currency] }))
+            )
+          )}
         </div>
       )}
     </div>
