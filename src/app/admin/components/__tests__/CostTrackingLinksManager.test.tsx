@@ -1,148 +1,196 @@
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CostTrackingLinksManager from '../CostTrackingLinksManager';
+import { useExpenses } from '../../../hooks/useExpenses';
+import {
+  useExpenseLinks,
+  useExpenseLinksForTravelItem,
+  useLinkExpense,
+  useMoveExpenseLink,
+  useUnlinkExpense
+} from '../../../hooks/useExpenseLinks';
 
-// Mock the API calls
-global.fetch = jest.fn();
+jest.mock('../../../hooks/useExpenses');
+jest.mock('../../../hooks/useExpenseLinks');
+
+const mockUseExpenses = useExpenses as jest.MockedFunction<typeof useExpenses>;
+const mockUseExpenseLinks = useExpenseLinks as jest.MockedFunction<typeof useExpenseLinks>;
+const mockUseExpenseLinksForTravelItem = useExpenseLinksForTravelItem as jest.MockedFunction<typeof useExpenseLinksForTravelItem>;
+const mockUseLinkExpense = useLinkExpense as jest.MockedFunction<typeof useLinkExpense>;
+const mockUseUnlinkExpense = useUnlinkExpense as jest.MockedFunction<typeof useUnlinkExpense>;
+const mockUseMoveExpenseLink = useMoveExpenseLink as jest.MockedFunction<typeof useMoveExpenseLink>;
 
 describe('CostTrackingLinksManager', () => {
+  const defaultProps = {
+    tripId: 'trip-123',
+    travelItemId: 'travel-item-1',
+    travelItemType: 'location' as const
+  };
+
+  const expensesFixture = [
+    {
+      id: 'expense-1',
+      description: 'Trip 1 Expense',
+      amount: 100,
+      currency: 'EUR',
+      date: '2024-01-01',
+      category: 'Food'
+    },
+    {
+      id: 'expense-2',
+      description: 'Trip 2 Expense',
+      amount: 200,
+      currency: 'USD',
+      date: '2024-01-02',
+      category: 'Transport'
+    }
+  ];
+
+  let linkExpenseTrigger: jest.Mock;
+  let unlinkExpenseTrigger: jest.Mock;
+  let mutateLinksMock: jest.Mock;
+  let mutateAllLinksMock: jest.Mock;
+
   beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    linkExpenseTrigger = jest.fn().mockResolvedValue({ success: true });
+    unlinkExpenseTrigger = jest.fn().mockResolvedValue({});
+    mutateLinksMock = jest.fn().mockResolvedValue(undefined);
+    mutateAllLinksMock = jest.fn().mockResolvedValue(undefined);
 
-  it('should only load expenses from the specified trip when tripId is provided', async () => {
-    const mockTripExpenses = {
-      expenses: [
-        {
-          id: 'expense-1',
-          description: 'Trip 1 Expense',
-          amount: 100,
-          currency: 'EUR',
-          date: '2024-01-01',
-          category: 'Food'
-        },
-        {
-          id: 'expense-2',
-          description: 'Trip 1 Another Expense',
-          amount: 50,
-          currency: 'EUR',
-          date: '2024-01-02',
-          category: 'Transport'
-        }
-      ]
-    };
-
-    // Mock the trip-specific API call
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockTripExpenses)
+    mockUseExpenses.mockReturnValue({
+      expenses: expensesFixture,
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
     });
 
-    render(
-      <CostTrackingLinksManager
-        currentLinks={[]}
-        onLinksChange={() => {}}
-        tripId="trip-123"
-      />
-    );
+    mockUseExpenseLinksForTravelItem.mockReturnValue({
+      expenseLinks: [],
+      isLoading: false,
+      isError: undefined,
+      mutate: mutateLinksMock
+    });
+
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [],
+      isLoading: false,
+      isError: undefined,
+      mutate: mutateAllLinksMock
+    });
+
+    mockUseLinkExpense.mockReturnValue({
+      trigger: linkExpenseTrigger,
+      isMutating: false
+    });
+
+    mockUseUnlinkExpense.mockReturnValue({
+      trigger: unlinkExpenseTrigger,
+      isMutating: false
+    });
+
+    mockUseMoveExpenseLink.mockReturnValue({
+      trigger: jest.fn().mockResolvedValue({}),
+      isMutating: false
+    });
+  });
+
+  it('renders expenses for the provided trip and exposes them in the select list', () => {
+    render(<CostTrackingLinksManager {...defaultProps} />);
+
+    expect(screen.getByText(/Choose an expense/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Trip 1 Expense - 100 EUR (2024-01-01)' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Trip 2 Expense - 200 USD (2024-01-02)' })
+    ).toBeInTheDocument();
+  });
+
+  it('shows existing links and filters them out of the selectable expenses', () => {
+    mockUseExpenseLinksForTravelItem.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'expense-1',
+          travelItemId: defaultProps.travelItemId,
+          travelItemName: 'Paris',
+          travelItemType: 'location',
+          description: 'Hotel stay'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: mutateLinksMock
+    });
+
+    render(<CostTrackingLinksManager {...defaultProps} />);
+
+    expect(screen.getByText('Trip 1 Expense')).toBeInTheDocument();
+    expect(screen.getByText(/Hotel stay/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Trip 1 Expense - 100 EUR (2024-01-01)' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Trip 2 Expense - 200 USD (2024-01-02)' })
+    ).toBeInTheDocument();
+  });
+
+  it('unlinks an expense and refreshes cached links', async () => {
+    mockUseExpenseLinksForTravelItem.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'expense-1',
+          travelItemId: defaultProps.travelItemId,
+          travelItemName: 'Paris',
+          travelItemType: 'location'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: mutateLinksMock
+    });
+
+    render(<CostTrackingLinksManager {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Choose an expense/)).toBeInTheDocument();
-    });
-
-    // Verify that only the trip-specific API was called
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith('/api/cost-tracking?id=trip-123');
-  });
-
-  it('should load all expenses when no tripId is provided (legacy mode)', async () => {
-    const mockCostEntries = [
-      { id: 'trip-1' },
-      { id: 'trip-2' }
-    ];
-
-    const mockTripData1 = {
-      expenses: [
-        {
-          id: 'expense-1',
-          description: 'Trip 1 Expense',
-          amount: 100,
-          currency: 'EUR',
-          date: '2024-01-01',
-          category: 'Food'
-        }
-      ]
-    };
-
-    const mockTripData2 = {
-      expenses: [
-        {
-          id: 'expense-2',
-          description: 'Trip 2 Expense',
-          amount: 200,
-          currency: 'EUR',
-          date: '2024-01-02',
-          category: 'Transport'
-        }
-      ]
-    };
-
-    // Mock the API calls
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockCostEntries)
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockTripData1)
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockTripData2)
+      expect(unlinkExpenseTrigger).toHaveBeenCalledWith({
+        tripId: defaultProps.tripId,
+        expenseId: 'expense-1',
+        travelItemId: defaultProps.travelItemId
       });
-
-    render(
-      <CostTrackingLinksManager
-        currentLinks={[]}
-        onLinksChange={() => {}}
-        // No tripId provided - should use legacy mode
-      />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/Choose an expense/)).toBeInTheDocument();
     });
 
-    // Verify that the list API and individual trip APIs were called
-    expect(global.fetch).toHaveBeenCalledTimes(3);
-    expect(global.fetch).toHaveBeenCalledWith('/api/cost-tracking/list');
-    expect(global.fetch).toHaveBeenCalledWith('/api/cost-tracking?id=trip-1');
-    expect(global.fetch).toHaveBeenCalledWith('/api/cost-tracking?id=trip-2');
+    expect(mutateLinksMock).toHaveBeenCalled();
+    expect(mutateAllLinksMock).toHaveBeenCalled();
   });
 
-  it('should show warning when no tripId is provided', async () => {
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+  it('links an expense and clears the current selection', async () => {
+    render(<CostTrackingLinksManager {...defaultProps} />);
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve([])
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'expense-2' }
     });
 
-    render(
-      <CostTrackingLinksManager
-        currentLinks={[]}
-        onLinksChange={() => {}}
-        // No tripId provided
-      />
-    );
+    fireEvent.change(screen.getByPlaceholderText(/e.g., Hotel booking/), {
+      target: { value: 'Dinner with clients' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Link Expense/ }));
 
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'CostTrackingLinksManager: No tripId provided, loading expenses from all trips. This may show cross-trip data.'
-      );
+      expect(linkExpenseTrigger).toHaveBeenCalledWith({
+        tripId: defaultProps.tripId,
+        expenseId: 'expense-2',
+        travelItemId: defaultProps.travelItemId,
+        travelItemType: defaultProps.travelItemType,
+        description: 'Dinner with clients'
+      });
     });
 
-    consoleSpy.mockRestore();
+    expect(mutateLinksMock).toHaveBeenCalled();
+    expect(mutateAllLinksMock).toHaveBeenCalled();
+    await waitFor(() => {
+      expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('');
+    });
   });
 });
