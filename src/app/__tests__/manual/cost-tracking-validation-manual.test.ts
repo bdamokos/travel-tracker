@@ -9,7 +9,7 @@ import { UnifiedTripData } from '../../lib/dataMigration';
 import { Expense } from '../../types';
 
 describe('Cost Tracking Validation Manual Test', () => {
-  const testTripId = `test-validation-${Date.now()}`;
+  const testTripId = `testvalidation${Date.now()}`;
   
   const createTestTripData = async (): Promise<UnifiedTripData> => {
     const tripData: UnifiedTripData = {
@@ -159,7 +159,7 @@ describe('Cost Tracking Validation Manual Test', () => {
     const trip1Data = await createTestTripData();
     
     // Create second trip with different ID
-    const trip2Id = `test-validation-2-${Date.now()}`;
+    const trip2Id = `testvalidation2${Date.now()}`;
     const trip2Data: UnifiedTripData = {
       ...trip1Data,
       id: trip2Id,
