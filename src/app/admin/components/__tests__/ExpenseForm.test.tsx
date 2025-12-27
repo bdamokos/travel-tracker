@@ -146,6 +146,15 @@ describe('ExpenseForm', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/travel-data/test-trip-1/expense-links');
+      expect(mockTravelItemSelector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          initialValue: {
+            id: 'route-123',
+            name: 'Train to Paris',
+            type: 'route',
+          },
+        })
+      );
     });
   });
 
