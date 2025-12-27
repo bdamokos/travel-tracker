@@ -1,7 +1,7 @@
 'use client';
 
 import { CostSummary } from '../../../types';
-import { formatCurrency, getCountryAverageDisplay, formatCurrencyWithRefunds } from '../../../lib/costUtils';
+import { formatCurrency, getCountryAverageDisplay, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '../../../lib/costUtils';
 
 interface CountryBreakdownDisplayProps {
   costSummary: CostSummary;
@@ -61,7 +61,7 @@ export default function CountryBreakdownDisplay({
                 })()}
               </div>
             </div>
-            
+
             {/* Enhanced Expense Info */}
             {(country.plannedSpending > 0 || country.postTripSpent > 0) && (
               <div className="grid grid-cols-2 gap-4 text-sm mb-3 pt-3 border-t dark:border-gray-700">
@@ -101,7 +101,7 @@ export default function CountryBreakdownDisplay({
                 )}
               </div>
             )}
-            
+
             {/* Available Budget Display */}
             {country.budgetAmount > 0 && country.availableForPlanning !== (country.budgetAmount - (country.spentAmount - country.refundAmount)) && (
               <div className="text-sm mb-3 pt-3 border-t dark:border-gray-700">
@@ -111,31 +111,33 @@ export default function CountryBreakdownDisplay({
                 </span>
               </div>
             )}
-            
+
             {/* Category Breakdown */}
             {country.categoryBreakdown.length > 0 && (
               <div className="mt-3 pt-3 border-t dark:border-gray-700">
                 <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Categories:</h6>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  {country.categoryBreakdown.map((category) => (
-                    <div key={category.category} className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-300">{category.category} ({category.count}):</span>
-                      <span className="font-medium">
-                        {(() => {
-                          // Check if this category has any refunds
-                          const categoryExpenses = country.expenses.filter(e => e.category === category.category);
-                          const hasRefunds = categoryExpenses.some(e => e.amount < 0);
-                          
-                          // category.amount is already the net amount (outflows - refunds)
-                          if (hasRefunds) {
-                            return `${formatCurrency(category.amount, currency)}*`;
-                          } else {
-                            return formatCurrency(category.amount, currency);
-                          }
-                        })()}
-                      </span>
-                    </div>
-                  ))}
+                  {country.categoryBreakdown
+                    .filter(cat => cat.category !== REFUNDS_CATEGORY_NAME)
+                    .map((category) => (
+                      <div key={category.category} className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-300">{category.category} ({category.count}):</span>
+                        <span className="font-medium">
+                          {(() => {
+                            // Check if this category has any refunds
+                            const categoryExpenses = country.expenses.filter(e => e.category === category.category);
+                            const hasRefunds = categoryExpenses.some(e => e.amount < 0);
+
+                            // category.amount is already the net amount (outflows - refunds)
+                            if (hasRefunds) {
+                              return `${formatCurrency(category.amount, currency)}*`;
+                            } else {
+                              return formatCurrency(category.amount, currency);
+                            }
+                          })()}
+                        </span>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}

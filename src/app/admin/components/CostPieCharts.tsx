@@ -6,7 +6,7 @@ import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
 import type { TooltipProps } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { CostSummary, CountryBreakdown } from '../../types';
-import { formatCurrency, formatCurrencyWithRefunds } from '../../lib/costUtils';
+import { formatCurrency, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '../../lib/costUtils';
 import AriaSelect from './AriaSelect';
 
 interface CostPieChartsProps {
@@ -182,7 +182,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
     });
 
     return Array.from(categoryMap.entries())
-      .filter(([, amount]) => amount > 0)
+      .filter(([category, amount]) => amount > 0 && category !== REFUNDS_CATEGORY_NAME)
       .map(([category, amount]) => ({
         name: category,
         value: amount,
@@ -309,7 +309,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         <div className={`${tooltipContainerClass} p-3 rounded-sm shadow-lg`}>
           <p className="font-medium">{data.name}</p>
           <p className={`mt-1 font-semibold ${tooltipValueClass}`}>
-            {countryBasis === 'daily' && data.payload.country ? 
+            {countryBasis === 'daily' && data.payload.country ?
               `${formatCurrency(value, currency)} per day` :
               formatCurrency(value, currency)
             }
@@ -378,11 +378,10 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
                   key={country}
                   type="button"
                   onClick={() => toggleExcludedCountry(country)}
-                  className={`px-3 py-1 rounded-full border text-sm transition-colors ${
-                    isExcluded
+                  className={`px-3 py-1 rounded-full border text-sm transition-colors ${isExcluded
                       ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-200 dark:border-red-700'
                       : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600'
-                  }`}
+                    }`}
                   aria-pressed={isExcluded}
                 >
                   {isExcluded ? 'Excluded' : 'Include'} {country}
@@ -454,7 +453,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
               placeholder="Select Basis"
             />
           </div>
-          
+
           {countryData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart margin={pieChartMargin}>
@@ -485,9 +484,9 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
               No spending data available
             </div>
           )}
-          
+
           <div className="mt-4 text-xs text-gray-600 dark:text-gray-300">
-            {countryBasis === 'daily' ? 
+            {countryBasis === 'daily' ?
               'General expenses are averaged over total trip duration' :
               'Shows total spending per country'
             }
@@ -510,7 +509,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
               placeholder="Select Country"
             />
           </div>
-          
+
           {categoryData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart margin={pieChartMargin}>
@@ -541,16 +540,16 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
               No category data available
             </div>
           )}
-          
+
           <div className="mt-4 text-xs text-gray-600 dark:text-gray-300">
-            {categoryFilter === 'all' ? 
+            {categoryFilter === 'all' ?
               'Shows category breakdown across all countries' :
               `Shows category breakdown for ${categoryFilter}`
             }
           </div>
         </div>
       </div>
-      
+
       {/* Summary Statistics */}
       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
         <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Chart Summary</h5>
