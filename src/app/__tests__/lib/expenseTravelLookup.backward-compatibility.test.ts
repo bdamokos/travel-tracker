@@ -4,16 +4,20 @@
 
 import { createExpenseTravelLookup } from '../../lib/expenseTravelLookup';
 
-// Mock fetch for testing
-global.fetch = jest.fn();
-
 describe('ExpenseTravelLookup Backward Compatibility', () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    // First ensure global.fetch exists (jsdom doesn't have it by default)
+    // Then spy on it so jest.restoreAllMocks() can properly clean up
+    global.fetch = jest.fn();
+    jest.spyOn(global, 'fetch');
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Restore original fetch (or undefined if it didn't exist)
+    global.fetch = originalFetch;
   });
 
   describe('createExpenseTravelLookup (deprecated)', () => {
@@ -41,7 +45,7 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
       });
 
       const lookup = await createExpenseTravelLookup('test-trip');
-      
+
       expect(global.fetch).toHaveBeenCalledWith(`${window.location.origin}/api/travel-data?id=test-trip`);
       expect(lookup.getTravelLinkForExpense('exp1')).toEqual({
         type: 'location',
@@ -70,7 +74,7 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
       });
 
       await createExpenseTravelLookup('test-trip');
-      
+
       expect(global.fetch).toHaveBeenCalledWith(`${window.location.origin}/api/travel-data?id=test-trip`);
     });
   });
