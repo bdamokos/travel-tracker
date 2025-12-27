@@ -12,6 +12,10 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('createExpenseTravelLookup (deprecated)', () => {
     it('should still work for backward compatibility', async () => {
       const mockTripData = {
@@ -38,7 +42,7 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
 
       const lookup = await createExpenseTravelLookup('test-trip');
       
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:3000/api/travel-data?id=test-trip');
+      expect(global.fetch).toHaveBeenCalledWith(`${window.location.origin}/api/travel-data?id=test-trip`);
       expect(lookup.getTravelLinkForExpense('exp1')).toEqual({
         type: 'location',
         id: 'loc1',
@@ -54,14 +58,6 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
     });
 
     it('should use window.location.origin in browser environment', async () => {
-      // Mock window object
-      const originalWindow = global.window;
-      global.window = {
-        location: {
-          origin: 'https://example.com'
-        }
-      } as Window & typeof globalThis;
-
       const mockTripData = {
         title: 'Test Trip',
         locations: [],
@@ -75,10 +71,7 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
 
       await createExpenseTravelLookup('test-trip');
       
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/travel-data?id=test-trip');
-
-      // Restore original window
-      global.window = originalWindow;
+      expect(global.fetch).toHaveBeenCalledWith(`${window.location.origin}/api/travel-data?id=test-trip`);
     });
   });
 });
