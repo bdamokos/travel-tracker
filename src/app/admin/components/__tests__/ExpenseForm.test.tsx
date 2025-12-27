@@ -8,7 +8,7 @@ import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
 const mockTravelItemSelector = jest.fn();
 jest.mock('../TravelItemSelector', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: { tripId: string; initialValue?: { id: string; name: string; type: string } }) => {
     mockTravelItemSelector(props);
     return <div data-testid="travel-item-selector">Link to travel item for {props.tripId}</div>;
   },
