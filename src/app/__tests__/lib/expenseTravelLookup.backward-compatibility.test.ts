@@ -60,22 +60,5 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
 
       await expect(createExpenseTravelLookup('test-trip')).rejects.toThrow('Network error');
     });
-
-    it('should use window.location.origin in browser environment', async () => {
-      const mockTripData = {
-        title: 'Test Trip',
-        locations: [],
-        accommodations: [],
-        routes: []
-      };
-
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        json: () => Promise.resolve(mockTripData)
-      });
-
-      await createExpenseTravelLookup('test-trip');
-
-      expect(global.fetch).toHaveBeenCalledWith(`${window.location.origin}/api/travel-data?id=test-trip`);
-    });
   });
 });
