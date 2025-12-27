@@ -159,7 +159,7 @@ describe('Cost Tracking Validation Manual Test', () => {
     const trip1Data = await createTestTripData();
     
     // Create second trip with different ID
-    const trip2Id = `testvalidation2${Date.now()}`;
+    const trip2Id = `testvalidation2${Math.random().toString(36).slice(2)}`;
     const trip2Data: UnifiedTripData = {
       ...trip1Data,
       id: trip2Id,
