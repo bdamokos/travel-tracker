@@ -39,6 +39,11 @@ describe('YnabImportForm', () => {
     (global.fetch as jest.Mock).mockClear();
   });
 
+  const navigateToFileUploadStep = () => {
+    fireEvent.click(screen.getByText('Upload YNAB Export File'));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+  };
+
   it('renders when isOpen is true', () => {
     render(
       <YnabImportForm
@@ -82,7 +87,7 @@ describe('YnabImportForm', () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shows file upload interface in step 1', () => {
+  it('shows file upload interface after selecting file import method', async () => {
     render(
       <YnabImportForm
         isOpen={true}
@@ -92,8 +97,7 @@ describe('YnabImportForm', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Upload YNAB Export File'));
-    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+    navigateToFileUploadStep();
 
     expect(screen.getByText('Choose TSV or ZIP File')).toBeInTheDocument();
     expect(screen.getByText(/Upload your YNAB export file/)).toBeInTheDocument();
@@ -128,8 +132,7 @@ describe('YnabImportForm', () => {
     // Initially should show method selection
     expect(screen.getByText('Choose Import Method')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Upload YNAB Export File'));
-    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+    navigateToFileUploadStep();
 
     // After selecting file import, should show upload step
     expect(screen.getByText('Upload YNAB Export')).toBeInTheDocument();
