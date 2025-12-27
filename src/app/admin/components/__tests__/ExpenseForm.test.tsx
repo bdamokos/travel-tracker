@@ -5,7 +5,7 @@ import ExpenseForm from '../ExpenseForm';
 import { ExpenseType } from '../../../types';
 import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
 
-const mockFetch = jest.fn();
+
 
 jest.mock('../TravelItemSelector', () => ({
   __esModule: true,
@@ -15,6 +15,13 @@ jest.mock('../TravelItemSelector', () => ({
 }));
 
 describe('ExpenseForm', () => {
+  // Ensure fetch is defined so we can spy on it
+  beforeAll(() => {
+    if (!global.fetch) {
+      global.fetch = jest.fn();
+    }
+  });
+
   const mockTripData = {
     title: 'Test Trip',
     locations: [],
@@ -51,11 +58,14 @@ describe('ExpenseForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFetch.mockResolvedValue({
+    jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => []
     } as Response);
-    global.fetch = mockFetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders expense form with all required fields', () => {
