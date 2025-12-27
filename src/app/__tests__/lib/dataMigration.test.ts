@@ -361,8 +361,8 @@ describe('Data Migration System', () => {
   });
 
   describe('CURRENT_SCHEMA_VERSION', () => {
-    it('should be set to 4', () => {
-      expect(CURRENT_SCHEMA_VERSION).toBe(4);
+    it('should have the correct schema version', () => {
+      expect(CURRENT_SCHEMA_VERSION).toBe(6);
     });
   });
 });
