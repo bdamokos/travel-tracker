@@ -141,8 +141,8 @@ describe('AccessibleDatePicker', () => {
       const user = userEvent.setup();
       render(<AccessibleDatePicker {...defaultProps} />);
       
-      const firstSegment = screen.getAllByRole('spinbutton')[0];
-      await user.click(firstSegment);
+      const calendarButton = screen.getByRole('button', { name: /open calendar/i });
+      calendarButton.focus();
       await user.keyboard('{Enter}');
       
       // Calendar should be opened - we can check for calendar elements
@@ -266,8 +266,8 @@ describe('AccessibleDatePicker', () => {
     it('has proper ARIA labels', () => {
       render(<AccessibleDatePicker {...defaultProps} aria-label="Custom date picker" />);
       
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveAccessibleName(/custom date picker/i);
+      const group = screen.getByRole('group', { name: /custom date picker/i });
+      expect(group).toHaveAccessibleName(/custom date picker/i);
     });
 
     it('supports aria-describedby', () => {
@@ -278,19 +278,21 @@ describe('AccessibleDatePicker', () => {
         </div>
       );
       
-      const input = screen.getByRole('textbox');
-      expect(input).toHaveAttribute('aria-describedby', 'date-help');
+      const group = screen.getByRole('group', { name: /test date picker/i });
+      expect(group).toHaveAttribute('aria-describedby', 'date-help');
     });
 
     it('has proper focus management', async () => {
       const user = userEvent.setup();
       render(<AccessibleDatePicker {...defaultProps} />);
       
-      const input = screen.getByRole('textbox');
+      const segments = screen.getAllByRole('spinbutton');
       const calendarButton = screen.getByRole('button', { name: /open calendar/i });
       
-      // Tab should move focus from input to button
-      await user.click(input);
+      // Tab should move focus through segments to the calendar button
+      await user.click(segments[0]);
+      await user.tab();
+      await user.tab();
       await user.tab();
       
       expect(calendarButton).toHaveFocus();
@@ -330,10 +332,10 @@ describe('AccessibleDatePicker', () => {
       
       // Should not call onChange if it would violate min constraint
       // This test verifies the constraint logic exists
-      expect(input).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: /test date picker/i })).toBeInTheDocument();
     });
 
-    it('respects maximum date constraint', () => {
+    it('respects maximum date constraint', async () => {
       const maxDate = new Date('2024-01-20');
       const onChange = jest.fn();
       
@@ -347,7 +349,8 @@ describe('AccessibleDatePicker', () => {
       );
       
       const daySegment = screen.getAllByRole('spinbutton')[1];
-      fireEvent.keyDown(daySegment, { key: 'ArrowRight' });
+      await userEvent.click(daySegment);
+      await userEvent.keyboard('{ArrowUp}');
       
       // Should call onChange as it doesn't violate max constraint
       expect(onChange).toHaveBeenCalled();
@@ -383,7 +386,7 @@ describe('AccessibleDatePicker', () => {
   describe('Dark Mode Support', () => {
     it('applies dark mode classes', () => {
       const { container } = render(<AccessibleDatePicker {...defaultProps} />);
-      const fieldContainer = container.querySelector('.dark:bg-gray-700.dark\:text-white.dark\:border-gray-600');
+      const fieldContainer = container.querySelector('.dark\\:bg-gray-700.dark\\:text-white.dark\\:border-gray-600');
       expect(fieldContainer).toBeTruthy();
       const button = screen.getByRole('button', { name: /open calendar/i });
       expect(button).toHaveClass('dark:bg-gray-600', 'dark:hover:bg-gray-500');
