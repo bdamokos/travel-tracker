@@ -7,7 +7,7 @@ import {
   createCashSourceExpense,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
-import { CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
 
 describe('cash transaction utilities', () => {
   const baseDate = new Date('2024-01-01T00:00:00Z');
@@ -49,7 +49,7 @@ describe('cash transaction utilities', () => {
     });
 
     expect(refund.amount).toBeCloseTo(-50, 5);
-    expect(refund.category).toBe(CASH_CATEGORY_NAME);
+    expect(refund.category).toBe(REFUNDS_CATEGORY_NAME);
     expect(refund.cashTransaction).toBeDefined();
     expect(refund.cashTransaction?.sourceType).toBe('refund');
     expect(refund.cashTransaction?.originalBaseAmount).toBeCloseTo(50, 5);
