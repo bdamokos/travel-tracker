@@ -39,6 +39,11 @@ describe('YnabImportForm', () => {
     (global.fetch as jest.Mock).mockClear();
   });
 
+  const navigateToFileUploadStep = () => {
+    fireEvent.click(screen.getByText('Upload YNAB Export File'));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+  };
+
   it('renders when isOpen is true', () => {
     render(
       <YnabImportForm
@@ -49,8 +54,9 @@ describe('YnabImportForm', () => {
       />
     );
 
-    expect(screen.getByText('Upload YNAB Export')).toBeInTheDocument();
-    expect(screen.getByText('Choose TSV or ZIP File')).toBeInTheDocument();
+    expect(screen.getByText('Choose Import Method')).toBeInTheDocument();
+    expect(screen.getByText('Upload YNAB Export File')).toBeInTheDocument();
+    expect(screen.getByText('Load from YNAB API')).toBeInTheDocument();
   });
 
   it('does not render when isOpen is false', () => {
@@ -63,7 +69,7 @@ describe('YnabImportForm', () => {
       />
     );
 
-    expect(screen.queryByText('Upload YNAB Export')).not.toBeInTheDocument();
+    expect(screen.queryByText('Choose Import Method')).not.toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', () => {
@@ -81,7 +87,7 @@ describe('YnabImportForm', () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shows file upload interface in step 1', () => {
+  it('shows file upload interface after selecting file import method', async () => {
     render(
       <YnabImportForm
         isOpen={true}
@@ -90,6 +96,8 @@ describe('YnabImportForm', () => {
         onClose={mockOnClose}
       />
     );
+
+    navigateToFileUploadStep();
 
     expect(screen.getByText('Choose TSV or ZIP File')).toBeInTheDocument();
     expect(screen.getByText(/Upload your YNAB export file/)).toBeInTheDocument();
@@ -121,10 +129,13 @@ describe('YnabImportForm', () => {
       />
     );
 
-    // Initially should show step 1
-    expect(screen.getByText('Upload YNAB Export')).toBeInTheDocument();
+    // Initially should show method selection
+    expect(screen.getByText('Choose Import Method')).toBeInTheDocument();
 
-    // Check that file upload button is present
+    navigateToFileUploadStep();
+
+    // After selecting file import, should show upload step
+    expect(screen.getByText('Upload YNAB Export')).toBeInTheDocument();
     const fileInput = screen.getByRole('button', { name: /choose tsv or zip file/i });
     expect(fileInput).toBeInTheDocument();
   });
@@ -143,6 +154,7 @@ describe('YnabImportForm', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('uses AccessibleModal with correct accessibility attributes', () => {
@@ -159,6 +171,6 @@ describe('YnabImportForm', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(screen.getByText('Upload YNAB Export')).toBeInTheDocument();
+    expect(screen.getByText('Choose Import Method')).toBeInTheDocument();
   });
 });
