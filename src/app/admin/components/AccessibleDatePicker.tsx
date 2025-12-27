@@ -96,7 +96,7 @@ export default function AccessibleDatePicker({
   return (
     <OverlayProvider>
       <div className="relative">
-        <div {...groupProps} ref={groupRef} className="flex items-stretch">
+        <div {...groupProps} aria-required={required || undefined} ref={groupRef} className="flex items-stretch">
           <DateField
             {...fieldProps}
             id={id}
