@@ -5,7 +5,7 @@ import {
   Expense,
   TravelReference
 } from '../types';
-import { CASH_CATEGORY_NAME, generateId } from './costUtils';
+import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME, generateId } from './costUtils';
 
 const CURRENCY_EPSILON = 0.000001;
 
@@ -79,6 +79,9 @@ export interface CashRefundToBaseParams {
 
 
 function getSourceDisplayAmount(details: CashTransactionSourceDetails): number {
+  if (details.sourceType === 'refund') {
+    return roundCurrency(-details.originalBaseAmount);
+  }
   return roundCurrency(details.remainingBaseAmount);
 }
 
@@ -147,9 +150,9 @@ export function createCashRefundExpense(params: CashRefundParams): Expense {
   return {
     id,
     date: params.date,
-    amount: roundedBase,
+    amount: -roundedBase,
     currency: params.trackingCurrency,
-    category: CASH_CATEGORY_NAME,
+    category: REFUNDS_CATEGORY_NAME,
     country: params.country || '',
     description:
       params.description ||

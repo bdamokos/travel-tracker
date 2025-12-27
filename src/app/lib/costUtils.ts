@@ -15,12 +15,12 @@ function isPostTripExpense(expense: Expense, tripEndDate: Date): boolean {
  */
 function calculateExpenseTotals(expenses: Expense[], expenseType: ExpenseType | 'post-trip', tripEndDate?: Date): { outflows: number, refunds: number, net: number } {
   let filteredExpenses: Expense[];
-  
+
   if (expenseType === 'post-trip') {
     // For post-trip, filter actual expenses that are after trip end date
-    filteredExpenses = expenses.filter(e => 
-      (e.expenseType || 'actual') === 'actual' && 
-      tripEndDate && 
+    filteredExpenses = expenses.filter(e =>
+      (e.expenseType || 'actual') === 'actual' &&
+      tripEndDate &&
       isPostTripExpense(e, tripEndDate)
     );
   } else {
@@ -37,7 +37,7 @@ function calculateExpenseTotals(expenses: Expense[], expenseType: ExpenseType | 
       return false;
     });
   }
-  
+
   const outflows = filteredExpenses.filter(e => e.amount > 0).reduce((sum, e) => sum + e.amount, 0);
   const refunds = Math.abs(filteredExpenses.filter(e => e.amount < 0).reduce((sum, e) => sum + e.amount, 0));
   const net = outflows - refunds;
@@ -51,19 +51,19 @@ function getExpensesByDateAndType(expenses: Expense[], startDate: Date, endDate:
   return expenses.filter(expense => {
     const expenseDate = new Date(expense.date);
     const eType = expense.expenseType || 'actual';
-    
+
     // Date range check
     const inDateRange = expenseDate >= startDate && expenseDate <= endDate;
     if (!inDateRange) return false;
-    
+
     // Type check
     if (expenseType && eType !== expenseType) return false;
-    
+
     // Exclude post-trip expenses from actual expenses
     if (eType === 'actual' && tripEndDate && isPostTripExpense(expense, tripEndDate)) {
       return false;
     }
-    
+
     return true;
   });
 }
@@ -75,18 +75,18 @@ function getExpensesBeforeDate(expenses: Expense[], date: Date, expenseType?: Ex
   return expenses.filter(expense => {
     const expenseDate = new Date(expense.date);
     const eType = expense.expenseType || 'actual';
-    
+
     // Date check
     if (expenseDate >= date) return false;
-    
+
     // Type check
     if (expenseType && eType !== expenseType) return false;
-    
+
     // Exclude post-trip expenses from actual expenses
     if (eType === 'actual' && tripEndDate && isPostTripExpense(expense, tripEndDate)) {
       return false;
     }
-    
+
     return true;
   });
 }
@@ -101,7 +101,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const startDate = new Date(costData.tripStartDate);
   const endDate = new Date(costData.tripEndDate);
   const msPerDay = 1000 * 3600 * 24;
-  
+
   // Calculate total days and remaining days
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / msPerDay) + 1;
   const remainingDays = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / msPerDay));
@@ -118,7 +118,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 
     return Math.min(Math.max(elapsedDays, 1), totalDays);
   })();
-  
+
   // Determine trip status
   let tripStatus: 'before' | 'during' | 'after';
   if (today < startDate) {
@@ -128,30 +128,30 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   } else {
     tripStatus = 'after';
   }
-  
+
   // Calculate totals by expense type (with automatic post-trip detection)
   const actualTotals = calculateExpenseTotals(costData.expenses, 'actual', endDate);
   const plannedTotals = calculateExpenseTotals(costData.expenses, 'planned', endDate);
   const postTripTotals = calculateExpenseTotals(costData.expenses, 'post-trip', endDate);
-  
+
   // Calculate date-based breakdowns for actual expenses only (excluding post-trip)
   const preTripActualExpenses = getExpensesBeforeDate(costData.expenses, startDate, 'actual', endDate);
   const tripActualExpenses = getExpensesByDateAndType(costData.expenses, startDate, endDate, 'actual', endDate);
-  
+
   const preTripActualTotals = calculateExpenseTotals(preTripActualExpenses, 'actual', endDate);
   const tripActualTotals = calculateExpenseTotals(tripActualExpenses, 'actual', endDate);
-  
+
   // Total spent = actual expenses only (for backward compatibility)
   const totalSpent = actualTotals.net;
   const totalRefunds = actualTotals.refunds;
-  
+
   // Calculate committed spending (actual + planned) for budget planning
   const totalCommittedSpending = actualTotals.net + plannedTotals.net;
   const availableForPlanning = totalBudget - totalCommittedSpending;
-  
+
   // Remaining budget calculation: budget - actual - planned (but not post-trip)
   const remainingBudget = totalBudget - totalCommittedSpending;
-  
+
   // Extract individual components for summary
   const preTripSpent = preTripActualTotals.net;
   const preTripRefunds = preTripActualTotals.refunds;
@@ -161,11 +161,11 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const postTripRefunds = postTripTotals.refunds;
   const plannedSpending = plannedTotals.net;
   const plannedRefunds = plannedTotals.refunds;
-  
+
   // Calculate intelligent averages based on trip status
   let averageSpentPerDay: number;
   let averageSpentPerTripDay: number;
-  
+
   if (tripStatus === 'before') {
     // Before trip: no daily average yet, trip hasn't started
     averageSpentPerDay = 0;
@@ -180,7 +180,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     averageSpentPerDay = totalDays > 0 ? tripSpent / totalDays : 0;
     averageSpentPerTripDay = averageSpentPerDay;
   }
-  
+
   // Suggested daily budget should use remaining days when in-trip, otherwise total duration
   let dailyBudgetBasisDays: number;
   if (tripStatus === 'during') {
@@ -251,10 +251,10 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 
     return history;
   })();
-  
+
   // Calculate country breakdowns
   const countryBreakdown = calculateCountryBreakdowns(costData);
-  
+
   return {
     totalBudget,
     totalSpent,
@@ -289,7 +289,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
  */
 export function calculateCountryBreakdowns(costData: CostTrackingData): CountryBreakdown[] {
   const countryMap = new Map<string, CountryBreakdown>();
-  
+
   // Calculate trip status for consistent logic
   const today = new Date();
   const startDate = new Date(costData.tripStartDate);
@@ -302,7 +302,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   } else {
     tripStatus = 'after';
   }
-  
+
   // Initialize with country budgets
   costData.countryBudgets.forEach(budget => {
     countryMap.set(budget.country, {
@@ -326,7 +326,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       availableForPlanning: budget.amount || 0
     });
   });
-  
+
   // Add expenses to countries (including unassigned as a pseudo-country)
   costData.expenses.forEach(expense => {
     if (!expense.isGeneralExpense) {
@@ -355,13 +355,13 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
           availableForPlanning: 0
         });
       }
-      
+
       const countryData = countryMap.get(countryName)!;
       const expenseType = expense.expenseType || 'actual';
-      
+
       // Handle different expense types (with automatic post-trip detection)
       const isPostTrip = isPostTripExpense(expense, endDate);
-      
+
       if (expenseType === 'actual' && isPostTrip) {
         // Post-trip expense
         if (expense.amount > 0) {
@@ -383,17 +383,17 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
           countryData.plannedRefunds += Math.abs(expense.amount);
         }
       }
-      
+
       // Update remaining calculations
       const netActual = countryData.spentAmount - countryData.refundAmount;
       const netPlanned = countryData.plannedSpending - countryData.plannedRefunds;
       countryData.remainingAmount = countryData.budgetAmount - netActual - netPlanned;
       countryData.availableForPlanning = countryData.budgetAmount - netActual - netPlanned;
-      
+
       countryData.expenses.push(expense);
     }
   });
-  
+
   // Add general expenses as a separate entry
   const generalExpenses = costData.expenses.filter(expense => expense.isGeneralExpense);
   if (generalExpenses.length > 0) {
@@ -401,9 +401,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     const generalActualTotals = calculateExpenseTotals(generalExpenses, 'actual', endDate);
     const generalPlannedTotals = calculateExpenseTotals(generalExpenses, 'planned', endDate);
     const generalPostTripTotals = calculateExpenseTotals(generalExpenses, 'post-trip', endDate);
-    
+
     // Calculate pre-trip vs trip spending for general actual expenses only (exclude post-trip)
-    const generalActualExpenses = generalExpenses.filter(e => 
+    const generalActualExpenses = generalExpenses.filter(e =>
       (e.expenseType || 'actual') === 'actual' && !isPostTripExpense(e, endDate)
     );
     const generalPreTrip = generalActualExpenses.filter(e => new Date(e.date) < startDate).reduce((sum, e) => sum + e.amount, 0);
@@ -411,7 +411,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       const date = new Date(e.date);
       return date >= startDate && date <= endDate;
     }).reduce((sum, e) => sum + e.amount, 0);
-    
+
     countryMap.set('General', {
       country: 'General',
       budgetAmount: 0, // General expenses don't have specific budgets
@@ -433,11 +433,11 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       availableForPlanning: -(generalActualTotals.net + generalPlannedTotals.net)
     });
   }
-  
+
   // Calculate days, averages, and category breakdowns for each country
   countryMap.forEach(countryData => {
     // Calculate pre-trip vs trip spending for this country (actual expenses only, exclude post-trip)
-    const actualExpenses = countryData.expenses.filter(e => 
+    const actualExpenses = countryData.expenses.filter(e =>
       (e.expenseType || 'actual') === 'actual' && !isPostTripExpense(e, endDate)
     );
     const preTripActualExpenses = actualExpenses.filter(e => new Date(e.date) < startDate);
@@ -445,10 +445,10 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       const date = new Date(e.date);
       return date >= startDate && date <= endDate;
     });
-    
+
     countryData.preTripSpent = preTripActualExpenses.reduce((sum, e) => sum + e.amount, 0);
     countryData.tripSpent = tripActualExpenses.reduce((sum, e) => sum + e.amount, 0);
-    
+
     // Update remaining calculations to include planned expenses
     const netActual = countryData.spentAmount - countryData.refundAmount;
     const netPlanned = countryData.plannedSpending - countryData.plannedRefunds;
@@ -456,7 +456,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     countryData.availableForPlanning = countryData.budgetAmount - netActual - netPlanned;
     // Calculate days spent in country based on configured periods or expenses
     const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
-    
+
     if (countryBudget?.periods && countryBudget.periods.length > 0) {
       // Use configured periods to calculate total days
       countryData.days = countryBudget.periods.reduce((totalDays, period) => {
@@ -476,7 +476,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
         countryData.days = 0;
       }
     }
-    
+
     // Calculate suggested daily budget for remaining days (if country has budget)
     if (countryData.budgetAmount > 0 && countryBudget?.periods) {
       // Account for actual spending and planned spending
@@ -495,11 +495,11 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       today,
       tripStatus
     );
-    
+
     // Calculate category breakdown for this country
     countryData.categoryBreakdown = calculateCategoryBreakdown(countryData.expenses);
   });
-  
+
   return Array.from(countryMap.values()).sort((a, b) => b.spentAmount - a.spentAmount);
 }
 
@@ -512,18 +512,18 @@ function calculateRemainingDaysInCountry(
   tripEndDate: Date
 ): number {
   let remainingDays = 0;
-  
+
   for (const period of periods) {
     const periodStart = new Date(period.startDate);
     const periodEnd = new Date(Math.min(new Date(period.endDate).getTime(), tripEndDate.getTime()));
-    
+
     if (today < periodEnd) {
       const startFrom = today > periodStart ? today : periodStart;
       const daysInPeriod = Math.ceil((periodEnd.getTime() - startFrom.getTime()) / (1000 * 3600 * 24)) + 1;
       remainingDays += Math.max(0, daysInPeriod);
     }
   }
-  
+
   return remainingDays;
 }
 
@@ -544,7 +544,7 @@ function calculateCountryDailyAverage(
   }
 
   // NEW LOGIC: Show meaningful averages based on what makes sense for each trip status
-  
+
   if (tripStatus === 'before') {
     // Before trip: If we have pre-trip expenses, show them (useful for preparation costs)
     // But don't divide by days since that doesn't make sense pre-trip
@@ -594,12 +594,12 @@ function calculateDailyAverageWithPeriods(
   for (const period of periods) {
     const periodStart = new Date(period.startDate);
     const periodEnd = new Date(period.endDate);
-    
+
     // Skip periods that haven't started yet
     if (today < periodStart) {
       continue;
     }
-    
+
     // For periods that have started, calculate elapsed days
     const effectiveEnd = today < periodEnd ? today : periodEnd;
     const elapsedDays = Math.ceil((effectiveEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24)) + 1;
@@ -652,7 +652,7 @@ function calculateDailyAverageWithoutPeriods(
 
   // Calculate elapsed days
   const elapsedDays = Math.ceil((endDateForCalc.getTime() - startDateForCalc.getTime()) / (1000 * 3600 * 24)) + 1;
-  
+
   return elapsedDays > 0 ? tripSpent / elapsedDays : 0;
 }
 
@@ -661,7 +661,7 @@ function calculateDailyAverageWithoutPeriods(
  */
 export function calculateCategoryBreakdown(expenses: Expense[]): CategoryBreakdown[] {
   const categoryMap = new Map<string, CategoryBreakdown>();
-  
+
   expenses.forEach(expense => {
     if (!categoryMap.has(expense.category)) {
       categoryMap.set(expense.category, {
@@ -670,12 +670,12 @@ export function calculateCategoryBreakdown(expenses: Expense[]): CategoryBreakdo
         count: 0
       });
     }
-    
+
     const categoryData = categoryMap.get(expense.category)!;
     categoryData.amount += expense.amount;
     categoryData.count += 1;
   });
-  
+
   return Array.from(categoryMap.values()).sort((a, b) => b.amount - a.amount);
 }
 
@@ -685,7 +685,7 @@ export function calculateCategoryBreakdown(expenses: Expense[]): CategoryBreakdo
 export function getExpensesByDateRange(expenses: Expense[], startDate: string, endDate: string): Expense[] {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  
+
   return expenses.filter(expense => {
     const expenseDate = new Date(expense.date);
     return expenseDate >= start && expenseDate <= end;
@@ -711,12 +711,12 @@ export function getExpensesByCategory(expenses: Expense[], category: string): Ex
  */
 export function calculateDailySpendingTrend(expenses: Expense[]): { date: string; amount: number }[] {
   const dailySpending = new Map<string, number>();
-  
+
   expenses.forEach(expense => {
     const date = expense.date instanceof Date ? expense.date.toISOString().split('T')[0] : expense.date;
     dailySpending.set(date, (dailySpending.get(date) || 0) + expense.amount);
   });
-  
+
   return Array.from(dailySpending.entries())
     .map(([date, amount]) => ({ date, amount }))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -726,6 +726,7 @@ export function calculateDailySpendingTrend(expenses: Expense[]): { date: string
  * Get common expense categories
  */
 export const CASH_CATEGORY_NAME = 'Local currency held in cash';
+export const REFUNDS_CATEGORY_NAME = 'Refunds';
 
 export const EXPENSE_CATEGORIES = [
   'Accommodation',
@@ -753,7 +754,7 @@ export function generateId(): string {
  */
 export function isExpenseWithinPeriods(expense: Expense, periods: CountryPeriod[]): boolean {
   if (!periods || periods.length === 0) return true;
-  
+
   const expenseDate = new Date(expense.date);
   return periods.some(period => {
     const periodStart = new Date(period.startDate);
@@ -780,37 +781,37 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
 export function formatDate(dateInput: string | Date): string {
   // Handle different date formats
   let date: Date;
-  
+
   // If it's already a Date object, use it directly
   if (dateInput instanceof Date) {
     date = dateInput;
   } else {
     const dateString = dateInput;
-    
+
     // Check if it's in dd/mm/yyyy format (from YNAB imports)
-  if (dateString.includes('/') && dateString.split('/').length === 3) {
-    const parts = dateString.split('/');
-    if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
-      // Assume dd/mm/yyyy format
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-      const year = parseInt(parts[2], 10);
-      date = new Date(year, month, day);
+    if (dateString.includes('/') && dateString.split('/').length === 3) {
+      const parts = dateString.split('/');
+      if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+        // Assume dd/mm/yyyy format
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+        const year = parseInt(parts[2], 10);
+        date = new Date(year, month, day);
+      } else {
+        // Try to parse as-is
+        date = new Date(dateString);
+      }
     } else {
-      // Try to parse as-is
+      // Try to parse as-is (ISO format, etc.)
       date = new Date(dateString);
     }
-  } else {
-    // Try to parse as-is (ISO format, etc.)
-    date = new Date(dateString);
   }
-  }
-  
+
   // Check if date is valid
   if (isNaN(date.getTime())) {
     return 'Invalid Date';
   }
-  
+
   return formatUtcDate(date, 'en-GB', {
     day: 'numeric',
     month: 'short',
@@ -829,14 +830,14 @@ export function calculatePercentage(value: number, total: number): number {
  * Format currency amount with refund footnote if applicable
  */
 export function formatCurrencyWithRefunds(
-  netAmount: number, 
-  refundAmount: number, 
+  netAmount: number,
+  refundAmount: number,
   currency: string = 'EUR'
 ): { displayText: string; hasRefunds: boolean; footnote?: string } {
   const hasRefunds = refundAmount > 0;
   const displayText = formatCurrency(netAmount, currency) + (hasRefunds ? '*' : '');
   const footnote = hasRefunds ? `*Total includes ${formatCurrency(refundAmount, currency)} of refunds` : undefined;
-  
+
   return {
     displayText,
     hasRefunds,
@@ -865,10 +866,10 @@ export function getCountryAverageDisplay(
   countryData: CountryBreakdown,
   tripStatus: 'before' | 'during' | 'after',
   currency: string = 'EUR'
-): { 
-  label: string; 
-  value: string; 
-  tooltip?: string 
+): {
+  label: string;
+  value: string;
+  tooltip?: string
 } {
   if (countryData.country === 'General') {
     return { label: 'Avg/Day', value: 'N/A' };
