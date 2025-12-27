@@ -5,11 +5,13 @@ import ExpenseForm from '../ExpenseForm';
 import { ExpenseType } from '../../../types';
 import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
 
+const mockTravelItemSelector = jest.fn();
 jest.mock('../TravelItemSelector', () => ({
   __esModule: true,
-  default: ({ tripId }: { tripId: string }) => (
-    <div data-testid="travel-item-selector">Link to travel item for {tripId}</div>
-  )
+  default: (props: any) => {
+    mockTravelItemSelector(props);
+    return <div data-testid="travel-item-selector">Link to travel item for {props.tripId}</div>;
+  },
 }));
 
 describe('ExpenseForm', () => {
@@ -55,6 +57,7 @@ describe('ExpenseForm', () => {
       json: async () => []
     } as Response);
     global.fetch = fetchMock as unknown as typeof fetch;
+    mockTravelItemSelector.mockClear();
   });
 
   afterEach(() => {
