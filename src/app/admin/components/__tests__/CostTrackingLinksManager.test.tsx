@@ -167,7 +167,7 @@ describe('CostTrackingLinksManager', () => {
   it('links an expense and clears the current selection', async () => {
     render(<CostTrackingLinksManager {...defaultProps} />);
 
-    fireEvent.change(screen.getByLabelText('Choose an expense...'), {
+    fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'expense-2' }
     });
 
@@ -190,7 +190,7 @@ describe('CostTrackingLinksManager', () => {
     expect(mutateLinksMock).toHaveBeenCalled();
     expect(mutateAllLinksMock).toHaveBeenCalled();
     await waitFor(() => {
-      expect((screen.getByLabelText('Choose an expense...') as HTMLSelectElement).value).toBe('');
+      expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('');
     });
   });
 });
