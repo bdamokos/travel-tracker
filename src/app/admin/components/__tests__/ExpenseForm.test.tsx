@@ -1,27 +1,22 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ExpenseForm from '../ExpenseForm';
 import { ExpenseType } from '../../../types';
 import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
 
-
-
+const mockTravelItemSelector = jest.fn();
 jest.mock('../TravelItemSelector', () => ({
   __esModule: true,
-  default: ({ tripId }: { tripId: string }) => (
-    <div data-testid="travel-item-selector">Link to travel item for {tripId}</div>
-  )
+  default: (props: any) => {
+    mockTravelItemSelector(props);
+    return <div data-testid="travel-item-selector">Link to travel item for {props.tripId}</div>;
+  },
 }));
 
 describe('ExpenseForm', () => {
-  // Ensure fetch is defined so we can spy on it
-  beforeAll(() => {
-    if (!global.fetch) {
-      global.fetch = jest.fn();
-    }
-  });
-
+  const fetchMock = jest.fn();
+  const originalFetch = global.fetch;
   const mockTripData = {
     title: 'Test Trip',
     locations: [],
@@ -57,15 +52,20 @@ describe('ExpenseForm', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.spyOn(global, 'fetch').mockResolvedValue({
+    fetchMock.mockResolvedValue({
       ok: true,
       json: async () => []
     } as Response);
+    global.fetch = fetchMock as unknown as typeof fetch;
+    mockTravelItemSelector.mockClear();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    fetchMock.mockReset();
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
   });
 
   it('renders expense form with all required fields', () => {
@@ -117,6 +117,45 @@ describe('ExpenseForm', () => {
     expect(screen.getByText('Edit Expense')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /update expense/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel edit/i })).toBeInTheDocument();
+  });
+
+  it('fetches existing travel links when editing an expense', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        {
+          expenseId: 'test-expense-1',
+          travelItemId: 'route-123',
+          travelItemName: 'Train to Paris',
+          travelItemType: 'route'
+        }
+      ]
+    } as Response);
+
+    const editingProps = {
+      ...defaultProps,
+      editingExpenseIndex: 0,
+      currentExpense: {
+        ...defaultProps.currentExpense,
+        id: 'test-expense-1',
+        description: 'Test expense'
+      }
+    };
+
+    render(<ExpenseForm {...editingProps} />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/travel-data/test-trip-1/expense-links');
+      expect(mockTravelItemSelector).toHaveBeenCalledWith(
+        expect.objectContaining({
+          initialValue: {
+            id: 'route-123',
+            name: 'Train to Paris',
+            type: 'route',
+          },
+        })
+      );
+    });
   });
 
   it('cancels edit mode correctly', async () => {
