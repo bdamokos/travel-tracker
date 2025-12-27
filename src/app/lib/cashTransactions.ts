@@ -76,20 +76,9 @@ export interface CashRefundToBaseParams {
   exchangeFeeCategory?: string;
 }
 
-/**
- * Get the cash source type, defaulting to 'exchange' when not specified.
- *
- * @param details - Cash transaction source details; may include `sourceType` (`'exchange' | 'refund'`)
- * @returns The source type: `'exchange'` if `details.sourceType` is undefined, otherwise the provided value
- */
-function getSourceType(details: CashTransactionSourceDetails): 'exchange' | 'refund' {
-  return details.sourceType ?? 'exchange';
-}
+
 
 function getSourceDisplayAmount(details: CashTransactionSourceDetails): number {
-  if (getSourceType(details) === 'refund') {
-    return roundCurrency(-details.originalBaseAmount);
-  }
   return roundCurrency(details.remainingBaseAmount);
 }
 
@@ -158,7 +147,7 @@ export function createCashRefundExpense(params: CashRefundParams): Expense {
   return {
     id,
     date: params.date,
-    amount: -roundedBase,
+    amount: roundedBase,
     currency: params.trackingCurrency,
     category: CASH_CATEGORY_NAME,
     country: params.country || '',
@@ -675,6 +664,7 @@ export function createCashRefundToBase(params: CashRefundToBaseParams): {
   const refundSourceDetails = refundExpense.cashTransaction as CashTransactionSourceDetails;
   const refundWithFunding: Expense = {
     ...refundExpense,
+    amount: -refundBaseAmount,
     cashTransaction: {
       ...refundSourceDetails,
       remainingLocalAmount: 0,
@@ -686,17 +676,17 @@ export function createCashRefundToBase(params: CashRefundToBaseParams): {
   const feeExpense =
     loss > 0
       ? ({
-          id: generateId(),
-          date: params.date,
-          amount: loss,
-          currency: params.trackingCurrency,
-          category: params.exchangeFeeCategory || 'Exchange fees',
-          country: params.country || '',
-          description: `Exchange loss on ${referenceCurrency} refund`,
-          notes: `Associated with refund transaction: ${refundExpense.id}`,
-          isGeneralExpense: params.isGeneralExpense ?? !params.country,
-          expenseType: 'actual'
-        } satisfies Expense)
+        id: generateId(),
+        date: params.date,
+        amount: loss,
+        currency: params.trackingCurrency,
+        category: params.exchangeFeeCategory || 'Exchange fees',
+        country: params.country || '',
+        description: `Exchange loss on ${referenceCurrency} refund`,
+        notes: `Associated with refund transaction: ${refundExpense.id}`,
+        isGeneralExpense: params.isGeneralExpense ?? !params.country,
+        expenseType: 'actual'
+      } satisfies Expense)
       : undefined;
 
   const updatedSources = applyAllocationSegmentsToSources(params.sources, segments, refundExpense.id);
