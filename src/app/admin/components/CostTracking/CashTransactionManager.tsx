@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { CostTrackingData, Expense } from '../../../types';
 import AccessibleDatePicker from '../AccessibleDatePicker';
 import AriaSelect from '../AriaSelect';
@@ -169,6 +169,7 @@ export default function CashTransactionManager({
   const [conversionForm, setConversionForm] = useState<CashConversionFormState>(INITIAL_CONVERSION_FORM);
   const [refundToBaseForm, setRefundToBaseForm] = useState<CashRefundToBaseFormState>(INITIAL_REFUND_TO_BASE_FORM);
   const [allocationForms, setAllocationForms] = useState<Record<string, CashAllocationFormState>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const spendingCategories = useMemo(
     () => categories.filter(category => category !== CASH_CATEGORY_NAME),
@@ -279,18 +280,18 @@ export default function CashTransactionManager({
       prev.sourceCurrency
         ? prev
         : {
-            ...prev,
-            sourceCurrency: cashGroups[0].currency
-          }
+          ...prev,
+          sourceCurrency: cashGroups[0].currency
+        }
     );
 
     setRefundToBaseForm(prev =>
       prev.sourceCurrency
         ? prev
         : {
-            ...prev,
-            sourceCurrency: cashGroups[0].currency
-          }
+          ...prev,
+          sourceCurrency: cashGroups[0].currency
+        }
     );
   }, [cashGroups]);
 
@@ -303,39 +304,52 @@ export default function CashTransactionManager({
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-  const toggleSection = (key: keyof typeof openSections) =>
-    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleSection = useCallback(
+    (key: keyof typeof openSections) =>
+      setOpenSections(prev => ({ ...prev, [key]: !prev[key] })),
+    []
+  );
 
   useEffect(() => {
-    setExpandedGroups(prev => {
-      const next = { ...prev };
-      cashGroups.forEach(group => {
-        if (next[group.currency] === undefined) {
-          next[group.currency] = cashGroups.length <= 2;
-        }
-      });
-      Object.keys(next).forEach(currencyKey => {
-        if (!cashGroups.some(group => group.currency === currencyKey)) {
-          delete next[currencyKey];
-        }
-      });
-      return next;
+    setExpandedGroups(prevExpandedGroups => {
+      const newExpandedGroups = cashGroups.reduce(
+        (acc, group) => {
+          acc[group.currency] = prevExpandedGroups[group.currency] ?? cashGroups.length <= 2;
+          return acc;
+        },
+        {} as Record<string, boolean>
+      );
+
+      // Prevent unnecessary re-renders if the state is the same
+      if (
+        Object.keys(newExpandedGroups).length === Object.keys(prevExpandedGroups).length &&
+        Object.keys(newExpandedGroups).every(key => newExpandedGroups[key] === prevExpandedGroups[key])
+      ) {
+        return prevExpandedGroups;
+      }
+
+      return newExpandedGroups;
     });
   }, [cashGroups]);
 
   const cashOverview = useMemo(() => {
     const totalOriginalBase = cashGroups.reduce((sum, group) => sum + group.totalOriginalBase, 0);
     const totalRemainingBase = cashGroups.reduce((sum, group) => sum + group.totalRemainingBase, 0);
-    const totalRemainingLocal = cashGroups.reduce((sum, group) => sum + group.totalRemainingLocal, 0);
+    // Build per-currency breakdown instead of summing different currencies
+    const remainingByCurrency = cashGroups.map(group => ({
+      currency: group.currency,
+      amount: roundCurrency(group.totalRemainingLocal)
+    }));
     return {
       currencyCount: cashGroups.length,
       totalOriginalBase: roundCurrency(totalOriginalBase),
       totalRemainingBase: roundCurrency(totalRemainingBase),
-      totalRemainingLocal: roundCurrency(totalRemainingLocal)
+      remainingByCurrency
     };
   }, [cashGroups]);
 
   const handleCreateCashSource = async () => {
+    if (isSubmitting) return;
     if (!sourceForm.date) {
       alert('Please select the exchange date.');
       return;
@@ -360,6 +374,7 @@ export default function CashTransactionManager({
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const expense = createCashSourceExpense({
         date: sourceForm.date,
@@ -378,10 +393,13 @@ export default function CashTransactionManager({
     } catch (error) {
       console.error('Failed to create cash transaction:', error);
       alert(error instanceof Error ? error.message : 'Unable to create cash transaction.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCreateCashRefund = async () => {
+    if (isSubmitting) return;
     if (!refundForm.date) {
       alert('Please select the refund date.');
       return;
@@ -408,6 +426,7 @@ export default function CashTransactionManager({
 
     const exchangeRateBasePerLocal = 1 / exchangeRateLocalPerBase;
 
+    setIsSubmitting(true);
     try {
       const expense = createCashRefundExpense({
         date: refundForm.date,
@@ -431,10 +450,13 @@ export default function CashTransactionManager({
     } catch (error) {
       console.error('Failed to create cash refund:', error);
       alert(error instanceof Error ? error.message : 'Unable to create cash refund.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCreateConversion = async () => {
+    if (isSubmitting) return;
     if (!conversionForm.date) {
       alert('Please select the conversion date.');
       return;
@@ -476,6 +498,7 @@ export default function CashTransactionManager({
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const { newSource } = createCashConversion({
         sources: sourceGroup.sources,
@@ -499,10 +522,13 @@ export default function CashTransactionManager({
     } catch (error) {
       console.error('Failed to create cash conversion:', error);
       alert(error instanceof Error ? error.message : 'Unable to create cash conversion.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCreateRefundToBase = async () => {
+    if (isSubmitting) return;
     if (!refundToBaseForm.date) {
       alert('Please select the refund date.');
       return;
@@ -538,6 +564,7 @@ export default function CashTransactionManager({
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const { refundExpense, feeExpense } = createCashRefundToBase({
         sources: sourceGroup.sources,
@@ -566,6 +593,8 @@ export default function CashTransactionManager({
     } catch (error) {
       console.error('Failed to create refund to base:', error);
       alert(error instanceof Error ? error.message : 'Unable to create refund to base.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -629,6 +658,7 @@ export default function CashTransactionManager({
   };
 
   const handleAddAllocation = async (currencyKey: string) => {
+    if (isSubmitting) return;
     const formState = allocationForms[currencyKey];
     const group = cashGroups.find(item => item.currency === currencyKey);
 
@@ -659,16 +689,17 @@ export default function CashTransactionManager({
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const travelReference = formState.travelLink
         ? {
-            type: formState.travelLink.type,
-            description: formState.travelLink.name,
-            locationId: formState.travelLink.type === 'location' ? formState.travelLink.id : undefined,
-            accommodationId:
-              formState.travelLink.type === 'accommodation' ? formState.travelLink.id : undefined,
-            routeId: formState.travelLink.type === 'route' ? formState.travelLink.id : undefined
-          }
+          type: formState.travelLink.type,
+          description: formState.travelLink.name,
+          locationId: formState.travelLink.type === 'location' ? formState.travelLink.id : undefined,
+          accommodationId:
+            formState.travelLink.type === 'accommodation' ? formState.travelLink.id : undefined,
+          routeId: formState.travelLink.type === 'route' ? formState.travelLink.id : undefined
+        }
         : undefined;
 
       const { expense: allocationExpense } = createCashAllocationExpense({
@@ -699,6 +730,8 @@ export default function CashTransactionManager({
     } catch (error) {
       console.error('Failed to add cash spending:', error);
       alert(error instanceof Error ? error.message : 'Unable to add cash spending.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -811,7 +844,8 @@ export default function CashTransactionManager({
           isGeneralExpense: !allocationForm.country
         });
         estimatedBase = preview.expense.amount;
-      } catch {
+      } catch (error) {
+        console.error('Failed to estimate base amount for allocation preview:', error);
         estimatedBase = 0;
       }
     }
@@ -844,13 +878,14 @@ export default function CashTransactionManager({
             onClick={onToggle}
             className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
             aria-expanded={expanded}
+            aria-controls={`cash-group-allocations-${group.currency}`}
           >
             {expanded ? 'Hide allocations' : 'Show allocations'}
           </button>
         </div>
 
         {expanded && (
-          <>
+          <div id={`cash-group-allocations-${group.currency}`}>
             <div className="space-y-3">
               {group.sources.map(source => renderSourceSummary(source))}
             </div>
@@ -969,15 +1004,16 @@ export default function CashTransactionManager({
                     <button
                       type="button"
                       onClick={() => handleAddAllocation(group.currency)}
-                      className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                      disabled={isSubmitting}
+                      className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 disabled:opacity-50"
                     >
-                      Add cash spending
+                      {isSubmitting ? 'Adding...' : 'Add cash spending'}
                     </button>
                   </div>
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     );
@@ -1002,9 +1038,17 @@ export default function CashTransactionManager({
         </div>
         <div className="rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-3">
           <p className="text-xs uppercase tracking-wide text-blue-900 dark:text-blue-100">Local value</p>
-          <p className="text-2xl font-semibold text-blue-900 dark:text-blue-100">
-            {cashOverview.totalRemainingLocal.toFixed(2)}
-          </p>
+          {cashOverview.remainingByCurrency.length === 0 ? (
+            <p className="text-2xl font-semibold text-blue-900 dark:text-blue-100">—</p>
+          ) : (
+            <div className="space-y-0.5 mt-1">
+              {cashOverview.remainingByCurrency.map(item => (
+                <p key={item.currency} className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  {item.amount.toFixed(2)} {item.currency}
+                </p>
+              ))}
+            </div>
+          )}
           <p className="text-[11px] text-blue-900 dark:text-blue-100 mt-1">left to assign</p>
         </div>
         <div className="rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 p-3">
@@ -1030,13 +1074,14 @@ export default function CashTransactionManager({
             onClick={() => toggleSection('sources')}
             className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
             aria-expanded={openSections.sources}
+            aria-controls="cash-sources-form"
           >
             {openSections.sources ? 'Hide form' : 'Show form'}
           </button>
         </div>
 
         {openSections.sources && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div id="cash-sources-form" className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Exchange date *
@@ -1136,9 +1181,10 @@ export default function CashTransactionManager({
               <button
                 type="button"
                 onClick={handleCreateCashSource}
-                className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50"
               >
-                Add cash transaction
+                {isSubmitting ? 'Adding...' : 'Add cash transaction'}
               </button>
             </div>
           </div>
@@ -1160,13 +1206,14 @@ export default function CashTransactionManager({
             onClick={() => toggleSection('refunds')}
             className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
             aria-expanded={openSections.refunds}
+            aria-controls="cash-refunds-form"
           >
             {openSections.refunds ? 'Hide form' : 'Show form'}
           </button>
         </div>
 
         {openSections.refunds && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div id="cash-refunds-form" className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Refund date *
@@ -1276,9 +1323,10 @@ export default function CashTransactionManager({
               <button
                 type="button"
                 onClick={handleCreateCashRefund}
-                className="px-4 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 disabled:opacity-50"
               >
-                Add cash refund
+                {isSubmitting ? 'Adding...' : 'Add cash refund'}
               </button>
             </div>
           </div>
@@ -1300,13 +1348,14 @@ export default function CashTransactionManager({
             onClick={() => toggleSection('conversion')}
             className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
             aria-expanded={openSections.conversion}
+            aria-controls="cash-conversion-form"
           >
             {openSections.conversion ? 'Hide form' : 'Show form'}
           </button>
         </div>
 
         {openSections.conversion && (
-          <>
+          <div id="cash-conversion-form">
             {cashGroups.length === 0 ? (
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
                 Add a cash exchange first to convert between currencies.
@@ -1434,14 +1483,15 @@ export default function CashTransactionManager({
                   <button
                     type="button"
                     onClick={handleCreateConversion}
-                    className="px-4 py-2 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-indigo-500 text-white text-sm rounded hover:bg-indigo-600 disabled:opacity-50"
                   >
-                    Convert cash
+                    {isSubmitting ? 'Converting...' : 'Convert cash'}
                   </button>
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
@@ -1460,13 +1510,14 @@ export default function CashTransactionManager({
             onClick={() => toggleSection('refundToBase')}
             className="text-xs px-3 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-100 bg-white/70 dark:bg-gray-900/40 hover:bg-white"
             aria-expanded={openSections.refundToBase}
+            aria-controls="cash-refund-to-base-form"
           >
             {openSections.refundToBase ? 'Hide form' : 'Show form'}
           </button>
         </div>
 
         {openSections.refundToBase && (
-          <>
+          <div id="cash-refund-to-base-form">
             {cashGroups.length === 0 ? (
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
                 Add a cash exchange first to process a refund back to {currency}.
@@ -1547,12 +1598,10 @@ export default function CashTransactionManager({
                     id="cash-refund-to-base-fee-category"
                     value={refundToBaseForm.feeCategory}
                     onChange={value => setRefundToBaseForm(prev => ({ ...prev, feeCategory: value }))}
-                    options={[...categories, 'Exchange fees']
-                      .filter((category, index, all) => all.indexOf(category) === index)
-                      .map(category => ({
-                        value: category,
-                        label: category
-                      }))}
+                    options={Array.from(new Set([...categories, 'Exchange fees'])).map(category => ({
+                      value: category,
+                      label: category
+                    }))}
                     placeholder="Exchange fees"
                     className="w-full text-sm"
                   />
@@ -1602,14 +1651,15 @@ export default function CashTransactionManager({
                   <button
                     type="button"
                     onClick={handleCreateRefundToBase}
-                    className="px-4 py-2 bg-amber-500 text-white text-sm rounded hover:bg-amber-600"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 disabled:opacity-50"
                   >
-                    Refund to {currency}
+                    {isSubmitting ? 'Processing...' : `Refund to ${currency}`}
                   </button>
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
