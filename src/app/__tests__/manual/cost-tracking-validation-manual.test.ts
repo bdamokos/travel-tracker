@@ -3,14 +3,14 @@
  * This test creates real trip data and tests the validation
  */
 
-import { validateAllTripBoundaries } from '../../lib/tripBoundaryValidation';
-import { loadUnifiedTripData, updateCostData, saveUnifiedTripData } from '../../lib/unifiedDataService';
-import { UnifiedTripData } from '../../lib/dataMigration';
-import { Expense } from '../../types';
+import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
+import { loadUnifiedTripData, updateCostData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { UnifiedTripData } from '@/app/lib/dataMigration';
+import { Expense } from '@/app/types';
 
 describe('Cost Tracking Validation Manual Test', () => {
-  const testTripId = `test-validation-${Date.now()}`;
-  
+  const testTripId = `testvalidation${Math.random().toString(36).slice(2)}`;
+
   const createTestTripData = async (): Promise<UnifiedTripData> => {
     const tripData: UnifiedTripData = {
       schemaVersion: 4,
@@ -80,26 +80,26 @@ describe('Cost Tracking Validation Manual Test', () => {
 
   it('should validate trip boundaries correctly with real data', async () => {
     const tripData = await createTestTripData();
-    
+
     // Test validation with the created data
     const validation = validateAllTripBoundaries(tripData);
-    
+
     expect(validation.isValid).toBe(true);
     expect(validation.errors).toHaveLength(0);
   });
 
   it('should detect validation issues when expense links are invalid', async () => {
     const tripData = await createTestTripData();
-    
+
     // Modify the trip data to have an invalid expense link
     tripData.travelData!.locations[0].costTrackingLinks = [{
       expenseId: 'non-existent-expense',
       linkType: 'manual',
       notes: 'Invalid link for testing'
     }];
-    
+
     const validation = validateAllTripBoundaries(tripData);
-    
+
     expect(validation.isValid).toBe(false);
     expect(validation.errors).toHaveLength(1);
     expect(validation.errors[0].type).toBe('EXPENSE_NOT_FOUND');
@@ -108,16 +108,16 @@ describe('Cost Tracking Validation Manual Test', () => {
 
   it('should handle cost data updates with validation', async () => {
     await createTestTripData();
-    
+
     // Load the trip data
     const loadedData = await loadUnifiedTripData(testTripId);
     expect(loadedData).toBeTruthy();
     expect(loadedData!.id).toBe(testTripId);
-    
+
     // Validate the loaded data
     const validation = validateAllTripBoundaries(loadedData!);
     expect(validation.isValid).toBe(true);
-    
+
     // Add a new expense
     const newExpense: Expense = {
       id: 'test-expense-2',
@@ -133,7 +133,7 @@ describe('Cost Tracking Validation Manual Test', () => {
     };
 
     const updatedExpenses = [...loadedData!.costData!.expenses, newExpense];
-    
+
     // Update the cost data
     const updatedData = await updateCostData(testTripId, {
       overallBudget: loadedData!.costData!.overallBudget,
@@ -147,7 +147,7 @@ describe('Cost Tracking Validation Manual Test', () => {
       createdAt: loadedData!.createdAt,
       updatedAt: new Date().toISOString()
     });
-    
+
     // Validate the updated data
     const updatedValidation = validateAllTripBoundaries(updatedData);
     expect(updatedValidation.isValid).toBe(true);
@@ -157,9 +157,9 @@ describe('Cost Tracking Validation Manual Test', () => {
   it('should maintain trip isolation when multiple trips exist', async () => {
     // Create first trip
     const trip1Data = await createTestTripData();
-    
+
     // Create second trip with different ID
-    const trip2Id = `test-validation-2-${Date.now()}`;
+    const trip2Id = `testvalidation2${Math.random().toString(36).slice(2)}`;
     const trip2Data: UnifiedTripData = {
       ...trip1Data,
       id: trip2Id,
@@ -203,25 +203,25 @@ describe('Cost Tracking Validation Manual Test', () => {
       // Load both trips and validate they are isolated
       const loadedTrip1 = await loadUnifiedTripData(testTripId);
       const loadedTrip2 = await loadUnifiedTripData(trip2Id);
-      
+
       expect(loadedTrip1).toBeTruthy();
       expect(loadedTrip2).toBeTruthy();
-      
+
       // Validate both trips independently
       const validation1 = validateAllTripBoundaries(loadedTrip1!);
       const validation2 = validateAllTripBoundaries(loadedTrip2!);
-      
+
       expect(validation1.isValid).toBe(true);
       expect(validation2.isValid).toBe(true);
-      
+
       // Ensure expenses are isolated to their respective trips
       expect(loadedTrip1!.costData!.expenses[0].id).toBe('test-expense-1');
       expect(loadedTrip2!.costData!.expenses[0].id).toBe('test-expense-trip2');
-      
+
       // Ensure travel items are isolated
       expect(loadedTrip1!.travelData!.locations[0].id).toBe('test-location-1');
       expect(loadedTrip2!.travelData!.locations[0].id).toBe('test-location-trip2');
-      
+
     } finally {
       // Clean up second trip
       try {
