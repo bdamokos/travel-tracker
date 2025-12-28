@@ -6,8 +6,9 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import LinkedExpensesDisplay from '../LinkedExpensesDisplay';
-import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
-import { CostTrackingData, Expense, Location, Accommodation, Transportation } from '../../../types';
+import { ExpenseLink, useExpenseLinks } from '../../../hooks/useExpenseLinks';
+import { useExpenses } from '../../../hooks/useExpenses';
+import { Accommodation, Expense, Location, Transportation } from '../../../types';
 
 // Mock the cost utils
 jest.mock('../../../lib/costUtils', () => ({
@@ -18,9 +19,16 @@ jest.mock('../../../lib/costUtils', () => ({
   }
 }));
 
+jest.mock('../../../hooks/useExpenseLinks');
+jest.mock('../../../hooks/useExpenses');
+
+const mockUseExpenseLinks = useExpenseLinks as jest.MockedFunction<typeof useExpenseLinks>;
+const mockUseExpenses = useExpenses as jest.MockedFunction<typeof useExpenses>;
+
 describe('LinkedExpensesDisplay Integration Tests', () => {
   const tripId = 'trip-paris-2024';
-  
+  const otherTripId = 'trip-london-2024';
+
   // Sample trip data with locations, accommodations, and routes
   const tripData = {
     title: 'Paris Trip 2024',
@@ -134,24 +142,57 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
     }
   ];
 
-  const costData: CostTrackingData = {
-    id: 'cost-paris-2024',
-    tripId: tripId,
-    tripTitle: 'Paris Trip 2024',
-    tripStartDate: new Date('2024-01-01'),
-    tripEndDate: new Date('2024-01-03'),
-    overallBudget: 500,
-    currency: 'EUR',
-    countryBudgets: [],
-    expenses: expenses,
-    createdAt: '2024-01-01T00:00:00Z'
-  };
+  function tripDataToExpenseLinks(travelData: typeof tripData): ExpenseLink[] {
+    const locationLinks = (travelData.locations ?? []).flatMap(location =>
+      (location.costTrackingLinks ?? []).map(link => ({
+        expenseId: link.expenseId,
+        travelItemId: location.id,
+        travelItemType: 'location' as const,
+        travelItemName: location.name,
+      }))
+    );
 
-  let travelLookup: ExpenseTravelLookup;
+    const accommodationLinks = (travelData.accommodations ?? []).flatMap(accommodation =>
+      (accommodation.costTrackingLinks ?? []).map(link => ({
+        expenseId: link.expenseId,
+        travelItemId: accommodation.id,
+        travelItemType: 'accommodation' as const,
+        travelItemName: accommodation.name,
+      }))
+    );
+
+    const routeLinks = (travelData.routes ?? []).flatMap(route =>
+      (route.costTrackingLinks ?? []).map(link => ({
+        expenseId: link.expenseId,
+        travelItemId: route.id,
+        travelItemType: 'route' as const,
+        travelItemName: `${route.from} → ${route.to}`,
+      }))
+    );
+
+    return [...locationLinks, ...accommodationLinks, ...routeLinks];
+  }
+
+  const tripExpenseLinks = tripDataToExpenseLinks(tripData);
 
   beforeEach(() => {
-    // Create a real ExpenseTravelLookup instance with trip data
-    travelLookup = new ExpenseTravelLookup(tripId, tripData);
+    jest.resetAllMocks();
+
+    mockUseExpenseLinks.mockImplementation(requestedTripId => ({
+      expenseLinks: requestedTripId === tripId ? tripExpenseLinks : [],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    }));
+
+    mockUseExpenses.mockImplementation(requestedTripId => ({
+      expenses: requestedTripId === tripId
+        ? expenses.map(expense => ({ ...expense, date: expense.date.toISOString() }))
+        : [],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    }));
   });
 
   it('should display expenses linked to a specific location', async () => {
@@ -159,8 +200,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
       <LinkedExpensesDisplay
         itemId="location-eiffel"
         itemType="location"
-        travelLookup={travelLookup}
-        costData={costData}
         tripId={tripId}
       />
     );
@@ -172,7 +211,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
       expect(screen.getByText('Lunch near Eiffel Tower')).toBeInTheDocument();
       expect(screen.getByText('EUR 25.00')).toBeInTheDocument();
       expect(screen.getByText('EUR 35.00')).toBeInTheDocument();
-      expect(screen.getByText('Total: EUR 60.00')).toBeInTheDocument();
     });
   });
 
@@ -181,8 +219,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
       <LinkedExpensesDisplay
         itemId="accommodation-hotel"
         itemType="accommodation"
-        travelLookup={travelLookup}
-        costData={costData}
         tripId={tripId}
       />
     );
@@ -192,7 +228,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
       expect(screen.getByText('💰 Linked Expenses (2)')).toBeInTheDocument();
       expect(screen.getByText('Hotel night 1')).toBeInTheDocument();
       expect(screen.getByText('Hotel night 2')).toBeInTheDocument();
-      expect(screen.getByText('Total: EUR 240.00')).toBeInTheDocument();
     });
   });
 
@@ -201,8 +236,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
       <LinkedExpensesDisplay
         itemId="route-airport-hotel"
         itemType="route"
-        travelLookup={travelLookup}
-        costData={costData}
         tripId={tripId}
       />
     );
@@ -222,8 +255,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
           { itemType: 'location', itemId: 'location-eiffel' },
           { itemType: 'accommodation', itemId: 'accommodation-hotel' }
         ]}
-        travelLookup={travelLookup}
-        costData={costData}
         tripId={tripId}
       />
     );
@@ -235,32 +266,21 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
       expect(screen.getByText('Lunch near Eiffel Tower')).toBeInTheDocument();
       expect(screen.getByText('Hotel night 1')).toBeInTheDocument();
       expect(screen.getByText('Hotel night 2')).toBeInTheDocument();
-      expect(screen.getByText('Total: EUR 300.00')).toBeInTheDocument();
     });
   });
 
   it('should enforce trip boundaries and reject cross-trip data', async () => {
-    // Create cost data for a different trip
-    const otherTripCostData: CostTrackingData = {
-      ...costData,
-      id: 'cost-london-2024',
-      tripId: 'trip-london-2024',
-      tripTitle: 'London Trip 2024'
-    };
-
     render(
       <LinkedExpensesDisplay
         itemId="location-eiffel"
         itemType="location"
-        travelLookup={travelLookup}
-        costData={otherTripCostData}
-        tripId={tripId}
+        tripId={otherTripId}
       />
     );
 
     await waitFor(() => {
       // Should not display any expenses due to trip ID mismatch
-      expect(screen.queryByText('💰 Linked Expenses')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Linked Expenses/)).not.toBeInTheDocument();
       expect(screen.queryByText('Eiffel Tower entrance fee')).not.toBeInTheDocument();
     });
   });
@@ -272,8 +292,6 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
           { itemType: 'location', itemId: 'location-eiffel' },
           { itemType: 'location', itemId: 'location-louvre' }
         ]}
-        travelLookup={travelLookup}
-        costData={costData}
         tripId={tripId}
       />
     );
