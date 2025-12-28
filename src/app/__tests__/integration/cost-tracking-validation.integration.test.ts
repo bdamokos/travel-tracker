@@ -3,31 +3,59 @@
  */
 
 import { NextRequest } from 'next/server';
-import { POST as costTrackingPOST, GET as costTrackingGET, PUT as costTrackingPUT } from '../../api/cost-tracking/route';
-import { GET as costTrackingListGET } from '../../api/cost-tracking/list/route';
-import { POST as ynabProcessPOST } from '../../api/cost-tracking/[id]/ynab-process/route';
-import { POST as validatePOST, GET as validateGET } from '../../api/cost-tracking/[id]/validate/route';
-import { loadUnifiedTripData, updateCostData } from '../../lib/unifiedDataService';
-import { UnifiedTripData } from '../../lib/dataMigration';
-import { Expense, BudgetItem, YnabCategoryMapping, YnabTransaction } from '../../types';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { UnifiedTripData } from '../../lib/dataMigration';
+import { YnabCategoryMapping, YnabTransaction } from '../../types';
 
-// Mock the admin domain check
 const mockIsAdminDomain = jest.fn().mockResolvedValue(true);
-jest.doMock('../../lib/server-domains', () => ({
-  isAdminDomain: mockIsAdminDomain
-}));
-
-// Mock the unified data service
 const mockLoadUnifiedTripData = jest.fn();
 const mockUpdateCostData = jest.fn();
 const mockListAllTrips = jest.fn();
-jest.doMock('../../lib/unifiedDataService', () => ({
+const mockMaybeSyncPendingYnabTransactions = jest.fn(async (_id, data) => data);
+const mockCleanupTempFile = jest.fn();
+const mockCleanupOldTempFiles = jest.fn();
+
+jest.mock('../../lib/server-domains', () => ({
+  __esModule: true,
+  isAdminDomain: mockIsAdminDomain
+}));
+jest.mock('@/app/lib/server-domains', () => ({
+  __esModule: true,
+  isAdminDomain: mockIsAdminDomain
+}));
+
+jest.mock('../../lib/unifiedDataService', () => ({
+  __esModule: true,
   loadUnifiedTripData: mockLoadUnifiedTripData,
   updateCostData: mockUpdateCostData,
   listAllTrips: mockListAllTrips
 }));
+jest.mock('@/app/lib/unifiedDataService', () => ({
+  __esModule: true,
+  loadUnifiedTripData: mockLoadUnifiedTripData,
+  updateCostData: mockUpdateCostData,
+  listAllTrips: mockListAllTrips
+}));
+
+jest.mock('../../lib/ynabPendingSync', () => ({
+  __esModule: true,
+  maybeSyncPendingYnabTransactions: mockMaybeSyncPendingYnabTransactions
+}));
+
+jest.mock('@/app/lib/ynabServerUtils', () => ({
+  __esModule: true,
+  cleanupTempFile: mockCleanupTempFile,
+  cleanupOldTempFiles: mockCleanupOldTempFiles
+}));
+
+let costTrackingPOST: typeof import('../../api/cost-tracking/route').POST;
+let costTrackingGET: typeof import('../../api/cost-tracking/route').GET;
+let costTrackingPUT: typeof import('../../api/cost-tracking/route').PUT;
+let costTrackingListGET: typeof import('../../api/cost-tracking/list/route').GET;
+let ynabProcessPOST: typeof import('../../api/cost-tracking/[id]/ynab-process/route').POST;
+let validatePOST: typeof import('../../api/cost-tracking/[id]/validate/route').POST;
+let validateGET: typeof import('../../api/cost-tracking/[id]/validate/route').GET;
 
 describe('Cost Tracking API Validation Integration Tests', () => {
   const mockTripId = 'test-trip-123';
@@ -90,8 +118,29 @@ describe('Cost Tracking API Validation Integration Tests', () => {
     }] : []
   });
 
+  beforeAll(async () => {
+    await mkdir(join(process.cwd(), 'data'), { recursive: true });
+
+    const costTrackingRoute = await import('../../api/cost-tracking/route');
+    costTrackingPOST = costTrackingRoute.POST;
+    costTrackingGET = costTrackingRoute.GET;
+    costTrackingPUT = costTrackingRoute.PUT;
+
+    const costTrackingListRoute = await import('../../api/cost-tracking/list/route');
+    costTrackingListGET = costTrackingListRoute.GET;
+
+    const ynabProcessRoute = await import('../../api/cost-tracking/[id]/ynab-process/route');
+    ynabProcessPOST = ynabProcessRoute.POST;
+
+    const validateRoute = await import('../../api/cost-tracking/[id]/validate/route');
+    validatePOST = validateRoute.POST;
+    validateGET = validateRoute.GET;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockMaybeSyncPendingYnabTransactions.mockImplementation(async (_id, data) => data);
   });
 
   describe('Cost Tracking Main Endpoint', () => {
@@ -137,7 +186,10 @@ describe('Cost Tracking API Validation Integration Tests', () => {
       const updatePayload = {
         overallBudget: 1200,
         currency: 'EUR',
-        expenses: mockData.costData!.expenses
+        expenses: mockData.costData!.expenses.map(expense => ({
+          ...expense,
+          date: expense.date instanceof Date ? expense.date.toISOString() : expense.date
+        }))
       };
 
       const request = new NextRequest(`http://localhost/api/cost-tracking?id=${mockTripId}`, {
