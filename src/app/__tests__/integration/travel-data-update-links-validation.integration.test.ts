@@ -192,9 +192,18 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     testTripId = tripResult.id;
 
     const createdTrip = getTrip(testTripId);
-    testLocationId = createdTrip?.travelData?.locations?.[0]?.id as string;
-    testAccommodationId = createdTrip?.accommodations?.[0]?.id as string;
-    testRouteId = createdTrip?.travelData?.routes?.[0]?.id as string;
+    if (!createdTrip?.travelData?.locations?.[0]?.id) {
+      throw new Error('Failed to retrieve test location ID from created trip');
+    }
+    if (!createdTrip?.accommodations?.[0]?.id) {
+      throw new Error('Failed to retrieve test accommodation ID from created trip');
+    }
+    if (!createdTrip?.travelData?.routes?.[0]?.id) {
+      throw new Error('Failed to retrieve test route ID from created trip');
+    }
+    testLocationId = createdTrip.travelData.locations[0].id;
+    testAccommodationId = createdTrip.accommodations[0].id;
+    testRouteId = createdTrip.travelData.routes[0].id;
 
     const costData = {
       overallBudget: 1000,
