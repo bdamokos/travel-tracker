@@ -28,7 +28,7 @@ const mockUseExpenses = useExpenses as jest.MockedFunction<typeof useExpenses>;
 describe('LinkedExpensesDisplay Integration Tests', () => {
   const tripId = 'trip-paris-2024';
   const otherTripId = 'trip-london-2024';
-  
+
   // Sample trip data with locations, accommodations, and routes
   const tripData = {
     title: 'Paris Trip 2024',
@@ -143,42 +143,34 @@ describe('LinkedExpensesDisplay Integration Tests', () => {
   ];
 
   function tripDataToExpenseLinks(travelData: typeof tripData): ExpenseLink[] {
-    const links: ExpenseLink[] = [];
+    const locationLinks = (travelData.locations ?? []).flatMap(location =>
+      (location.costTrackingLinks ?? []).map(link => ({
+        expenseId: link.expenseId,
+        travelItemId: location.id,
+        travelItemType: 'location' as const,
+        travelItemName: location.name,
+      }))
+    );
 
-    travelData.locations?.forEach(location => {
-      location.costTrackingLinks?.forEach(link => {
-        links.push({
-          expenseId: link.expenseId,
-          travelItemId: location.id,
-          travelItemType: 'location',
-          travelItemName: location.name
-        });
-      });
-    });
+    const accommodationLinks = (travelData.accommodations ?? []).flatMap(accommodation =>
+      (accommodation.costTrackingLinks ?? []).map(link => ({
+        expenseId: link.expenseId,
+        travelItemId: accommodation.id,
+        travelItemType: 'accommodation' as const,
+        travelItemName: accommodation.name,
+      }))
+    );
 
-    travelData.accommodations?.forEach(accommodation => {
-      accommodation.costTrackingLinks?.forEach(link => {
-        links.push({
-          expenseId: link.expenseId,
-          travelItemId: accommodation.id,
-          travelItemType: 'accommodation',
-          travelItemName: accommodation.name
-        });
-      });
-    });
+    const routeLinks = (travelData.routes ?? []).flatMap(route =>
+      (route.costTrackingLinks ?? []).map(link => ({
+        expenseId: link.expenseId,
+        travelItemId: route.id,
+        travelItemType: 'route' as const,
+        travelItemName: `${route.from} → ${route.to}`,
+      }))
+    );
 
-    travelData.routes?.forEach(route => {
-      route.costTrackingLinks?.forEach(link => {
-        links.push({
-          expenseId: link.expenseId,
-          travelItemId: route.id,
-          travelItemType: 'route',
-          travelItemName: `${route.from} → ${route.to}`
-        });
-      });
-    });
-
-    return links;
+    return [...locationLinks, ...accommodationLinks, ...routeLinks];
   }
 
   const tripExpenseLinks = tripDataToExpenseLinks(tripData);
