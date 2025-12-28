@@ -158,7 +158,6 @@ describe('Trip Data Isolation Migration Integration', () => {
 
     // Verify the migration results
     expect(migratedData.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(migratedData.schemaVersion).toBe(4);
 
     // Verify that invalid expense links were removed from locations
     const parisLocation = migratedData.travelData?.locations?.find(l => l.id === 'paris-location');
@@ -191,16 +190,21 @@ describe('Trip Data Isolation Migration Integration', () => {
     expect(expenseIds).toContain('flight-expense');
     expect(expenseIds).toContain('hotel-expense');
 
-    // Verify that cleanup was logged
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Trip trip-real-world-test v3→v4 migration cleanup:',
-      expect.arrayContaining([
-        'Removed invalid expense link invalid-cross-trip-expense from location paris-location',
-        'Removed invalid expense link another-invalid-expense from location rome-location',
-        'Removed invalid expense link invalid-flight-expense from route paris-to-rome-flight',
-        'Removed invalid expense link invalid-hotel-expense from accommodation paris-hotel'
-      ])
+    // Verify that cleanup was logged for the v3→v4 migration while allowing additional migration logs
+    const cleanupLogCall = consoleSpy.mock.calls.find(
+      ([message]) => typeof message === 'string' && message.includes('Trip trip-real-world-test v3→v4 migration cleanup:')
     );
+    expect(cleanupLogCall).toBeDefined();
+    if (cleanupLogCall) {
+      expect(cleanupLogCall[1]).toEqual(
+        expect.arrayContaining([
+          'Removed invalid expense link invalid-cross-trip-expense from location paris-location',
+          'Removed invalid expense link another-invalid-expense from location rome-location',
+          'Removed invalid expense link invalid-flight-expense from route paris-to-rome-flight',
+          'Removed invalid expense link invalid-hotel-expense from accommodation paris-hotel'
+        ])
+      );
+    }
 
     // Verify that updatedAt timestamp was updated
     expect(migratedData.updatedAt).not.toBe(v3Data.updatedAt);
@@ -258,9 +262,12 @@ describe('Trip Data Isolation Migration Integration', () => {
     expect(migratedData.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(migratedData.travelData?.locations?.[0].costTrackingLinks).toHaveLength(1);
     expect(migratedData.travelData?.locations?.[0].costTrackingLinks?.[0].expenseId).toBe('valid-expense');
-    
-    // No cleanup should be logged for clean data
-    expect(consoleSpy).not.toHaveBeenCalled();
+
+    // No cleanup should be logged for clean data (other migration logs are allowed)
+    const cleanupLogCall = consoleSpy.mock.calls.find(
+      ([message]) => typeof message === 'string' && message.includes('Trip clean-trip-test v3→v4 migration cleanup:')
+    );
+    expect(cleanupLogCall).toBeUndefined();
 
     consoleSpy.mockRestore();
   });
