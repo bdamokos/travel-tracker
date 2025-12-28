@@ -168,6 +168,14 @@ describe('LinkedExpensesDisplay', () => {
   });
 
   it('should sort expenses by date', async () => {
+    // Provide expenses in unsorted order to verify the component's sorting logic
+    mockUseExpenses.mockReturnValue({
+      expenses: [mockExpenses[2], mockExpenses[0], mockExpenses[1]], // Unsorted: expense-3, expense-1, expense-2
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn(),
+    });
+
     render(
       <LinkedExpensesDisplay
         itemId="location-1"
