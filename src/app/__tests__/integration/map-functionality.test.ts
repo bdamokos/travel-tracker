@@ -6,8 +6,11 @@
  * regressions or data loss at any step in the process.
  */
 
-import { readFileSync, existsSync, unlinkSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { tmpdir } from 'os'
+import { NextRequest } from 'next/server'
+import { POST as travelDataPOST, GET as travelDataGET, PUT as travelDataPUT, PATCH as travelDataPATCH } from '../../api/travel-data/route'
 import { isExternalApiAvailable, getMockRoutePoints, setupRouteMocking } from '../utils/mockRouteUtils'
 
 // Expected coordinates that OSRM actually returns for our test route
@@ -94,8 +97,14 @@ const TEST_ROUTE: TestRoute = {
   notes: 'Eurostar connection'
 }
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
-const DATA_DIR = join(process.cwd(), 'data')
+const existingDataDirEnv = process.env.TRAVEL_TRACKER_DATA_DIR
+const TEST_DATA_DIR = existingDataDirEnv || mkdtempSync(join(tmpdir(), 'travel-tracker-test-'))
+process.env.TRAVEL_TRACKER_DATA_DIR = TEST_DATA_DIR
+const shouldCleanupDataDir = !existingDataDirEnv
+process.env.TEST_FORCE_MOCK_ROUTES = process.env.TEST_FORCE_MOCK_ROUTES || 'true'
+
+const BASE_URL = process.env.TEST_API_BASE_URL
+const DATA_DIR = TEST_DATA_DIR
 
 describe('Map Functionality Integration Tests (Pyramid)', () => {
   let testTripId: string
@@ -124,6 +133,10 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     const testFilePath = join(DATA_DIR, `trip-${testTripId}.json`)
     if (existsSync(testFilePath)) {
       unlinkSync(testFilePath)
+    }
+
+    if (shouldCleanupDataDir && existsSync(DATA_DIR)) {
+      rmSync(DATA_DIR, { recursive: true, force: true })
     }
   })
 
@@ -182,8 +195,39 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     throw new Error(`Timeout waiting for trip data to be written to file system after ${timeoutMs}ms`)
   }
 
+  const callRouteHandler = async (endpoint: string, options: RequestInit = {}) => {
+    const method = (options.method || 'GET').toString().toUpperCase()
+    const url = new URL(`http://localhost${endpoint}`)
+
+    const request = new NextRequest(url.toString(), {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      },
+      body: options.body as BodyInit | null | undefined
+    })
+
+    switch (method) {
+      case 'POST':
+        return travelDataPOST(request)
+      case 'PUT':
+        return travelDataPUT(request)
+      case 'PATCH':
+        return travelDataPATCH(request)
+      case 'GET':
+      default:
+        return travelDataGET(request)
+    }
+  }
+
   // Helper function to make API calls
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+    // Prefer direct handler invocation for deterministic tests unless a base URL is explicitly provided
+    if (!BASE_URL) {
+      return callRouteHandler(endpoint, options)
+    }
+
     const url = `${BASE_URL}${endpoint}`
     const response = await fetch(url, {
       headers: {

@@ -164,6 +164,11 @@ export const setupRouteMocking = () => {
 
 // Check if external API is available (test it directly)
 export const isExternalApiAvailable = async (): Promise<boolean> => {
+  if (process.env.TEST_FORCE_MOCK_ROUTES === 'true') {
+    (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = false;
+    return false;
+  }
+
   // Check if we've already tested in this test run
   const cached = (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__;
   if (cached !== undefined) {

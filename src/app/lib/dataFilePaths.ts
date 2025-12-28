@@ -1,16 +1,31 @@
-import { join, resolve, sep } from 'path';
+import { dirname, join, resolve, sep } from 'path';
+import { mkdirSync } from 'fs';
 
-const DATA_DIR = join(process.cwd(), 'data');
+function ensureDirExists(targetPath: string): void {
+  mkdirSync(targetPath, { recursive: true });
+}
+
+function resolveDataDir(): string {
+  const envDir = process.env.TRAVEL_TRACKER_DATA_DIR;
+  const dataDir = envDir ? resolve(envDir) : resolve(join(process.cwd(), 'data'));
+  ensureDirExists(dataDir);
+  return dataDir;
+}
 
 function resolveWithinDataDir(relativePath: string): string {
-  const resolvedDataDir = resolve(DATA_DIR);
+  const resolvedDataDir = resolveDataDir();
   const resolvedTarget = resolve(resolvedDataDir, relativePath);
 
   if (resolvedTarget === resolvedDataDir || !resolvedTarget.startsWith(resolvedDataDir + sep)) {
     throw new Error('Invalid path');
   }
 
+  ensureDirExists(dirname(resolvedTarget));
   return resolvedTarget;
+}
+
+export function getDataDir(): string {
+  return resolveDataDir();
 }
 
 function assertSafeIdSegment(value: string, name: string, pattern: RegExp): void {
@@ -33,4 +48,3 @@ export function getBackupFilePath(filename: string): string {
   assertSafeIdSegment(filename, 'backup filename', /^[A-Za-z0-9_.-]+$/);
   return resolveWithinDataDir(join('backups', filename));
 }
-

@@ -9,10 +9,11 @@ import { readFile, writeFile, readdir, stat, access } from 'fs/promises';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { UnifiedTripData } from './dataMigration';
+import { getDataDir } from './dataFilePaths';
 
-const DATA_DIR = join(process.cwd(), 'data');
-const BACKUP_DIR = join(DATA_DIR, 'backups');
-const METADATA_FILE = join(DATA_DIR, 'backup-metadata.json');
+const getDataDirPath = () => getDataDir();
+const getBackupDirPath = () => join(getDataDirPath(), 'backups');
+const getMetadataFilePath = () => join(getDataDirPath(), 'backup-metadata.json');
 
 // Interfaces for backup management
 export interface BackupMetadata {
@@ -84,8 +85,8 @@ export class BackupService {
     }
 
     try {
-      await access(METADATA_FILE);
-      const content = await readFile(METADATA_FILE, 'utf-8');
+      await access(getMetadataFilePath());
+      const content = await readFile(getMetadataFilePath(), 'utf-8');
       const metadata = JSON.parse(content) as BackupMetadataStore;
       this.metadataCache = metadata;
       return metadata;
@@ -112,7 +113,7 @@ export class BackupService {
    */
   private async saveMetadata(metadata: BackupMetadataStore): Promise<void> {
     metadata.lastUpdated = new Date().toISOString();
-    await writeFile(METADATA_FILE, JSON.stringify(metadata, null, 2));
+    await writeFile(getMetadataFilePath(), JSON.stringify(metadata, null, 2));
     this.metadataCache = metadata;
   }
 
@@ -343,12 +344,12 @@ export class BackupService {
       let removed = 0;
 
       // Get all backup files from directory
-      const files = await readdir(BACKUP_DIR);
+      const files = await readdir(getBackupDirPath());
       const backupFiles = files.filter(f => f.startsWith('deleted-') && f.endsWith('.json'));
 
       // Check for files not in metadata
       for (const file of backupFiles) {
-        const filePath = join(BACKUP_DIR, file);
+        const filePath = join(getBackupDirPath(), file);
         const existsInMetadata = metadata.backups.some(b => b.filePath === filePath);
 
         if (!existsInMetadata) {
@@ -370,7 +371,7 @@ export class BackupService {
       }
 
       // Check for metadata entries without corresponding files
-      const filePaths = backupFiles.map(f => join(BACKUP_DIR, f));
+      const filePaths = backupFiles.map(f => join(getBackupDirPath(), f));
       const orphanedMetadata = metadata.backups.filter(b => !filePaths.includes(b.filePath));
 
       for (const orphaned of orphanedMetadata) {
