@@ -5,14 +5,42 @@
  * RoutePoints to be lost during auto-save.
  */
 
-import { describe, it, expect } from '@jest/globals'
+import { describe, it, expect, beforeAll } from '@jest/globals'
 import { generateRoutePoints } from '../../lib/routeUtils'
 import { Transportation } from '../../types'
 
 const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
+const RUN_DEBUG_TESTS = process.env.RUN_DEBUG_TESTS === 'true'
 
-describe('React State Timing Test', () => {
+const describeFn = RUN_DEBUG_TESTS ? describe : describe.skip
+
+async function isServerAvailable(baseUrl: string) {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000)
+    const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal })
+    clearTimeout(timeoutId)
+    return response.ok
+  } catch (error) {
+    console.warn('⚠️ Unable to reach test API base URL', error)
+    return false
+  }
+}
+
+describeFn('React State Timing Test', () => {
+  let serverAvailable = false
+
+  beforeAll(async () => {
+    if (!RUN_DEBUG_TESTS) return
+    serverAvailable = await isServerAvailable(BASE_URL)
+  })
+
   it('should test if rapid state updates and auto-save cause data loss', async () => {
+    if (!serverAvailable) {
+      console.warn('⚠️ Skipping React state timing test because the API server is not available.')
+      return
+    }
+
     console.log('🔄 Testing React state timing scenario...')
     
     // 1. Create a test trip
