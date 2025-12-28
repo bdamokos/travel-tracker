@@ -28,12 +28,15 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)
-      const response = await fetch(`${BASE_URL}/api/health`, { signal: controller.signal })
-      clearTimeout(timeout)
-      serverAvailable = response.ok
+      try {
+        const response = await fetch(`${BASE_URL}/api/health`, { signal: controller.signal })
+        serverAvailable = response.ok
 
-      if (!serverAvailable) {
-        console.warn(`⚠️  Skipping RoutePoints debug test: ${BASE_URL} did not return 200 on /api/health`)
+        if (!serverAvailable) {
+          console.warn(`⚠️  Skipping RoutePoints debug test: ${BASE_URL} did not return 200 on /api/health`)
+        }
+      } finally {
+        clearTimeout(timeout)
       }
     } catch (error) {
       console.warn(`⚠️  Skipping RoutePoints debug test: unable to reach ${BASE_URL} (${String(error)})`)
