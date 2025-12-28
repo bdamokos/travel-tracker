@@ -15,16 +15,16 @@ import {
 } from './dataMigration';
 import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '../types';
 import { backupService } from './backupService';
-import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
+import { getUnifiedTripFilePath, getBackupFilePath, getDataDir } from './dataFilePaths';
 
-const DATA_DIR = join(process.cwd(), 'data');
-const BACKUP_DIR = join(DATA_DIR, 'backups');
+const getDataDirPath = () => getDataDir();
+const getBackupDirPath = () => join(getDataDir(), 'backups');
 
 async function ensureBackupDir() {
   try {
-    await access(BACKUP_DIR);
+    await access(getBackupDirPath());
   } catch {
-    await mkdir(BACKUP_DIR, { recursive: true });
+    await mkdir(getBackupDirPath(), { recursive: true });
   }
 }
 
@@ -145,7 +145,7 @@ export async function listAllTrips(): Promise<Array<{
   routeCount: number;
 }>> {
   try {
-    const files = await readdir(DATA_DIR);
+    const files = await readdir(getDataDirPath());
     const trips = new Map<string, {
       id: string;
       title: string;
@@ -163,7 +163,7 @@ export async function listAllTrips(): Promise<Array<{
     // Process unified files only
     const unifiedFiles = files.filter(f => f.startsWith('trip-') && f.endsWith('.json'));
     for (const file of unifiedFiles) {
-      const content = await readFile(join(DATA_DIR, file), 'utf-8');
+      const content = await readFile(join(getDataDirPath(), file), 'utf-8');
       const data = JSON.parse(content);
 
       if (isUnifiedFormat(data)) {
