@@ -372,7 +372,6 @@ describe('Trip Data Isolation - Comprehensive Integration Tests', () => {
 
             // Verify migration results
             expect(migratedData.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-            expect(migratedData.schemaVersion).toBe(4);
 
             // Verify invalid links were removed from location
             const location = migratedData.travelData?.locations?.[0];
