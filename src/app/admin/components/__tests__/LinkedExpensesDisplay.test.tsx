@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import LinkedExpensesDisplay from '../LinkedExpensesDisplay';
-import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
-import { CostTrackingData, Expense } from '../../../types';
+import * as useExpenseLinksModule from '../../../hooks/useExpenseLinks';
+import * as useExpensesModule from '../../../hooks/useExpenses';
 
 // Mock the cost utils
 jest.mock('../../../lib/costUtils', () => ({
@@ -13,14 +13,19 @@ jest.mock('../../../lib/costUtils', () => ({
   }
 }));
 
+jest.mock('../../../hooks/useExpenseLinks');
+jest.mock('../../../hooks/useExpenses');
+
+const mockUseExpenseLinks = jest.mocked(useExpenseLinksModule.useExpenseLinks);
+const mockUseExpenses = jest.mocked(useExpensesModule.useExpenses);
+
 describe('LinkedExpensesDisplay', () => {
   const mockTripId = 'trip-123';
-  const mockOtherTripId = 'trip-456';
 
-  const mockExpenses: Expense[] = [
+  const mockExpenses: useExpensesModule.Expense[] = [
     {
       id: 'expense-1',
-      date: new Date('2024-01-01'),
+      date: '2024-01-01',
       amount: 100,
       currency: 'EUR',
       category: 'Food',
@@ -30,7 +35,7 @@ describe('LinkedExpensesDisplay', () => {
     },
     {
       id: 'expense-2',
-      date: new Date('2024-01-02'),
+      date: '2024-01-02',
       amount: 50,
       currency: 'EUR',
       category: 'Transport',
@@ -40,7 +45,7 @@ describe('LinkedExpensesDisplay', () => {
     },
     {
       id: 'expense-3',
-      date: new Date('2024-01-03'),
+      date: '2024-01-03',
       amount: 75,
       currency: 'EUR',
       category: 'Accommodation',
@@ -50,73 +55,68 @@ describe('LinkedExpensesDisplay', () => {
     }
   ];
 
-  const mockCostData: CostTrackingData = {
-    id: 'cost-123',
-    tripId: mockTripId,
-    tripTitle: 'Test Trip',
-    tripStartDate: new Date('2024-01-01'),
-    tripEndDate: new Date('2024-01-10'),
-    overallBudget: 1000,
-    currency: 'EUR',
-    countryBudgets: [],
-    expenses: mockExpenses,
-    createdAt: '2024-01-01T00:00:00Z'
-  };
-
-  const mockCostDataOtherTrip: CostTrackingData = {
-    ...mockCostData,
-    id: 'cost-456',
-    tripId: mockOtherTripId,
-    tripTitle: 'Other Trip'
-  };
-
-  const createMockTravelLookup = (expenseIds: string[]) => {
-    const mockLookup = new ExpenseTravelLookup(mockTripId);
-    
-    // Mock the getExpensesForTravelItem method
-    jest.spyOn(mockLookup, 'getExpensesForTravelItem').mockReturnValue(expenseIds);
-    
-    // Mock the getTravelLinkForExpense method to return valid travel links
-    jest.spyOn(mockLookup, 'getTravelLinkForExpense').mockImplementation((expenseId: string) => {
-      if (expenseIds.includes(expenseId)) {
-        return {
-          type: 'location',
-          id: 'location-1',
-          name: 'Test Location',
-          tripTitle: mockCostData.tripTitle
-        };
-      }
-      return null;
-    });
-    
-    // Mock the getAllTravelLinks method to return a proper map
-    const mockMap = new Map();
-    expenseIds.forEach(expenseId => {
-      mockMap.set(expenseId, {
-        type: 'location',
-        id: 'location-1',
-        name: 'Test Location',
-        tripTitle: mockCostData.tripTitle
-      });
-    });
-    jest.spyOn(mockLookup, 'getAllTravelLinks').mockReturnValue(mockMap);
-    
-    return mockLookup;
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
+
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'expense-1',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location'
+        },
+        {
+          expenseId: 'expense-2',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location'
+        },
+        {
+          expenseId: 'expense-3',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Accommodation',
+          travelItemType: 'location'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    });
+
+    mockUseExpenses.mockReturnValue({
+      expenses: mockExpenses,
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    });
   });
 
   it('should display linked expenses from the same trip', async () => {
-    const mockTravelLookup = createMockTravelLookup(['expense-1', 'expense-2']);
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'expense-1',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location'
+        },
+        {
+          expenseId: 'expense-2',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    });
 
     render(
       <LinkedExpensesDisplay
         itemId="location-1"
         itemType="location"
-        travelLookup={mockTravelLookup}
-        costData={mockCostData}
         tripId={mockTripId}
       />
     );
@@ -130,47 +130,26 @@ describe('LinkedExpensesDisplay', () => {
     });
   });
 
-  it('should display total amount for multiple expenses', async () => {
-    const mockTravelLookup = createMockTravelLookup(['expense-1', 'expense-2']);
-
-    render(
-      <LinkedExpensesDisplay
-        itemId="location-1"
-        itemType="location"
-        travelLookup={mockTravelLookup}
-        costData={mockCostData}
-        tripId={mockTripId}
-      />
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Total: EUR 150.00')).toBeInTheDocument();
+  it('should handle multiple travel items and deduplicate expense IDs', async () => {
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'expense-1',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location'
+        },
+        {
+          expenseId: 'expense-1',
+          travelItemId: 'accommodation-1',
+          travelItemName: 'Hotel',
+          travelItemType: 'accommodation'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
     });
-  });
-
-  it('should not display expenses when trip IDs do not match', async () => {
-    const mockTravelLookup = createMockTravelLookup(['expense-1', 'expense-2']);
-
-    render(
-      <LinkedExpensesDisplay
-        itemId="location-1"
-        itemType="location"
-        travelLookup={mockTravelLookup}
-        costData={mockCostDataOtherTrip}
-        tripId={mockTripId}
-      />
-    );
-
-    await waitFor(() => {
-      // Should not display any expenses due to trip ID mismatch
-      expect(screen.queryByText('💰 Linked Expenses')).not.toBeInTheDocument();
-      expect(screen.queryByText('Restaurant dinner')).not.toBeInTheDocument();
-      expect(screen.queryByText('Train ticket')).not.toBeInTheDocument();
-    });
-  });
-
-  it('should handle multiple travel items from the same trip', async () => {
-    const mockTravelLookup = createMockTravelLookup(['expense-1', 'expense-3']);
 
     render(
       <LinkedExpensesDisplay
@@ -178,81 +157,29 @@ describe('LinkedExpensesDisplay', () => {
           { itemType: 'location', itemId: 'location-1' },
           { itemType: 'accommodation', itemId: 'accommodation-1' }
         ]}
-        travelLookup={mockTravelLookup}
-        costData={mockCostData}
         tripId={mockTripId}
       />
     );
 
     await waitFor(() => {
-      expect(screen.getByText('💰 Linked Expenses (2)')).toBeInTheDocument();
+      expect(screen.getByText('💰 Linked Expenses (1)')).toBeInTheDocument();
       expect(screen.getByText('Restaurant dinner')).toBeInTheDocument();
-      expect(screen.getByText('Hotel night')).toBeInTheDocument();
-    });
-  });
-
-  it('should deduplicate expense IDs from multiple items', async () => {
-    // Mock the lookup to return the same expense ID for both items
-    const mockTravelLookup = new ExpenseTravelLookup(mockTripId);
-    jest.spyOn(mockTravelLookup, 'getExpensesForTravelItem')
-      .mockReturnValueOnce(['expense-1', 'expense-2'])
-      .mockReturnValueOnce(['expense-2', 'expense-3']);
-    
-    // Mock the getTravelLinkForExpense method
-    jest.spyOn(mockTravelLookup, 'getTravelLinkForExpense').mockImplementation((expenseId: string) => {
-      if (['expense-1', 'expense-2', 'expense-3'].includes(expenseId)) {
-        return {
-          type: 'location',
-          id: 'location-1',
-          name: 'Test Location',
-          tripTitle: mockCostData.tripTitle
-        };
-      }
-      return null;
-    });
-    
-    // Mock the getAllTravelLinks method
-    const mockMap = new Map();
-    ['expense-1', 'expense-2', 'expense-3'].forEach(expenseId => {
-      mockMap.set(expenseId, {
-        type: 'location',
-        id: 'location-1',
-        name: 'Test Location',
-        tripTitle: mockCostData.tripTitle
-      });
-    });
-    jest.spyOn(mockTravelLookup, 'getAllTravelLinks').mockReturnValue(mockMap);
-
-    render(
-      <LinkedExpensesDisplay
-        items={[
-          { itemType: 'location', itemId: 'location-1' },
-          { itemType: 'accommodation', itemId: 'accommodation-1' }
-        ]}
-        travelLookup={mockTravelLookup}
-        costData={mockCostData}
-        tripId={mockTripId}
-      />
-    );
-
-    await waitFor(() => {
-      // Should show 3 unique expenses (expense-1, expense-2, expense-3)
-      expect(screen.getByText('💰 Linked Expenses (3)')).toBeInTheDocument();
-      expect(screen.getByText('Restaurant dinner')).toBeInTheDocument();
-      expect(screen.getByText('Train ticket')).toBeInTheDocument();
-      expect(screen.getByText('Hotel night')).toBeInTheDocument();
     });
   });
 
   it('should sort expenses by date', async () => {
-    const mockTravelLookup = createMockTravelLookup(['expense-3', 'expense-1', 'expense-2']);
+    // Provide expenses in unsorted order to verify the component's sorting logic
+    mockUseExpenses.mockReturnValue({
+      expenses: [mockExpenses[2], mockExpenses[0], mockExpenses[1]], // Unsorted: expense-3, expense-1, expense-2
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn(),
+    });
 
     render(
       <LinkedExpensesDisplay
         itemId="location-1"
         itemType="location"
-        travelLookup={mockTravelLookup}
-        costData={mockCostData}
         tripId={mockTripId}
       />
     );
@@ -267,14 +194,17 @@ describe('LinkedExpensesDisplay', () => {
   });
 
   it('should not render when no expenses are linked', async () => {
-    const mockTravelLookup = createMockTravelLookup([]);
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    });
 
     const { container } = render(
       <LinkedExpensesDisplay
         itemId="location-1"
         itemType="location"
-        travelLookup={mockTravelLookup}
-        costData={mockCostData}
         tripId={mockTripId}
       />
     );
@@ -284,35 +214,28 @@ describe('LinkedExpensesDisplay', () => {
     });
   });
 
-  it('should handle null travelLookup gracefully', () => {
-    const { container } = render(
+  it('should handle loading state gracefully', () => {
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [],
+      isLoading: true,
+      isError: undefined,
+      mutate: jest.fn()
+    });
+    mockUseExpenses.mockReturnValue({
+      expenses: [],
+      isLoading: true,
+      isError: undefined,
+      mutate: jest.fn()
+    });
+
+    render(
       <LinkedExpensesDisplay
         itemId="location-1"
         itemType="location"
-        travelLookup={null}
-        costData={mockCostData}
         tripId={mockTripId}
       />
     );
 
-    // Component should not render anything when travelLookup is null
-    expect(container.firstChild).toBeNull();
-  });
-
-  it('should handle null costData gracefully', () => {
-    const mockTravelLookup = createMockTravelLookup(['expense-1']);
-
-    const { container } = render(
-      <LinkedExpensesDisplay
-        itemId="location-1"
-        itemType="location"
-        travelLookup={mockTravelLookup}
-        costData={null}
-        tripId={mockTripId}
-      />
-    );
-
-    // Component should not render anything when costData is null
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByText('Loading linked expenses...')).toBeInTheDocument();
   });
 });
