@@ -130,6 +130,8 @@ async function handleProcessTransactions(
 
   // Process transactions based on mappings
   const processedTransactions: ProcessedYnabTransaction[] = [];
+  const uniqueTransactions: ProcessedYnabTransaction[] = [];
+  let alreadyImportedCount = 0;
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
   for (const [index, transaction] of tempData.transactions.entries()) {
@@ -170,22 +172,39 @@ async function handleProcessTransactions(
       sourceIndex: index
     };
 
+    processedTransactions.push(processedTxn);
+
     // Only include if not already imported
     if (!isAlreadyImported) {
-      processedTransactions.push(processedTxn);
+      uniqueTransactions.push(processedTxn);
+    } else {
+      alreadyImportedCount += 1;
     }
   }
 
   // Filter transactions if not showing all
   let filteredResult: YnabTransactionFilterResult;
-  if (showAll || !lastImportedHash) {
+  let filteredCount = alreadyImportedCount;
+  const lastImportedTransactionFound = lastImportedHash
+    ? processedTransactions.some(txn => txn.hash === lastImportedHash)
+    : false;
+
+  if (showAll) {
+    filteredCount = 0;
     filteredResult = {
       newTransactions: processedTransactions,
       filteredCount: 0,
       lastTransactionFound: false
     };
+  } else if (lastImportedHash) {
+    filteredResult = filterNewTransactions(uniqueTransactions, lastImportedHash);
+    filteredCount += filteredResult.filteredCount;
   } else {
-    filteredResult = filterNewTransactions(processedTransactions, lastImportedHash);
+    filteredResult = {
+      newTransactions: uniqueTransactions,
+      filteredCount: 0,
+      lastTransactionFound: false
+    };
   }
 
   if (filteredResult.newTransactions.length === 0) {
@@ -193,8 +212,8 @@ async function handleProcessTransactions(
       transactions: [],
       totalCount: 0,
       alreadyImportedCount: tempData.transactions.length,
-      filteredCount: filteredResult.filteredCount,
-      lastImportedTransactionFound: filteredResult.lastTransactionFound,
+      filteredCount,
+      lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
       totalTransactions: processedTransactions.length,
       message: 'No transactions available for import. This may be because all categories are mapped to "None" or all transactions have already been imported.'
     });
@@ -203,9 +222,9 @@ async function handleProcessTransactions(
   return NextResponse.json({
     transactions: filteredResult.newTransactions,
     totalCount: filteredResult.newTransactions.length,
-    alreadyImportedCount: tempData.transactions.length - processedTransactions.length,
-    filteredCount: filteredResult.filteredCount,
-    lastImportedTransactionFound: filteredResult.lastTransactionFound,
+    alreadyImportedCount,
+    filteredCount,
+    lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
     totalTransactions: processedTransactions.length
   });
 }

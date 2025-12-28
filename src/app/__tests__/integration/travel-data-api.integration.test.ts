@@ -5,7 +5,13 @@
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000';
+const BASE_URL = (() => {
+  const fromEnv = process.env.TEST_API_BASE_URL;
+  if (!fromEnv) {
+    throw new Error('TEST_API_BASE_URL must be set for integration API tests');
+  }
+  return fromEnv;
+})();
 
 // Test data that matches the real application structure
 const TEST_TRAVEL_DATA = {

@@ -24,6 +24,7 @@ import {
   getOptimalThumbnailUrl,
   parseWikipediaReference
 } from '../lib/wikipediaUtils';
+import { getDataDir } from '../lib/dataDirectory';
 
 const DEFAULT_CONFIG: WikipediaServiceConfig = {
   userAgent: 'TravelTracker/1.0 (https://github.com/bdamokos/travel-tracker) BasedOnWikipediaAPI',
@@ -53,7 +54,7 @@ class WikipediaService {
 
   constructor(config: Partial<WikipediaServiceConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.dataDir = path.join(process.cwd(), 'data', 'wikipedia');
+    this.dataDir = path.join(getDataDir(), 'wikipedia');
   }
 
   /**

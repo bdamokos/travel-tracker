@@ -92,12 +92,13 @@ describe('YNAB Import Filtering Integration', () => {
 
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const url = `${BASE_URL}${endpoint}`;
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(url, {
+      ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers
-      },
-      ...options
+      }
     });
     
     return response;
@@ -164,7 +165,7 @@ describe('YNAB Import Filtering Integration', () => {
         method: 'DELETE'
       });
     }
-  });
+  }, 20000);
 
   describe('First import - no filtering', () => {
     it('should import all transactions on first import', async () => {

@@ -7,14 +7,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listAllTrips, loadUnifiedTripData } from '../../../lib/unifiedDataService';
 import { Location } from '../../../types';
 import { wikipediaService } from '../../../services/wikipediaService';
-import { 
-  RefreshJobConfig, 
-  RefreshResult, 
+import {
+  RefreshJobConfig,
+  RefreshResult,
   RefreshJobSummary,
-  WikipediaMetadata 
+  WikipediaMetadata
 } from '../../../types/wikipedia';
 import fs from 'fs/promises';
 import path from 'path';
+import { getDataDir } from '../../../lib/dataDirectory';
 
 const DEFAULT_REFRESH_CONFIG: RefreshJobConfig = {
   batchSize: 20, // Process 20 locations at a time
@@ -27,7 +28,7 @@ const DEFAULT_REFRESH_CONFIG: RefreshJobConfig = {
  * Load or create Wikipedia metadata
  */
 async function loadWikipediaMetadata(): Promise<WikipediaMetadata> {
-  const metadataPath = path.join(process.cwd(), 'data', 'wikipedia', 'metadata.json');
+  const metadataPath = path.join(getDataDir(), 'wikipedia', 'metadata.json');
   
   try {
     const data = await fs.readFile(metadataPath, 'utf8');
@@ -57,7 +58,7 @@ async function loadWikipediaMetadata(): Promise<WikipediaMetadata> {
  * Save Wikipedia metadata
  */
 async function saveWikipediaMetadata(metadata: WikipediaMetadata): Promise<void> {
-  const metadataPath = path.join(process.cwd(), 'data', 'wikipedia', 'metadata.json');
+  const metadataPath = path.join(getDataDir(), 'wikipedia', 'metadata.json');
   
   // Ensure directory exists
   await fs.mkdir(path.dirname(metadataPath), { recursive: true });
