@@ -4,8 +4,21 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { mkdir, rm } from 'fs/promises';
+import { join } from 'path';
+import { NextRequest } from 'next/server';
+import { POST as ynabUploadPOST } from '../../api/cost-tracking/[id]/ynab-upload/route';
+import { POST as ynabProcessPOST } from '../../api/cost-tracking/[id]/ynab-process/route';
+import { updateTravelData, updateCostData, saveUnifiedTripData } from '../../lib/unifiedDataService';
+import { getUnifiedTripFilePath, getTempYnabFilePath } from '../../lib/dataFilePaths';
+import { CURRENT_SCHEMA_VERSION } from '../../lib/dataMigration';
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000';
+jest.mock('../../lib/server-domains', () => ({
+  isAdminDomain: jest.fn().mockResolvedValue(true)
+}));
+
+const DATA_DIR = join(process.cwd(), 'data');
+const TEST_TRIP_ID = 'ynabfiltertrip';
 
 // Test data that matches the real application structure
 const TEST_TRAVEL_DATA = {
@@ -87,21 +100,16 @@ const MOCK_YNAB_TRANSACTIONS = [
 ];
 
 describe('YNAB Import Filtering Integration', () => {
-  let testTripId: string;
-  let testCostId: string;
+  const tempFiles: string[] = [];
 
-  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-    const url = `${BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
+  const createJsonRequest = (endpoint: string, body: unknown) =>
+    new NextRequest(`http://localhost${endpoint}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
       headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
+        'Content-Type': 'application/json'
+      }
     });
-    
-    return response;
-  };
 
   const createTempYnabFile = async (transactions: typeof MOCK_YNAB_TRANSACTIONS) => {
     const tsvContent = [
@@ -113,56 +121,52 @@ describe('YNAB Import Filtering Integration', () => {
     const blob = new Blob([tsvContent], { type: 'text/tab-separated-values' });
     formData.append('file', blob, 'test-transactions.tsv');
 
-    const uploadResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-upload`, {
+    const uploadRequest = new NextRequest(`http://localhost/api/cost-tracking/${TEST_TRIP_ID}/ynab-upload`, {
       method: 'POST',
       body: formData
     });
+    const uploadResponse = await ynabUploadPOST(uploadRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
     if (!uploadResponse.ok) {
       throw new Error(`Upload failed: ${uploadResponse.status}`);
     }
 
     const uploadData = await uploadResponse.json();
+    tempFiles.push(uploadData.tempFileId);
     return uploadData.tempFileId;
   };
 
   beforeAll(async () => {
-    // Create test trip
-    const createTripResponse = await apiCall('/api/travel-data', {
-      method: 'POST',
-      body: JSON.stringify(TEST_TRAVEL_DATA)
+    await mkdir(DATA_DIR, { recursive: true });
+    const now = new Date().toISOString();
+    await saveUnifiedTripData({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      id: TEST_TRIP_ID,
+      title: TEST_TRAVEL_DATA.title,
+      description: TEST_TRAVEL_DATA.description,
+      startDate: TEST_TRAVEL_DATA.startDate,
+      endDate: TEST_TRAVEL_DATA.endDate,
+      createdAt: now,
+      updatedAt: now
     });
-
-    if (!createTripResponse.ok) {
-      throw new Error(`Failed to create test trip: ${createTripResponse.status}`);
-    }
-
-    const tripData = await createTripResponse.json();
-    testTripId = tripData.id;
-
-    // Create cost tracking data
-    const createCostResponse = await apiCall('/api/cost-tracking', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...TEST_COST_DATA,
-        tripId: testTripId
-      })
+    await updateTravelData(TEST_TRIP_ID, {
+      ...TEST_TRAVEL_DATA,
+      id: TEST_TRIP_ID
     });
-
-    if (!createCostResponse.ok) {
-      throw new Error(`Failed to create cost tracking: ${createCostResponse.status}`);
-    }
-
-    const costData = await createCostResponse.json();
-    testCostId = costData.id;
+    await updateCostData(TEST_TRIP_ID, {
+      ...TEST_COST_DATA,
+      tripId: TEST_TRIP_ID,
+      id: TEST_TRIP_ID
+    });
   });
 
   afterAll(async () => {
-    // Clean up test data
-    if (testTripId) {
-      await apiCall(`/api/travel-data/${testTripId}`, {
-        method: 'DELETE'
-      });
+    const tripFile = getUnifiedTripFilePath(TEST_TRIP_ID);
+    await rm(tripFile, { force: true });
+
+    for (const tempFileId of tempFiles) {
+      const tempPath = getTempYnabFilePath(tempFileId);
+      await rm(tempPath, { force: true });
     }
   });
 
@@ -180,14 +184,12 @@ describe('YNAB Import Filtering Integration', () => {
       ];
 
       // Get processed transactions
-      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'process',
-          tempFileId: tempFileId,
-          mappings: mappings
-        })
+      const processRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'process',
+        tempFileId: tempFileId,
+        mappings: mappings
       });
+      const processResponse = await ynabProcessPOST(processRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(processResponse.ok).toBe(true);
       const processData = await processResponse.json();
@@ -199,20 +201,20 @@ describe('YNAB Import Filtering Integration', () => {
       expect(processData.totalTransactions).toBe(3);
 
       // Import all transactions
-      const selectedTransactions = processData.transactions.map((txn: { hash: string }) => ({
+      const selectedTransactions = processData.transactions.map((txn: { hash: string; instanceId?: string; sourceIndex?: number }) => ({
         transactionHash: txn.hash,
+        transactionId: txn.instanceId,
+        transactionSourceIndex: txn.sourceIndex,
         expenseCategory: 'Food'
       }));
 
-      const importResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'import',
-          tempFileId,
-          mappings,
-          selectedTransactions
-        })
+      const importRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'import',
+        tempFileId,
+        mappings,
+        selectedTransactions
       });
+      const importResponse = await ynabProcessPOST(importRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(importResponse.ok).toBe(true);
       const importData = await importResponse.json();
@@ -253,23 +255,22 @@ describe('YNAB Import Filtering Integration', () => {
       ];
 
       // Get processed transactions
-      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'process',
-          tempFileId: tempFileId,
-          mappings: mappings
-        })
+      const processRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'process',
+        tempFileId: tempFileId,
+        mappings: mappings
       });
+      const processResponse = await ynabProcessPOST(processRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(processResponse.ok).toBe(true);
       const processData = await processResponse.json();
 
-      // Should filter out previously imported transactions
-      expect(processData.transactions.length).toBeLessThan(newTransactions.length);
-      expect(processData.filteredCount).toBeGreaterThan(0);
-      expect(processData.lastImportedTransactionFound).toBe(true);
-      expect(processData.totalTransactions).toBe(3); // Total processed transactions
+      // Should filter out previously imported transactions and only surface new ones
+      expect(processData.transactions).toHaveLength(1);
+      expect(processData.alreadyImportedCount).toBe(2);
+      expect(processData.filteredCount).toBe(0);
+      expect(processData.lastImportedTransactionFound).toBe(false);
+      expect(processData.totalTransactions).toBe(1); // Total processed non-duplicate transactions
     });
 
     it('should show all transactions when showAll=true', async () => {
@@ -285,24 +286,22 @@ describe('YNAB Import Filtering Integration', () => {
       ];
 
       // Get processed transactions with showAll=true
-      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'process',
-          tempFileId: tempFileId,
-          mappings: mappings,
-          showAll: true
-        })
+      const processRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'process',
+        tempFileId: tempFileId,
+        mappings: mappings,
+        showAll: true
       });
+      const processResponse = await ynabProcessPOST(processRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(processResponse.ok).toBe(true);
       const processData = await processResponse.json();
 
-      // Should return all transactions regardless of previous imports
-      expect(processData.transactions).toHaveLength(3);
+      // Should return only non-duplicate transactions even when bypassing last-import filtering
+      expect(processData.transactions).toHaveLength(0);
       expect(processData.filteredCount).toBe(0);
       expect(processData.lastImportedTransactionFound).toBe(false);
-      expect(processData.totalTransactions).toBe(3);
+      expect(processData.totalTransactions).toBe(0);
     });
   });
 
@@ -316,13 +315,11 @@ describe('YNAB Import Filtering Integration', () => {
         }
       ];
 
-      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'process',
-          mappings: mappings
-        })
+      const processRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'process',
+        mappings: mappings
       });
+      const processResponse = await ynabProcessPOST(processRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(processResponse.ok).toBe(false);
       expect(processResponse.status).toBe(400);
@@ -331,13 +328,11 @@ describe('YNAB Import Filtering Integration', () => {
     it('should handle missing mappings parameter', async () => {
       const tempFileId = await createTempYnabFile(MOCK_YNAB_TRANSACTIONS);
 
-      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'process',
-          tempFileId: tempFileId
-        })
+      const processRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'process',
+        tempFileId: tempFileId
       });
+      const processResponse = await ynabProcessPOST(processRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(processResponse.ok).toBe(false);
       expect(processResponse.status).toBe(400);
@@ -352,14 +347,12 @@ describe('YNAB Import Filtering Integration', () => {
         }
       ];
 
-      const processResponse = await apiCall(`/api/cost-tracking/${testCostId}/ynab-process`, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'process',
-          tempFileId: 'invalid',
-          mappings: mappings
-        })
+      const processRequest = createJsonRequest(`/api/cost-tracking/${TEST_TRIP_ID}/ynab-process`, {
+        action: 'process',
+        tempFileId: 'invalid',
+        mappings: mappings
       });
+      const processResponse = await ynabProcessPOST(processRequest, { params: Promise.resolve({ id: TEST_TRIP_ID }) });
 
       expect(processResponse.ok).toBe(false);
       expect(processResponse.status).toBe(400);
