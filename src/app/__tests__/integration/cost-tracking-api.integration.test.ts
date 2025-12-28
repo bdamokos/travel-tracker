@@ -3,9 +3,94 @@
  * Tests expense management, YNAB import, and cost calculations
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { NextRequest } from 'next/server';
+import { CURRENT_SCHEMA_VERSION, type UnifiedTripData } from '../../lib/dataMigration';
+import { join } from 'path';
+import { mkdir, readdir, rm } from 'fs/promises';
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000';
+// Mock admin domain checks to avoid network dependency
+const mockIsAdminDomain = jest.fn().mockResolvedValue(true);
+jest.doMock('../../lib/server-domains', () => ({
+  isAdminDomain: mockIsAdminDomain
+}));
+
+// In-memory cost data store to keep tests deterministic
+const costDataStore: Record<string, UnifiedTripData> = {};
+
+const mockLoadUnifiedTripData = jest.fn(async (id: string) => {
+  return costDataStore[id] || null;
+});
+
+const mockUpdateCostData = jest.fn(async (id: string, costUpdates: Record<string, unknown>) => {
+  const now = new Date().toISOString();
+  const existing = costDataStore[id];
+
+  const baseData: UnifiedTripData = existing || {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    id,
+    title: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    createdAt: (costUpdates.createdAt as string) || now,
+    updatedAt: now
+  };
+
+  const resolvedCustomCategories =
+    (costUpdates.customCategories as string[] | undefined) || baseData.costData?.customCategories;
+
+  const updated: UnifiedTripData = {
+    ...baseData,
+    title: (costUpdates.tripTitle as string) ?? baseData.title,
+    startDate: (costUpdates.tripStartDate as string) ?? baseData.startDate,
+    endDate: (costUpdates.tripEndDate as string) ?? baseData.endDate,
+    createdAt: baseData.createdAt,
+    updatedAt: (costUpdates.updatedAt as string) || now,
+    costData: {
+      overallBudget: (costUpdates.overallBudget as number) ?? baseData.costData?.overallBudget ?? 0,
+      currency: (costUpdates.currency as string) || baseData.costData?.currency || 'EUR',
+      countryBudgets: (costUpdates.countryBudgets as unknown[]) || baseData.costData?.countryBudgets || [],
+      expenses: (costUpdates.expenses as unknown[]) || baseData.costData?.expenses || [],
+      ynabImportData: (costUpdates.ynabImportData as unknown) || baseData.costData?.ynabImportData,
+      ynabConfig: (costUpdates.ynabConfig as unknown) || baseData.costData?.ynabConfig,
+      ...(resolvedCustomCategories ? { customCategories: resolvedCustomCategories } : {})
+    }
+  };
+
+  costDataStore[id] = updated;
+  return updated;
+});
+
+const mockListAllTrips = jest.fn(async () =>
+  Object.values(costDataStore).map((trip) => ({
+    id: trip.id,
+    title: trip.title,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    createdAt: trip.createdAt,
+    hasTravel: Boolean(trip.travelData),
+    hasCost: Boolean(trip.costData),
+    isUnified: true,
+    locationCount: trip.travelData?.locations?.length || 0,
+    accommodationCount: trip.accommodations?.length || 0,
+    routeCount: trip.travelData?.routes?.length || 0
+  }))
+);
+
+jest.doMock('../../lib/unifiedDataService', () => ({
+  loadUnifiedTripData: mockLoadUnifiedTripData,
+  updateCostData: mockUpdateCostData,
+  listAllTrips: mockListAllTrips
+}));
+
+// Re-import modules after mocking
+const { POST: mockedCostTrackingPOST, GET: mockedCostTrackingGET, PUT: mockedCostTrackingPUT } = jest.requireActual(
+  '../../api/cost-tracking/route'
+);
+const { GET: mockedCostTrackingListGET } = jest.requireActual('../../api/cost-tracking/list/route');
+const { POST: mockedYnabUploadPOST } = jest.requireActual('../../api/cost-tracking/[id]/ynab-upload/route');
+const { POST: mockedYnabProcessPOST } = jest.requireActual('../../api/cost-tracking/[id]/ynab-process/route');
 
 // Test data that matches the real cost tracking structure
 const TEST_COST_DATA = {
@@ -48,34 +133,68 @@ const TEST_COST_DATA = {
   ]
 };
 
+const dataDir = join(process.cwd(), 'data');
+const BASE_URL = 'http://localhost';
+const createJsonRequest = (url: string, method: string, body?: unknown) =>
+  new NextRequest(url, {
+    method,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: { 'content-type': 'application/json', host: 'localhost' }
+  });
+
+const callCostTracking = (method: 'POST' | 'GET' | 'PUT', path: string, body?: unknown) => {
+  const request = createJsonRequest(`${BASE_URL}${path}`, method, body);
+  if (method === 'POST') return mockedCostTrackingPOST(request);
+  if (method === 'PUT') return mockedCostTrackingPUT(request);
+  return mockedCostTrackingGET(request);
+};
+
+const callCostTrackingList = () => mockedCostTrackingListGET();
+
+const callYnabUpload = (id: string, formData: FormData) => {
+  const request = new NextRequest(`${BASE_URL}/api/cost-tracking/${id}/ynab-upload`, {
+    method: 'POST',
+    body: formData,
+    headers: { host: 'localhost' }
+  });
+  return mockedYnabUploadPOST(request, { params: Promise.resolve({ id }) });
+};
+
+const callYnabProcess = (id: string, body: unknown) => {
+  const request = createJsonRequest(`${BASE_URL}/api/cost-tracking/${id}/ynab-process`, 'POST', body);
+  return mockedYnabProcessPOST(request, { params: Promise.resolve({ id }) });
+};
+
+const cleanupDataDir = async (initialFiles: string[]) => {
+  const existing = await readdir(dataDir);
+  const initialSet = new Set(initialFiles);
+  await Promise.all(
+    existing
+      .filter((file) => !initialSet.has(file))
+      .map((file) => rm(join(dataDir, file), { recursive: true, force: true }))
+  );
+};
+
 describe('Cost Tracking API Endpoints', () => {
   let createdCostId: string;
+  let initialDataFiles: string[] = [];
 
-  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-    const url = `${BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorText}`);
+  beforeAll(async () => {
+    await mkdir(dataDir, { recursive: true });
+    try {
+      initialDataFiles = await readdir(dataDir);
+    } catch {
+      initialDataFiles = [];
     }
-    
-    return response;
-  };
+  });
+
+  beforeEach(() => {
+    mockIsAdminDomain.mockClear();
+  });
 
   describe('POST /api/cost-tracking (Create Cost Data)', () => {
     it('should create new cost tracking data', async () => {
-      const response = await apiCall('/api/cost-tracking', {
-        method: 'POST',
-        body: JSON.stringify(TEST_COST_DATA)
-      });
-
+      const response = await callCostTracking('POST', '/api/cost-tracking', TEST_COST_DATA);
       const result = await response.json();
       
       expect(result.success).toBe(true);
@@ -91,10 +210,7 @@ describe('Cost Tracking API Endpoints', () => {
         // Testing what the API actually accepts
       };
 
-      const response = await apiCall('/api/cost-tracking', {
-        method: 'POST',
-        body: JSON.stringify(minimalData)
-      });
+      const response = await callCostTracking('POST', '/api/cost-tracking', minimalData);
 
       const result = await response.json();
       expect(result.success).toBe(true);
@@ -108,7 +224,7 @@ describe('Cost Tracking API Endpoints', () => {
         throw new Error('No cost data created to test retrieval');
       }
 
-      const response = await apiCall(`/api/cost-tracking?id=${createdCostId}`);
+      const response = await callCostTracking('GET', `/api/cost-tracking?id=${createdCostId}`);
       const costData = await response.json();
 
       expect(costData.id).toBe(`cost-${createdCostId}`);
@@ -145,16 +261,13 @@ describe('Cost Tracking API Endpoints', () => {
         ]
       };
 
-      const response = await apiCall(`/api/cost-tracking?id=${createdCostId}`, {
-        method: 'PUT',
-        body: JSON.stringify(updatedData)
-      });
+      const response = await callCostTracking('PUT', `/api/cost-tracking?id=${createdCostId}`, updatedData);
 
       const result = await response.json();
       expect(result.success).toBe(true);
 
       // Verify the update
-      const getResponse = await apiCall(`/api/cost-tracking?id=${createdCostId}`);
+      const getResponse = await callCostTracking('GET', `/api/cost-tracking?id=${createdCostId}`);
       const updatedCostData = await getResponse.json();
       
       expect(updatedCostData.overallBudget).toBe(3000);
@@ -165,7 +278,7 @@ describe('Cost Tracking API Endpoints', () => {
 
   describe('GET /api/cost-tracking/list (List All Cost Data)', () => {
     it('should list all cost tracking data', async () => {
-      const response = await apiCall('/api/cost-tracking/list');
+      const response = await callCostTrackingList();
       const costDataList = await response.json();
 
       expect(Array.isArray(costDataList)).toBe(true);
@@ -194,10 +307,7 @@ Checking\t\t2024-07-04\tHotel ABC\tAccommodation\tAccommodation\tAccommodation\t
       const blob = new Blob([mockYnabContent], { type: 'text/tab-separated-values' });
       formData.append('file', blob, 'test-export.tsv');
 
-      const uploadResponse = await fetch(`${BASE_URL}/api/cost-tracking/${createdCostId}/ynab-upload`, {
-        method: 'POST',
-        body: formData
-      });
+      const uploadResponse = await callYnabUpload(createdCostId, formData);
 
       const uploadResult = await uploadResponse.json();
       expect(uploadResult.success).toBe(true);
@@ -217,12 +327,11 @@ Checking\t\t2024-07-04\tHotel ABC\tAccommodation\tAccommodation\tAccommodation\t
         // Missing tempFileId, mappings, selectedTransactions
       };
 
-      await expect(
-        apiCall(`/api/cost-tracking/${createdCostId}/ynab-process`, {
-          method: 'POST',
-          body: JSON.stringify(invalidProcessData)
-        })
-      ).rejects.toThrow(/Missing required data/);
+      const response = await callYnabProcess(createdCostId, invalidProcessData);
+      const result = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(result.error).toMatch(/Missing required data/);
     });
   });
 
@@ -250,25 +359,24 @@ Checking\t\t2024-07-04\tHotel ABC\tAccommodation\tAccommodation\tAccommodation\t
       };
 
       // API is permissive and should accept this data without validation
-      const response = await apiCall(`/api/cost-tracking?id=${createdCostId}`, {
-        method: 'PUT',
-        body: JSON.stringify(dataWithInvalidAmount)
-      });
+      const response = await callCostTracking('PUT', `/api/cost-tracking?id=${createdCostId}`, dataWithInvalidAmount);
 
       const result = await response.json();
       expect(result.success).toBe(true);
 
       // Verify the data was stored (even with invalid amount)
-      const getResponse = await apiCall(`/api/cost-tracking?id=${createdCostId}`);
+      const getResponse = await callCostTracking('GET', `/api/cost-tracking?id=${createdCostId}`);
       const updatedCostData = await getResponse.json();
       expect(updatedCostData.expenses).toHaveLength(1);
       expect(updatedCostData.expenses[0].amount).toBe('not-a-number');
     });
 
     it('should handle missing cost tracking ID', async () => {
-      await expect(
-        apiCall('/api/cost-tracking?id=non-existent-id')
-      ).rejects.toThrow(/404/);
+      const response = await callCostTracking('GET', '/api/cost-tracking?id=non-existent-id');
+      const result = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(result.error).toMatch(/Cost tracking data not found/);
     });
 
     it('should validate YNAB file format', async () => {
@@ -281,10 +389,7 @@ Checking\t\t2024-07-04\tHotel ABC\tAccommodation\tAccommodation\tAccommodation\t
       const blob = new Blob([invalidContent], { type: 'text/plain' });
       formData.append('file', blob, 'invalid.txt');
 
-      const response = await fetch(`${BASE_URL}/api/cost-tracking/${createdCostId}/ynab-upload`, {
-        method: 'POST',
-        body: formData
-      });
+      const response = await callYnabUpload(createdCostId, formData);
 
       expect(response.ok).toBe(false);
     });
@@ -292,17 +397,9 @@ Checking\t\t2024-07-04\tHotel ABC\tAccommodation\tAccommodation\tAccommodation\t
 
   // Cleanup
   afterAll(async () => {
-    if (createdCostId) {
-      try {
-        // Note: There might not be a DELETE endpoint for cost tracking
-        // This is just for cleanup if it exists
-        await fetch(`${BASE_URL}/api/cost-tracking?id=${createdCostId}`, {
-          method: 'DELETE'
-        });
-      } catch (error) {
-        // Ignore cleanup errors
-        console.log('Cleanup error (ignored):', error);
-      }
-    }
+    await cleanupDataDir(initialDataFiles);
+    Object.keys(costDataStore).forEach((key) => {
+      delete costDataStore[key];
+    });
   });
 });
