@@ -16,10 +16,7 @@ const describeFn = RUN_DEBUG_TESTS ? describe : describe.skip
 
 async function isServerAvailable(baseUrl: string) {
   try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 2000)
-    const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal })
-    clearTimeout(timeoutId)
+    const response = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(2000) })
     return response.ok
   } catch (error) {
     console.warn('⚠️ Unable to reach test API base URL', error)
