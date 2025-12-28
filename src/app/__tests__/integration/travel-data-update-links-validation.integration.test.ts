@@ -2,9 +2,134 @@
  * Integration tests for travel data update links API with trip boundary validation
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, jest } from '@jest/globals';
+import { NextRequest } from 'next/server';
+import { UnifiedTripData } from '../../lib/dataMigration';
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000';
+type ApiHandler = (request: NextRequest) => Promise<Response>;
+
+const dataStore = new Map<string, UnifiedTripData>();
+
+const cloneData = (data: UnifiedTripData): UnifiedTripData => JSON.parse(JSON.stringify(data));
+
+const mockLoadUnifiedTripData = jest.fn(async (tripId: string) => {
+  const data = dataStore.get(tripId);
+  return data ? cloneData(data) : null;
+});
+
+const mockSaveUnifiedTripData = jest.fn(async (data: UnifiedTripData) => {
+  dataStore.set(data.id, cloneData(data));
+});
+
+const normalizeLocation = (location: Record<string, unknown>) => ({
+  costTrackingLinks: [],
+  ...location
+});
+
+const normalizeRoute = (route: Record<string, unknown>) => ({
+  costTrackingLinks: [],
+  ...route
+});
+
+const normalizeAccommodation = (accommodation: Record<string, unknown>) => ({
+  createdAt: new Date().toISOString(),
+  costTrackingLinks: [],
+  ...accommodation
+});
+
+const mockUpdateTravelData = jest.fn(async (tripId: string, travelUpdates: Record<string, unknown>) => {
+  const existing = dataStore.get(tripId);
+
+  const updated: UnifiedTripData = {
+    schemaVersion: 6,
+    id: tripId,
+    title: (travelUpdates.title as string) ?? existing?.title ?? '',
+    description: (travelUpdates.description as string) ?? existing?.description ?? '',
+    startDate: (travelUpdates.startDate as string) ?? existing?.startDate ?? '',
+    endDate: (travelUpdates.endDate as string) ?? existing?.endDate ?? '',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    travelData: {
+      locations: (travelUpdates.locations as Record<string, unknown>[] | undefined)?.map(normalizeLocation) ??
+        existing?.travelData?.locations ??
+        [],
+      routes: (travelUpdates.routes as Record<string, unknown>[] | undefined)?.map(normalizeRoute) ??
+        existing?.travelData?.routes ??
+        [],
+      days: (travelUpdates.days as unknown) ?? existing?.travelData?.days
+    },
+    accommodations: (travelUpdates.accommodations as Record<string, unknown>[] | undefined)?.map(normalizeAccommodation) ??
+      existing?.accommodations ??
+      [],
+    costData: existing?.costData
+  };
+
+  dataStore.set(tripId, cloneData(updated));
+  return cloneData(updated);
+});
+
+const mockUpdateCostData = jest.fn(async (tripId: string, costUpdates: Record<string, unknown>) => {
+  const existing = dataStore.get(tripId);
+
+  const updated: UnifiedTripData = {
+    schemaVersion: 6,
+    id: tripId,
+    title: (costUpdates.tripTitle as string) ?? existing?.title ?? '',
+    description: existing?.description ?? '',
+    startDate: (costUpdates.tripStartDate as string) ?? existing?.startDate ?? '',
+    endDate: (costUpdates.tripEndDate as string) ?? existing?.endDate ?? '',
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    travelData: existing?.travelData,
+    accommodations: existing?.accommodations,
+    costData: {
+      overallBudget: (costUpdates.overallBudget as number) ?? existing?.costData?.overallBudget ?? 0,
+      currency: (costUpdates.currency as string) ?? existing?.costData?.currency ?? 'USD',
+      countryBudgets: (costUpdates.countryBudgets as unknown[]) ?? existing?.costData?.countryBudgets ?? [],
+      expenses: (costUpdates.expenses as unknown[]) ?? existing?.costData?.expenses ?? []
+    }
+  };
+
+  dataStore.set(tripId, cloneData(updated));
+  return cloneData(updated);
+});
+
+const mockDeleteTripWithBackup = jest.fn(async (tripId: string) => {
+  dataStore.delete(tripId);
+});
+
+const mockIsAdminDomain = jest.fn().mockResolvedValue(true);
+
+jest.doMock('../../lib/unifiedDataService', () => ({
+  loadUnifiedTripData: mockLoadUnifiedTripData,
+  saveUnifiedTripData: mockSaveUnifiedTripData,
+  updateTravelData: mockUpdateTravelData,
+  updateCostData: mockUpdateCostData,
+  deleteTripWithBackup: mockDeleteTripWithBackup
+}));
+
+jest.doMock('../../lib/server-domains', () => ({
+  isAdminDomain: mockIsAdminDomain
+}));
+
+let travelDataPOST: ApiHandler;
+let travelDataDELETE: ApiHandler;
+let costTrackingPUT: ApiHandler;
+let updateLinksPOST: ApiHandler;
+
+const BASE_URL = 'http://localhost:3000';
+
+const createJsonRequest = (url: string, method: string, body?: unknown) =>
+  new NextRequest(url, {
+    method,
+    headers: new Headers({
+      'content-type': 'application/json',
+      host: 'localhost:3000'
+    }),
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+const getTrip = (tripId: string) => dataStore.get(tripId);
 
 describe('Travel Data Update Links API - Trip Boundary Validation', () => {
   let testTripId: string;
@@ -15,22 +140,20 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
   let otherTripId: string;
   let otherExpenseId: string;
 
-  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-    const url = `${BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
-    });
-    
-    return response;
-  };
-
-  // Setup test data
   beforeAll(async () => {
-    // Create first test trip with travel items
+    const travelDataModule = await import('../../api/travel-data/route');
+    const costTrackingModule = await import('../../api/cost-tracking/route');
+    const updateLinksModule = await import('../../api/travel-data/update-links/route');
+
+    travelDataPOST = travelDataModule.POST;
+    travelDataDELETE = travelDataModule.DELETE;
+    costTrackingPUT = costTrackingModule.PUT;
+    updateLinksPOST = updateLinksModule.POST;
+  });
+
+  const seedTrips = async () => {
+    dataStore.clear();
+
     const testTripData = {
       title: 'Trip Boundary Test Trip 1',
       description: 'Test trip for boundary validation',
@@ -40,14 +163,14 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
         {
           id: 'test-location-1',
           name: 'Test Location 1',
-          coordinates: [40.7128, -74.0060],
+          coordinates: [40.7128, -74.006],
           date: '2024-01-01T00:00:00.000Z'
         }
       ],
       routes: [
         {
           id: 'test-route-1',
-          type: 'flight',
+          type: 'plane',
           from: 'Test Location 1',
           to: 'Test Location 2',
           date: '2024-01-02T00:00:00.000Z'
@@ -62,28 +185,17 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
       ]
     };
 
-    const response1 = await apiCall('/api/travel-data', {
-      method: 'POST',
-      body: JSON.stringify(testTripData)
-    });
+    const tripResponse = await travelDataPOST(
+      createJsonRequest(`${BASE_URL}/api/travel-data`, 'POST', testTripData)
+    );
+    const tripResult = await tripResponse.json() as { id: string };
+    testTripId = tripResult.id;
 
-    if (!response1.ok) {
-      throw new Error(`Failed to create test trip 1: ${response1.status}`);
-    }
+    const createdTrip = getTrip(testTripId);
+    testLocationId = createdTrip?.travelData?.locations?.[0]?.id as string;
+    testAccommodationId = createdTrip?.accommodations?.[0]?.id as string;
+    testRouteId = createdTrip?.travelData?.routes?.[0]?.id as string;
 
-    const result1 = await response1.json();
-    testTripId = result1.id;
-    
-    // Get the actual trip data to find the real IDs
-    const getTripResponse = await apiCall(`/api/travel-data?id=${testTripId}`);
-    const actualTripData = await getTripResponse.json();
-    
-    // Extract IDs from the actual structure
-    testLocationId = actualTripData.locations?.[0]?.id || 'test-location-1';
-    testAccommodationId = actualTripData.accommodations?.[0]?.id || 'test-accommodation-1';
-    testRouteId = actualTripData.routes?.[0]?.id || 'test-route-1';
-    
-    // Create cost tracking data with expenses for the first trip
     const costData = {
       overallBudget: 1000,
       currency: 'USD',
@@ -100,41 +212,34 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
       ]
     };
 
-    const costResponse = await apiCall(`/api/cost-tracking?id=${testTripId}`, {
-      method: 'PUT',
-      body: JSON.stringify(costData)
-    });
+    await costTrackingPUT(
+      createJsonRequest(`${BASE_URL}/api/cost-tracking?id=${testTripId}`, 'PUT', costData)
+    );
 
-    if (!costResponse.ok) {
-      throw new Error(`Failed to create cost data for trip 1: ${costResponse.status}`);
-    }
+    const createdCostData = getTrip(testTripId);
+    testExpenseId = createdCostData?.costData?.expenses?.[0]?.id as string;
 
-    // Get the actual expense ID
-    const getCostResponse = await apiCall(`/api/cost-tracking?id=${testTripId}`);
-    const actualCostData = await getCostResponse.json();
-    testExpenseId = actualCostData.expenses?.[0]?.id || 'test-expense-1';
-
-    // Create second test trip
     const otherTripData = {
       title: 'Trip Boundary Test Trip 2',
       description: 'Other test trip for cross-trip validation',
       startDate: '2024-02-01T00:00:00.000Z',
-      endDate: '2024-02-10T00:00:00.000Z'
+      endDate: '2024-02-10T00:00:00.000Z',
+      locations: [
+        {
+          id: 'other-location-1',
+          name: 'Other Location',
+          coordinates: [34.0522, -118.2437],
+          date: '2024-02-01T00:00:00.000Z'
+        }
+      ]
     };
 
-    const response2 = await apiCall('/api/travel-data', {
-      method: 'POST',
-      body: JSON.stringify(otherTripData)
-    });
+    const otherTripResponse = await travelDataPOST(
+      createJsonRequest(`${BASE_URL}/api/travel-data`, 'POST', otherTripData)
+    );
+    const otherTripResult = await otherTripResponse.json() as { id: string };
+    otherTripId = otherTripResult.id;
 
-    if (!response2.ok) {
-      throw new Error(`Failed to create test trip 2: ${response2.status}`);
-    }
-
-    const result2 = await response2.json();
-    otherTripId = result2.id;
-    
-    // Create cost tracking data with expenses for the second trip
     const otherCostData = {
       overallBudget: 2000,
       currency: 'USD',
@@ -151,36 +256,37 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
       ]
     };
 
-    const otherCostResponse = await apiCall(`/api/cost-tracking?id=${otherTripId}`, {
-      method: 'PUT',
-      body: JSON.stringify(otherCostData)
-    });
+    await costTrackingPUT(
+      createJsonRequest(`${BASE_URL}/api/cost-tracking?id=${otherTripId}`, 'PUT', otherCostData)
+    );
 
-    if (!otherCostResponse.ok) {
-      throw new Error(`Failed to create cost data for trip 2: ${otherCostResponse.status}`);
-    }
+    const createdOtherCost = getTrip(otherTripId);
+    otherExpenseId = createdOtherCost?.costData?.expenses?.[0]?.id as string;
+  };
 
-    // Get the actual expense ID
-    const getOtherCostResponse = await apiCall(`/api/cost-tracking?id=${otherTripId}`);
-    const actualOtherCostData = await getOtherCostResponse.json();
-    otherExpenseId = actualOtherCostData.expenses?.[0]?.id || 'other-expense-1';
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await seedTrips();
   });
 
   // Cleanup test data
   afterAll(async () => {
     if (testTripId) {
-      await apiCall(`/api/travel-data?id=${testTripId}`, { method: 'DELETE' });
+      await travelDataDELETE(
+        createJsonRequest(`${BASE_URL}/api/travel-data?id=${testTripId}`, 'DELETE')
+      );
     }
     if (otherTripId) {
-      await apiCall(`/api/travel-data?id=${otherTripId}`, { method: 'DELETE' });
+      await travelDataDELETE(
+        createJsonRequest(`${BASE_URL}/api/travel-data?id=${otherTripId}`, 'DELETE')
+      );
     }
   });
 
   describe('Valid same-trip scenarios', () => {
     it('should successfully link expense to location within same trip', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -189,8 +295,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Location 1'
           }
         })
-      });
-
+      );
 
 
       expect(response.status).toBe(200);
@@ -204,9 +309,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should successfully link expense to route within same trip', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -215,7 +319,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Route 1'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(200);
       const responseData = await response.json();
@@ -223,14 +327,13 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should successfully remove expense link when travelLinkInfo is null', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: null
         })
-      });
+      );
 
       expect(response.status).toBe(200);
       const responseData = await response.json();
@@ -240,9 +343,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
 
   describe('Cross-trip validation failures', () => {
     it('should reject linking expense from different trip', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: otherExpenseId, // Expense from different trip
           travelLinkInfo: {
@@ -251,7 +353,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Location 1'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -261,9 +363,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should reject linking non-existent expense', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: 'expense-nonexistent',
           travelLinkInfo: {
@@ -272,7 +373,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Location 1'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -282,9 +383,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should reject linking non-existent location', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -293,7 +393,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Non-existent Location'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -303,9 +403,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should reject linking non-existent accommodation', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -314,7 +413,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Non-existent Hotel'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -324,9 +423,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should reject linking non-existent route', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -335,7 +433,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Non-existent Route'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -345,9 +443,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should reject when both expense and travel item are invalid', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: 'expense-nonexistent',
           travelLinkInfo: {
@@ -356,7 +453,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Non-existent Location'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -370,13 +467,12 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
 
   describe('Error handling', () => {
     it('should return 400 when tripId is missing', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           expenseId: testExpenseId,
           travelLinkInfo: null
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -384,13 +480,12 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should return 400 when expenseId is missing', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           travelLinkInfo: null
         })
-      });
+      );
 
       expect(response.status).toBe(400);
       const responseData = await response.json();
@@ -398,14 +493,13 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
     });
 
     it('should return 404 when trip data is not found', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: 'trip-nonexistent',
           expenseId: testExpenseId,
           travelLinkInfo: null
         })
-      });
+      );
 
       expect(response.status).toBe(404);
       const responseData = await response.json();
@@ -415,9 +509,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
 
   describe('API Response Validation', () => {
     it('should return success when creating valid links', async () => {
-      const response = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -426,7 +519,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Location 1'
           }
         })
-      });
+      );
 
       expect(response.status).toBe(200);
       const responseData = await response.json();
@@ -435,9 +528,8 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
 
     it('should handle multiple link operations correctly', async () => {
       // Create initial link to location
-      const response1 = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response1 = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -446,14 +538,13 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Location 1'
           }
         })
-      });
+      );
 
       expect(response1.status).toBe(200);
 
       // Create new link to route (should replace location link)
-      const response2 = await apiCall('/api/travel-data/update-links', {
-        method: 'POST',
-        body: JSON.stringify({
+      const response2 = await updateLinksPOST(
+        createJsonRequest(`${BASE_URL}/api/travel-data/update-links`, 'POST', {
           tripId: testTripId,
           expenseId: testExpenseId,
           travelLinkInfo: {
@@ -462,7 +553,7 @@ describe('Travel Data Update Links API - Trip Boundary Validation', () => {
             name: 'Test Route 1'
           }
         })
-      });
+      );
 
       expect(response2.status).toBe(200);
       const responseData = await response2.json();
