@@ -3,6 +3,9 @@
  * 
  * This test specifically triggers the frontend handleRouteAdded -> auto-save flow
  * to identify where RoutePoints are lost in the React state management.
+ * 
+ * This is a debugging harness and is skipped by default in CI. Run with
+ * RUN_DEBUG_TESTS=true and a dev server available at TEST_API_BASE_URL.
  */
 
 import { describe, it, expect } from '@jest/globals'
@@ -10,8 +13,16 @@ import { generateRoutePoints } from '../../lib/routeUtils'
 import { Transportation } from '../../types'
 
 const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
+const RUN_DEBUG_TESTS = process.env.RUN_DEBUG_TESTS === 'true'
+const describeDebug = RUN_DEBUG_TESTS ? describe : describe.skip
 
-describe('Debug Frontend Flow', () => {
+if (!RUN_DEBUG_TESTS) {
+  console.warn(
+    'Skipping Debug Frontend Flow integration test. Set RUN_DEBUG_TESTS=true and ensure a Next.js server is running at TEST_API_BASE_URL to execute this debugging harness.'
+  )
+}
+
+describeDebug('Debug Frontend Flow', () => {
   let testTripId: string
 
   it('should create a trip and trigger frontend route addition flow', async () => {
