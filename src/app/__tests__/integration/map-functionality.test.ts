@@ -199,14 +199,14 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
     const method = (options.method || 'GET').toString().toUpperCase()
     const url = new URL(`http://localhost${endpoint}`)
 
+    const headers = new Headers(options.headers);
+    headers.set('Content-Type', 'application/json');
+
     const request = new NextRequest(url.toString(), {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
+      headers,
       body: options.body as BodyInit | null | undefined
-    })
+    });
 
     switch (method) {
       case 'POST':
