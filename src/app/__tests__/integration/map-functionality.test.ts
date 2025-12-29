@@ -103,7 +103,6 @@ process.env.TRAVEL_TRACKER_DATA_DIR = TEST_DATA_DIR
 const shouldCleanupDataDir = !existingDataDirEnv
 process.env.TEST_FORCE_MOCK_ROUTES = process.env.TEST_FORCE_MOCK_ROUTES || 'true'
 
-const BASE_URL = process.env.TEST_API_BASE_URL
 const DATA_DIR = TEST_DATA_DIR
 
 describe('Map Functionality Integration Tests (Pyramid)', () => {
@@ -223,19 +222,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
 
   // Helper function to make API calls
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-    // Prefer direct handler invocation for deterministic tests unless a base URL is explicitly provided
-    if (!BASE_URL) {
-      return callRouteHandler(endpoint, options)
-    }
-
-    const url = `${BASE_URL}${endpoint}`
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
-    })
+    const response = await callRouteHandler(endpoint, options)
     
     if (!response.ok) {
       const errorText = await response.text()

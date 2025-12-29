@@ -65,7 +65,8 @@ export default async function globalSetup() {
 
   const devServer = spawn('bun', ['run', 'dev', '--', '--hostname', 'localhost', '--port', String(port)], {
     env: serverEnv,
-    stdio: 'pipe'
+    stdio: 'pipe',
+    detached: true
   });
 
   devServer.stdout?.on('data', (data) => {
@@ -79,6 +80,7 @@ export default async function globalSetup() {
 
   process.env.TEST_API_BASE_URL = baseUrl;
   process.env.TEST_DATA_DIR = dataDir;
+  process.env.TEST_SERVER_PID = String(devServer.pid);
 
   return {
     serverPid: devServer.pid,

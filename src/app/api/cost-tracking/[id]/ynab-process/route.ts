@@ -211,7 +211,7 @@ async function handleProcessTransactions(
     return NextResponse.json({
       transactions: [],
       totalCount: 0,
-      alreadyImportedCount: tempData.transactions.length,
+      alreadyImportedCount,
       filteredCount,
       lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
       totalTransactions: processedTransactions.length,

@@ -244,6 +244,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
 
       const selectedTransactions = [{
         transactionHash: 'hash123',
+        transactionSourceIndex: 0,
         expenseCategory: 'Food'
       }];
 
@@ -262,7 +263,40 @@ describe('Cost Tracking API Validation Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(result.success).toBe(true);
-      expect(mockUpdateCostData).toHaveBeenCalled();
+      expect(mockUpdateCostData).toHaveBeenCalledWith(
+        mockTripId,
+        expect.objectContaining({
+          currency: 'EUR',
+          tripTitle: mockData.title,
+          tripStartDate: mockData.startDate,
+          tripEndDate: mockData.endDate,
+          createdAt: mockData.createdAt,
+          ynabImportData: expect.objectContaining({
+            mappings: expect.arrayContaining(mappings),
+            payeeCategoryDefaults: expect.objectContaining({
+              Restaurant: 'Food'
+            })
+          }),
+          countryBudgets: expect.arrayContaining([
+            expect.objectContaining({
+              country: 'Germany'
+            })
+          ]),
+          expenses: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'ynab-hash123-0',
+              amount: 25,
+              currency: 'EUR',
+              category: 'Food',
+              country: 'Germany',
+              description: 'Restaurant',
+              source: 'ynab-file',
+              hash: 'hash123'
+            })
+          ]),
+          updatedAt: expect.any(String)
+        })
+      );
     });
   });
 
