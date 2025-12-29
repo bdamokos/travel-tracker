@@ -15,7 +15,13 @@ import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '
 import { ExpenseTravelLookup, TripData } from '../../lib/expenseTravelLookup';
 import { validateTripBoundary } from '../../lib/tripBoundaryValidation';
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000';
+const BASE_URL = (() => {
+    const fromEnv = process.env.TEST_API_BASE_URL;
+    if (!fromEnv) {
+        throw new Error('TEST_API_BASE_URL must be set for integration API tests');
+    }
+    return fromEnv;
+})();
 
 describe('Trip Data Isolation - Comprehensive Integration Tests', () => {
     let testTripId1: string;

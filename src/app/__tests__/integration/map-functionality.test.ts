@@ -105,8 +105,6 @@ process.env.TEST_FORCE_MOCK_ROUTES = process.env.TEST_FORCE_MOCK_ROUTES || 'true
 
 const BASE_URL = process.env.TEST_API_BASE_URL
 const DATA_DIR = TEST_DATA_DIR
-const BASE_URL = process.env.TEST_API_BASE_URL
-const DATA_DIR = TEST_DATA_DIR
 
 describe('Map Functionality Integration Tests (Pyramid)', () => {
   let testTripId: string

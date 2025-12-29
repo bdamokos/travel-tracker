@@ -10,7 +10,7 @@ import { beforeAll, describe, it, expect, jest } from '@jest/globals'
 import { generateRoutePoints } from '../../lib/routeUtils'
 import { Transportation } from '../../types'
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
+const BASE_URL = process.env.TEST_API_BASE_URL
 const RUN_DEBUG_TESTS = process.env.RUN_DEBUG_TESTS === 'true'
 
 const describeFn = RUN_DEBUG_TESTS ? describe : describe.skip
@@ -22,6 +22,12 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
 
   beforeAll(async () => {
     if (!RUN_DEBUG_TESTS) {
+      return
+    }
+
+    if (!BASE_URL) {
+      console.warn('⚠️  Skipping RoutePoints debug test: TEST_API_BASE_URL is not set')
+      serverAvailable = false
       return
     }
 
