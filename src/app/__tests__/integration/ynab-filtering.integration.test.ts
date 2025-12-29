@@ -5,7 +5,13 @@
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000';
+const BASE_URL = (() => {
+  const fromEnv = process.env.TEST_API_BASE_URL;
+  if (!fromEnv) {
+    throw new Error('TEST_API_BASE_URL must be set for integration API tests');
+  }
+  return fromEnv;
+})();
 
 // Test data that matches the real application structure
 const TEST_TRAVEL_DATA = {
@@ -92,12 +98,13 @@ describe('YNAB Import Filtering Integration', () => {
 
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const url = `${BASE_URL}${endpoint}`;
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const response = await fetch(url, {
+      ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers
-      },
-      ...options
+      }
     });
     
     return response;
@@ -164,7 +171,7 @@ describe('YNAB Import Filtering Integration', () => {
         method: 'DELETE'
       });
     }
-  });
+  }, 20000);
 
   describe('First import - no filtering', () => {
     it('should import all transactions on first import', async () => {

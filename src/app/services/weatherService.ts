@@ -3,6 +3,7 @@ import path from 'path';
 import { addDays, differenceInCalendarDays, formatISO, isAfter, isBefore, isValid, parseISO } from 'date-fns';
 import { Location } from '@/app/types';
 import { WeatherData, WeatherSummary } from '@/app/types/weather';
+import { getDataDir } from '../lib/dataDirectory';
 
 type CacheSources = {
   hasHistoricalAverage: boolean;
@@ -19,7 +20,7 @@ type CacheEntry = {
 
 const LEGACY_FETCHED_AT = '1970-01-01T00:00:00.000Z';
 
-const DATA_DIR = path.join(process.cwd(), 'data', 'weather');
+const DATA_DIR = path.join(getDataDir(), 'weather');
 
 const RATE_LIMIT_MS = 1000; // 1 req/sec conservative
 let lastRequestTime = 0;

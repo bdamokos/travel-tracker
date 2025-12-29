@@ -9,7 +9,13 @@ import { describe, it, expect } from '@jest/globals'
 import { generateRoutePoints } from '../../lib/routeUtils'
 import { Transportation } from '../../types'
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
+const BASE_URL = (() => {
+  const fromEnv = process.env.TEST_API_BASE_URL
+  if (!fromEnv) {
+    throw new Error('TEST_API_BASE_URL must be set for integration API tests')
+  }
+  return fromEnv
+})()
 
 describe('React State Timing Test', () => {
   it('should test if rapid state updates and auto-save cause data loss', async () => {

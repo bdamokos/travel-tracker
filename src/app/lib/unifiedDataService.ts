@@ -15,10 +15,11 @@ import {
 } from './dataMigration';
 import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '../types';
 import { backupService } from './backupService';
-import { getUnifiedTripFilePath, getBackupFilePath, getDataDir } from './dataFilePaths';
+import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
+import { getDataDir } from './dataDirectory';
 
 const getDataDirPath = () => getDataDir();
-const getBackupDirPath = () => join(getDataDir(), 'backups');
+const getBackupDirPath = () => join(getDataDirPath(), 'backups');
 
 async function ensureBackupDir() {
   try {

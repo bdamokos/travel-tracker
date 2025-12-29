@@ -10,7 +10,6 @@ import { beforeAll, describe, it, expect, jest } from '@jest/globals'
 import { generateRoutePoints } from '../../lib/routeUtils'
 import { Transportation } from '../../types'
 
-const BASE_URL = process.env.TEST_API_BASE_URL || 'http://localhost:3000'
 const RUN_DEBUG_TESTS = process.env.RUN_DEBUG_TESTS === 'true'
 
 const describeFn = RUN_DEBUG_TESTS ? describe : describe.skip
@@ -19,27 +18,36 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
   jest.setTimeout(60000)
 
   let serverAvailable = false
+  let baseUrl = ''
 
   beforeAll(async () => {
     if (!RUN_DEBUG_TESTS) {
       return
     }
 
+    baseUrl = (() => {
+      const fromEnv = process.env.TEST_API_BASE_URL
+      if (!fromEnv) {
+        throw new Error('TEST_API_BASE_URL must be set for integration API tests')
+      }
+      return fromEnv
+    })()
+
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)
       try {
-        const response = await fetch(`${BASE_URL}/api/health`, { signal: controller.signal })
+        const response = await fetch(`${baseUrl}/api/health`, { signal: controller.signal })
         serverAvailable = response.ok
 
         if (!serverAvailable) {
-          console.warn(`⚠️  Skipping RoutePoints debug test: ${BASE_URL} did not return 200 on /api/health`)
+          console.warn(`⚠️  Skipping RoutePoints debug test: ${baseUrl} did not return 200 on /api/health`)
         }
       } finally {
         clearTimeout(timeout)
       }
     } catch (error) {
-      console.warn(`⚠️  Skipping RoutePoints debug test: unable to reach ${BASE_URL} (${String(error)})`)
+      console.warn(`⚠️  Skipping RoutePoints debug test: unable to reach ${baseUrl} (${String(error)})`)
       serverAvailable = false
     }
   })
@@ -53,7 +61,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
     console.log('🔄 Testing RouteInlineEditor fix...')
 
     // 1. Create a test trip
-    const createResponse = await fetch(`${BASE_URL}/api/travel-data`, {
+    const createResponse = await fetch(`${baseUrl}/api/travel-data`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -132,7 +140,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
       }]
     }
 
-    const initialSaveResponse = await fetch(`${BASE_URL}/api/travel-data?id=${testTripId}`, {
+    const initialSaveResponse = await fetch(`${baseUrl}/api/travel-data?id=${testTripId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(initialData)
@@ -142,7 +150,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
     console.log('✅ Initial data with routePoints saved')
 
     // 4. Verify initial routePoints are saved
-    const verifyInitialResponse = await fetch(`${BASE_URL}/api/travel-data?id=${testTripId}`)
+    const verifyInitialResponse = await fetch(`${baseUrl}/api/travel-data?id=${testTripId}`)
     const initialVerifyData = await verifyInitialResponse.json()
 
     console.log(`📦 Initial verification: ${initialVerifyData.routes[0].routePoints?.length || 0} route points`)
@@ -150,7 +158,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
 
     // 5. Simulate what happens when RouteInlineEditor updates a route
     // (this simulates the fix - the updated route should preserve routePoints)
-    const currentData = await (await fetch(`${BASE_URL}/api/travel-data?id=${testTripId}`)).json()
+    const currentData = await (await fetch(`${baseUrl}/api/travel-data?id=${testTripId}`)).json()
 
     // Simulate RouteInlineEditor updating the route with a new note but preserving routePoints
     const updatedRoute = {
@@ -166,7 +174,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
 
     console.log(`📦 Updated route before save: routePoints length = ${updatedRoute.routePoints?.length || 0}`)
 
-    const updateResponse = await fetch(`${BASE_URL}/api/travel-data?id=${testTripId}`, {
+    const updateResponse = await fetch(`${baseUrl}/api/travel-data?id=${testTripId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData)
@@ -176,7 +184,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
     console.log('✅ Route updated via simulated RouteInlineEditor')
 
     // 6. Verify that routePoints are preserved after the update
-    const finalVerifyResponse = await fetch(`${BASE_URL}/api/travel-data?id=${testTripId}`)
+    const finalVerifyResponse = await fetch(`${baseUrl}/api/travel-data?id=${testTripId}`)
     const finalData = await finalVerifyResponse.json()
 
     console.log(`📦 Final verification: ${finalData.routes[0].routePoints?.length || 0} route points`)
@@ -189,7 +197,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
     }
 
     // Cleanup
-    await fetch(`${BASE_URL}/api/travel-data?id=${testTripId}`, {
+    await fetch(`${baseUrl}/api/travel-data?id=${testTripId}`, {
       method: 'DELETE'
     })
 

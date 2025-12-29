@@ -1,6 +1,7 @@
 import { readdir, stat, unlink } from 'fs/promises';
 import { join } from 'path';
 import { getTempYnabFilePath } from './dataFilePaths';
+import { getDataDir } from './dataDirectory';
 
 /**
  * Clean up temporary YNAB files older than the specified age
@@ -8,7 +9,7 @@ import { getTempYnabFilePath } from './dataFilePaths';
  */
 export async function cleanupOldTempFiles(maxAgeHours: number = 2): Promise<void> {
   try {
-    const dataDir = join(process.cwd(), 'data');
+    const dataDir = getDataDir();
     const files = await readdir(dataDir);
     
     const tempFiles = files.filter(filename => 

@@ -12,28 +12,37 @@ import { UnifiedTripData } from '../../lib/dataMigration';
 import { Expense, BudgetItem, YnabCategoryMapping, YnabTransaction } from '../../types';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
+import { getDataDir } from '../../lib/dataDirectory';
 
 // Mock the admin domain check
-const mockIsAdminDomain = jest.fn().mockResolvedValue(true);
-jest.doMock('../../lib/server-domains', () => ({
-  isAdminDomain: mockIsAdminDomain
+jest.mock('../../lib/server-domains', () => ({
+  __esModule: true,
+  isAdminDomain: jest.fn()
 }));
 
 // Mock the unified data service
-const mockLoadUnifiedTripData = jest.fn();
-const mockUpdateCostData = jest.fn();
-const mockListAllTrips = jest.fn();
-jest.doMock('../../lib/unifiedDataService', () => ({
+jest.mock('../../lib/unifiedDataService', () => ({
+  __esModule: true,
+  loadUnifiedTripData: jest.fn(),
+  updateCostData: jest.fn(),
+  listAllTrips: jest.fn()
+}));
+
+const { isAdminDomain: mockIsAdminDomain } = jest.requireMock('../../lib/server-domains');
+const {
   loadUnifiedTripData: mockLoadUnifiedTripData,
   updateCostData: mockUpdateCostData,
   listAllTrips: mockListAllTrips
-}));
+} = jest.requireMock('../../lib/unifiedDataService');
+
+(mockIsAdminDomain as jest.Mock).mockResolvedValue(true);
 
 describe('Cost Tracking API Validation Integration Tests', () => {
   const mockTripId = 'test-trip-123';
   const mockExpenseId = 'expense-1';
   const mockLocationId = 'location-1';
   const mockAccommodationId = 'accommodation-1';
+  const DATA_DIR = getDataDir();
 
   const createMockUnifiedTripData = (includeExpense = true, includeTravelItems = true): UnifiedTripData => ({
     schemaVersion: 4,
@@ -186,7 +195,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
   describe('YNAB Process Endpoint', () => {
     const createTempYnabFile = async (transactions: YnabTransaction[]) => {
       const tempFileId = `temp-ynab-${mockTripId}-${Date.now()}`;
-      const tempFilePath = join(process.cwd(), 'data', `${tempFileId}.json`);
+      const tempFilePath = join(DATA_DIR, `${tempFileId}.json`);
       await writeFile(tempFilePath, JSON.stringify({
         transactions,
         categories: ['Food', 'Transport'],
@@ -199,10 +208,10 @@ describe('Cost Tracking API Validation Integration Tests', () => {
       // Clean up temp files
       try {
         const { readdir } = await import('fs/promises');
-        const tempFiles = await readdir(join(process.cwd(), 'data'));
+        const tempFiles = await readdir(DATA_DIR);
         for (const file of tempFiles) {
           if (file.startsWith('temp-ynab-')) {
-            await unlink(join(process.cwd(), 'data', file));
+            await unlink(join(DATA_DIR, file));
           }
         }
       } catch (error) {
@@ -235,6 +244,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
 
       const selectedTransactions = [{
         transactionHash: 'hash123',
+        transactionSourceIndex: 0,
         expenseCategory: 'Food'
       }];
 
@@ -253,7 +263,40 @@ describe('Cost Tracking API Validation Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(result.success).toBe(true);
-      expect(mockUpdateCostData).toHaveBeenCalled();
+      expect(mockUpdateCostData).toHaveBeenCalledWith(
+        mockTripId,
+        expect.objectContaining({
+          currency: 'EUR',
+          tripTitle: mockData.title,
+          tripStartDate: mockData.startDate,
+          tripEndDate: mockData.endDate,
+          createdAt: mockData.createdAt,
+          ynabImportData: expect.objectContaining({
+            mappings: expect.arrayContaining(mappings),
+            payeeCategoryDefaults: expect.objectContaining({
+              Restaurant: 'Food'
+            })
+          }),
+          countryBudgets: expect.arrayContaining([
+            expect.objectContaining({
+              country: 'Germany'
+            })
+          ]),
+          expenses: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'ynab-hash123-0',
+              amount: 25,
+              currency: 'EUR',
+              category: 'Food',
+              country: 'Germany',
+              description: 'Restaurant',
+              source: 'ynab-file',
+              hash: 'hash123'
+            })
+          ]),
+          updatedAt: expect.any(String)
+        })
+      );
     });
   });
 

@@ -77,8 +77,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
  * @param mappings - Category mapping definitions that determine which uploaded categories are eligible and how they map
  * @param showAll - If true, skip filtering by the last imported transaction and return all processed transactions
  * @returns A NextResponse with JSON payload:
- * - On success (200): an object containing `transactions` (array of processed transactions), `totalCount`, `alreadyImportedCount`,
- *   `filteredCount`, `lastImportedTransactionFound` (boolean), and `totalTransactions`.
+ * - On success (200): an object containing `transactions` (array of processed transactions), `totalCount`, 
+ *   `alreadyImportedCount` (count of duplicate/already-imported transactions in the upload),
+ *   `filteredCount` (count of transactions excluded by chronological filtering), 
+ *   `lastImportedTransactionFound` (boolean indicating if the last imported transaction appears in current upload), 
+ *   and `totalTransactions` (total uploaded transactions matching category mappings).
  * - If no new transactions are available (200): same shape with `transactions: []` and a `message` explaining why.
  * - If `tempFileId` or `mappings` are missing (400): `{ error: string }`.
  * - If cost-tracking data is not found for `id` (404): `{ error: string }`.
@@ -130,6 +133,8 @@ async function handleProcessTransactions(
 
   // Process transactions based on mappings
   const processedTransactions: ProcessedYnabTransaction[] = [];
+  const uniqueTransactions: ProcessedYnabTransaction[] = [];
+  let alreadyImportedCount = 0;
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
   for (const [index, transaction] of tempData.transactions.entries()) {
@@ -170,31 +175,53 @@ async function handleProcessTransactions(
       sourceIndex: index
     };
 
+    processedTransactions.push(processedTxn);
+
     // Only include if not already imported
     if (!isAlreadyImported) {
-      processedTransactions.push(processedTxn);
+      uniqueTransactions.push(processedTxn);
+    } else {
+      alreadyImportedCount += 1;
     }
   }
 
   // Filter transactions if not showing all
   let filteredResult: YnabTransactionFilterResult;
-  if (showAll || !lastImportedHash) {
+  // `filteredCount` tracks the total transactions not returned (already-imported + chronologically filtered).
+  let filteredCount = alreadyImportedCount;
+  // Check whether the last imported transaction appears in the current upload (including already-imported ones).
+  // We use `processedTransactions` (not `uniqueTransactions`) because duplicates are removed from `uniqueTransactions`.
+  const lastImportedTransactionFound = lastImportedHash
+    ? processedTransactions.some(txn => txn.hash === lastImportedHash)
+    : false;
+
+  if (showAll) {
+    // When showing all, do not apply chronological filtering; return everything we processed.
+    filteredCount = 0;
     filteredResult = {
       newTransactions: processedTransactions,
       filteredCount: 0,
       lastTransactionFound: false
     };
+  } else if (lastImportedHash) {
+    // Apply chronological filtering to `uniqueTransactions` (hash-based filtering already removed previously imported items).
+    filteredResult = filterNewTransactions(uniqueTransactions, lastImportedHash);
+    filteredCount += filteredResult.filteredCount;
   } else {
-    filteredResult = filterNewTransactions(processedTransactions, lastImportedHash);
+    filteredResult = {
+      newTransactions: uniqueTransactions,
+      filteredCount: 0,
+      lastTransactionFound: false
+    };
   }
 
   if (filteredResult.newTransactions.length === 0) {
     return NextResponse.json({
       transactions: [],
       totalCount: 0,
-      alreadyImportedCount: tempData.transactions.length,
-      filteredCount: filteredResult.filteredCount,
-      lastImportedTransactionFound: filteredResult.lastTransactionFound,
+      alreadyImportedCount,
+      filteredCount,
+      lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
       totalTransactions: processedTransactions.length,
       message: 'No transactions available for import. This may be because all categories are mapped to "None" or all transactions have already been imported.'
     });
@@ -203,9 +230,9 @@ async function handleProcessTransactions(
   return NextResponse.json({
     transactions: filteredResult.newTransactions,
     totalCount: filteredResult.newTransactions.length,
-    alreadyImportedCount: tempData.transactions.length - processedTransactions.length,
-    filteredCount: filteredResult.filteredCount,
-    lastImportedTransactionFound: filteredResult.lastTransactionFound,
+    alreadyImportedCount,
+    filteredCount,
+    lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
     totalTransactions: processedTransactions.length
   });
 }

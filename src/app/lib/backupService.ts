@@ -9,7 +9,7 @@ import { readFile, writeFile, readdir, stat, access } from 'fs/promises';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { UnifiedTripData } from './dataMigration';
-import { getDataDir } from './dataFilePaths';
+import { getDataDir } from './dataDirectory';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');

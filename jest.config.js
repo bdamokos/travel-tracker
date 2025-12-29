@@ -19,6 +19,10 @@ const customJestConfig = {
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
   ],
+  ...(process.env.JEST_INTEGRATION_TESTS ? {
+    globalSetup: '<rootDir>/jest.integration.setup.js',
+    globalTeardown: '<rootDir>/jest.integration.teardown.js'
+  } : {})
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

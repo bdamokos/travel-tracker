@@ -5,8 +5,9 @@ import { existsSync } from 'fs';
 import { ShadowTrip } from '@/app/types';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { UnifiedTripData } from '@/app/lib/dataMigration';
+import { getDataDir } from '@/app/lib/dataDirectory';
 
-const DATA_DIR = join(process.cwd(), 'data');
+const DATA_DIR = getDataDir();
 const SHADOW_DATA_FILE = join(DATA_DIR, 'shadowTravelData.json');
 
 // Ensure data directory exists

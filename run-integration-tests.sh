@@ -3,13 +3,17 @@
 echo "🚀 Starting Map Functionality Integration Tests"
 echo "=============================================="
 
+# Allow overriding the server base URL (defaults to the embed/public dev server port).
+BASE_URL="${TEST_API_BASE_URL:-http://localhost:3002}"
+export TEST_API_BASE_URL="$BASE_URL"
+
 # Check if dev server is running
 echo "📡 Checking if dev server is running..."
-if curl -s http://localhost:3002/api/health > /dev/null; then
-    echo "✅ Dev server is running on port 3002"
+if curl -s "$BASE_URL/api/health" > /dev/null; then
+    echo "✅ Dev server is running at $BASE_URL"
 else
-    echo "❌ Dev server is not running on port 3002"
-    echo "Please start the dev server with: bun run dev"
+    echo "❌ Dev server is not running at $BASE_URL"
+    echo "Please start the dev server with: bun run dev (or set TEST_API_BASE_URL)"
     exit 1
 fi
 
