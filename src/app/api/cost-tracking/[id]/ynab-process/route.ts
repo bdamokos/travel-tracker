@@ -77,8 +77,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
  * @param mappings - Category mapping definitions that determine which uploaded categories are eligible and how they map
  * @param showAll - If true, skip filtering by the last imported transaction and return all processed transactions
  * @returns A NextResponse with JSON payload:
- * - On success (200): an object containing `transactions` (array of processed transactions), `totalCount`, `alreadyImportedCount`,
- *   `filteredCount`, `lastImportedTransactionFound` (boolean), and `totalTransactions`.
+ * - On success (200): an object containing `transactions` (array of processed transactions), `totalCount`, 
+ *   `alreadyImportedCount` (count of duplicate/already-imported transactions in the upload),
+ *   `filteredCount` (count of transactions excluded by chronological filtering), 
+ *   `lastImportedTransactionFound` (boolean indicating if the last imported transaction appears in current upload), 
+ *   and `totalTransactions` (total uploaded transactions matching category mappings).
  * - If no new transactions are available (200): same shape with `transactions: []` and a `message` explaining why.
  * - If `tempFileId` or `mappings` are missing (400): `{ error: string }`.
  * - If cost-tracking data is not found for `id` (404): `{ error: string }`.
