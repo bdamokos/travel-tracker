@@ -159,7 +159,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(result.success).toBe(true);
-      expect(mockUpdateCostData).toHaveBeenCalled();
+      expect(mockUpdateCostData).toHaveBeenCalledWith(mockTripId, updatePayload);
     });
   });
 
