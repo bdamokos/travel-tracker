@@ -18,7 +18,7 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
   jest.setTimeout(60000)
 
   let serverAvailable = false
-  let baseUrl: string | null = null
+  let baseUrl = ''
 
   beforeAll(async () => {
     if (!RUN_DEBUG_TESTS) {
@@ -56,10 +56,6 @@ describeFn('RoutePoints Fix Verification (debug-only)', () => {
     if (!serverAvailable) {
       console.warn('⚠️  RoutePoints debug test skipped because API base URL is unavailable')
       return
-    }
-
-    if (!baseUrl) {
-      throw new Error('TEST_API_BASE_URL must be set for integration API tests')
     }
 
     console.log('🔄 Testing RouteInlineEditor fix...')

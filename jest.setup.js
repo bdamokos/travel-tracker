@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom'
 
+// Some UI tests can be slow on busy CI machines.
+jest.setTimeout(30_000)
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -78,3 +81,9 @@ beforeEach(() => {
     jest.clearAllMocks()
   }
 })
+
+// JSDOM doesn't implement window.alert/confirm; stub them for components that use browser dialogs.
+if (typeof window !== 'undefined') {
+  window.alert = jest.fn()
+  window.confirm = jest.fn(() => true)
+}

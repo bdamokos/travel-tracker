@@ -184,12 +184,16 @@ async function handleProcessTransactions(
 
   // Filter transactions if not showing all
   let filteredResult: YnabTransactionFilterResult;
+  // `filteredCount` tracks the total transactions not returned (already-imported + chronologically filtered).
   let filteredCount = alreadyImportedCount;
+  // Check whether the last imported transaction appears in the current upload (including already-imported ones).
+  // We use `processedTransactions` (not `uniqueTransactions`) because duplicates are removed from `uniqueTransactions`.
   const lastImportedTransactionFound = lastImportedHash
     ? processedTransactions.some(txn => txn.hash === lastImportedHash)
     : false;
 
   if (showAll) {
+    // When showing all, do not apply chronological filtering; return everything we processed.
     filteredCount = 0;
     filteredResult = {
       newTransactions: processedTransactions,
@@ -197,6 +201,7 @@ async function handleProcessTransactions(
       lastTransactionFound: false
     };
   } else if (lastImportedHash) {
+    // Apply chronological filtering to `uniqueTransactions` (hash-based filtering already removed previously imported items).
     filteredResult = filterNewTransactions(uniqueTransactions, lastImportedHash);
     filteredCount += filteredResult.filteredCount;
   } else {
