@@ -56,7 +56,83 @@ export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
+
+/**
+ * Migrate from schema v6 to v7 - Repair orphaned accommodation references
+ *
+ * Real-world corruption case:
+ * - Locations can gain new `accommodationIds` via the accommodations API/SWR layer.
+ * - Autosave may later persist travel data with a stale `accommodations` array, unintentionally
+ *   dropping the newly created accommodation objects while keeping the IDs on the locations.
+ *
+ * This migration restores referential integrity by creating placeholder accommodations for any
+ * missing IDs (and re-attaching expense links when possible).
+ */
+export function migrateFromV6ToV7(data: UnifiedTripData): UnifiedTripData {
+  const tripId = data.id;
+  const created: string[] = [];
+
+  const locations = data.travelData?.locations || [];
+  const expenses = data.costData?.expenses || [];
+
+  const accommodations: Accommodation[] = Array.isArray(data.accommodations) ? [...data.accommodations] : [];
+  const accommodationById = new Map(accommodations.map(acc => [acc.id, acc]));
+
+  const ensureAccommodation = (id: string, locationId: string | null, nameHint: string | null) => {
+    if (accommodationById.has(id)) return;
+
+    const linkedExpenses = expenses.filter(
+      expense => expense.travelReference?.type === 'accommodation' && expense.travelReference.accommodationId === id
+    );
+
+    const now = new Date().toISOString();
+    const placeholder: Accommodation = {
+      id,
+      name: nameHint || 'Recovered accommodation',
+      locationId: locationId || 'unknown-location',
+      accommodationData: '',
+      isAccommodationPublic: false,
+      createdAt: now,
+      updatedAt: now,
+      costTrackingLinks: linkedExpenses.map(expense => ({
+        expenseId: expense.id,
+        description: expense.travelReference?.description || expense.description || ''
+      }))
+    };
+
+    accommodations.push(placeholder);
+    accommodationById.set(id, placeholder);
+    created.push(id);
+  };
+
+  // 1) Create placeholders for any IDs referenced by locations
+  for (const location of locations) {
+    const ids = Array.isArray(location.accommodationIds) ? location.accommodationIds : [];
+    for (const id of ids) {
+      ensureAccommodation(id, location.id, location.name ? `Recovered accommodation (${location.name})` : null);
+    }
+  }
+
+  // 2) Create placeholders for any expenses referencing missing accommodations
+  for (const expense of expenses) {
+    if (expense.travelReference?.type !== 'accommodation') continue;
+    const accommodationId = expense.travelReference.accommodationId;
+    if (!accommodationId) continue;
+    ensureAccommodation(accommodationId, null, expense.travelReference.description || expense.description || null);
+  }
+
+  if (created.length > 0) {
+    console.log(`Trip ${tripId} v6→v7 migration created placeholder accommodations:`, created);
+  }
+
+  return {
+    ...data,
+    accommodations,
+    schemaVersion: 7,
+    updatedAt: new Date().toISOString()
+  };
+}
 
 /**
  * Migrates from version 1 to version 2 - extracts accommodations from locations
@@ -464,6 +540,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   if (data.schemaVersion < 6) {
     data = migrateFromV5ToV6(data);
+  }
+  if (data.schemaVersion < 7) {
+    data = migrateFromV6ToV7(data);
   }
   
   // Ensure current version

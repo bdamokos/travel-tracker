@@ -164,6 +164,15 @@ export async function DELETE(request: NextRequest) {
     }
     
     tripData.accommodations.splice(index, 1);
+
+    // Remove dangling references from locations (prevents "needs migration" warnings)
+    if (tripData.travelData?.locations) {
+      tripData.travelData.locations = tripData.travelData.locations.map(location => ({
+        ...location,
+        accommodationIds: (location.accommodationIds || []).filter(accId => accId !== id)
+      }));
+    }
+
     await saveUnifiedTripData(tripData);
     
     return NextResponse.json({ success: true });

@@ -285,22 +285,34 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     },
     // Preserve accommodations from the updates or existing data
     accommodations: (() => {
-      const newAccommodations = travelUpdates.accommodations as Accommodation[];
+      const hasAccommodationUpdates = Object.prototype.hasOwnProperty.call(travelUpdates, 'accommodations');
+      const newAccommodations = travelUpdates.accommodations as Accommodation[] | undefined;
       const existingAccommodations = baseData.accommodations || [];
 
-      if (!newAccommodations) return existingAccommodations;
+      // Accommodations can be mutated via dedicated endpoints (SWR-driven).
+      // Treat incoming `accommodations` as a patch (upsert), never as a full replacement,
+      // otherwise autosave can accidentally drop accommodations created elsewhere.
+      if (!hasAccommodationUpdates || !Array.isArray(newAccommodations) || newAccommodations.length === 0) {
+        return existingAccommodations;
+      }
+
+      const existingById = new Map(existingAccommodations.map(acc => [acc.id, acc]));
+      const mergedById = new Map(existingAccommodations.map(acc => [acc.id, acc]));
 
       // Merge accommodations, preserving existing costTrackingLinks (managed by SWR system)
-      return newAccommodations.map((newAccommodation) => {
-        const existingAccommodation = existingAccommodations.find(a => a.id === newAccommodation.id);
-        const { costTrackingLinks: _, ...accommodationWithoutLinks } = newAccommodation;
-        return {
+      for (const newAccommodation of newAccommodations) {
+        const existingAccommodation = existingById.get(newAccommodation.id);
+        const { costTrackingLinks: incomingLinks, ...accommodationWithoutLinks } = newAccommodation;
+
+        mergedById.set(newAccommodation.id, {
           ...existingAccommodation,
           ...accommodationWithoutLinks,
           // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
-          costTrackingLinks: existingAccommodation?.costTrackingLinks || []
-        };
-      });
+          costTrackingLinks: existingAccommodation?.costTrackingLinks || incomingLinks || []
+        });
+      }
+
+      return Array.from(mergedById.values());
     })()
   };
 
