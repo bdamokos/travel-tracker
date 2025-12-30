@@ -17,6 +17,17 @@ interface RouteInlineEditorProps {
   tripId?: string; // Add tripId for expense scoping
 }
 
+/**
+ * Render an inline editor form for a TravelRoute, allowing edits to transport type, dates, locations, notes, optional manual GeoJSON route import, and expense-linking.
+ *
+ * @param route - Initial TravelRoute data used to populate the form fields.
+ * @param onSave - Callback invoked with the updated TravelRoute when the form is saved.
+ * @param onCancel - Callback invoked when the user cancels editing.
+ * @param locationOptions - Available named locations with coordinates used for suggestions and coordinate resolution.
+ * @param onGeocode - Optional function to resolve a freeform location name to `[lng, lat]` coordinates when a named location is not selected.
+ * @param tripId - Optional trip identifier; when present enables linking the route to trip expense tracking.
+ * @returns A JSX element containing the inline route editor UI.
+ */
 export default function RouteInlineEditor({
   route,
   onSave,
