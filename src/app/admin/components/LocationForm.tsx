@@ -23,6 +23,7 @@ interface LocationFormProps {
   onGeocode?: (locationName: string) => Promise<void>;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
+  onAccommodationIdsCommitted?: (locationId: string, accommodationIds: string[]) => void;
 }
 
 export default function LocationForm({
@@ -34,7 +35,8 @@ export default function LocationForm({
   setEditingLocationIndex,
   onGeocode,
   travelLookup,
-  costData
+  costData,
+  onAccommodationIdsCommitted
 }: LocationFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -296,9 +298,12 @@ export default function LocationForm({
             locationId={currentLocation.id || 'temp-location'}
             locationName={currentLocation.name || 'New Location'}
             accommodationIds={currentLocation.accommodationIds || []}
-            onAccommodationIdsChange={(ids) => 
-              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, accommodationIds: ids }))
-            }
+            onAccommodationIdsChange={(ids) => {
+              setCurrentLocation((prev: Partial<Location>) => ({ ...prev, accommodationIds: ids }));
+              if (editingLocationIndex !== null && currentLocation.id && currentLocation.id !== 'temp-location') {
+                onAccommodationIdsCommitted?.(currentLocation.id, ids);
+              }
+            }}
             travelLookup={travelLookup}
             costData={costData}
           />

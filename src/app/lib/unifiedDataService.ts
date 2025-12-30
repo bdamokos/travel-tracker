@@ -249,15 +249,18 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
         if (!newLocations) return existingLocations;
 
-        // Merge locations, preserving existing costTrackingLinks (managed by SWR system)
+        // Merge locations, preserving existing costTrackingLinks and accommodationIds.
+        // Both are managed by dedicated endpoints/SWR flows and autosave payloads can be stale.
         return newLocations.map((newLocation) => {
           const existingLocation = existingLocations.find(l => l.id === newLocation.id);
-          const { costTrackingLinks: _, ...locationWithoutLinks } = newLocation;
+          const { costTrackingLinks: _, accommodationIds: incomingAccommodationIds, ...locationWithoutLinks } = newLocation;
           return {
             ...existingLocation,
             ...locationWithoutLinks,
             // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
-            costTrackingLinks: existingLocation?.costTrackingLinks || []
+            costTrackingLinks: existingLocation?.costTrackingLinks || [],
+            // Preserve existing accommodationIds to avoid reintroducing stale/orphaned IDs after deletes
+            accommodationIds: existingLocation?.accommodationIds ?? incomingAccommodationIds ?? []
           };
         });
       })(),

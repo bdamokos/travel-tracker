@@ -113,6 +113,14 @@ export default function LocationManager({
           onLocationAdded={handleLocationAdded}
           editingLocationIndex={editingLocationIndex}
           setEditingLocationIndex={setEditingLocationIndex}
+          onAccommodationIdsCommitted={(locationId, accommodationIds) => {
+            setTravelData(prev => ({
+              ...prev,
+              locations: prev.locations.map(location =>
+                location.id === locationId ? { ...location, accommodationIds } : location
+              )
+            }));
+          }}
           onGeocode={async (locationName: string) => {
             const coords = await geocodeLocation(locationName);
             setCurrentLocation(prev => ({ ...prev, coordinates: coords }));

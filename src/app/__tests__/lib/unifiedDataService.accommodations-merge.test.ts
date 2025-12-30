@@ -180,4 +180,60 @@ describe('unifiedDataService.updateTravelData accommodation merge', () => {
     expect(acc?.name).toBe('New Name');
     expect(acc?.accommodationData).toBe('new');
   });
+
+  it('does not reintroduce stale location accommodationIds from autosave payloads', async () => {
+    const { saveUnifiedTripData, loadUnifiedTripData, updateTravelData } = await import('../../lib/unifiedDataService');
+    const { CURRENT_SCHEMA_VERSION } = await import('../../lib/dataMigration');
+
+    const tripId = 'tripAccommodationIdsPreserved';
+
+    const location = {
+      id: 'loc-1',
+      name: 'City 1',
+      coordinates: [0, 0] as [number, number],
+      date: new Date('2024-01-01T00:00:00.000Z'),
+      notes: '',
+      accommodationIds: [],
+      costTrackingLinks: []
+    };
+
+    await saveUnifiedTripData({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      id: tripId,
+      title: 'Test Trip',
+      description: '',
+      startDate: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+      endDate: new Date('2024-01-02T00:00:00.000Z').toISOString(),
+      createdAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+      updatedAt: new Date('2024-01-01T00:00:00.000Z').toISOString(),
+      travelData: { locations: [location], routes: [] },
+      accommodations: [],
+      costData: {
+        overallBudget: 0,
+        currency: 'USD',
+        countryBudgets: [],
+        expenses: []
+      }
+    });
+
+    // A stale autosave payload sends an already-deleted accommodation ID.
+    await updateTravelData(tripId, {
+      id: tripId,
+      title: 'Test Trip (autosave)',
+      locations: [
+        {
+          ...location,
+          accommodationIds: ['stale-acc-1']
+        }
+      ],
+      routes: []
+    });
+
+    const reloaded = await loadUnifiedTripData(tripId);
+    expect(reloaded).not.toBeNull();
+    if (!reloaded) return;
+
+    const savedLocation = reloaded.travelData?.locations?.find(l => l.id === 'loc-1');
+    expect(savedLocation?.accommodationIds).toEqual([]);
+  });
 });

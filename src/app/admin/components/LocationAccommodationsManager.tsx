@@ -72,6 +72,10 @@ export default function LocationAccommodationsManager({
     .map(id => getAccommodationById(id))
     .filter(Boolean) as Accommodation[];
 
+  // IDs that exist on the location but have no corresponding accommodation object.
+  // These create the "needs migration" warning and can get stuck after deletes if a stale autosave reintroduces them.
+  const missingAccommodationIds = accommodationIds.filter(id => !getAccommodationById(id));
+
   const persistAccommodationIds = async (ids: string[]) => {
     try {
       await fetch('/admin/api/locations/accommodation-ids', {
@@ -86,6 +90,23 @@ export default function LocationAccommodationsManager({
     } catch (error) {
       console.warn('Failed to persist location accommodationIds immediately:', error);
     }
+  };
+
+  const handleRemoveMissingAccommodationIds = async () => {
+    if (missingAccommodationIds.length === 0) return;
+
+    const nextIds = accommodationIds.filter(id => !!getAccommodationById(id));
+    const confirmed = confirm(
+      `Remove ${missingAccommodationIds.length} missing accommodation reference${missingAccommodationIds.length !== 1 ? 's' : ''} from this location?\n\nIDs:\n${missingAccommodationIds.join('\n')}`
+    );
+    if (!confirmed) return;
+
+    if (editingId && !nextIds.includes(editingId)) {
+      setEditingId(null);
+    }
+
+    onAccommodationIdsChange(nextIds);
+    await persistAccommodationIds(nextIds);
   };
 
   const handleAddAccommodation = async () => {
@@ -160,7 +181,7 @@ export default function LocationAccommodationsManager({
   // Display mode: show read-only accommodations without editing controls
   if (displayMode) {
     // Check for orphaned accommodation IDs (IDs that don't have corresponding accommodation data)
-    const missingAccommodations = accommodationIds.filter(id => !getAccommodationById(id));
+    const missingAccommodations = missingAccommodationIds;
     
     return (
       <div className="space-y-3">
@@ -182,8 +203,17 @@ export default function LocationAccommodationsManager({
         )}
         
         {missingAccommodations.length > 0 && (
-          <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800">
-            ⚠️ {missingAccommodations.length} accommodation{missingAccommodations.length !== 1 ? 's' : ''} need{missingAccommodations.length === 1 ? 's' : ''} migration
+          <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-3">
+            <span>
+              ⚠️ {missingAccommodations.length} accommodation{missingAccommodations.length !== 1 ? 's' : ''} need{missingAccommodations.length === 1 ? 's' : ''} migration
+            </span>
+            <button
+              type="button"
+              onClick={handleRemoveMissingAccommodationIds}
+              className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              Remove broken refs
+            </button>
           </div>
         )}
         
@@ -207,6 +237,21 @@ export default function LocationAccommodationsManager({
           {locationAccommodations.length} accommodation{locationAccommodations.length !== 1 ? 's' : ''}
         </span>
       </div>
+
+      {missingAccommodationIds.length > 0 && (
+        <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-3">
+          <span>
+            ⚠️ {missingAccommodationIds.length} missing accommodation reference{missingAccommodationIds.length !== 1 ? 's' : ''}
+          </span>
+          <button
+            type="button"
+            onClick={handleRemoveMissingAccommodationIds}
+            className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            Remove broken refs
+          </button>
+        </div>
+      )}
 
       {/* Existing Accommodations */}
       {locationAccommodations.map((accommodation) => (
