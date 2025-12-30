@@ -21,7 +21,8 @@ const customJestConfig = {
   ],
   ...(process.env.JEST_INTEGRATION_TESTS ? {
     globalSetup: '<rootDir>/jest.integration.setup.js',
-    globalTeardown: '<rootDir>/jest.integration.teardown.js'
+    globalTeardown: '<rootDir>/jest.integration.teardown.js',
+    maxWorkers: 1
   } : {})
 }
 

@@ -1,22 +1,34 @@
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { mkdtemp, mkdir } from 'fs/promises';
 import { tmpdir } from 'os';
 import net from 'net';
 import { join } from 'path';
 
-async function findAvailablePort(startPort = 3100, attempts = 20) {
-  for (let port = startPort; port < startPort + attempts; port++) {
-    const isFree = await new Promise(resolve => {
-      const tester = net.createServer()
-        .once('error', () => resolve(false))
-        .once('listening', () => tester.close(() => resolve(true)))
-        .listen(port, '127.0.0.1');
-    });
-
-    if (isFree) return port;
+function resolveDevServerCommand() {
+  const bunCheck = spawnSync('bun', ['--version'], { stdio: 'ignore' });
+  if (!bunCheck.error) {
+    return { command: 'bun', argsPrefix: ['run'] };
   }
 
-  throw new Error('Could not find an available port for the test server');
+  return { command: 'npm', argsPrefix: ['run'] };
+}
+
+async function findAvailablePort() {
+  return await new Promise((resolve, reject) => {
+    const tester = net.createServer();
+    tester.once('error', reject);
+    tester.listen(0, '127.0.0.1', () => {
+      const address = tester.address();
+      const port = typeof address === 'object' && address ? address.port : null;
+      tester.close(() => {
+        if (typeof port === 'number') {
+          resolve(port);
+          return;
+        }
+        reject(new Error('Could not find an available port for the test server'));
+      });
+    });
+  });
 }
 
 async function waitForServer(baseUrl, child) {
@@ -63,7 +75,8 @@ export default async function globalSetup() {
     TEST_DATA_DIR: dataDir
   };
 
-  const devServer = spawn('bun', ['run', 'dev', '--', '--hostname', 'localhost', '--port', String(port)], {
+  const { command, argsPrefix } = resolveDevServerCommand();
+  const devServer = spawn(command, [...argsPrefix, 'dev', '--', '--hostname', 'localhost', '--port', String(port)], {
     env: serverEnv,
     stdio: 'pipe',
     detached: true
