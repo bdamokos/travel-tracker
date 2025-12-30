@@ -30,6 +30,7 @@ export default function RouteInlineEditor({
   });
   const [importStatus, setImportStatus] = useState<string>('');
   const [importError, setImportError] = useState<string>('');
+  const supportsManualGeoJSON = ['boat', 'ferry'].includes(formData.transportType);
 
   const transportOptions = transportationTypes.map(type => ({
     value: type,
@@ -304,8 +305,8 @@ export default function RouteInlineEditor({
           />
         </div>
 
-        {/* Manual route import (for boats) */}
-        {formData.transportType === 'boat' && (
+        {/* Manual route import (for boats and ferries) */}
+        {supportsManualGeoJSON && (
           <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div>
@@ -313,7 +314,7 @@ export default function RouteInlineEditor({
                   Manual route (GeoJSON)
                 </div>
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Import a GeoJSON LineString to draw the exact boat track. Imported routes are kept until you clear them.
+                  Import a GeoJSON LineString to draw the exact track. Imported routes are kept until you clear them.
                 </p>
               </div>
               {formData.useManualRoutePoints && (

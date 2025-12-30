@@ -271,8 +271,8 @@ export const generateRoutePoints = async (
     return [];
   }
   
-  // For boats, allow manual override when provided
-  if (type === 'boat' && useManualRoutePoints && storedRoutePoints?.length) {
+  // Allow manual override when provided (used by manual GeoJSON imports)
+  if (useManualRoutePoints && storedRoutePoints?.length) {
     return storedRoutePoints;
   }
   
@@ -341,8 +341,8 @@ export const generateRoutePointsSync = (
     return [];
   }
   
-  // For boats, allow manual override when provided
-  if (type === 'boat' && useManualRoutePoints && storedRoutePoints?.length) {
+  // Allow manual override when provided (used by manual GeoJSON imports)
+  if (useManualRoutePoints && storedRoutePoints?.length) {
     return storedRoutePoints;
   }
   
