@@ -25,6 +25,8 @@ const DATA_DIR = path.join(getDataDir(), 'weather');
 const RATE_LIMIT_MS = 1000; // 1 req/sec conservative
 let lastRequestTime = 0;
 
+const OPEN_METEO_ARCHIVE_MIN_DATE = new Date(Date.UTC(2016, 0, 1));
+
 async function ensureDir(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
@@ -209,7 +211,20 @@ async function fetchOpenMeteoDaily(
   endpoint: 'forecast' | 'archive'
 ): Promise<WeatherData[]> {
   const [lat, lon] = coords;
-  log('fetchOpenMeteoDaily:start', { endpoint, lat, lon, startISO, endISO });
+  let effectiveStartISO = startISO;
+  let effectiveEndISO = endISO;
+  if (endpoint === 'archive') {
+    const startDate = parseISO(startISO);
+    const endDate = parseISO(endISO);
+    if (!isValid(startDate) || !isValid(endDate)) return [];
+    if (isBefore(endDate, OPEN_METEO_ARCHIVE_MIN_DATE)) {
+      log('fetchOpenMeteoDaily:archive-range-out-of-bounds', { lat, lon, startISO, endISO });
+      return [];
+    }
+    effectiveStartISO = toISODate(isBefore(startDate, OPEN_METEO_ARCHIVE_MIN_DATE) ? OPEN_METEO_ARCHIVE_MIN_DATE : startDate);
+    effectiveEndISO = toISODate(endDate);
+  }
+  log('fetchOpenMeteoDaily:start', { endpoint, lat, lon, startISO: effectiveStartISO, endISO: effectiveEndISO });
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
@@ -224,8 +239,8 @@ async function fetchOpenMeteoDaily(
       'cloudcover_mean'
     ].join(','),
     timezone: 'UTC',
-    start_date: startISO,
-    end_date: endISO
+    start_date: effectiveStartISO,
+    end_date: effectiveEndISO
   });
   const base = endpoint === 'archive'
     ? 'https://historical-forecast-api.open-meteo.com/v1/forecast'
@@ -392,6 +407,10 @@ async function computeHistoricalAverage(
     // Map range to this year, handling year-crossing by reconstructing dates per offset
     const yStart = safeDate(year, start.getUTCMonth(), start.getUTCDate());
     const yEnd = safeDate(year, end.getUTCMonth(), end.getUTCDate());
+    if (isBefore(yEnd, OPEN_METEO_ARCHIVE_MIN_DATE)) {
+      log('histAvg:skip-year-before-archive-range', { year, start: toISODate(yStart), end: toISODate(yEnd) });
+      continue;
+    }
     const list = await fetchOpenMeteoDaily(coords, toISODate(yStart), toISODate(yEnd), 'archive');
     if (list.length === 0) continue;
     usedYears++;
