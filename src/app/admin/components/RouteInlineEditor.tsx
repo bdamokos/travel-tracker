@@ -30,7 +30,6 @@ export default function RouteInlineEditor({
   });
   const [importStatus, setImportStatus] = useState<string>('');
   const [importError, setImportError] = useState<string>('');
-  const supportsManualGeoJSON = ['boat', 'ferry'].includes(formData.transportType);
 
   const transportOptions = transportationTypes.map(type => ({
     value: type,
@@ -305,64 +304,62 @@ export default function RouteInlineEditor({
           />
         </div>
 
-        {/* Manual route import (for boats and ferries) */}
-        {supportsManualGeoJSON && (
-          <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  Manual route (GeoJSON)
-                </div>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Import a GeoJSON LineString to draw the exact track. Imported routes are kept until you clear them.
-                </p>
+        {/* Manual route import (any transport type) */}
+        <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Manual route (GeoJSON)
               </div>
-              {formData.useManualRoutePoints && (
-                <span className="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
-                  Active
-                </span>
-              )}
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Import a GeoJSON LineString to override the route for any transport type. Imported routes are kept until you clear them.
+              </p>
             </div>
-            <input
-              type="file"
-              accept=".geojson,application/geo+json,application/json"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  void handleGeoJSONImport(file);
-                }
-              }}
-              className="text-xs text-gray-700 dark:text-gray-200"
-            />
-            {importStatus && (
-              <div className="text-xs text-green-700 dark:text-green-300">
-                {importStatus}
-                {formData.routePoints?.length ? ` (${formData.routePoints.length} points)` : ''}
-              </div>
-            )}
-            {importError && (
-              <div className="text-xs text-red-700 dark:text-red-300">
-                {importError}
-              </div>
-            )}
-            {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
-              <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
-                <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
-                <button
-                  type="button"
-                  onClick={clearManualRoute}
-                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Clear manual route
-                </button>
-              </div>
-            ) : (
-              <div className="text-xs text-gray-600 dark:text-gray-300">
-                Tip: first feature with LineString is used; coordinates should be [lng, lat].
-              </div>
+            {formData.useManualRoutePoints && (
+              <span className="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
+                Active
+              </span>
             )}
           </div>
-        )}
+          <input
+            type="file"
+            accept=".geojson,application/geo+json,application/json"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                void handleGeoJSONImport(file);
+              }
+            }}
+            className="text-xs text-gray-700 dark:text-gray-200"
+          />
+          {importStatus && (
+            <div className="text-xs text-green-700 dark:text-green-300">
+              {importStatus}
+              {formData.routePoints?.length ? ` (${formData.routePoints.length} points)` : ''}
+            </div>
+          )}
+          {importError && (
+            <div className="text-xs text-red-700 dark:text-red-300">
+              {importError}
+            </div>
+          )}
+          {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
+            <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
+              <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
+              <button
+                type="button"
+                onClick={clearManualRoute}
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Clear manual route
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-600 dark:text-gray-300">
+              Tip: first feature with LineString is used; coordinates should be [lng, lat].
+            </div>
+          )}
+        </div>
 
         {/* Cost Tracking Links */}
         <div>
