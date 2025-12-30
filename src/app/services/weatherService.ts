@@ -217,6 +217,7 @@ function needsForecastRefresh(summary: WeatherSummary): boolean {
  * @param endISO - End date in `YYYY-MM-DD` ISO format (inclusive)
  * @param endpoint - Selects the source: `'forecast'` for the live forecast endpoint or `'archive'` for the historical archive endpoint (archive queries are validated and may be clamped to the service's minimum archive date)
  * @returns An array of `WeatherData` objects for each date in the effective range; returns an empty array on invalid input, out-of-bounds archive ranges, or on fetch/parsing failure.
+ */
 async function fetchOpenMeteoDaily(
   coords: [number, number],
   startISO: string,
