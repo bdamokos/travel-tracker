@@ -31,6 +31,27 @@ export default function LocationInlineEditor({
     ...location
   });
 
+  const handleCancel = () => {
+    // Accommodations are managed independently of the location "Save" flow (add/delete persists immediately).
+    // If the user cancels, keep accommodationIds changes (to avoid reintroducing orphaned IDs in the UI),
+    // but discard other unsaved location edits.
+    const originalIds = location.accommodationIds || [];
+    const currentIds = formData.accommodationIds || [];
+    const idsChanged =
+      originalIds.length !== currentIds.length ||
+      originalIds.some((id, index) => id !== currentIds[index]);
+
+    if (idsChanged) {
+      onSave({
+        ...location,
+        accommodationIds: currentIds
+      });
+      return;
+    }
+
+    onCancel();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -228,15 +249,15 @@ export default function LocationInlineEditor({
             className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 focus:outline-none focus:ring-1 focus:ring-green-500"
           >
             Save
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-500"
-          >
-            Cancel
-          </button>
-        </div>
+	          </button>
+	          <button
+	            type="button"
+	            onClick={handleCancel}
+	            className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-500"
+	          >
+	            Cancel
+	          </button>
+	        </div>
       </form>
     </div>
   );
