@@ -27,6 +27,9 @@ let lastRequestTime = 0;
 
 const OPEN_METEO_ARCHIVE_MIN_DATE = new Date(Date.UTC(2016, 0, 1));
 
+/**
+ * Ensure the local data directory exists by creating it and any missing parent directories.
+ */
 async function ensureDir(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
@@ -204,6 +207,16 @@ function needsForecastRefresh(summary: WeatherSummary): boolean {
   });
 }
 
+/**
+ * Fetches daily weather data from Open-Meteo for the given coordinates and ISO date range.
+ *
+ * Queries either the Open-Meteo forecast or historical archive endpoint and returns an array of daily WeatherData entries covering the requested inclusive date range. When using the archive endpoint, the requested range is validated and clamped to the supported archive window; invalid or out-of-bounds archive ranges result in an empty array.
+ *
+ * @param coords - Tuple of `[latitude, longitude]` in decimal degrees
+ * @param startISO - Start date in `YYYY-MM-DD` ISO format (inclusive)
+ * @param endISO - End date in `YYYY-MM-DD` ISO format (inclusive)
+ * @param endpoint - Selects the source: `'forecast'` for the live forecast endpoint or `'archive'` for the historical archive endpoint (archive queries are validated and may be clamped to the service's minimum archive date)
+ * @returns An array of `WeatherData` objects for each date in the effective range; returns an empty array on invalid input, out-of-bounds archive ranges, or on fetch/parsing failure.
 async function fetchOpenMeteoDaily(
   coords: [number, number],
   startISO: string,
@@ -370,6 +383,18 @@ function daysBetweenInclusive(start: Date, end: Date): number {
   return Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
 }
 
+/**
+ * Builds a historical-average daily weather series for the given date range by aggregating archive data from past years.
+ *
+ * Aggregates matching calendar dates from up to `yearsBack` previous years and produces one WeatherData entry per day in the range.
+ * Each result is marked as historical, uses `dataSource: 'historical-average'`, includes a `fetchedAt` timestamp, and may include an `expiresAt` for future dates.
+ *
+ * @param coords - Tuple [latitude, longitude] used to fetch archive data
+ * @param startISO - Inclusive start date in `YYYY-MM-DD` format
+ * @param endISO - Inclusive end date in `YYYY-MM-DD` format
+ * @param yearsBack - Number of past years to include when computing the average (defaults to 10)
+ * @returns An array of averaged `WeatherData` entries for each date in the range, or an empty array if no historical data could be used
+ */
 async function computeHistoricalAverage(
   coords: [number, number],
   startISO: string,
