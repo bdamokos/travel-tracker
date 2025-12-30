@@ -283,36 +283,20 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
       })(),
       days: (travelUpdates.days as JourneyPeriod[]) || baseData.travelData?.days
     },
-    // Preserve accommodations from the updates or existing data
+    // Preserve accommodations from the existing data.
+    // Accommodations are managed via dedicated endpoints/SWR and travel-data autosave can be stale.
+    // If we merge from travelUpdates here, we can accidentally overwrite newer accommodation edits.
     accommodations: (() => {
-      const hasAccommodationUpdates = Object.prototype.hasOwnProperty.call(travelUpdates, 'accommodations');
-      const newAccommodations = travelUpdates.accommodations as Accommodation[] | undefined;
       const existingAccommodations = baseData.accommodations || [];
 
-      // Accommodations can be mutated via dedicated endpoints (SWR-driven).
-      // Treat incoming `accommodations` as a patch (upsert), never as a full replacement,
-      // otherwise autosave can accidentally drop accommodations created elsewhere.
-      if (!hasAccommodationUpdates || !Array.isArray(newAccommodations) || newAccommodations.length === 0) {
+      // Allow seeding accommodations only when the trip has none yet (e.g., legacy clients or
+      // creation payloads). After that, ignore incoming accommodations to avoid stale overwrites.
+      if (existingAccommodations.length > 0) {
         return existingAccommodations;
       }
 
-      const existingById = new Map(existingAccommodations.map(acc => [acc.id, acc]));
-      const mergedById = new Map(existingAccommodations.map(acc => [acc.id, acc]));
-
-      // Merge accommodations, preserving existing costTrackingLinks (managed by SWR system)
-      for (const newAccommodation of newAccommodations) {
-        const existingAccommodation = existingById.get(newAccommodation.id);
-        const { costTrackingLinks: incomingLinks, ...accommodationWithoutLinks } = newAccommodation;
-
-        mergedById.set(newAccommodation.id, {
-          ...existingAccommodation,
-          ...accommodationWithoutLinks,
-          // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
-          costTrackingLinks: existingAccommodation?.costTrackingLinks || incomingLinks || []
-        });
-      }
-
-      return Array.from(mergedById.values());
+      const newAccommodations = travelUpdates.accommodations as Accommodation[] | undefined;
+      return Array.isArray(newAccommodations) ? newAccommodations : [];
     })()
   };
 

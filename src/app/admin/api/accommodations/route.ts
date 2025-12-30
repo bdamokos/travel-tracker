@@ -173,6 +173,22 @@ export async function DELETE(request: NextRequest) {
       }));
     }
 
+    // Remove references from expenses as well; otherwise v6→v7 may recreate the deleted accommodation.
+    if (tripData.costData?.expenses) {
+      tripData.costData.expenses = tripData.costData.expenses.map(expense => {
+        if (
+          expense.travelReference?.type === 'accommodation' &&
+          expense.travelReference.accommodationId === id
+        ) {
+          return {
+            ...expense,
+            travelReference: undefined
+          };
+        }
+        return expense;
+      });
+    }
+
     await saveUnifiedTripData(tripData);
     
     return NextResponse.json({ success: true });
