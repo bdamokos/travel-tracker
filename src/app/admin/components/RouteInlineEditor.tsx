@@ -17,6 +17,17 @@ interface RouteInlineEditorProps {
   tripId?: string; // Add tripId for expense scoping
 }
 
+/**
+ * Render an inline editor form for a TravelRoute, allowing edits to transport type, dates, locations, notes, optional manual GeoJSON route import, and expense-linking.
+ *
+ * @param route - Initial TravelRoute data used to populate the form fields.
+ * @param onSave - Callback invoked with the updated TravelRoute when the form is saved.
+ * @param onCancel - Callback invoked when the user cancels editing.
+ * @param locationOptions - Available named locations with coordinates used for suggestions and coordinate resolution.
+ * @param onGeocode - Optional function to resolve a freeform location name to `[lng, lat]` coordinates when a named location is not selected.
+ * @param tripId - Optional trip identifier; when present enables linking the route to trip expense tracking.
+ * @returns A JSX element containing the inline route editor UI.
+ */
 export default function RouteInlineEditor({
   route,
   onSave,
@@ -304,64 +315,62 @@ export default function RouteInlineEditor({
           />
         </div>
 
-        {/* Manual route import (for boats) */}
-        {formData.transportType === 'boat' && (
-          <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  Manual route (GeoJSON)
-                </div>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Import a GeoJSON LineString to draw the exact boat track. Imported routes are kept until you clear them.
-                </p>
+        {/* Manual route import (any transport type) */}
+        <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Manual route (GeoJSON)
               </div>
-              {formData.useManualRoutePoints && (
-                <span className="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
-                  Active
-                </span>
-              )}
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                Import a GeoJSON LineString to override the route for any transport type. Imported routes are kept until you clear them.
+              </p>
             </div>
-            <input
-              type="file"
-              accept=".geojson,application/geo+json,application/json"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  void handleGeoJSONImport(file);
-                }
-              }}
-              className="text-xs text-gray-700 dark:text-gray-200"
-            />
-            {importStatus && (
-              <div className="text-xs text-green-700 dark:text-green-300">
-                {importStatus}
-                {formData.routePoints?.length ? ` (${formData.routePoints.length} points)` : ''}
-              </div>
-            )}
-            {importError && (
-              <div className="text-xs text-red-700 dark:text-red-300">
-                {importError}
-              </div>
-            )}
-            {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
-              <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
-                <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
-                <button
-                  type="button"
-                  onClick={clearManualRoute}
-                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Clear manual route
-                </button>
-              </div>
-            ) : (
-              <div className="text-xs text-gray-600 dark:text-gray-300">
-                Tip: first feature with LineString is used; coordinates should be [lng, lat].
-              </div>
+            {formData.useManualRoutePoints && (
+              <span className="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
+                Active
+              </span>
             )}
           </div>
-        )}
+          <input
+            type="file"
+            accept=".geojson,application/geo+json,application/json"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                void handleGeoJSONImport(file);
+              }
+            }}
+            className="text-xs text-gray-700 dark:text-gray-200"
+          />
+          {importStatus && (
+            <div className="text-xs text-green-700 dark:text-green-300">
+              {importStatus}
+              {formData.routePoints?.length ? ` (${formData.routePoints.length} points)` : ''}
+            </div>
+          )}
+          {importError && (
+            <div className="text-xs text-red-700 dark:text-red-300">
+              {importError}
+            </div>
+          )}
+          {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
+            <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
+              <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
+              <button
+                type="button"
+                onClick={clearManualRoute}
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                Clear manual route
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-600 dark:text-gray-300">
+              Tip: first feature with LineString is used; coordinates should be [lng, lat].
+            </div>
+          )}
+        </div>
 
         {/* Cost Tracking Links */}
         <div>

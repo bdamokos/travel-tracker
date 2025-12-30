@@ -65,7 +65,7 @@ export interface Transportation {
   fromCoordinates?: [number, number]; // [latitude, longitude]
   toCoordinates?: [number, number]; // [latitude, longitude]
   routePoints?: [number, number][]; // Pre-generated route points for better performance
-  // When true (and boat), render stored routePoints instead of generated arc
+  // When true, render stored manual routePoints instead of a generated arc
   useManualRoutePoints?: boolean;
   // When true, this is a return route
   isReturn?: boolean;
@@ -90,7 +90,7 @@ export interface TravelRoute {
   costTrackingLinks?: CostTrackingLink[];
   // Pre-generated route points for better performance
   routePoints?: [number, number][];
-  // When true (and boat), render stored routePoints instead of generated arc
+  // When true, render stored manual routePoints instead of a generated arc
   useManualRoutePoints?: boolean;
   // When true, this is a return route
   isReturn?: boolean;
