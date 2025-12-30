@@ -73,7 +73,10 @@ export function migrateFromV6ToV7(data: UnifiedTripData): UnifiedTripData {
   const tripId = data.id;
   const created: string[] = [];
 
-  const locations = data.travelData?.locations || [];
+  const locations = [
+    ...(data.travelData?.locations || []),
+    ...(data.travelData?.days ? data.travelData.days.flatMap(day => day.locations || []) : [])
+  ];
   const expenses = data.costData?.expenses || [];
 
   const accommodations: Accommodation[] = Array.isArray(data.accommodations) ? [...data.accommodations] : [];

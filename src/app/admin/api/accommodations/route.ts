@@ -173,6 +173,17 @@ export async function DELETE(request: NextRequest) {
       }));
     }
 
+    // Also remove references from journey periods (travelData.days) if used.
+    if (tripData.travelData?.days) {
+      tripData.travelData.days = tripData.travelData.days.map(day => ({
+        ...day,
+        locations: (day.locations || []).map(location => ({
+          ...location,
+          accommodationIds: (location.accommodationIds || []).filter(accId => accId !== id)
+        }))
+      }));
+    }
+
     // Remove references from expenses as well; otherwise v6→v7 may recreate the deleted accommodation.
     if (tripData.costData?.expenses) {
       tripData.costData.expenses = tripData.costData.expenses.map(expense => {

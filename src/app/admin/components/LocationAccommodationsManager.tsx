@@ -72,6 +72,22 @@ export default function LocationAccommodationsManager({
     .map(id => getAccommodationById(id))
     .filter(Boolean) as Accommodation[];
 
+  const persistAccommodationIds = async (ids: string[]) => {
+    try {
+      await fetch('/admin/api/locations/accommodation-ids', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripId,
+          locationId,
+          accommodationIds: ids
+        })
+      });
+    } catch (error) {
+      console.warn('Failed to persist location accommodationIds immediately:', error);
+    }
+  };
+
   const handleAddAccommodation = async () => {
     if (!newAccommodation.name.trim()) {
       alert('Please enter an accommodation name');
@@ -85,7 +101,9 @@ export default function LocationAccommodationsManager({
       });
       
       // Add to location's accommodation IDs
-      onAccommodationIdsChange([...accommodationIds, created.id]);
+      const nextIds = [...accommodationIds, created.id];
+      onAccommodationIdsChange(nextIds);
+      await persistAccommodationIds(nextIds);
       
       // Reset form
       setNewAccommodation({
@@ -114,7 +132,9 @@ export default function LocationAccommodationsManager({
       try {
         await deleteAccommodation(tripId, accommodationId);
         // Remove from location's accommodation IDs
-        onAccommodationIdsChange(accommodationIds.filter(id => id !== accommodationId));
+        const nextIds = accommodationIds.filter(id => id !== accommodationId);
+        onAccommodationIdsChange(nextIds);
+        await persistAccommodationIds(nextIds);
       } catch (error) {
         console.error('Error deleting accommodation:', error);
       }
