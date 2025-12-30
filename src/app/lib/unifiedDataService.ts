@@ -17,6 +17,7 @@ import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConf
 import { backupService } from './backupService';
 import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
 import { getDataDir } from './dataDirectory';
+import { dateReviver } from './jsonDateReviver';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');
@@ -395,11 +396,4 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
  * Cleans up legacy files after successful migration
  */
 
-const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-
-function dateReviver(_key: string, value: unknown): unknown {
-  if (typeof value === 'string' && isoDateRegex.test(value)) {
-    return new Date(value);
-  }
-  return value;
-}
+ 

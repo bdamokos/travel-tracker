@@ -3,6 +3,7 @@ import { updateCostData, loadUnifiedTripData } from '../../lib/unifiedDataServic
 import { maybeSyncPendingYnabTransactions } from '../../lib/ynabPendingSync';
 import { isAdminDomain } from '../../lib/server-domains';
 import { validateAllTripBoundaries } from '../../lib/tripBoundaryValidation';
+import { dateReviver } from '../../lib/jsonDateReviver';
 
 
 export async function POST(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
-    const costData = await request.json();
+    const costData = JSON.parse(await request.text(), dateReviver);
     
     // Generate a unique ID for this cost tracking data
     const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -140,7 +141,7 @@ export async function PUT(request: NextRequest) {
     // Clean the ID to handle both cost-prefixed and clean IDs
     const cleanId = id.replace(/^(cost-)+/, '');
     
-    const updatedData = await request.json();
+    const updatedData = JSON.parse(await request.text(), dateReviver);
     
     // Use unified data service to update cost data
     const unifiedData = await updateCostData(cleanId, updatedData);

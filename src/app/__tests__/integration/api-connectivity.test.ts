@@ -66,9 +66,11 @@ describe('API Connectivity Test', () => {
       expect(routePoints[routePoints.length - 1][0]).toBeCloseTo(EXPECTED_OSRM_END[0], 3);
       expect(routePoints[routePoints.length - 1][1]).toBeCloseTo(EXPECTED_OSRM_END[1], 3);
     } else {
-      // For mock data, use our original coordinates
-      expect(routePoints[0]).toEqual(TEST_ROUTE.fromCoordinates);
-      expect(routePoints[routePoints.length - 1]).toEqual(TEST_ROUTE.toCoordinates);
+      // For fallback/mock data, allow minor floating point differences (e.g. cached OSRM points)
+      expect(routePoints[0][0]).toBeCloseTo(TEST_ROUTE.fromCoordinates[0], 3);
+      expect(routePoints[0][1]).toBeCloseTo(TEST_ROUTE.fromCoordinates[1], 3);
+      expect(routePoints[routePoints.length - 1][0]).toBeCloseTo(TEST_ROUTE.toCoordinates[0], 3);
+      expect(routePoints[routePoints.length - 1][1]).toBeCloseTo(TEST_ROUTE.toCoordinates[1], 3);
     }
     
     if (externalApiAvailable) {
