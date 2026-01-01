@@ -1,6 +1,19 @@
 import * as ynab from 'ynab';
 import { YnabBudget, YnabCategory, YnabApiTransaction, YnabApiError } from '../types';
 
+const YNAB_API_BASE_URL = 'https://api.ynab.com/v1';
+
+function buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
+  const url = new URL(path.replace(/^\//, ''), `${YNAB_API_BASE_URL}/`);
+  if (query) {
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === '') return;
+      url.searchParams.set(key, String(value));
+    });
+  }
+  return url.toString();
+}
+
 // YNAB API client wrapper with error handling and delta sync support
 export class YnabApiClient {
   private api: ynab.API;
@@ -9,11 +22,16 @@ export class YnabApiClient {
     this.api = new ynab.API(accessToken);
   }
 
+  private logApiCall(method: string, path: string, query?: Record<string, string | number | undefined>) {
+    console.log(`[YNAB API] ${method} ${buildUrl(path, query)}`);
+  }
+
   /**
    * Validate API key and get available budgets
    */
   async getBudgets(): Promise<YnabBudget[]> {
     try {
+      this.logApiCall('GET', '/budgets');
       const response = await this.api.budgets.getBudgets();
       return response.data.budgets.map(budget => ({
         id: budget.id,
@@ -45,6 +63,9 @@ export class YnabApiClient {
     serverKnowledge: number;
   }> {
     try {
+      this.logApiCall('GET', `/budgets/${budgetId}/categories`, {
+        last_knowledge_of_server: serverKnowledge
+      });
       const response = await this.api.categories.getCategories(
         budgetId,
         serverKnowledge
@@ -110,6 +131,10 @@ export class YnabApiClient {
       // GET /budgets/{budget_id}/categories/{category_id}/transactions
       const categoryPromises = categoryIds.map(async (categoryId) => {
         try {
+          this.logApiCall('GET', `/budgets/${budgetId}/categories/${categoryId}/transactions`, {
+            since_date: sinceDate,
+            last_knowledge_of_server: serverKnowledge
+          });
           const response = await this.api.transactions.getTransactionsByCategory(
             budgetId,
             categoryId,
@@ -121,7 +146,12 @@ export class YnabApiClient {
           return {
             transactions: response.data.transactions
               .filter(txn => !txn.deleted)
-              .map(txn => ({
+              .map(txn => {
+                const subtransactions = 'subtransactions' in txn
+                  ? (txn as { subtransactions?: ynab.SubTransaction[] }).subtransactions
+                  : undefined;
+
+                return {
                 id: txn.id,
                 date: txn.date,
                 amount: txn.amount,
@@ -143,8 +173,26 @@ export class YnabApiClient {
                 import_payee_name: txn.import_payee_name || undefined,
                 import_payee_name_original: txn.import_payee_name_original || undefined,
                 debt_transaction_type: txn.debt_transaction_type || undefined,
-                deleted: txn.deleted
-              })),
+                  deleted: txn.deleted,
+                  subtransactions: subtransactions
+                    ?.filter(sub => !sub.deleted)
+                    ?.map((sub, index) => ({
+                      id: sub.id,
+                      transaction_id: sub.transaction_id,
+                      amount: sub.amount,
+                      memo: sub.memo ?? undefined,
+                      payee_id: sub.payee_id ?? undefined,
+                      payee_name: sub.payee_name ?? undefined,
+                      category_id: sub.category_id ?? undefined,
+                      category_name: sub.category_name ?? undefined,
+                      transfer_account_id: sub.transfer_account_id ?? undefined,
+                      transfer_transaction_id: sub.transfer_transaction_id ?? undefined,
+                      deleted: sub.deleted,
+                      parent_transaction_id: txn.id,
+                      subtransaction_index: index
+                    }))
+                };
+              }),
             serverKnowledge: response.data.server_knowledge
           };
         } catch (categoryError) {
@@ -273,10 +321,40 @@ export const ynabUtils = {
   },
 
   /**
+   * Flatten YNAB API transactions so each split sub-transaction is represented individually.
+   * Parent-level metadata (payee, memo, account) is preserved for sub-transactions when missing.
+   */
+  flattenTransactions: (transactions: YnabApiTransaction[]): YnabApiTransaction[] => {
+    return transactions.flatMap(txn => {
+      if (txn.subtransactions && txn.subtransactions.length > 0) {
+        return txn.subtransactions
+          .filter(sub => !sub.deleted)
+          .map((sub, index) => ({
+            ...txn,
+            id: sub.id || `${txn.id}-sub-${index}`,
+            amount: sub.amount,
+            memo: sub.memo ?? txn.memo,
+            payee_id: sub.payee_id ?? txn.payee_id,
+            payee_name: sub.payee_name ?? txn.payee_name,
+            category_id: sub.category_id ?? undefined,
+            category_name: sub.category_name ?? undefined,
+            transfer_account_id: sub.transfer_account_id ?? undefined,
+            transfer_transaction_id: sub.transfer_transaction_id ?? undefined,
+            parent_transaction_id: txn.id,
+            subtransaction_index: index,
+            subtransactions: undefined
+          }));
+      }
+
+      return [txn];
+    });
+  },
+
+  /**
    * Generate a simple hash for transaction deduplication
    */
   generateTransactionHash: (transaction: YnabApiTransaction): string => {
-    const hashInput = `${transaction.date}-${transaction.amount}-${transaction.payee_name || 'no-payee'}-${transaction.memo || 'no-memo'}`;
+    const hashInput = `${transaction.date}-${transaction.amount}-${transaction.payee_name || 'no-payee'}-${transaction.memo || 'no-memo'}-${transaction.category_id || 'no-category'}-${transaction.parent_transaction_id || 'parent-none'}-${transaction.subtransaction_index ?? 'root'}`;
     // Simple hash function - could be replaced with crypto.createHash if needed
     let hash = 0;
     for (let i = 0; i < hashInput.length; i++) {
