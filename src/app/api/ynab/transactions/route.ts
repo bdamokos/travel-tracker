@@ -71,8 +71,10 @@ export async function GET(request: NextRequest) {
         serverKnowledge ? parseInt(serverKnowledge) : undefined
       );
 
+      const expandedTransactions = ynabUtils.flattenTransactions(result.transactions);
+
       // Convert YNAB transactions to ProcessedYnabTransaction format
-      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map((txn, index) => {
+      const processedTransactions: ProcessedYnabTransaction[] = expandedTransactions.map((txn, index) => {
         const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
         const isOutflow = txn.amount < 0;
         const hash = ynabUtils.generateTransactionHash(txn);
@@ -248,6 +250,7 @@ export async function POST(request: NextRequest) {
         sinceDate || undefined,
         serverKnowledge || undefined
       );
+      const expandedTransactions = ynabUtils.flattenTransactions(result.transactions);
 
       // Create a lookup map for category mappings
       const categoryMappingLookup = new Map();
@@ -258,7 +261,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Convert YNAB transactions to ProcessedYnabTransaction format with country mapping
-      const processedTransactions: ProcessedYnabTransaction[] = result.transactions.map((txn, index) => {
+      const processedTransactions: ProcessedYnabTransaction[] = expandedTransactions.map((txn, index) => {
         const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
         const isOutflow = txn.amount < 0;
         const hash = ynabUtils.generateTransactionHash(txn);

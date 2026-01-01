@@ -98,6 +98,10 @@ export async function maybeSyncPendingYnabTransactions(
       sinceDate,
       serverKnowledge
     );
+    transactionResult = {
+      transactions: ynabUtils.flattenTransactions(transactionResult.transactions),
+      serverKnowledge: transactionResult.serverKnowledge
+    };
   } catch (error) {
     console.error('YNAB hourly sync failed:', error);
     return null;

@@ -418,6 +418,20 @@ export interface YnabCategory {
 }
 
 // YNAB API Transaction from SDK (simplified)
+export interface YnabApiSubTransaction {
+  id: string;
+  transaction_id: string;
+  amount: number;
+  memo?: string | null;
+  payee_id?: string | null;
+  payee_name?: string | null;
+  category_id?: string | null;
+  category_name?: string | null;
+  transfer_account_id?: string | null;
+  transfer_transaction_id?: string | null;
+  deleted: boolean;
+}
+
 export interface YnabApiTransaction {
   id: string;
   date: string;
@@ -441,6 +455,9 @@ export interface YnabApiTransaction {
   import_payee_name_original?: string;
   debt_transaction_type?: string;
   deleted: boolean;
+  parent_transaction_id?: string;
+  subtransaction_index?: number;
+  subtransactions?: YnabApiSubTransaction[];
 }
 
 // YNAB API Error Response
