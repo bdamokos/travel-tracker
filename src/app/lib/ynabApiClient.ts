@@ -1,6 +1,19 @@
 import * as ynab from 'ynab';
 import { YnabBudget, YnabCategory, YnabApiTransaction, YnabApiError } from '../types';
 
+const YNAB_API_BASE_URL = 'https://api.ynab.com/v1';
+
+function buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
+  const url = new URL(path.replace(/^\//, ''), `${YNAB_API_BASE_URL}/`);
+  if (query) {
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === '') return;
+      url.searchParams.set(key, String(value));
+    });
+  }
+  return url.toString();
+}
+
 // YNAB API client wrapper with error handling and delta sync support
 export class YnabApiClient {
   private api: ynab.API;
@@ -9,11 +22,16 @@ export class YnabApiClient {
     this.api = new ynab.API(accessToken);
   }
 
+  private logApiCall(method: string, path: string, query?: Record<string, string | number | undefined>) {
+    console.log(`[YNAB API] ${method} ${buildUrl(path, query)}`);
+  }
+
   /**
    * Validate API key and get available budgets
    */
   async getBudgets(): Promise<YnabBudget[]> {
     try {
+      this.logApiCall('GET', '/budgets');
       const response = await this.api.budgets.getBudgets();
       return response.data.budgets.map(budget => ({
         id: budget.id,
@@ -45,6 +63,9 @@ export class YnabApiClient {
     serverKnowledge: number;
   }> {
     try {
+      this.logApiCall('GET', `/budgets/${budgetId}/categories`, {
+        last_knowledge_of_server: serverKnowledge
+      });
       const response = await this.api.categories.getCategories(
         budgetId,
         serverKnowledge
@@ -110,6 +131,10 @@ export class YnabApiClient {
       // GET /budgets/{budget_id}/categories/{category_id}/transactions
       const categoryPromises = categoryIds.map(async (categoryId) => {
         try {
+          this.logApiCall('GET', `/budgets/${budgetId}/categories/${categoryId}/transactions`, {
+            since_date: sinceDate,
+            last_knowledge_of_server: serverKnowledge
+          });
           const response = await this.api.transactions.getTransactionsByCategory(
             budgetId,
             categoryId,
