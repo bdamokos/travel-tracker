@@ -9,7 +9,7 @@ const MS_IN_DAY = 1000 * 60 * 60 * 24;
 function normalizeToUtcDay(dateInput: Date | string): Date | null {
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return null;
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 }
 
 /**
