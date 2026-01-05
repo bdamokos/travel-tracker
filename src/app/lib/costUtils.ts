@@ -1,6 +1,28 @@
 import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '../types';
 import { formatUtcDate } from './dateUtils';
 
+const MS_IN_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * Normalize a date-like value to the start of its day in UTC to avoid timezone drift.
+ */
+function normalizeToUtcDay(dateInput: Date | string): Date | null {
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return null;
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+}
+
+/**
+ * Calculate inclusive day counts between two dates in a timezone-safe way.
+ */
+export function calculateInclusiveDays(startDate: Date | string, endDate: Date | string): number {
+  const start = normalizeToUtcDay(startDate);
+  const end = normalizeToUtcDay(endDate);
+  if (!start || !end || end < start) return 0;
+
+  return Math.round((end.getTime() - start.getTime()) / MS_IN_DAY) + 1;
+}
+
 /**
  * Helper function to determine if an expense is post-trip based on dates
  */
@@ -462,7 +484,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       countryData.days = countryBudget.periods.reduce((totalDays, period) => {
         const periodStart = new Date(period.startDate);
         const periodEnd = new Date(period.endDate);
-        const periodDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24)) + 1;
+        const periodDays = calculateInclusiveDays(periodStart, periodEnd);
         return totalDays + periodDays;
       }, 0);
     } else {
@@ -471,7 +493,7 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       if (countryExpenseDates.length > 0) {
         const minDate = new Date(Math.min(...countryExpenseDates.map(d => d.getTime())));
         const maxDate = new Date(Math.max(...countryExpenseDates.map(d => d.getTime())));
-        countryData.days = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 3600 * 24)) + 1;
+        countryData.days = calculateInclusiveDays(minDate, maxDate);
       } else {
         countryData.days = 0;
       }
@@ -519,7 +541,7 @@ function calculateRemainingDaysInCountry(
 
     if (today < periodEnd) {
       const startFrom = today > periodStart ? today : periodStart;
-      const daysInPeriod = Math.ceil((periodEnd.getTime() - startFrom.getTime()) / (1000 * 3600 * 24)) + 1;
+      const daysInPeriod = calculateInclusiveDays(startFrom, periodEnd);
       remainingDays += Math.max(0, daysInPeriod);
     }
   }
@@ -602,7 +624,7 @@ function calculateDailyAverageWithPeriods(
 
     // For periods that have started, calculate elapsed days
     const effectiveEnd = today < periodEnd ? today : periodEnd;
-    const elapsedDays = Math.ceil((effectiveEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24)) + 1;
+    const elapsedDays = calculateInclusiveDays(periodStart, effectiveEnd);
     totalElapsedDays += Math.max(0, elapsedDays);
   }
 
@@ -651,7 +673,7 @@ function calculateDailyAverageWithoutPeriods(
   }
 
   // Calculate elapsed days
-  const elapsedDays = Math.ceil((endDateForCalc.getTime() - startDateForCalc.getTime()) / (1000 * 3600 * 24)) + 1;
+  const elapsedDays = calculateInclusiveDays(startDateForCalc, endDateForCalc);
 
   return elapsedDays > 0 ? tripSpent / elapsedDays : 0;
 }
