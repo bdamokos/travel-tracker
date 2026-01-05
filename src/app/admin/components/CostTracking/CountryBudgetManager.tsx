@@ -2,7 +2,7 @@
 
 import { BudgetItem, CountryPeriod, CostTrackingData } from '../../../types';
 import AccessibleDatePicker from '../../components/AccessibleDatePicker';
-import { formatCurrency, formatDate, generateId } from '../../../lib/costUtils';
+import { calculateInclusiveDays, formatCurrency, formatDate, generateId } from '../../../lib/costUtils';
 
 interface CountryBudgetManagerProps {
   costData: CostTrackingData;
@@ -293,9 +293,7 @@ export default function CountryBudgetManager({
                     ))}
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       Total days: {budget.periods.reduce((total, period) => {
-                        const start = new Date(period.startDate);
-                        const end = new Date(period.endDate);
-                        return total + Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+                        return total + calculateInclusiveDays(period.startDate, period.endDate);
                       }, 0)}
                     </div>
                   </div>
