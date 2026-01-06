@@ -55,22 +55,19 @@ const getMarkerFilter = (tone: MarkerTone, distanceDays: number) => {
 export const getDominantMarkerTone = (tones: MarkerTone[]): MarkerTone => {
   if (tones.length === 0) return 'present';
 
-  const counts: Record<MarkerTone, number> = { past: 0, present: 0, future: 0 };
+  let hasPresent = false;
+  let hasFuture = false;
+  let hasPast = false;
+
   tones.forEach(tone => {
-    counts[tone] += 1;
+    if (tone === 'present') hasPresent = true;
+    else if (tone === 'future') hasFuture = true;
+    else hasPast = true;
   });
 
-  let dominant: MarkerTone = 'present';
-  let bestCount = -1;
-  (['present', 'future', 'past'] as const).forEach(tone => {
-    const count = counts[tone];
-    if (count > bestCount) {
-      bestCount = count;
-      dominant = tone;
-    }
-  });
-
-  return dominant;
+  if (hasPresent) return 'present';
+  if (hasFuture) return 'future';
+  return hasPast ? 'past' : 'present';
 };
 
 export const createMarkerIcon = (
