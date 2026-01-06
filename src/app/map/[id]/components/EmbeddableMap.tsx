@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
-import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
+import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalStatus } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
-import { formatDateRange } from '../../../lib/dateUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
 
@@ -22,6 +21,37 @@ const TIKTOK_ICON_MARKUP = getTikTokIconMarkup({
   className: 'shrink-0',
   ariaLabel: 'TikTok',
 });
+
+type MarkerTone = 'past' | 'present' | 'future';
+
+const MARKER_BASE_STYLE = `
+  width: 25px;
+  height: 41px;
+  background-image: url('/images/marker-icon.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  border-radius: 8px;
+`;
+
+const markerFilters: Record<MarkerTone, string> = {
+  future: 'drop-shadow(0 6px 12px rgba(59, 130, 246, 0.3)) saturate(1.2) brightness(1.08)',
+  present: 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.22)) saturate(1.05) brightness(1.02)',
+  past: 'grayscale(0.35) saturate(0.45) brightness(0.9) drop-shadow(0 3px 6px rgba(55, 65, 81, 0.28))',
+};
+
+const createMarkerIcon = (leaflet: typeof import('leaflet'), tone: MarkerTone) =>
+  leaflet.divIcon({
+    className: `custom-${tone}-marker`,
+    html: `
+      <div style="
+        ${MARKER_BASE_STYLE}
+        filter: ${markerFilters[tone]};
+      "></div>
+    `,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+  });
 
 interface TravelData {
   id: string;
@@ -199,6 +229,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
+  const [markerIcons, setMarkerIcons] = useState<Record<MarkerTone, L.DivIcon> | null>(null);
   
   // Simplified - no more client-side route generation
   
@@ -252,11 +283,16 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       });
       
       setHighlightedIcon(highlightedIcon);
+      setMarkerIcons({
+        past: createMarkerIcon(leaflet, 'past'),
+        present: createMarkerIcon(leaflet, 'present'),
+        future: createMarkerIcon(leaflet, 'future'),
+      });
     });
   }, [isClient]);
   
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
+    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon || !markerIcons) return;
 
     // Create map
     const map = L.map(containerRef.current, {
@@ -550,7 +586,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
         const markerOptions: L.MarkerOptions = {};
-        if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+        const tone = getLocationTemporalStatus(location);
+        if (isHighlighted && highlightedIcon) {
+          markerOptions.icon = highlightedIcon;
+        } else if (markerIcons?.[tone]) {
+          markerOptions.icon = markerIcons[tone];
+        }
         const child = L.marker(distributed, markerOptions).addTo(map);
         attachPopupAndEnrich(child, location);
         state.childMarkers.push(child);
@@ -585,7 +626,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const location = group.items[0];
           const isHighlighted = closestLocation?.id === location.id;
           const markerOptions: L.MarkerOptions = {};
-          if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+          const tone = getLocationTemporalStatus(location);
+          if (isHighlighted && highlightedIcon) {
+            markerOptions.icon = highlightedIcon;
+          } else if (markerIcons?.[tone]) {
+            markerOptions.icon = markerIcons[tone];
+          }
           const marker = L.marker(location.coordinates, markerOptions).addTo(map);
           attachPopupAndEnrich(marker, location);
           singles.push(marker);
@@ -668,7 +714,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon]);
+  }, [travelData, L, isClient, highlightedIcon, markerIcons]);
 
   if (!isClient) {
     return (

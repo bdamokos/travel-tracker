@@ -136,6 +136,30 @@ export function shouldHighlightLocation<T extends LocationWithDate>(
   return closestLocation?.id === location.id;
 } 
 
+export type TemporalStatus = 'past' | 'present' | 'future';
+
+/**
+ * Determine whether a location is in the past, present, or future
+ * relative to the current day. The check is timezone-agnostic because
+ * it normalizes stored UTC dates to the local calendar day.
+ */
+export function getLocationTemporalStatus<T extends LocationWithDate>(
+  location: T,
+  todayInput: Date = new Date()
+): TemporalStatus {
+  const start = normalizeUtcDateToLocalDay(location.date);
+  if (!start) return 'present';
+
+  const parsedEnd = location.endDate ? normalizeUtcDateToLocalDay(location.endDate) : null;
+  const end = parsedEnd && parsedEnd >= start ? parsedEnd : start;
+
+  const today = new Date(todayInput.getFullYear(), todayInput.getMonth(), todayInput.getDate());
+
+  if (today < start) return 'future';
+  if (today > end) return 'past';
+  return 'present';
+}
+
 /**
  * Format a date range for display
  * If endDate is provided and different from startDate, show as "Start - End"

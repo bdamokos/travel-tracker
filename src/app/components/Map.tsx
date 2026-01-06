@@ -6,7 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location } from '../types';
 import { generateRoutePointsSync, getRouteStyle } from '../lib/routeUtils';
-import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
+import { findClosestLocationToCurrentDate, getLocationTemporalStatus } from '../lib/dateUtils';
 import { LocationPopupModal } from './LocationPopup';
 import { useLocationPopup } from '../hooks/useLocationPopup';
 
@@ -46,6 +46,37 @@ const createHighlightedIcon = () => {
     popupAnchor: [1, -34]
   });
 };
+
+type MarkerTone = 'past' | 'present' | 'future';
+
+const MARKER_BASE_STYLE = `
+  width: 25px;
+  height: 41px;
+  background-image: url('/images/marker-icon.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  border-radius: 8px;
+`;
+
+const markerFilters: Record<MarkerTone, string> = {
+  future: 'drop-shadow(0 6px 12px rgba(59, 130, 246, 0.3)) saturate(1.2) brightness(1.08)',
+  present: 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.22)) saturate(1.05) brightness(1.02)',
+  past: 'grayscale(0.35) saturate(0.45) brightness(0.9) drop-shadow(0 3px 6px rgba(55, 65, 81, 0.28))',
+};
+
+const createMarkerIcon = (tone: MarkerTone) =>
+  L.divIcon({
+    className: `custom-${tone}-marker`,
+    html: `
+      <div style="
+        ${MARKER_BASE_STYLE}
+        filter: ${markerFilters[tone]};
+      "></div>
+    `,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+  });
 
 // Create a count badge icon for grouped markers
 const createCountIcon = (count: number) => {
@@ -308,6 +339,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
+  const highlightedIcon = useMemo(() => createHighlightedIcon(), []);
+  const markerIcons = useMemo(() => ({
+    past: createMarkerIcon('past'),
+    present: createMarkerIcon('present'),
+    future: createMarkerIcon('future'),
+  }), []);
   
   // Fix Leaflet icons
   useEffect(() => {
@@ -376,10 +413,24 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return days.flatMap(day =>
       day.locations.map(location => ({
         ...location,
-        date: day.date || new Date().toISOString().split('T')[0],
+        date: day.date ?? location.date ?? new Date().toISOString().split('T')[0],
+        endDate: location.endDate ?? day.endDate ?? location.endDate,
       }))
     );
   }, [days]);
+
+  const locationDateLookup = useMemo(() => {
+    const lookup = new globalThis.Map<string, { id: string; date: Date | string; endDate?: Date | string | null }>();
+    datedLocations.forEach(location => {
+      lookup.set(location.id, { id: location.id, date: location.date, endDate: location.endDate });
+    });
+    return lookup;
+  }, [datedLocations]);
+
+  const getToneForLocation = useCallback((location: Location): MarkerTone => {
+    const enriched = locationDateLookup.get(location.id) ?? location;
+    return getLocationTemporalStatus(enriched);
+  }, [locationDateLookup]);
 
   const closestLocation = useMemo(() => {
     return findClosestLocationToCurrentDate(datedLocations);
@@ -482,7 +533,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
               <Marker 
                 key={location.id} 
                 position={location.coordinates}
-                icon={closestLocation?.id === location.id ? createHighlightedIcon() : undefined}
+                icon={closestLocation?.id === location.id ? highlightedIcon : markerIcons[getToneForLocation(location)]}
                 eventHandlers={{
                   click: () => {
                     const journeyDay = {
@@ -532,7 +583,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 <Marker
                   key={location.id}
                   position={distributed}
-                  icon={closestLocation?.id === location.id ? createHighlightedIcon() : undefined}
+                  icon={closestLocation?.id === location.id ? highlightedIcon : markerIcons[getToneForLocation(location)]}
                   eventHandlers={{
                     click: () => {
                       const journeyDay = {
