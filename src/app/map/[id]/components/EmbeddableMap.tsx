@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalStatus } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
-import { createMarkerIcon, type MarkerTone } from '../../../lib/mapIconUtils';
+import { createCountMarkerIcon, createMarkerIcon, getDominantMarkerTone, type MarkerTone } from '../../../lib/mapIconUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
 
@@ -280,29 +280,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     }).addTo(map);
 
     mapRef.current = map;
-
-    // Helpers available after L is loaded
-    const createCountIcon = (count: number) => {
-      const width = 25; // match default marker aspect
-      const height = 41;
-      const badgeSize = 16;
-      return L.divIcon({
-        className: 'group-count-marker',
-        html: `
-          <div style="position: relative; width: ${width}px; height: ${height}px;">
-            <img src="/images/marker-icon.png" alt="group marker" style="width: ${width}px; height: ${height}px; display: block;"/>
-            <div aria-label="${count} visits" style="
-              position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
-              background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-              font-size: 10px; font-weight: 700; border: 2px solid white;
-            ">${count}</div>
-          </div>
-        `,
-        iconSize: [width, height],
-        iconAnchor: [Math.round(width / 2), height],
-        popupAnchor: [0, -height]
-      });
-    };
 
     const getMarkerIcon = (
       location: TravelData['locations'][0],
@@ -615,7 +592,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           return;
         }
 
-        const groupMarker = L.marker(group.center, { icon: createCountIcon(group.items.length) }).addTo(map);
+        const groupTone = getDominantMarkerTone(group.items.map(location => getLocationTemporalStatus(location)));
+        const groupMarker = L.marker(group.center, { icon: createCountMarkerIcon(L, group.items.length, groupTone) }).addTo(map);
         const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
         groupLayers.set(group.key, state);
 

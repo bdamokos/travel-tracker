@@ -9,7 +9,7 @@ import { generateRoutePointsSync, getRouteStyle } from '../lib/routeUtils';
 import { findClosestLocationToCurrentDate, getLocationTemporalStatus } from '../lib/dateUtils';
 import { LocationPopupModal } from './LocationPopup';
 import { useLocationPopup } from '../hooks/useLocationPopup';
-import { createMarkerIcon, type MarkerTone } from '../lib/mapIconUtils';
+import { createCountMarkerIcon, createMarkerIcon, getDominantMarkerTone, type MarkerTone } from '../lib/mapIconUtils';
 
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {
@@ -45,30 +45,6 @@ const createHighlightedIcon = () => {
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34]
-  });
-};
-
-// Create a count badge icon for grouped markers
-const createCountIcon = (count: number) => {
-  // Match Leaflet default marker aspect ratio 25x41
-  const width = 25;
-  const height = 41;
-  const badgeSize = 16;
-  return L.divIcon({
-    className: 'group-count-marker',
-    html: `
-      <div style="position: relative; width: ${width}px; height: ${height}px;">
-        <img src="/images/marker-icon.png" alt="group marker" style="width: ${width}px; height: ${height}px; display: block;"/>
-        <div aria-label="${count} visits" style="
-          position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
-          background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-          font-size: 10px; font-weight: 700; border: 2px solid white;
-        ">${count}</div>
-      </div>
-    `,
-    iconSize: [width, height],
-    iconAnchor: [Math.round(width / 2), height],
-    popupAnchor: [0, -height]
   });
 };
 
@@ -525,11 +501,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
           const isExpanded = expandedGroups.has(group.key);
           if (!isExpanded) {
             // Render a single badge marker representing the group
+            const groupTone = getDominantMarkerTone(group.items.map(({ location }) => getToneForLocation(location)));
             elements.push(
               <Marker
                 key={`group-${group.key}`}
                 position={group.center}
-                icon={createCountIcon(group.items.length)}
+                icon={createCountMarkerIcon(L, group.items.length, groupTone)}
                 eventHandlers={{
                   click: () => {
                     setExpandedGroups(prev => new Set(prev).add(group.key));
