@@ -414,7 +414,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       day.locations.map(location => ({
         ...location,
         date: day.date ?? location.date ?? new Date().toISOString().split('T')[0],
-        endDate: location.endDate ?? day.endDate ?? location.endDate,
+        endDate: location.endDate ?? day.endDate,
       }))
     );
   }, [days]);
