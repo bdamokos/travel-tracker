@@ -27,6 +27,18 @@
   --travel-marker-color-past: #4A6FA5;
   --travel-marker-color-present: #2FB7A4;
   --travel-marker-color-future: #F28C52;
+  --travel-marker-saturation-step-0: 0.45;
+  --travel-marker-saturation-step-1: 0.52;
+  --travel-marker-saturation-step-2: 0.58;
+  --travel-marker-saturation-step-3: 0.64;
+  --travel-marker-saturation-step-4: 0.70;
+  --travel-marker-saturation-step-5: 0.78;
+  --travel-marker-saturation-step-6: 0.86;
+  --travel-marker-saturation-step-7: 0.92;
+  --travel-marker-saturation-step-8: 0.97;
+  --travel-marker-saturation-step-9: 1;
+  --travel-marker-highlight-saturation: 1.25;
+  --travel-marker-highlight-brightness: 1.08;
 }
 
 @media (prefers-color-scheme: dark) {

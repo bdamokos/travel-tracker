@@ -14,7 +14,7 @@ import {
   createHighlightedMarkerIcon,
   createMarkerIcon,
   getDominantMarkerTone,
-  quantizeTemporalDistanceDays,
+  getMarkerDistanceBucket,
 } from '../lib/mapIconUtils';
 
 // Fix Leaflet icon issues with Next.js
@@ -360,7 +360,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
 
   const getMarkerIconForLocation = useCallback((location: Location) => {
     const { status, days } = getTemporalDistanceForLocation(location);
-    const bucket = quantizeTemporalDistanceDays(days);
+    const bucket = getMarkerDistanceBucket(days);
     const cacheKey = `${status}:${bucket}`;
 
     const cached = markerIconCacheRef.current.get(cacheKey);
@@ -377,10 +377,10 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
 
   const highlightedIcon = useMemo(() => {
     if (!closestLocation) {
-      return createHighlightedMarkerIcon(L, 'present', 0);
+      return createHighlightedMarkerIcon(L, 'present');
     }
     const { status, days } = getLocationTemporalDistanceDays(closestLocation);
-    const bucket = quantizeTemporalDistanceDays(days);
+    const bucket = getMarkerDistanceBucket(days);
     return createHighlightedMarkerIcon(L, status, bucket);
   }, [closestLocation]);
 
@@ -505,7 +505,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
             // Render a single badge marker representing the group
             const temporalInfos = group.items.map(({ location }) => getTemporalDistanceForLocation(location));
             const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
-            const groupDistanceBucket = quantizeTemporalDistanceDays(
+            const groupDistanceBucket = getMarkerDistanceBucket(
               Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
             );
             elements.push(

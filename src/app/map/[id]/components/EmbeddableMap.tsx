@@ -11,7 +11,7 @@ import {
   createHighlightedMarkerIcon,
   createMarkerIcon,
   getDominantMarkerTone,
-  quantizeTemporalDistanceDays,
+  getMarkerDistanceBucket,
 } from '../../../lib/mapIconUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
@@ -267,7 +267,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       isHighlighted: boolean
     ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
       const { status, days } = getLocationTemporalDistanceDays(location);
-      const bucket = quantizeTemporalDistanceDays(days);
+      const bucket = getMarkerDistanceBucket(days);
       if (isHighlighted) {
         const highlightedKey = `highlight:${status}:${bucket}`;
         const cachedHighlighted = highlightedIconCache.get(highlightedKey);
@@ -586,7 +586,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
         const temporalInfos = group.items.map(location => getLocationTemporalDistanceDays(location));
         const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
-        const groupDistanceBucket = quantizeTemporalDistanceDays(
+        const groupDistanceBucket = getMarkerDistanceBucket(
           Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
         );
         const groupMarker = L.marker(group.center, { icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket) }).addTo(map);
