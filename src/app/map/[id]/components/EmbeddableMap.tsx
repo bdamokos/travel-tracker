@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalStatus } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
+import { createMarkerIcon, type MarkerTone } from '../../../lib/mapIconUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
 
@@ -21,37 +22,6 @@ const TIKTOK_ICON_MARKUP = getTikTokIconMarkup({
   className: 'shrink-0',
   ariaLabel: 'TikTok',
 });
-
-type MarkerTone = 'past' | 'present' | 'future';
-
-const MARKER_BASE_STYLE = `
-  width: 25px;
-  height: 41px;
-  background-image: url('/images/marker-icon.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  border-radius: 8px;
-`;
-
-const markerFilters: Record<MarkerTone, string> = {
-  future: 'drop-shadow(0 6px 12px rgba(59, 130, 246, 0.3)) saturate(1.2) brightness(1.08)',
-  present: 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.22)) saturate(1.05) brightness(1.02)',
-  past: 'grayscale(0.35) saturate(0.45) brightness(0.9) drop-shadow(0 3px 6px rgba(55, 65, 81, 0.28))',
-};
-
-const createMarkerIcon = (leaflet: typeof import('leaflet'), tone: MarkerTone) =>
-  leaflet.divIcon({
-    className: `custom-${tone}-marker`,
-    html: `
-      <div style="
-        ${MARKER_BASE_STYLE}
-        filter: ${markerFilters[tone]};
-      "></div>
-    `,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
-  });
 
 interface TravelData {
   id: string;
@@ -334,6 +304,17 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       });
     };
 
+    const getMarkerIcon = (
+      location: TravelData['locations'][0],
+      isHighlighted: boolean
+    ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
+      if (isHighlighted && highlightedIcon) {
+        return highlightedIcon;
+      }
+      const tone = getLocationTemporalStatus(location);
+      return markerIcons?.[tone];
+    };
+
     // Note: meters-based fallback removed to avoid unused warnings
 
     const distributeAroundPointPixels = (
@@ -586,11 +567,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
         const markerOptions: L.MarkerOptions = {};
-        const tone = getLocationTemporalStatus(location);
-        if (isHighlighted && highlightedIcon) {
-          markerOptions.icon = highlightedIcon;
-        } else if (markerIcons?.[tone]) {
-          markerOptions.icon = markerIcons[tone];
+        const icon = getMarkerIcon(location, isHighlighted);
+        if (icon) {
+          markerOptions.icon = icon;
         }
         const child = L.marker(distributed, markerOptions).addTo(map);
         attachPopupAndEnrich(child, location);
@@ -626,11 +605,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const location = group.items[0];
           const isHighlighted = closestLocation?.id === location.id;
           const markerOptions: L.MarkerOptions = {};
-          const tone = getLocationTemporalStatus(location);
-          if (isHighlighted && highlightedIcon) {
-            markerOptions.icon = highlightedIcon;
-          } else if (markerIcons?.[tone]) {
-            markerOptions.icon = markerIcons[tone];
+          const icon = getMarkerIcon(location, isHighlighted);
+          if (icon) {
+            markerOptions.icon = icon;
           }
           const marker = L.marker(location.coordinates, markerOptions).addTo(map);
           attachPopupAndEnrich(marker, location);
