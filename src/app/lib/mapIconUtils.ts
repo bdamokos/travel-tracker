@@ -1,18 +1,45 @@
 export type MarkerTone = 'past' | 'present' | 'future';
 
-const MARKER_BASE_STYLE = `
-  width: 25px;
-  height: 41px;
-  background-image: url('/images/marker-icon.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  border-radius: 8px;
+const MARKER_WIDTH = 25;
+const MARKER_HEIGHT = 41;
+
+const markerColorVariables: Record<MarkerTone, string> = {
+  past: '--travel-marker-color-past',
+  present: '--travel-marker-color-present',
+  future: '--travel-marker-color-future',
+};
+
+const getMarkerSvgMarkup = (tone: MarkerTone) => `
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="${MARKER_WIDTH}"
+    height="${MARKER_HEIGHT}"
+    viewBox="0 0 25 41"
+    style="display:block"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path
+      d="M12.5 0C5.6 0 0 5.6 0 12.5C0 22 12.5 41 12.5 41C12.5 41 25 22 25 12.5C25 5.6 19.4 0 12.5 0Z"
+      style="
+        fill: var(${markerColorVariables[tone]});
+        stroke: rgba(255, 255, 255, 0.95);
+        stroke-width: 2;
+      "
+    />
+    <circle
+      cx="12.5"
+      cy="12.5"
+      r="5"
+      style="fill: rgba(255, 255, 255, 0.9);"
+    />
+  </svg>
 `;
 
 const markerShadows: Record<MarkerTone, string> = {
-  future: 'drop-shadow(0 6px 12px rgba(59, 130, 246, 0.3))',
-  present: 'drop-shadow(0 4px 8px rgba(59, 130, 246, 0.22))',
-  past: 'drop-shadow(0 3px 6px rgba(55, 65, 81, 0.28))',
+  future: 'drop-shadow(0 6px 12px rgba(242, 140, 82, 0.3))',
+  present: 'drop-shadow(0 4px 8px rgba(47, 183, 164, 0.22))',
+  past: 'drop-shadow(0 3px 6px rgba(74, 111, 165, 0.28))',
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -37,19 +64,16 @@ const getMarkerFilter = (tone: MarkerTone, distanceDays: number) => {
   const shadow = markerShadows[tone];
 
   if (tone === 'present') {
-    return `${shadow} saturate(1.05) brightness(1.02)`;
+    return `${shadow} saturate(1)`;
   }
 
   if (tone === 'future') {
-    const saturation = lerp(0.65, 1.25, proximity);
-    const brightness = lerp(0.98, 1.1, proximity);
-    return `${shadow} saturate(${saturation.toFixed(2)}) brightness(${brightness.toFixed(2)})`;
+    const saturation = lerp(0.55, 1.0, proximity);
+    return `${shadow} saturate(${saturation.toFixed(2)})`;
   }
 
-  const grayscale = lerp(0.6, 0.15, proximity);
-  const saturation = lerp(0.25, 0.95, proximity);
-  const brightness = lerp(0.86, 1.0, proximity);
-  return `${shadow} grayscale(${grayscale.toFixed(2)}) saturate(${saturation.toFixed(2)}) brightness(${brightness.toFixed(2)})`;
+  const saturation = lerp(0.45, 1.0, proximity);
+  return `${shadow} saturate(${saturation.toFixed(2)})`;
 };
 
 export const getDominantMarkerTone = (tones: MarkerTone[]): MarkerTone => {
@@ -79,9 +103,31 @@ export const createMarkerIcon = (
     className: `custom-${tone}-marker`,
     html: `
       <div style="
-        ${MARKER_BASE_STYLE}
+        width: ${MARKER_WIDTH}px;
+        height: ${MARKER_HEIGHT}px;
+        line-height: 0;
         filter: ${getMarkerFilter(tone, distanceDays)};
-      "></div>
+      ">${getMarkerSvgMarkup(tone)}</div>
+    `,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
+
+export const createHighlightedMarkerIcon = (
+  leaflet: typeof import('leaflet'),
+  tone: MarkerTone,
+  distanceDays = 0
+) =>
+  leaflet.divIcon({
+    className: `custom-highlighted-marker custom-highlighted-marker-${tone}`,
+    html: `
+      <div style="
+        width: ${MARKER_WIDTH}px;
+        height: ${MARKER_HEIGHT}px;
+        line-height: 0;
+        filter: ${getMarkerFilter(tone, distanceDays)} saturate(1.25) brightness(1.08);
+      ">${getMarkerSvgMarkup(tone)}</div>
     `,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
@@ -103,9 +149,11 @@ export const createCountMarkerIcon = (
     html: `
       <div style="position: relative; width: ${width}px; height: ${height}px;">
         <div style="
-          ${MARKER_BASE_STYLE}
+          width: ${MARKER_WIDTH}px;
+          height: ${MARKER_HEIGHT}px;
+          line-height: 0;
           filter: ${getMarkerFilter(tone, distanceDays)};
-        "></div>
+        ">${getMarkerSvgMarkup(tone)}</div>
         <div aria-label="${count} visits" style="
           position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
           background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;

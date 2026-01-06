@@ -8,6 +8,7 @@ import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalD
 import { getRouteStyle } from '../../../lib/routeUtils';
 import {
   createCountMarkerIcon,
+  createHighlightedMarkerIcon,
   createMarkerIcon,
   getDominantMarkerTone,
   quantizeTemporalDistanceDays,
@@ -203,7 +204,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
-  const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
   
   // Simplified - no more client-side route generation
   
@@ -236,32 +236,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         iconUrl: '/images/marker-icon.png',
         shadowUrl: '/images/marker-shadow.png',
       });
-      
-      // Create highlighted icon
-      const highlightedIcon = leaflet.divIcon({
-        className: 'custom-highlighted-marker',
-        html: `
-          <div style="
-            width: 25px; 
-            height: 41px; 
-            background-image: url('/images/marker-icon.png'); 
-            background-size: contain; 
-            background-repeat: no-repeat;
-            filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
-            animation: pulse-marker 2s infinite;
-          "></div>
-        `,
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34]
-      });
-      
-      setHighlightedIcon(highlightedIcon);
     });
   }, [isClient]);
   
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
+    if (!containerRef.current || mapRef.current || !L || !isClient) return;
 
     // Create map
     const map = L.map(containerRef.current, {
@@ -281,16 +260,22 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     mapRef.current = map;
 
     const markerIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
+    const highlightedIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
 
     const getMarkerIcon = (
       location: TravelData['locations'][0],
       isHighlighted: boolean
     ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
-      if (isHighlighted && highlightedIcon) {
-        return highlightedIcon;
-      }
       const { status, days } = getLocationTemporalDistanceDays(location);
       const bucket = quantizeTemporalDistanceDays(days);
+      if (isHighlighted) {
+        const highlightedKey = `highlight:${status}:${bucket}`;
+        const cachedHighlighted = highlightedIconCache.get(highlightedKey);
+        if (cachedHighlighted) return cachedHighlighted;
+        const icon = createHighlightedMarkerIcon(L, status, bucket);
+        highlightedIconCache.set(highlightedKey, icon);
+        return icon;
+      }
       const cacheKey = `${status}:${bucket}`;
       const cached = markerIconCache.get(cacheKey);
       if (cached) return cached;
@@ -680,7 +665,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon]);
+  }, [travelData, L, isClient]);
 
   if (!isClient) {
     return (

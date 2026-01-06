@@ -11,6 +11,7 @@ import { LocationPopupModal } from './LocationPopup';
 import { useLocationPopup } from '../hooks/useLocationPopup';
 import {
   createCountMarkerIcon,
+  createHighlightedMarkerIcon,
   createMarkerIcon,
   getDominantMarkerTone,
   quantizeTemporalDistanceDays,
@@ -29,27 +30,6 @@ const fixLeafletIcons = () => {
     iconRetinaUrl: '/images/marker-icon-2x.png',
     iconUrl: '/images/marker-icon.png',
     shadowUrl: '/images/marker-shadow.png',
-  });
-};
-
-// Create highlighted marker icon
-const createHighlightedIcon = () => {
-  return L.divIcon({
-    className: 'custom-highlighted-marker',
-    html: `
-      <div style="
-        width: 25px; 
-        height: 41px; 
-        background-image: url('/images/marker-icon.png'); 
-        background-size: contain; 
-        background-repeat: no-repeat;
-        filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
-        animation: pulse-marker 2s infinite;
-      "></div>
-    `,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
   });
 };
 
@@ -290,7 +270,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
-  const highlightedIcon = useMemo(() => createHighlightedIcon(), []);
   const markerIconCacheRef = useRef<globalThis.Map<string, L.DivIcon>>(new globalThis.Map());
   
   // Fix Leaflet icons
@@ -395,6 +374,15 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const closestLocation = useMemo(() => {
     return findClosestLocationToCurrentDate(datedLocations);
   }, [datedLocations]);
+
+  const highlightedIcon = useMemo(() => {
+    if (!closestLocation) {
+      return createHighlightedMarkerIcon(L, 'present', 0);
+    }
+    const { status, days } = getLocationTemporalDistanceDays(closestLocation);
+    const bucket = quantizeTemporalDistanceDays(days);
+    return createHighlightedMarkerIcon(L, status, bucket);
+  }, [closestLocation]);
 
   const groups = useMemo<Group[]>(() => {
     // reference tick so lint understands it intentionally triggers recompute
