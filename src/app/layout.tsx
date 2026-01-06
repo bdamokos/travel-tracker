@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ensureMapDataPreloaderRunning } from './lib/mapDataPreloader';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
       description: 'A tool to visualize and track your travel journeys with interactive maps and timelines.',
   manifest: '/manifest.json',
 };
+
+ensureMapDataPreloaderRunning();
 
 export default function RootLayout({
   children,
