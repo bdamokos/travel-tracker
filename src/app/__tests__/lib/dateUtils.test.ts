@@ -1,4 +1,4 @@
-import { findClosestLocationToCurrentDate, LocationWithDate } from '@/app/lib/dateUtils';
+import { findClosestLocationToCurrentDate, getLocationTemporalStatus, LocationWithDate } from '@/app/lib/dateUtils';
 
 describe('findClosestLocationToCurrentDate', () => {
   beforeAll(() => {
@@ -87,5 +87,54 @@ describe('findClosestLocationToCurrentDate', () => {
 
     const result = findClosestLocationToCurrentDate([pastA, pastB]);
     expect(result?.id).toBe('past-b');
+  });
+});
+
+describe('getLocationTemporalStatus', () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+  afterEach(() => {
+    jest.setSystemTime(0);
+  });
+
+  it('returns present when today falls inside the stay range', () => {
+    jest.setSystemTime(new Date('2025-01-15T12:00:00Z'));
+
+    const status = getLocationTemporalStatus({
+      id: 'range',
+      date: '2025-01-14T00:00:00Z',
+      endDate: '2025-01-16T00:00:00Z'
+    });
+
+    expect(status).toBe('present');
+  });
+
+  it('returns future when the stay has not started yet', () => {
+    jest.setSystemTime(new Date('2025-01-10T12:00:00Z'));
+
+    const status = getLocationTemporalStatus({
+      id: 'upcoming',
+      date: '2025-01-20T00:00:00Z'
+    });
+
+    expect(status).toBe('future');
+  });
+
+  it('returns past when the stay has already ended', () => {
+    jest.setSystemTime(new Date('2025-02-01T12:00:00Z'));
+
+    const status = getLocationTemporalStatus({
+      id: 'previous',
+      date: '2025-01-10T00:00:00Z',
+      endDate: '2025-01-12T00:00:00Z'
+    });
+
+    expect(status).toBe('past');
   });
 });

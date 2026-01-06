@@ -6,9 +6,16 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location } from '../types';
 import { generateRoutePointsSync, getRouteStyle } from '../lib/routeUtils';
-import { findClosestLocationToCurrentDate } from '../lib/dateUtils';
+import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '../lib/dateUtils';
 import { LocationPopupModal } from './LocationPopup';
 import { useLocationPopup } from '../hooks/useLocationPopup';
+import {
+  createCountMarkerIcon,
+  createHighlightedMarkerIcon,
+  createMarkerIcon,
+  getDominantMarkerTone,
+  getMarkerDistanceBucket,
+} from '../lib/mapIconUtils';
 
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {
@@ -23,51 +30,6 @@ const fixLeafletIcons = () => {
     iconRetinaUrl: '/images/marker-icon-2x.png',
     iconUrl: '/images/marker-icon.png',
     shadowUrl: '/images/marker-shadow.png',
-  });
-};
-
-// Create highlighted marker icon
-const createHighlightedIcon = () => {
-  return L.divIcon({
-    className: 'custom-highlighted-marker',
-    html: `
-      <div style="
-        width: 25px; 
-        height: 41px; 
-        background-image: url('/images/marker-icon.png'); 
-        background-size: contain; 
-        background-repeat: no-repeat;
-        filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
-        animation: pulse-marker 2s infinite;
-      "></div>
-    `,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
-  });
-};
-
-// Create a count badge icon for grouped markers
-const createCountIcon = (count: number) => {
-  // Match Leaflet default marker aspect ratio 25x41
-  const width = 25;
-  const height = 41;
-  const badgeSize = 16;
-  return L.divIcon({
-    className: 'group-count-marker',
-    html: `
-      <div style="position: relative; width: ${width}px; height: ${height}px;">
-        <img src="/images/marker-icon.png" alt="group marker" style="width: ${width}px; height: ${height}px; display: block;"/>
-        <div aria-label="${count} visits" style="
-          position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
-          background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-          font-size: 10px; font-weight: 700; border: 2px solid white;
-        ">${count}</div>
-      </div>
-    `,
-    iconSize: [width, height],
-    iconAnchor: [Math.round(width / 2), height],
-    popupAnchor: [0, -height]
   });
 };
 
@@ -308,6 +270,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
+  const markerIconCacheRef = useRef<globalThis.Map<string, L.DivIcon>>(new globalThis.Map());
   
   // Fix Leaflet icons
   useEffect(() => {
@@ -376,14 +339,50 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return days.flatMap(day =>
       day.locations.map(location => ({
         ...location,
-        date: day.date || new Date().toISOString().split('T')[0],
+        date: day.date ?? location.date ?? new Date().toISOString().split('T')[0],
+        endDate: location.endDate ?? day.endDate,
       }))
     );
   }, [days]);
 
+  const locationDateLookup = useMemo(() => {
+    const lookup = new globalThis.Map<string, { id: string; date: Date | string; endDate?: Date | string | null }>();
+    datedLocations.forEach(location => {
+      lookup.set(location.id, { id: location.id, date: location.date, endDate: location.endDate });
+    });
+    return lookup;
+  }, [datedLocations]);
+
+  const getTemporalDistanceForLocation = useCallback((location: Location) => {
+    const enriched = locationDateLookup.get(location.id) ?? location;
+    return getLocationTemporalDistanceDays(enriched);
+  }, [locationDateLookup]);
+
+  const getMarkerIconForLocation = useCallback((location: Location) => {
+    const { status, days } = getTemporalDistanceForLocation(location);
+    const bucket = getMarkerDistanceBucket(days);
+    const cacheKey = `${status}:${bucket}`;
+
+    const cached = markerIconCacheRef.current.get(cacheKey);
+    if (cached) return cached;
+
+    const icon = createMarkerIcon(L, status, bucket);
+    markerIconCacheRef.current.set(cacheKey, icon);
+    return icon;
+  }, [getTemporalDistanceForLocation]);
+
   const closestLocation = useMemo(() => {
     return findClosestLocationToCurrentDate(datedLocations);
   }, [datedLocations]);
+
+  const highlightedIcon = useMemo(() => {
+    if (!closestLocation) {
+      return createHighlightedMarkerIcon(L, 'present');
+    }
+    const { status, days } = getLocationTemporalDistanceDays(closestLocation);
+    const bucket = getMarkerDistanceBucket(days);
+    return createHighlightedMarkerIcon(L, status, bucket);
+  }, [closestLocation]);
 
   const groups = useMemo<Group[]>(() => {
     // reference tick so lint understands it intentionally triggers recompute
@@ -482,7 +481,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
               <Marker 
                 key={location.id} 
                 position={location.coordinates}
-                icon={closestLocation?.id === location.id ? createHighlightedIcon() : undefined}
+                icon={closestLocation?.id === location.id ? highlightedIcon : getMarkerIconForLocation(location)}
                 eventHandlers={{
                   click: () => {
                     const journeyDay = {
@@ -504,11 +503,16 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
           const isExpanded = expandedGroups.has(group.key);
           if (!isExpanded) {
             // Render a single badge marker representing the group
+            const temporalInfos = group.items.map(({ location }) => getTemporalDistanceForLocation(location));
+            const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+            const groupDistanceBucket = getMarkerDistanceBucket(
+              Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
+            );
             elements.push(
               <Marker
                 key={`group-${group.key}`}
                 position={group.center}
-                icon={createCountIcon(group.items.length)}
+                icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket)}
                 eventHandlers={{
                   click: () => {
                     setExpandedGroups(prev => new Set(prev).add(group.key));
@@ -532,7 +536,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 <Marker
                   key={location.id}
                   position={distributed}
-                  icon={closestLocation?.id === location.id ? createHighlightedIcon() : undefined}
+                  icon={closestLocation?.id === location.id ? highlightedIcon : getMarkerIconForLocation(location)}
                   eventHandlers={{
                     click: () => {
                       const journeyDay = {

@@ -4,9 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
-import { findClosestLocationToCurrentDate } from '../../../lib/dateUtils';
+import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
-import { formatDateRange } from '../../../lib/dateUtils';
+import {
+  createCountMarkerIcon,
+  createHighlightedMarkerIcon,
+  createMarkerIcon,
+  getDominantMarkerTone,
+  getMarkerDistanceBucket,
+} from '../../../lib/mapIconUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
 
@@ -198,7 +204,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
-  const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
   
   // Simplified - no more client-side route generation
   
@@ -231,32 +236,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         iconUrl: '/images/marker-icon.png',
         shadowUrl: '/images/marker-shadow.png',
       });
-      
-      // Create highlighted icon
-      const highlightedIcon = leaflet.divIcon({
-        className: 'custom-highlighted-marker',
-        html: `
-          <div style="
-            width: 25px; 
-            height: 41px; 
-            background-image: url('/images/marker-icon.png'); 
-            background-size: contain; 
-            background-repeat: no-repeat;
-            filter: hue-rotate(240deg) saturate(1.5) brightness(1.2);
-            animation: pulse-marker 2s infinite;
-          "></div>
-        `,
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34]
-      });
-      
-      setHighlightedIcon(highlightedIcon);
     });
   }, [isClient]);
   
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
+    if (!containerRef.current || mapRef.current || !L || !isClient) return;
 
     // Create map
     const map = L.map(containerRef.current, {
@@ -275,27 +259,29 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     mapRef.current = map;
 
-    // Helpers available after L is loaded
-    const createCountIcon = (count: number) => {
-      const width = 25; // match default marker aspect
-      const height = 41;
-      const badgeSize = 16;
-      return L.divIcon({
-        className: 'group-count-marker',
-        html: `
-          <div style="position: relative; width: ${width}px; height: ${height}px;">
-            <img src="/images/marker-icon.png" alt="group marker" style="width: ${width}px; height: ${height}px; display: block;"/>
-            <div aria-label="${count} visits" style="
-              position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
-              background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-              font-size: 10px; font-weight: 700; border: 2px solid white;
-            ">${count}</div>
-          </div>
-        `,
-        iconSize: [width, height],
-        iconAnchor: [Math.round(width / 2), height],
-        popupAnchor: [0, -height]
-      });
+    const markerIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
+    const highlightedIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
+
+    const getMarkerIcon = (
+      location: TravelData['locations'][0],
+      isHighlighted: boolean
+    ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
+      const { status, days } = getLocationTemporalDistanceDays(location);
+      const bucket = getMarkerDistanceBucket(days);
+      if (isHighlighted) {
+        const highlightedKey = `highlight:${status}:${bucket}`;
+        const cachedHighlighted = highlightedIconCache.get(highlightedKey);
+        if (cachedHighlighted) return cachedHighlighted;
+        const icon = createHighlightedMarkerIcon(L, status, bucket);
+        highlightedIconCache.set(highlightedKey, icon);
+        return icon;
+      }
+      const cacheKey = `${status}:${bucket}`;
+      const cached = markerIconCache.get(cacheKey);
+      if (cached) return cached;
+      const icon = createMarkerIcon(L, status, bucket);
+      markerIconCache.set(cacheKey, icon);
+      return icon;
     };
 
     // Note: meters-based fallback removed to avoid unused warnings
@@ -550,7 +536,10 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
         const markerOptions: L.MarkerOptions = {};
-        if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+        const icon = getMarkerIcon(location, isHighlighted);
+        if (icon) {
+          markerOptions.icon = icon;
+        }
         const child = L.marker(distributed, markerOptions).addTo(map);
         attachPopupAndEnrich(child, location);
         state.childMarkers.push(child);
@@ -585,14 +574,22 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const location = group.items[0];
           const isHighlighted = closestLocation?.id === location.id;
           const markerOptions: L.MarkerOptions = {};
-          if (isHighlighted && highlightedIcon) markerOptions.icon = highlightedIcon;
+          const icon = getMarkerIcon(location, isHighlighted);
+          if (icon) {
+            markerOptions.icon = icon;
+          }
           const marker = L.marker(location.coordinates, markerOptions).addTo(map);
           attachPopupAndEnrich(marker, location);
           singles.push(marker);
           return;
         }
 
-        const groupMarker = L.marker(group.center, { icon: createCountIcon(group.items.length) }).addTo(map);
+        const temporalInfos = group.items.map(location => getLocationTemporalDistanceDays(location));
+        const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+        const groupDistanceBucket = getMarkerDistanceBucket(
+          Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
+        );
+        const groupMarker = L.marker(group.center, { icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket) }).addTo(map);
         const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
         groupLayers.set(group.key, state);
 
@@ -668,7 +665,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon]);
+  }, [travelData, L, isClient]);
 
   if (!isClient) {
     return (
