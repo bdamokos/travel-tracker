@@ -26,8 +26,9 @@ export async function GET() {
 
             if (unifiedData?.costData) {
               const costData = unifiedData.costData;
-              const reservedBudget = costData.reservedBudget || 0;
-              const spendableBudget = (costData.overallBudget || 0) - reservedBudget;
+              const reservedBudget = Math.max(0, costData.reservedBudget || 0);
+              const totalBudget = costData.overallBudget || 0;
+              const spendableBudget = Math.max(0, totalBudget - reservedBudget);
 
               // Validate trip boundaries for this trip
               const validation = validateAllTripBoundaries(unifiedData);
@@ -38,8 +39,11 @@ export async function GET() {
 
               // Calculate totals - only include expenses that belong to this trip
               const tripExpenses = costData.expenses || [];
-              const totalSpent = tripExpenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
-              const remainingBudget = spendableBudget - totalSpent;
+              const totalCommitted = tripExpenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
+              const totalSpent = tripExpenses
+                .filter((expense) => (expense.expenseType || 'actual') === 'actual')
+                .reduce((sum, expense) => sum + expense.amount, 0);
+              const remainingBudget = spendableBudget - totalCommitted;
 
               return {
                 id: `cost-${trip.id}`,
