@@ -27,18 +27,19 @@
   --travel-marker-color-past: #4A6FA5;
   --travel-marker-color-present: #2FB7A4;
   --travel-marker-color-future: #F28C52;
-  --travel-marker-saturation-step-0: 0.45;
-  --travel-marker-saturation-step-1: 0.52;
-  --travel-marker-saturation-step-2: 0.58;
-  --travel-marker-saturation-step-3: 0.64;
-  --travel-marker-saturation-step-4: 0.70;
-  --travel-marker-saturation-step-5: 0.78;
-  --travel-marker-saturation-step-6: 0.86;
-  --travel-marker-saturation-step-7: 0.92;
-  --travel-marker-saturation-step-8: 0.97;
+  --travel-marker-saturation-step-0: 0.20;
+  --travel-marker-saturation-step-1: 0.28;
+  --travel-marker-saturation-step-2: 0.36;
+  --travel-marker-saturation-step-3: 0.44;
+  --travel-marker-saturation-step-4: 0.52;
+  --travel-marker-saturation-step-5: 0.62;
+  --travel-marker-saturation-step-6: 0.72;
+  --travel-marker-saturation-step-7: 0.82;
+  --travel-marker-saturation-step-8: 0.91;
   --travel-marker-saturation-step-9: 1;
   --travel-marker-highlight-saturation: 1.25;
   --travel-marker-highlight-brightness: 1.08;
+  --travel-marker-debug-buckets: 0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -68,6 +69,25 @@ body {
   min-height: 400px;
   /* Set a reasonable z-index that won't interfere with our UI components */
   z-index: 10;
+}
+
+.leaflet-container [data-travel-marker-bucket]::after {
+  content: attr(data-travel-marker-bucket);
+  position: absolute;
+  left: -6px;
+  bottom: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: rgba(17, 24, 39, 0.8);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+  opacity: var(--travel-marker-debug-buckets, 0);
 }
 
 /* Set z-index for Leaflet popups that should appear over the map but below our modals */

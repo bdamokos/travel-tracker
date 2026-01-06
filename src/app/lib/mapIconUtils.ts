@@ -86,45 +86,53 @@ export const createMarkerIcon = (
   leaflet: typeof import('leaflet'),
   tone: MarkerTone,
   distanceBucket = MAX_DISTANCE_BUCKET
-) =>
-  leaflet.divIcon({
+) => {
+  const normalizedBucket = normalizeDistanceBucket(distanceBucket);
+
+  return leaflet.divIcon({
     className: `custom-${tone}-marker`,
     html: `
       <div style="
-        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizeDistanceBucket(distanceBucket)}, 1);
+        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
         width: ${MARKER_WIDTH}px;
         height: ${MARKER_HEIGHT}px;
         line-height: 0;
+        position: relative;
         filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
-      ">${getMarkerSvgMarkup(tone)}</div>
+      " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
     `,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
   });
+};
 
 export const createHighlightedMarkerIcon = (
   leaflet: typeof import('leaflet'),
   tone: MarkerTone,
   distanceBucket = MAX_DISTANCE_BUCKET
-) =>
-  leaflet.divIcon({
+) => {
+  const normalizedBucket = normalizeDistanceBucket(distanceBucket);
+
+  return leaflet.divIcon({
     className: `custom-highlighted-marker custom-highlighted-marker-${tone}`,
     html: `
       <div style="
-        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizeDistanceBucket(distanceBucket)}, 1);
+        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
         width: ${MARKER_WIDTH}px;
         height: ${MARKER_HEIGHT}px;
         line-height: 0;
+        position: relative;
         filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1))
           saturate(var(--travel-marker-highlight-saturation, 1.25))
           brightness(var(--travel-marker-highlight-brightness, 1.08));
-      ">${getMarkerSvgMarkup(tone)}</div>
+      " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
     `,
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
   });
+};
 
 export const createCountMarkerIcon = (
   leaflet: typeof import('leaflet'),
@@ -135,18 +143,20 @@ export const createCountMarkerIcon = (
   const width = 25;
   const height = 41;
   const badgeSize = 16;
+  const normalizedBucket = normalizeDistanceBucket(distanceBucket);
 
   return leaflet.divIcon({
     className: `group-count-marker group-count-marker-${tone}`,
     html: `
       <div style="position: relative; width: ${width}px; height: ${height}px;">
         <div style="
-          --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizeDistanceBucket(distanceBucket)}, 1);
+          --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
           width: ${MARKER_WIDTH}px;
           height: ${MARKER_HEIGHT}px;
           line-height: 0;
+          position: relative;
           filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
-        ">${getMarkerSvgMarkup(tone)}</div>
+        " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
         <div aria-label="${count} visits" style="
           position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
           background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
