@@ -378,6 +378,7 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
     updatedAt: new Date().toISOString(),
     costData: {
       overallBudget: (costUpdates.overallBudget as number) ?? baseData.costData?.overallBudget ?? 0,
+      reservedBudget: (costUpdates.reservedBudget as number) ?? baseData.costData?.reservedBudget ?? 0,
       currency: (costUpdates.currency as string) || baseData.costData?.currency || 'EUR',
       countryBudgets: (costUpdates.countryBudgets as BudgetItem[]) || baseData.costData?.countryBudgets || [],
       expenses: (costUpdates.expenses as Expense[]) || baseData.costData?.expenses || [],

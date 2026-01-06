@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     const legacyData = {
       id,
       ...costData,
+      reservedBudget: costData.reservedBudget || 0,
       createdAt: unifiedData.createdAt
     };
     
@@ -98,6 +99,7 @@ export async function GET(request: NextRequest) {
       tripStartDate: costDataSource.startDate,
       tripEndDate: costDataSource.endDate,
       overallBudget: costDataSource.costData.overallBudget,
+      reservedBudget: costDataSource.costData.reservedBudget || 0,
       currency: costDataSource.costData.currency,
       customCategories: costDataSource.costData.customCategories,
       countryBudgets: costDataSource.costData.countryBudgets,
@@ -157,6 +159,7 @@ export async function PUT(request: NextRequest) {
     const legacyData = {
       id: cleanId,
       ...updatedData,
+      reservedBudget: updatedData.reservedBudget || 0,
       updatedAt: unifiedData.updatedAt
     };
     

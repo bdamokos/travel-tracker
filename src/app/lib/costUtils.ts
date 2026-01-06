@@ -118,6 +118,8 @@ function getExpensesBeforeDate(expenses: Expense[], date: Date, expenseType?: Ex
  */
 export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const totalBudget = costData.overallBudget;
+  const reservedBudget = Math.max(0, costData.reservedBudget || 0);
+  const spendableBudget = Math.max(0, totalBudget - reservedBudget);
 
   const today = new Date();
   const startDate = new Date(costData.tripStartDate);
@@ -169,10 +171,10 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 
   // Calculate committed spending (actual + planned) for budget planning
   const totalCommittedSpending = actualTotals.net + plannedTotals.net;
-  const availableForPlanning = totalBudget - totalCommittedSpending;
+  const availableForPlanning = spendableBudget - totalCommittedSpending;
 
   // Remaining budget calculation: budget - actual - planned (but not post-trip)
-  const remainingBudget = totalBudget - totalCommittedSpending;
+  const remainingBudget = spendableBudget - totalCommittedSpending;
 
   // Extract individual components for summary
   const preTripSpent = preTripActualTotals.net;
@@ -279,6 +281,8 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 
   return {
     totalBudget,
+    spendableBudget,
+    reservedBudget,
     totalSpent,
     totalRefunds,
     remainingBudget,
