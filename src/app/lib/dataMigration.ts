@@ -37,6 +37,7 @@ export interface UnifiedTripData {
   // Cost tracking data (can be null for travel-only trips)
   costData?: {
     overallBudget: number;
+    reservedBudget?: CostTrackingData['reservedBudget'];
     currency: string;
     countryBudgets: CostTrackingData['countryBudgets'];
     expenses: CostTrackingData['expenses'];

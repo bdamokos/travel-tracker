@@ -347,6 +347,11 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 export async function updateCostData(tripId: string, costUpdates: Record<string, unknown>): Promise<UnifiedTripData> {
   const existing = await loadUnifiedTripData(tripId);
 
+  const incomingOverall = (costUpdates.overallBudget as number) ?? existing?.costData?.overallBudget ?? 0;
+  const overallBudget = Math.max(0, incomingOverall);
+  const incomingReserved = (costUpdates.reservedBudget as number) ?? existing?.costData?.reservedBudget ?? 0;
+  const reservedBudget = Math.min(Math.max(0, incomingReserved), overallBudget);
+
   const defaultData: UnifiedTripData = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     id: tripId,
@@ -377,7 +382,8 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
     endDate: (costUpdates.tripEndDate as string) || baseData.endDate,
     updatedAt: new Date().toISOString(),
     costData: {
-      overallBudget: (costUpdates.overallBudget as number) ?? baseData.costData?.overallBudget ?? 0,
+      overallBudget,
+      reservedBudget,
       currency: (costUpdates.currency as string) || baseData.costData?.currency || 'EUR',
       countryBudgets: (costUpdates.countryBudgets as BudgetItem[]) || baseData.costData?.countryBudgets || [],
       expenses: (costUpdates.expenses as Expense[]) || baseData.costData?.expenses || [],

@@ -41,6 +41,11 @@ export default function CostSummaryDashboard({
           <p className={`text-sm mt-1 ${costSummary.availableForPlanning >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
             Available for new expenses
           </p>
+          {costSummary.reservedBudget > 0 && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+              {formatCurrency(costSummary.reservedBudget, costData.currency)} reserved for upcoming obligations
+            </p>
+          )}
         </div>
         <div className="bg-blue-50 dark:bg-blue-950 p-6 rounded-lg">
           <h4 className="font-bold text-lg text-blue-800 dark:text-blue-200">Daily Budget</h4>
@@ -134,6 +139,18 @@ export default function CostSummaryDashboard({
           <p className="text-lg font-bold text-gray-600 dark:text-gray-300">
             {formatCurrency(costSummary.totalBudget, costData.currency)}
           </p>
+          {costSummary.reservedBudget > 0 && (
+            <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+              <div className="flex justify-between">
+                <span>Reserved</span>
+                <span className="font-semibold">{formatCurrency(costSummary.reservedBudget, costData.currency)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Spendable</span>
+                <span className="font-semibold">{formatCurrency(costSummary.spendableBudget, costData.currency)}</span>
+              </div>
+            </div>
+          )}
         </div>
         {costSummary.plannedSpending > 0 && (
           <div className="bg-indigo-50 dark:bg-indigo-950 p-4 rounded-lg">

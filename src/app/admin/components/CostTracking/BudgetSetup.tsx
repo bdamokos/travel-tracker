@@ -55,7 +55,7 @@ export default function BudgetSetup({
 
       {(selectedTrip || mode === 'edit') && (
         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label htmlFor="overall-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Overall Budget</label>
               <input
@@ -66,6 +66,27 @@ export default function BudgetSetup({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="5000"
               />
+            </div>
+            <div>
+              <label htmlFor="reserved-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reserved (set aside)</label>
+              <input
+                id="reserved-budget"
+                type="number"
+                value={costData.reservedBudget ?? 0}
+                onChange={(e) => setCostData(prev => ({
+                  ...prev,
+                  reservedBudget: Math.max(
+                    0,
+                    Math.min(prev.overallBudget || 0, parseFloat(e.target.value) || 0)
+                  )
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="1000"
+                max={costData.overallBudget || undefined}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Money you want to hold back (e.g. return ticket) is excluded from daily budget suggestions.
+              </p>
             </div>
             <div>
               <label htmlFor="currency-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>

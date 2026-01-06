@@ -68,6 +68,12 @@ export default function CostTrackerList({
                   <span className="text-gray-600 dark:text-gray-300">Spent:</span>
                   <span className="font-medium">{formatCurrency(entry.totalSpent, entry.currency)}</span>
                 </div>
+                {entry.reservedBudget !== undefined && entry.reservedBudget > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">Reserved:</span>
+                    <span className="font-medium">{formatCurrency(entry.reservedBudget, entry.currency)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Remaining:</span>
                   <span className={`font-medium ${entry.remainingBudget >= 0 ? 'text-green-600' : 'text-red-600'}`}>

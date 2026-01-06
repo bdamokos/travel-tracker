@@ -25,6 +25,7 @@ export default function CostTrackingPage() {
     tripStartDate: new Date(),
     tripEndDate: new Date(),
     overallBudget: 0,
+    reservedBudget: 0,
     currency: 'EUR',
     countryBudgets: [],
     expenses: [],
@@ -89,6 +90,7 @@ export default function CostTrackingPage() {
           
           const migratedData = {
             ...data,
+            reservedBudget: data.reservedBudget ?? 0,
             expenses: data.expenses.map((expense: { expenseType?: string; [key: string]: unknown }) => ({
               ...expense,
               expenseType: expense.expenseType || 'actual'

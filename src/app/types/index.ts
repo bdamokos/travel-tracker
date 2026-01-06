@@ -251,6 +251,7 @@ export type CostTrackingData = {
   tripStartDate: Date;
   tripEndDate: Date;
   overallBudget: number;
+  reservedBudget?: number; // Funds intentionally set aside (not available for daily spend)
   currency: string;
   countryBudgets: BudgetItem[];
   expenses: Expense[];
@@ -263,6 +264,8 @@ export type CostTrackingData = {
 
 export type CostSummary = {
   totalBudget: number;
+  spendableBudget: number; // Budget after reservations
+  reservedBudget: number; // Budget intentionally held back
   totalSpent: number;
   totalRefunds: number; // New field for total refunds
   remainingBudget: number;
@@ -554,6 +557,8 @@ export interface ExistingCostEntry {
   tripStartDate: string;
   tripEndDate: string;
   overallBudget: number;
+  reservedBudget?: number;
+  spendableBudget?: number;
   currency: string;
   totalSpent: number;
   remainingBudget: number;

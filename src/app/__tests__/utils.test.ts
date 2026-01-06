@@ -216,11 +216,73 @@ describe('Core Business Workflow Tests', () => {
       const summary = calculateCostSummary(costData);
 
       expect(summary.totalBudget).toBe(2000);
+      expect(summary.reservedBudget).toBe(0);
+      expect(summary.spendableBudget).toBe(2000);
       expect(summary.totalSpent).toBe(520); // 400 + 120
       expect(summary.plannedSpending).toBe(200);
       expect(summary.totalCommittedSpending).toBe(720); // 520 + 200
       expect(summary.remainingBudget).toBe(1280); // 2000 - 720
       expect(summary.totalDays).toBe(15); // June 1-15
+    });
+
+    it('should exclude reserved budget from available planning and daily suggestions', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-06-05T12:00:00.000Z'));
+
+      try {
+        const costData: CostTrackingData = {
+          id: 'reserved-test',
+          tripId: 'trip-1',
+          tripTitle: 'Reserved Budget Trip',
+          tripStartDate: new Date('2024-06-01'),
+          tripEndDate: new Date('2024-06-10'),
+          overallBudget: 4000,
+          reservedBudget: 800,
+          currency: 'EUR',
+          countryBudgets: [],
+          expenses: [
+            {
+              id: 'actual-expense',
+              date: new Date('2024-06-03'),
+              amount: 200,
+              currency: 'EUR',
+              category: 'Food & Dining',
+              country: 'General',
+              description: 'Meals',
+              expenseType: 'actual',
+              isGeneralExpense: true
+            },
+            {
+              id: 'planned-expense',
+              date: new Date('2024-06-08'),
+              amount: 300,
+              currency: 'EUR',
+              category: 'Transportation',
+              country: 'General',
+              description: 'Train',
+              expenseType: 'planned',
+              isGeneralExpense: true
+            }
+          ],
+          createdAt: new Date().toISOString()
+        };
+
+        const summary = calculateCostSummary(costData);
+
+        // Spendable budget should exclude reserved funds
+        expect(summary.spendableBudget).toBe(3200);
+        expect(summary.reservedBudget).toBe(800);
+
+        // Available for planning should use spendable budget
+        expect(summary.availableForPlanning).toBe(3200 - (200 + 300));
+        expect(summary.remainingBudget).toBe(2700);
+
+        // Daily budget suggestion should respect reservation
+        const expectedRemainingDays = Math.max(1, summary.dailyBudgetBasisDays);
+        expect(summary.suggestedDailyBudget).toBeCloseTo(summary.availableForPlanning / expectedRemainingDays);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('should keep recent trip spending buckets aligned to UTC dates', () => {
