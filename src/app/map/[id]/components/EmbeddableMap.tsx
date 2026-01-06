@@ -4,9 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
-import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalStatus } from '../../../lib/dateUtils';
+import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '../../../lib/dateUtils';
 import { getRouteStyle } from '../../../lib/routeUtils';
-import { createCountMarkerIcon, createMarkerIcon, getDominantMarkerTone, type MarkerTone } from '../../../lib/mapIconUtils';
+import {
+  createCountMarkerIcon,
+  createMarkerIcon,
+  getDominantMarkerTone,
+  quantizeTemporalDistanceDays,
+} from '../../../lib/mapIconUtils';
 import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
 import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
 
@@ -199,7 +204,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [highlightedIcon, setHighlightedIcon] = useState<L.DivIcon | null>(null);
-  const [markerIcons, setMarkerIcons] = useState<Record<MarkerTone, L.DivIcon> | null>(null);
   
   // Simplified - no more client-side route generation
   
@@ -253,16 +257,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       });
       
       setHighlightedIcon(highlightedIcon);
-      setMarkerIcons({
-        past: createMarkerIcon(leaflet, 'past'),
-        present: createMarkerIcon(leaflet, 'present'),
-        future: createMarkerIcon(leaflet, 'future'),
-      });
     });
   }, [isClient]);
   
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon || !markerIcons) return;
+    if (!containerRef.current || mapRef.current || !L || !isClient || !highlightedIcon) return;
 
     // Create map
     const map = L.map(containerRef.current, {
@@ -281,6 +280,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     mapRef.current = map;
 
+    const markerIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
+
     const getMarkerIcon = (
       location: TravelData['locations'][0],
       isHighlighted: boolean
@@ -288,8 +289,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       if (isHighlighted && highlightedIcon) {
         return highlightedIcon;
       }
-      const tone = getLocationTemporalStatus(location);
-      return markerIcons?.[tone];
+      const { status, days } = getLocationTemporalDistanceDays(location);
+      const bucket = quantizeTemporalDistanceDays(days);
+      const cacheKey = `${status}:${bucket}`;
+      const cached = markerIconCache.get(cacheKey);
+      if (cached) return cached;
+      const icon = createMarkerIcon(L, status, bucket);
+      markerIconCache.set(cacheKey, icon);
+      return icon;
     };
 
     // Note: meters-based fallback removed to avoid unused warnings
@@ -592,8 +599,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           return;
         }
 
-        const groupTone = getDominantMarkerTone(group.items.map(location => getLocationTemporalStatus(location)));
-        const groupMarker = L.marker(group.center, { icon: createCountMarkerIcon(L, group.items.length, groupTone) }).addTo(map);
+        const temporalInfos = group.items.map(location => getLocationTemporalDistanceDays(location));
+        const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+        const groupDistanceBucket = quantizeTemporalDistanceDays(
+          Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
+        );
+        const groupMarker = L.marker(group.center, { icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket) }).addTo(map);
         const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
         groupLayers.set(group.key, state);
 
@@ -669,7 +680,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient, highlightedIcon, markerIcons]);
+  }, [travelData, L, isClient, highlightedIcon]);
 
   if (!isClient) {
     return (

@@ -160,6 +160,33 @@ export function getLocationTemporalStatus<T extends LocationWithDate>(
   return 'present';
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function getLocationTemporalDistanceDays<T extends LocationWithDate>(
+  location: T,
+  todayInput: Date = new Date()
+): { status: TemporalStatus; days: number } {
+  const start = normalizeUtcDateToLocalDay(location.date);
+  if (!start) return { status: 'present', days: 0 };
+
+  const parsedEnd = location.endDate ? normalizeUtcDateToLocalDay(location.endDate) : null;
+  const end = parsedEnd && parsedEnd >= start ? parsedEnd : start;
+
+  const today = new Date(todayInput.getFullYear(), todayInput.getMonth(), todayInput.getDate());
+
+  if (today < start) {
+    const diff = Math.round((start.getTime() - today.getTime()) / DAY_MS);
+    return { status: 'future', days: Math.max(0, diff) };
+  }
+
+  if (today > end) {
+    const diff = Math.round((today.getTime() - end.getTime()) / DAY_MS);
+    return { status: 'past', days: Math.max(0, diff) };
+  }
+
+  return { status: 'present', days: 0 };
+}
+
 /**
  * Format a date range for display
  * If endDate is provided and different from startDate, show as "Start - End"
