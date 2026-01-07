@@ -123,11 +123,15 @@ export function filterTravelDataForServer(travelData: TravelData, host: string |
   // Handle both new Journey format and legacy format
   if (travelData.days) {
     // New format with JourneyPeriods
-    return filterJourneyForServer(travelData as unknown as Journey, host);
+    const filteredJourney = filterJourneyForServer(travelData as unknown as Journey, host);
+    return {
+      ...filteredJourney,
+      instagramUsername: undefined
+    } as TravelData;
   }
 
   // Legacy format - filter locations and routes directly
-  const filteredData = { ...travelData };
+  const filteredData = { ...travelData, instagramUsername: undefined };
 
   if (travelData.locations) {
     filteredData.locations = travelData.locations.map((location: Location) => 

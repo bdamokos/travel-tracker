@@ -252,6 +252,9 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     endDate: (travelUpdates.endDate as string) || baseData.endDate,
     updatedAt: new Date().toISOString(),
     travelData: {
+      instagramUsername: 'instagramUsername' in travelUpdates
+        ? travelUpdates.instagramUsername as string
+        : baseData.travelData?.instagramUsername,
       locations: (() => {
         const newLocations = travelUpdates.locations as Location[];
         const existingLocations = baseData.travelData?.locations || [];

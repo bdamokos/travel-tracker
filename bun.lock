@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "travel-tracker",
@@ -37,6 +36,7 @@
         "recharts": "^3.5.1",
         "swr": "^2.3.7",
         "ynab": "^2.10.0",
+        "zod": "^3.23.8",
       },
       "devDependencies": {
         "@eslint/eslintrc": "^3.3.3",
@@ -1705,6 +1705,8 @@
     "ynab": ["ynab@2.10.0", "", { "dependencies": { "fetch-ponyfill": "^7.1.0" } }, "sha512-zDH++4mbFpVDbDW1qIYS3pG3sPVtdth7c45aEfU7pVNqIcK6aVzK8eSksyOarrzaPKSq4OA9AXq1ixC7WGdpow=="],
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
+
+    "zod": ["zod@3.23.8", "", {}, "sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g=="],
 
     "@babel/core/json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
 

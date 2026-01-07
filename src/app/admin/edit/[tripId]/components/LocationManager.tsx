@@ -13,6 +13,7 @@ interface TravelData {
   description: string;
   startDate: Date;
   endDate: Date;
+  instagramUsername?: string;
   locations: Location[];
   routes: TravelRoute[];
 }
@@ -133,6 +134,7 @@ export default function LocationManager({
       <LocationList
         locations={travelData.locations}
         tripId={tripId}
+        instagramUsername={travelData.instagramUsername}
         travelLookup={travelLookup}
         costData={costData}
         selectedLocationForPosts={selectedLocationForPosts}

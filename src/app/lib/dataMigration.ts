@@ -30,6 +30,7 @@ export interface UnifiedTripData {
     // Legacy format
     locations?: Location[];
     routes?: Transportation[];
+    instagramUsername?: string;
     // New Journey format
     days?: Journey['days'];
   };
