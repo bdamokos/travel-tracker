@@ -202,6 +202,7 @@ const SPIDER_PIXEL_RADIUS = 24;
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const collapsedByUserRef = useRef<Set<string>>(new Set());
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   
@@ -429,7 +430,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     };
 
     const expanded = new Set<string>();
-    const collapsedByUser = new Set<string>();
+    const collapsedByUser = collapsedByUserRef.current;
     const singles: L.Marker[] = [];
     const groupLayers = new Map<string, GroupLayerState>();
 

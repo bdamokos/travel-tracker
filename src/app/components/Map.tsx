@@ -260,6 +260,15 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [viewChangeTick, setViewChangeTick] = useState(0);
+
+  const filterExpandableKeys = useCallback((prev: Set<string>, nextGroups: Group[]): Set<string> => {
+    const expandableKeys = new Set(nextGroups.filter(group => group.items.length > 1).map(group => group.key));
+    const next = new Set(Array.from(prev).filter(key => expandableKeys.has(key)));
+    if (next.size === prev.size) {
+      return prev;
+    }
+    return next;
+  }, []);
   
   const handleViewChange = useCallback(() => {
     setViewChangeTick(t => t + 1);
@@ -392,45 +401,9 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   }, [locationItems, viewChangeTick]);
 
   useEffect(() => {
-    setExpandedGroups(prev => {
-      const expandableKeys = new Set(groups.filter(group => group.items.length > 1).map(group => group.key));
-      let requiresUpdate = false;
-      prev.forEach(keyValue => {
-        if (!expandableKeys.has(keyValue)) {
-          requiresUpdate = true;
-        }
-      });
-      if (!requiresUpdate) {
-        return prev;
-      }
-      const next = new Set<string>();
-      prev.forEach(keyValue => {
-        if (expandableKeys.has(keyValue)) {
-          next.add(keyValue);
-        }
-      });
-      return next;
-    });
-    setCollapsedGroups(prev => {
-      const expandableKeys = new Set(groups.filter(group => group.items.length > 1).map(group => group.key));
-      let requiresUpdate = false;
-      prev.forEach(keyValue => {
-        if (!expandableKeys.has(keyValue)) {
-          requiresUpdate = true;
-        }
-      });
-      if (!requiresUpdate) {
-        return prev;
-      }
-      const next = new Set<string>();
-      prev.forEach(keyValue => {
-        if (expandableKeys.has(keyValue)) {
-          next.add(keyValue);
-        }
-      });
-      return next;
-    });
-  }, [groups]);
+    setExpandedGroups(prev => filterExpandableKeys(prev, groups));
+    setCollapsedGroups(prev => filterExpandableKeys(prev, groups));
+  }, [groups, filterExpandableKeys]);
 
   useEffect(() => {
     if (!closestLocation) return;
@@ -594,7 +567,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                       next.delete(group.key);
                       return next;
                     });
-                    setCollapsedGroups(prev => new Set(prev).add(group.key));
+                    setCollapsedGroups(prev => {
+                      if (prev.has(group.key)) {
+                        return prev;
+                      }
+                      const next = new Set(prev);
+                      next.add(group.key);
+                      return next;
+                    });
                   }
                 }}
               />
