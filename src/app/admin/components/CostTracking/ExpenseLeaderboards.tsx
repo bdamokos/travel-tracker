@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Expense } from '../../../types';
-import { formatCurrency } from '../../../lib/costUtils';
+import { Expense } from '@/app/types';
+import { formatCurrency } from '@/app/lib/costUtils';
 
 type LeaderboardEntry = {
   key: string;
@@ -143,12 +143,12 @@ const LeaderboardSection = ({
   currency,
   minimumMentions
 }: LeaderboardSectionProps) => {
-  const [selectedKey, setSelectedKey] = useState<string | null>(entries[0]?.key ?? null);
-
   const filteredEntries = useMemo(
     () => entries.filter(entry => entry.count >= minimumMentions),
     [entries, minimumMentions]
   );
+
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const selectedEntry = filteredEntries.find(entry => entry.key === selectedKey) ?? filteredEntries[0];
 
