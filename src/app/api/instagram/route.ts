@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 type InstagramPostSummary = {
   id: string;
@@ -7,6 +8,36 @@ type InstagramPostSummary = {
   displayUrl: string;
   takenAt: number | null;
 };
+
+const instagramResponseSchema = z.object({
+  data: z.object({
+    user: z.object({
+      username: z.string().optional(),
+      full_name: z.string().optional(),
+      edge_owner_to_timeline_media: z.object({
+        edges: z.array(
+          z.object({
+            node: z.object({
+              id: z.string(),
+              shortcode: z.string(),
+              display_url: z.string().optional().default(''),
+              taken_at_timestamp: z.number().optional().nullable(),
+              edge_media_to_caption: z.object({
+                edges: z.array(
+                  z.object({
+                    node: z.object({
+                      text: z.string().optional().default('')
+                    })
+                  })
+                ).optional().default([])
+              }).optional().default({ edges: [] })
+            })
+          })
+        )
+      })
+    })
+  })
+});
 
 const INSTAGRAM_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
@@ -47,27 +78,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const payload = await response.json();
-    const edges = payload?.data?.user?.edge_owner_to_timeline_media?.edges ?? [];
-    const posts: InstagramPostSummary[] = edges.map((edge: { node?: Record<string, unknown> }) => {
-      const node = edge?.node ?? {};
-      const captionEdges = (node as { edge_media_to_caption?: { edges?: Array<{ node?: { text?: string } }> } })
-        ?.edge_media_to_caption?.edges;
-      const caption = captionEdges?.[0]?.node?.text ?? '';
-
-      return {
-        id: (node as { id?: string }).id || '',
-        shortcode: (node as { shortcode?: string }).shortcode || '',
-        caption,
-        displayUrl: (node as { display_url?: string }).display_url || '',
-        takenAt: (node as { taken_at_timestamp?: number }).taken_at_timestamp ?? null
-      };
-    }).filter(post => post.id && post.shortcode);
+    const payload = instagramResponseSchema.parse(await response.json());
+    const edges = payload.data.user.edge_owner_to_timeline_media.edges;
+    const posts: InstagramPostSummary[] = edges
+      .map((edge) => {
+        const caption = edge.node.edge_media_to_caption.edges[0]?.node.text ?? '';
+        return {
+          id: edge.node.id,
+          shortcode: edge.node.shortcode,
+          caption,
+          displayUrl: edge.node.display_url || '',
+          takenAt: edge.node.taken_at_timestamp ?? null
+        };
+      })
+      .filter((post: InstagramPostSummary) => post.id && post.shortcode);
 
     return NextResponse.json(
       {
-        username: payload?.data?.user?.username || username,
-        fullName: payload?.data?.user?.full_name || '',
+        username: payload.data.user.username || username,
+        fullName: payload.data.user.full_name || '',
         posts
       },
       {

@@ -35,7 +35,8 @@ interface TripMetadataFormProps {
   setHasUnsavedChanges: (value: boolean) => void;
 }
 
-const isValidInstagramUsername = (username: string): boolean => /^[a-zA-Z0-9._]{1,30}$/.test(username);
+const isValidInstagramUsername = (username: string): boolean =>
+  /^(?=.{1,30}$)(?!.*\.\.)[A-Za-z0-9_](?:[A-Za-z0-9_.]*[A-Za-z0-9_])?$/.test(username);
 
 export default function TripMetadataForm({ 
   travelData, 
@@ -75,8 +76,8 @@ export default function TripMetadataForm({
             }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             placeholder="myusername"
-            pattern="[a-zA-Z0-9._]{1,30}"
-            title="Username must be 1-30 characters long and contain only letters, numbers, periods, and underscores"
+            pattern="^(?=.{1,30}$)(?!.*\\.\\.)[A-Za-z0-9_](?:[A-Za-z0-9_.]*[A-Za-z0-9_])?$"
+            title="Username must be 1-30 characters long, use letters/numbers/underscores, and may include single dots between characters"
           />
           {travelData.instagramUsername && !isValidInstagramUsername(travelData.instagramUsername) && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">
