@@ -79,11 +79,21 @@ export async function POST(
       return NextResponse.json({ error: 'createdAt must be a valid ISO date' }, { status: 400 });
     }
 
+    const kind =
+      payload?.kind === undefined
+        ? 'manual'
+        : payload.kind === 'auto' || payload.kind === 'manual'
+          ? payload.kind
+          : null;
+    if (payload?.kind !== undefined && !kind) {
+      return NextResponse.json({ error: 'kind must be "auto" or "manual"' }, { status: 400 });
+    }
+
     const update: TripUpdate = {
       id: createUpdateId(),
       createdAt,
       message,
-      kind: payload?.kind === 'auto' ? 'auto' : 'manual'
+      kind: kind || 'manual'
     };
 
     const nextUpdates = [update, ...(unified.publicUpdates || [])].slice(0, MAX_STORED_UPDATES);
@@ -126,6 +136,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
+    if (payload?.kind !== undefined && payload.kind !== 'auto' && payload.kind !== 'manual') {
+      return NextResponse.json({ error: 'kind must be "auto" or "manual"' }, { status: 400 });
+    }
+
     const normalizedMessage = payload?.message !== undefined ? normalizeMessage(payload.message) : null;
     if (payload?.message !== undefined && !normalizedMessage) {
       return NextResponse.json({ error: 'message must be a non-empty string' }, { status: 400 });
@@ -148,12 +162,11 @@ export async function PATCH(
             ? 'manual'
             : existing.kind;
 
-      return {
-        ...existing,
-        ...(normalizedMessage !== null ? { message: normalizedMessage } : null),
-        ...(normalizedCreatedAt !== null ? { createdAt: normalizedCreatedAt } : null),
-        ...(nextKind ? { kind: nextKind } : null)
-      };
+      const updatedUpdate = { ...existing };
+      if (normalizedMessage !== null) updatedUpdate.message = normalizedMessage;
+      if (normalizedCreatedAt !== null) updatedUpdate.createdAt = normalizedCreatedAt;
+      if (nextKind) updatedUpdate.kind = nextKind;
+      return updatedUpdate;
     });
 
     const updated = nextUpdates.find(update => update.id === updateId);
