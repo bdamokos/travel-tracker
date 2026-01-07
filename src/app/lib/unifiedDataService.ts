@@ -244,6 +244,17 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
   const MAX_STORED_UPDATES = 100;
   const mergedUpdates = [...newUpdates, ...(baseData.publicUpdates || [])].slice(0, MAX_STORED_UPDATES);
 
+  const resolvedInstagramUsername = (() => {
+    if ('instagramUsername' in travelUpdates) {
+      return travelUpdates.instagramUsername as string | undefined;
+    }
+    const nestedTravelData = travelUpdates.travelData as { instagramUsername?: string } | undefined;
+    if (nestedTravelData && 'instagramUsername' in nestedTravelData) {
+      return nestedTravelData.instagramUsername;
+    }
+    return baseData.travelData?.instagramUsername;
+  })();
+
   const updated: UnifiedTripData = {
     ...baseData,
     title: (travelUpdates.title as string) || baseData.title,
@@ -252,9 +263,7 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     endDate: (travelUpdates.endDate as string) || baseData.endDate,
     updatedAt: new Date().toISOString(),
     travelData: {
-      instagramUsername: 'instagramUsername' in travelUpdates
-        ? travelUpdates.instagramUsername as string
-        : baseData.travelData?.instagramUsername,
+      instagramUsername: resolvedInstagramUsername,
       locations: (() => {
         const newLocations = travelUpdates.locations as Location[];
         const existingLocations = baseData.travelData?.locations || [];
