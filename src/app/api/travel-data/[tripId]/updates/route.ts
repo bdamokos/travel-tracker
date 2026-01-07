@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 import { TripUpdate } from '@/app/types';
 
 const MAX_STORED_UPDATES = 100;
@@ -56,6 +57,11 @@ export async function POST(
       return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
     }
 
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const unified = await loadUnifiedTripData(tripId);
     if (!unified) {
       return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
@@ -102,6 +108,11 @@ export async function PATCH(
     const { tripId } = await params;
     if (!tripId) {
       return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
+    }
+
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const unified = await loadUnifiedTripData(tripId);
@@ -171,6 +182,11 @@ export async function DELETE(
     const { tripId } = await params;
     if (!tripId) {
       return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
+    }
+
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const updateId = new URL(request.url).searchParams.get('updateId');
