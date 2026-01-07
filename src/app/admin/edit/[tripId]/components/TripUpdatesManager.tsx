@@ -41,13 +41,14 @@ function UpdateRow({ update, onSave, onDelete }: UpdateRowProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isDirty = message !== update.message || createdAt !== toDateTimeLocalValue(update.createdAt);
+  const baselineCreatedAt = useMemo(() => toDateTimeLocalValue(update.createdAt), [update.createdAt]);
+  const isDirty = message !== update.message || createdAt !== baselineCreatedAt;
 
   useEffect(() => {
     setMessage(update.message);
-    setCreatedAt(toDateTimeLocalValue(update.createdAt));
+    setCreatedAt(baselineCreatedAt);
     setError(null);
-  }, [update.createdAt, update.message]);
+  }, [baselineCreatedAt, update.message]);
 
   const handleSave = async () => {
     const trimmed = message.trim();
@@ -353,4 +354,3 @@ export default function TripUpdatesManager({ tripId }: TripUpdatesManagerProps) 
     </div>
   );
 }
-
