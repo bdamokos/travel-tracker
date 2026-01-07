@@ -79,6 +79,16 @@ interface EmbeddableMapProps {
   travelData: TravelData;
 }
 
+const escapeHTML = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const escapeAttribute = (value: string) => escapeHTML(value);
+
 // Function to generate popup HTML with Wikipedia and Weather data
 const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?: {
   title: string;
@@ -94,23 +104,28 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   const popupStyles = isDarkMode 
     ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
     : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
+
+  const safeLocationName = escapeHTML(location.name);
+  const safeDateRange = escapeHTML(formatDateRange(location.date, location.endDate));
+  const safeNotes = location.notes ? escapeHTML(location.notes) : '';
   
   let popupContent = `
     <div style="padding: 12px; max-width: 400px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-      <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${location.name}</h4>
+      <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${safeLocationName}</h4>
       <p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">
-        ${formatDateRange(location.date, location.endDate)}
+        ${safeDateRange}
       </p>
-      ${location.notes ? `<p style="font-size: 14px; margin-bottom: 12px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${location.notes}</p>` : ''}
+      ${location.notes ? `<p style="font-size: 14px; margin-bottom: 12px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${safeNotes}</p>` : ''}
   `;
 
   // Add Weather quick line (today)
   if (weatherData) {
+    const safeWeatherIcon = escapeHTML(weatherData.icon);
     popupContent += `
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px; padding: 6px 8px; border-radius:6px; ${isDarkMode ? 'background:#1f2937;color:#e5e7eb' : 'background:#f3f4f6;color:#374151'}">
         <div style="font-size:12px;">Weather (today)</div>
         <div style="display:flex; align-items:center; gap:6px; font-size:14px;">
-          <span>${weatherData.icon}</span>
+          <span>${safeWeatherIcon}</span>
           ${typeof weatherData.temp === 'number' ? `<span>${Math.round(weatherData.temp)}°</span>` : ''}
         </div>
       </div>
@@ -119,13 +134,19 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   
   // Add Wikipedia section
   if (wikipediaData) {
+    const safeWikipediaTitle = escapeHTML(wikipediaData.title);
+    const safeWikipediaExtract = escapeHTML(wikipediaData.extract.trim());
+    const safeWikipediaUrl = escapeAttribute(wikipediaData.url);
+    const safeWikipediaThumbnail = wikipediaData.thumbnail?.source
+      ? escapeAttribute(wikipediaData.thumbnail.source)
+      : '';
     popupContent += `
       <div style="margin-bottom: 12px; padding-top: 8px; border-top: 1px solid ${isDarkMode ? '#4b5563' : '#d1d5db'};">
         <div style="display: flex; gap: 8px;">
-          ${wikipediaData.thumbnail ? `<img src="${wikipediaData.thumbnail.source}" alt="${wikipediaData.title}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" />` : ''}
+          ${wikipediaData.thumbnail ? `<img src="${safeWikipediaThumbnail}" alt="${safeWikipediaTitle}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0;" />` : ''}
           <div style="flex: 1;">
-            <div style="font-size: 13px; line-height: 1.4; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${wikipediaData.extract.trim()}</div>
-            <a href="${wikipediaData.url}" target="_blank" style="color: #3b82f6; font-size: 12px; text-decoration: underline;">Read more on Wikipedia</a>
+            <div style="font-size: 13px; line-height: 1.4; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${safeWikipediaExtract}</div>
+            <a href="${safeWikipediaUrl}" target="_blank" style="color: #3b82f6; font-size: 12px; text-decoration: underline;">Read more on Wikipedia</a>
           </div>
         </div>
         <p style="font-size: 10px; margin-top: 6px; ${isDarkMode ? 'color: #6b7280;' : 'color: #9ca3af;'}">Source: Wikipedia • under Creative Commons BY-SA 4.0 license</p>
@@ -141,13 +162,20 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
           ${INSTAGRAM_ICON_MARKUP}
           <span>Instagram</span>
         </div>
-        ${location.instagramPosts.map(post => `
-          <div style="margin-top: 2px;">
-            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
-              ${post.caption || 'View Post'}
-            </a>
-          </div>
-        `).join('')}
+        ${location.instagramPosts
+          .map(post => {
+            const caption = post.caption?.trim() || 'View Post';
+            const safeCaption = escapeHTML(caption);
+            const safeUrl = escapeAttribute(post.url);
+            return `
+              <div style="margin-top: 2px;">
+                <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
+                  ${safeCaption}
+                </a>
+              </div>
+            `;
+          })
+          .join('')}
       </div>
     `;
   }
@@ -162,14 +190,19 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
           <span>TikTok</span>
         </div>
         ${location.tikTokPosts
-          .map((post, index) => `
-            <div style="margin-top: 2px;">
-              <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
-                TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}
-              </a>
-              ${post.caption ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #e5e7eb;' : 'color: #6b7280;'}">${post.caption}</div>` : ''}
-            </div>
-          `)
+          .map((post, index) => {
+            const fallbackLabel = `TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}`;
+            const linkLabel = post.caption?.trim() || fallbackLabel;
+            const safeLabel = escapeHTML(linkLabel);
+            const safeUrl = escapeAttribute(post.url);
+            return `
+              <div style="margin-top: 2px;">
+                <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
+                  ${safeLabel}
+                </a>
+              </div>
+            `;
+          })
           .join('')}
       </div>
     `;
@@ -180,14 +213,21 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
     popupContent += `
       <div style="margin-bottom: 8px;">
         <strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>
-        ${location.blogPosts.map(post => `
-          <div style="margin-top: 2px;">
-            <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
-              ${post.title}
-            </a>
-            ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${post.excerpt}</div>` : ''}
-          </div>
-        `).join('')}
+        ${location.blogPosts
+          .map(post => {
+            const safeTitle = escapeHTML(post.title);
+            const safeUrl = escapeAttribute(post.url);
+            const safeExcerpt = post.excerpt ? escapeHTML(post.excerpt) : '';
+            return `
+              <div style="margin-top: 2px;">
+                <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
+                  ${safeTitle}
+                </a>
+                ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeExcerpt}</div>` : ''}
+              </div>
+            `;
+          })
+          .join('')}
       </div>
     `;
   }
