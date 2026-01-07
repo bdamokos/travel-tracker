@@ -258,6 +258,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const [days, setDays] = useState<JourneyDay[]>([]);
   const [key, setKey] = useState(0);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [viewChangeTick, setViewChangeTick] = useState(0);
   
   const handleViewChange = useCallback(() => {
@@ -410,6 +411,25 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       });
       return next;
     });
+    setCollapsedGroups(prev => {
+      const expandableKeys = new Set(groups.filter(group => group.items.length > 1).map(group => group.key));
+      let requiresUpdate = false;
+      prev.forEach(keyValue => {
+        if (!expandableKeys.has(keyValue)) {
+          requiresUpdate = true;
+        }
+      });
+      if (!requiresUpdate) {
+        return prev;
+      }
+      const next = new Set<string>();
+      prev.forEach(keyValue => {
+        if (expandableKeys.has(keyValue)) {
+          next.add(keyValue);
+        }
+      });
+      return next;
+    });
   }, [groups]);
 
   useEffect(() => {
@@ -423,7 +443,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       return;
     }
 
-    if (expandedGroups.has(highlightedGroup.key)) {
+    if (expandedGroups.has(highlightedGroup.key) || collapsedGroups.has(highlightedGroup.key)) {
       return;
     }
 
@@ -435,7 +455,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       next.add(highlightedGroup.key);
       return next;
     });
-  }, [closestLocation?.id, groups, expandedGroups]);
+  }, [closestLocation?.id, groups, expandedGroups, collapsedGroups]);
 
   if (!journey) {
     return (
@@ -516,6 +536,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 eventHandlers={{
                   click: () => {
                     setExpandedGroups(prev => new Set(prev).add(group.key));
+                    setCollapsedGroups(prev => {
+                      if (!prev.has(group.key)) {
+                        return prev;
+                      }
+                      const next = new Set(prev);
+                      next.delete(group.key);
+                      return next;
+                    });
                   }
                 }}
               />
@@ -566,6 +594,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                       next.delete(group.key);
                       return next;
                     });
+                    setCollapsedGroups(prev => new Set(prev).add(group.key));
                   }
                 }}
               />
