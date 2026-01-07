@@ -29,6 +29,104 @@
 - `docker-compose.yml` defines two services: admin UI on host port 3001 and embeddable/public maps on 3002 (both mount the shared `travel-data` volume and set `NEXT_PUBLIC_APP_MODE`).
 - For production setup references, see the `deploy/` directory. 
 
+# Sample map data for a freshly set up server
+Use the same trip/location/route payloads as the integration test in `src/app/__tests__/integration/map-functionality.test.ts` to seed a server with realistic map data. The workflow mirrors the test pyramid (create trip → add locations → add route points).
+
+1. Start the app (admin or embed is fine) and note the API base URL:
+   - Local dev: `http://localhost:3000`
+   - Docker embed service: `http://localhost:3002`
+2. Create a trip:
+   ```bash
+   curl -X POST "$BASE_URL/api/travel-data" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Sample Map Trip",
+       "description": "Seeded from integration test data",
+       "startDate": "2024-01-01T00:00:00.000Z",
+       "endDate": "2024-01-31T00:00:00.000Z",
+       "locations": [],
+       "routes": []
+     }'
+   ```
+   - Capture the `id` from the response; it is needed for subsequent calls.
+3. Add two locations (London + Paris) using the same coordinates as the integration test:
+   ```bash
+   curl -X PUT "$BASE_URL/api/travel-data?id=$TRIP_ID" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Sample Map Trip",
+       "description": "Seeded from integration test data",
+       "startDate": "2024-01-01T00:00:00.000Z",
+       "endDate": "2024-01-31T00:00:00.000Z",
+       "locations": [
+         {
+           "id": "sample-loc-1",
+           "name": "London",
+           "coordinates": [51.5074, -0.1278],
+           "date": "2024-01-01T00:00:00.000Z",
+           "notes": "Starting point"
+         },
+         {
+           "id": "sample-loc-2",
+           "name": "Paris",
+           "coordinates": [48.8566, 2.3522],
+           "date": "2024-01-15T00:00:00.000Z",
+           "notes": "Midpoint destination"
+         }
+       ],
+       "routes": []
+     }'
+   ```
+4. Add a route with route points. If you don’t want to call the external routing API, reuse the mocked route points from the integration tests (a straight line with an intermediate point is enough to render):
+   ```bash
+   curl -X PUT "$BASE_URL/api/travel-data?id=$TRIP_ID" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Sample Map Trip",
+       "description": "Seeded from integration test data",
+       "startDate": "2024-01-01T00:00:00.000Z",
+       "endDate": "2024-01-31T00:00:00.000Z",
+       "locations": [
+         {
+           "id": "sample-loc-1",
+           "name": "London",
+           "coordinates": [51.5074, -0.1278],
+           "date": "2024-01-01T00:00:00.000Z",
+           "notes": "Starting point"
+         },
+         {
+           "id": "sample-loc-2",
+           "name": "Paris",
+           "coordinates": [48.8566, 2.3522],
+           "date": "2024-01-15T00:00:00.000Z",
+           "notes": "Midpoint destination"
+         }
+       ],
+       "routes": [
+         {
+           "id": "sample-route-1",
+           "from": "London",
+           "to": "Paris",
+           "fromCoords": [51.5074, -0.1278],
+           "toCoords": [48.8566, 2.3522],
+           "transportType": "train",
+           "date": "2024-01-15T00:00:00.000Z",
+           "duration": "2h 30min",
+           "notes": "Eurostar connection",
+           "routePoints": [
+             [51.5074, -0.1278],
+             [50.0, -1.0],
+             [48.8566, 2.3522]
+           ]
+         }
+       ]
+     }'
+   ```
+5. Confirm the data rendered by loading the map view for the trip, or fetch it via:
+   ```bash
+   curl "$BASE_URL/api/travel-data?id=$TRIP_ID"
+   ```
+
 # Tests
 
 Always run all relevant tests before finalising a PR/task.
