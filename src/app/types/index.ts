@@ -6,6 +6,12 @@ export type BlogPost = {
   excerpt?: string;
 };
 
+export type TripUpdate = {
+  id: string;
+  createdAt: string | Date;
+  message: string;
+};
+
 // Cost tracking integration
 export type CostTrackingLink = {
   expenseId: string;

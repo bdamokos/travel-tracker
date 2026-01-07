@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { TripCalendar } from '@/app/components/TripCalendar';
+import TripUpdates from '@/app/components/TripUpdates';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
@@ -193,7 +194,9 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
             </div>
           </div>
         )}
-        
+
+        <TripUpdates updates={tripData.publicUpdates} className="mb-6" />
+
         <TripCalendar 
           trip={displayTrip} 
           planningMode={isAdmin}

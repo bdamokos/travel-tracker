@@ -4,9 +4,10 @@ import { headers } from 'next/headers';
 // import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
-import { Location, Transportation } from '../../types';
+import { Location, Transportation, TripUpdate } from '../../types';
 import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
+import TripUpdates from '../../components/TripUpdates';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
@@ -52,6 +53,7 @@ interface TravelData {
     routePoints?: [number, number][]; // Pre-generated route points for better performance
   }>;
   createdAt: string;
+  publicUpdates?: TripUpdate[];
 }
 async function getTravelData(id: string, isAdmin: boolean = false): Promise<TravelData | null> {
   try {
@@ -136,6 +138,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
             startDate: shadowData.startDate,
             endDate: shadowData.endDate,
             createdAt: shadowData.createdAt,
+            publicUpdates: shadowData.publicUpdates || [],
             // Merge real locations with shadow locations
             locations: [
               ...(shadowData.travelData?.locations || []).map((loc: Location) => ({
@@ -287,6 +290,8 @@ export default async function MapPage({ params }: {
             </a>
           </div>
         </header>
+
+        <TripUpdates updates={travelData.publicUpdates} className="mb-6" />
 
         {/* Next steps summary */}
         {/* <div className="mb-6">

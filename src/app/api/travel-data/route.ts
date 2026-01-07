@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
       locations: unifiedData.travelData?.locations || [],
       routes: unifiedData.travelData?.routes || [],
       days: unifiedData.travelData?.days,
-      accommodations: unifiedData.accommodations || []
+      accommodations: unifiedData.accommodations || [],
+      publicUpdates: unifiedData.publicUpdates || []
     };
     
     // Apply server-side privacy filtering based on domain
