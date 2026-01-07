@@ -248,9 +248,9 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
     if ('instagramUsername' in travelUpdates) {
       return travelUpdates.instagramUsername as string | undefined;
     }
-    const nestedTravelData = travelUpdates.travelData as { instagramUsername?: string } | undefined;
-    if (nestedTravelData && 'instagramUsername' in nestedTravelData) {
-      return nestedTravelData.instagramUsername;
+    const nestedTravelData = travelUpdates.travelData;
+    if (typeof nestedTravelData === 'object' && nestedTravelData !== null && 'instagramUsername' in nestedTravelData) {
+      return nestedTravelData.instagramUsername as string | undefined;
     }
     return baseData.travelData?.instagramUsername;
   })();
