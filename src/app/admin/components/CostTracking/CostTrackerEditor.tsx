@@ -11,6 +11,7 @@ import CategoryManager from './CategoryManager';
 import ExpenseManager from './ExpenseManager';
 import CountryBreakdownDisplay from './CountryBreakdownDisplay';
 import CostSummaryDashboard from './CostSummaryDashboard';
+import ExpenseLeaderboards from './ExpenseLeaderboards';
 import YnabImportForm from '../YnabImportForm';
 import YnabMappingManager from '../YnabMappingManager';
 import YnabSetup from '../YnabSetup';
@@ -573,6 +574,10 @@ export default function CostTrackerEditor({
 
         {costSummary && costSummary.countryBreakdown.length > 0 && (
           <CountryBreakdownDisplay costSummary={costSummary} currency={costData.currency} />
+        )}
+
+        {costData.expenses.length > 0 && (
+          <ExpenseLeaderboards expenses={costData.expenses} currency={costData.currency} />
         )}
 
         <div className="flex justify-end items-center gap-4">
