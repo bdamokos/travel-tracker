@@ -145,7 +145,7 @@ const filterUpdatesForPublic = (
   });
   const names = Array.from(allowedNames).filter(Boolean);
   if (names.length === 0) return [];
-  return updates.filter(update => names.some(name => update.message.includes(name)));
+  return updates.filter(update => update.kind === 'manual' || names.some(name => update.message.includes(name)));
 };
 
 export default async function TripCalendarPage({ params }: CalendarPageProps) {

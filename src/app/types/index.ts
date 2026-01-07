@@ -10,6 +10,7 @@ export type TripUpdate = {
   id: string;
   createdAt: string | Date;
   message: string;
+  kind?: 'auto' | 'manual';
 };
 
 // Cost tracking integration
