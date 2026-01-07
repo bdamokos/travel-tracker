@@ -35,6 +35,8 @@ interface TripMetadataFormProps {
   setHasUnsavedChanges: (value: boolean) => void;
 }
 
+const isValidInstagramUsername = (username: string): boolean => /^[a-zA-Z0-9._]{1,30}$/.test(username);
+
 export default function TripMetadataForm({ 
   travelData, 
   setTravelData, 
@@ -67,12 +69,20 @@ export default function TripMetadataForm({
             type="text"
             value={travelData.instagramUsername || ''}
             onChange={(e) => {
-              setTravelData(prev => ({ ...prev, instagramUsername: e.target.value.trim() }));
+              const username = e.target.value.trim();
+              setTravelData(prev => ({ ...prev, instagramUsername: username }));
               setHasUnsavedChanges(true);
             }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             placeholder="myusername"
+            pattern="[a-zA-Z0-9._]{1,30}"
+            title="Username must be 1-30 characters long and contain only letters, numbers, periods, and underscores"
           />
+          {travelData.instagramUsername && !isValidInstagramUsername(travelData.instagramUsername) && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              Invalid username format. Use only letters, numbers, periods, and underscores (1-30 characters).
+            </p>
+          )}
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Used to import the latest Instagram posts in the location editor.
           </p>

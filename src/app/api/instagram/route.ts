@@ -11,16 +11,20 @@ type InstagramPostSummary = {
 const INSTAGRAM_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
   'Accept': 'application/json',
-  'X-IG-App-ID': '936619743392459',
   'X-Requested-With': 'XMLHttpRequest'
 };
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const username = searchParams.get('username');
+  const instagramAppId = process.env.INSTAGRAM_APP_ID;
 
   if (!username) {
     return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+  }
+
+  if (!instagramAppId) {
+    return NextResponse.json({ error: 'Instagram app ID is not configured' }, { status: 500 });
   }
 
   try {
@@ -29,9 +33,10 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           ...INSTAGRAM_HEADERS,
+          'X-IG-App-ID': instagramAppId,
           Referer: `https://www.instagram.com/${username}/`
         },
-        cache: 'no-store'
+        next: { revalidate: 600 }
       }
     );
 
@@ -59,11 +64,18 @@ export async function GET(request: NextRequest) {
       };
     }).filter(post => post.id && post.shortcode);
 
-    return NextResponse.json({
-      username: payload?.data?.user?.username || username,
-      fullName: payload?.data?.user?.full_name || '',
-      posts
-    });
+    return NextResponse.json(
+      {
+        username: payload?.data?.user?.username || username,
+        fullName: payload?.data?.user?.full_name || '',
+        posts
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=300'
+        }
+      }
+    );
   } catch (error) {
     console.error('Error fetching Instagram profile:', error);
     return NextResponse.json({ error: 'Failed to fetch Instagram profile' }, { status: 500 });

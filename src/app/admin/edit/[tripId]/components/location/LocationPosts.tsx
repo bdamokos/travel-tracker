@@ -243,10 +243,6 @@ export default function LocationPosts({
   const [instagramError, setInstagramError] = useState<string | null>(null);
   const [selectedInstagramId, setSelectedInstagramId] = useState('');
 
-  if (!isVisible) {
-    return null;
-  }
-
   useEffect(() => {
     setSelectedInstagramId('');
     setInstagramError(null);
@@ -255,7 +251,12 @@ export default function LocationPosts({
   useEffect(() => {
     setInstagramPosts([]);
     setSelectedInstagramId('');
+    setInstagramError(null);
   }, [instagramUsername]);
+
+  if (!isVisible) {
+    return null;
+  }
 
   const handleRemoveInstagramPost = (postId: string) => {
     const updatedLocation = {
