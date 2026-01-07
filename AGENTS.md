@@ -3,7 +3,7 @@
 ## Project Snapshot
 - Next.js + TypeScript web app that visualizes trips on OpenStreetMap, pairs timelines with notes/Instagram/blog posts, and includes a private cost tracker with YNAB import and backup management.
 - Primary UI modes: admin experience for editing journeys/costs and public map views.
-- License: MIT (2025, Bence Damokos).
+- License: MIT (2025-2026, Bence Damokos).
 
 ## Stack
 - Next.js 15 + React 19, TypeScript, Tailwind CSS 4.
