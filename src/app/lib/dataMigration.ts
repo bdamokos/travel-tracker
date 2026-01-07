@@ -4,7 +4,7 @@
  * Handles unified data model and schema migrations
  */
 
-import { Journey, CostTrackingData, Location, Transportation, Accommodation, Expense } from '../types';
+import { Journey, CostTrackingData, Location, Transportation, Accommodation, Expense, TripUpdate } from '../types';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -21,6 +21,9 @@ export interface UnifiedTripData {
   endDate: string;
   createdAt: string;
   updatedAt: string;
+
+  // Public update feed entries
+  publicUpdates?: TripUpdate[];
   
   // Travel data (can be null for cost-only trips in future)
   travelData?: {
@@ -57,7 +60,7 @@ export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /**
  * Migrate from schema v6 to v7 - Repair orphaned accommodation references
@@ -134,6 +137,18 @@ export function migrateFromV6ToV7(data: UnifiedTripData): UnifiedTripData {
     ...data,
     accommodations,
     schemaVersion: 7,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Migrate from schema v7 to v8 - initialize public updates feed
+ */
+export function migrateFromV7ToV8(data: UnifiedTripData): UnifiedTripData {
+  return {
+    ...data,
+    publicUpdates: Array.isArray(data.publicUpdates) ? data.publicUpdates : [],
+    schemaVersion: 8,
     updatedAt: new Date().toISOString()
   };
 }
@@ -547,6 +562,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   if (data.schemaVersion < 7) {
     data = migrateFromV6ToV7(data);
+  }
+  if (data.schemaVersion < 8) {
+    data = migrateFromV7ToV8(data);
   }
   
   // Ensure current version

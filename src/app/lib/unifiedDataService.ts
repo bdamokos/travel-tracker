@@ -18,6 +18,7 @@ import { backupService } from './backupService';
 import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
 import { getDataDir } from './dataDirectory';
 import { dateReviver } from './jsonDateReviver';
+import { buildTripUpdates } from './tripUpdates';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');
@@ -234,6 +235,14 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
   };
 
   const baseData = existing || defaultData;
+  const newUpdates = existing
+    ? buildTripUpdates(existing, {
+        locations: travelUpdates.locations as Location[] | undefined,
+        routes: travelUpdates.routes as Transportation[] | undefined
+      })
+    : [];
+  const MAX_STORED_UPDATES = 100;
+  const mergedUpdates = [...newUpdates, ...(baseData.publicUpdates || [])].slice(0, MAX_STORED_UPDATES);
 
   const updated: UnifiedTripData = {
     ...baseData,
@@ -300,7 +309,8 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
       const newAccommodations = travelUpdates.accommodations as Accommodation[] | undefined;
       return Array.isArray(newAccommodations) ? newAccommodations : [];
-    })()
+    })(),
+    publicUpdates: mergedUpdates
   };
 
   // Fix temp-location references in accommodations

@@ -4,9 +4,11 @@ import { headers } from 'next/headers';
 // import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
-import { Location, Transportation } from '../../types';
+import { Location, Transportation, TripUpdate } from '../../types';
 import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
+import TripUpdates from '../../components/TripUpdates';
+import { getCurrentTripStatus } from '../../lib/currentTripStatus';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
@@ -52,7 +54,25 @@ interface TravelData {
     routePoints?: [number, number][]; // Pre-generated route points for better performance
   }>;
   createdAt: string;
+  publicUpdates?: TripUpdate[];
 }
+
+const filterUpdatesForPublic = (
+  updates: TripUpdate[] | undefined,
+  locations: TravelData['locations'],
+  routes: TravelData['routes']
+): TripUpdate[] => {
+  if (!updates) return [];
+  const allowedNames = new Set<string>();
+  locations.forEach(location => allowedNames.add(location.name));
+  routes.forEach(route => {
+    allowedNames.add(route.from);
+    allowedNames.add(route.to);
+  });
+  const names = Array.from(allowedNames).filter(Boolean);
+  if (names.length === 0) return [];
+  return updates.filter(update => names.some(name => update.message.includes(name)));
+};
 async function getTravelData(id: string, isAdmin: boolean = false): Promise<TravelData | null> {
   try {
     // Use unified API for both server and client side
@@ -136,6 +156,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
             startDate: shadowData.startDate,
             endDate: shadowData.endDate,
             createdAt: shadowData.createdAt,
+            publicUpdates: shadowData.publicUpdates || [],
             // Merge real locations with shadow locations
             locations: [
               ...(shadowData.travelData?.locations || []).map((loc: Location) => ({
@@ -236,6 +257,11 @@ export default async function MapPage({ params }: {
   if (!travelData) {
     notFound();
   }
+
+  const updates = isAdmin
+    ? travelData.publicUpdates
+    : filterUpdatesForPublic(travelData.publicUpdates, travelData.locations, travelData.routes);
+  const currentStatus = getCurrentTripStatus(travelData.locations, travelData.routes);
   
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
@@ -287,6 +313,8 @@ export default async function MapPage({ params }: {
             </a>
           </div>
         </header>
+
+        <TripUpdates updates={updates} className="mb-6" currentStatus={currentStatus} />
 
         {/* Next steps summary */}
         {/* <div className="mb-6">
