@@ -7,6 +7,7 @@ import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
+import { parseWikipediaReference } from '@/app/lib/wikipediaUtils';
 
 interface LocationDisplayProps {
   location: Location;
@@ -60,6 +61,13 @@ export default function LocationDisplay({
     linkedExpenses;
 
   const hasCoords = location.coordinates[0] !== 0 || location.coordinates[1] !== 0;
+  const wikipediaRef = location.wikipediaRef?.trim();
+  const parsedWikipediaRef = parseWikipediaReference(wikipediaRef);
+  const wikipediaLink = parsedWikipediaRef.isValid
+    ? parsedWikipediaRef.type === 'wikidata'
+      ? `https://www.wikidata.org/wiki/${parsedWikipediaRef.value}`
+      : `https://en.wikipedia.org/wiki/${encodeURIComponent(parsedWikipediaRef.value ?? '').replace(/%20/g, '_')}`
+    : null;
 
   const containerClassName = [
     frameless
@@ -138,6 +146,23 @@ export default function LocationDisplay({
         {location.notes && (
           <div className="text-sm text-gray-700 dark:text-gray-300">
             <span className="font-medium text-gray-600 dark:text-gray-400">Notes:</span> {location.notes}
+          </div>
+        )}
+
+        {/* Wikipedia Override */}
+        {parsedWikipediaRef.isValid && wikipediaLink && (
+          <div className="text-sm text-gray-700 dark:text-gray-300">
+            <span className="font-medium text-gray-600 dark:text-gray-400">Wikipedia override:</span>{' '}
+            <a
+              href={wikipediaLink}
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+            >
+              {parsedWikipediaRef.type === 'wikidata'
+                ? `Wikidata ${parsedWikipediaRef.value}`
+                : parsedWikipediaRef.value}
+            </a>
           </div>
         )}
 
