@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
+import { ensureMapDataPreloaderRunning } from '@/app/lib/mapDataPreloader';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -16,6 +17,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  ensureMapDataPreloaderRunning();
+
   return (
     <html lang="en">
       <head>
