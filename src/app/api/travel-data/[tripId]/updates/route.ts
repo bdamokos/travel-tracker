@@ -146,7 +146,7 @@ export async function PATCH(
     });
 
     const updated = nextUpdates.find(update => update.id === updateId);
-    if (!updated || (unified.publicUpdates || []).every(existing => existing.id !== updateId)) {
+    if (!updated) {
       return NextResponse.json({ error: 'Update not found' }, { status: 404 });
     }
 
