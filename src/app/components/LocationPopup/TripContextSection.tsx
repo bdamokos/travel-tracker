@@ -95,6 +95,7 @@ export default function TripContextSection({
           {posts.map((post, index) => {
             const caption = post.caption?.trim() || '';
             const fallbackLabel = `Instagram Post${total > 1 ? ` #${index + 1}` : ''}`;
+            const linkLabel = caption || fallbackLabel;
 
             return (
               <a
@@ -103,13 +104,13 @@ export default function TripContextSection({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-l-4 border-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
-                title={caption || fallbackLabel}
+                title={linkLabel}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <InstagramIcon className="mr-3" ariaLabel="Instagram" />
                     <span className="text-blue-700 dark:text-blue-400 font-medium text-sm group-hover:text-blue-800 dark:group-hover:text-blue-300 transition-colors">
-                      {fallbackLabel}
+                      {linkLabel}
                     </span>
                   </div>
                   <svg
@@ -121,9 +122,6 @@ export default function TripContextSection({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </div>
-                {caption && (
-                  <p className="text-xs text-blue-600 dark:text-blue-300 mt-2">{caption}</p>
-                )}
               </a>
             );
           })}
@@ -159,37 +157,37 @@ export default function TripContextSection({
             const linkLabel = caption || fallbackLabel;
 
             return (
-            <a
-              key={post.id || index}
-              href={post.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border-l-4 border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group"
-              title={linkLabel}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <TikTokIcon
-                    className="mr-3"
-                    containerClassName="w-6 h-6"
-                    iconClassName="w-3.5 h-3.5"
-                    ariaLabel="TikTok"
-                  />
-                  <span className="text-gray-800 dark:text-gray-100 font-medium text-sm group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-                    {linkLabel}
-                  </span>
+              <a
+                key={post.id || index}
+                href={post.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border-l-4 border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group"
+                title={linkLabel}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <TikTokIcon
+                      className="mr-3"
+                      containerClassName="w-6 h-6"
+                      iconClassName="w-3.5 h-3.5"
+                      ariaLabel="TikTok"
+                    />
+                    <span className="text-gray-800 dark:text-gray-100 font-medium text-sm group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                      {linkLabel}
+                    </span>
+                  </div>
+                  <svg
+                    className="w-4 h-4 text-gray-500 group-hover:text-gray-600 transition-colors"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </div>
-                <svg
-                  className="w-4 h-4 text-gray-500 group-hover:text-gray-600 transition-colors"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </div>
-            </a>
-          );
+              </a>
+            );
           })}
         </div>
       </div>
