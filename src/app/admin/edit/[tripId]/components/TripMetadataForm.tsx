@@ -24,6 +24,7 @@ interface TravelData {
   description: string;
   startDate: Date;
   endDate: Date;
+  instagramUsername?: string;
   locations: Location[];
   routes: TravelRoute[];
 }
@@ -56,6 +57,25 @@ export default function TripMetadataForm({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             placeholder="My Amazing Trip"
           />
+        </div>
+        <div>
+          <label htmlFor="journey-instagram-username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Instagram Username
+          </label>
+          <input
+            id="journey-instagram-username"
+            type="text"
+            value={travelData.instagramUsername || ''}
+            onChange={(e) => {
+              setTravelData(prev => ({ ...prev, instagramUsername: e.target.value.trim() }));
+              setHasUnsavedChanges(true);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+            placeholder="myusername"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Used to import the latest Instagram posts in the location editor.
+          </p>
         </div>
         <div>
           <label htmlFor="journey-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>

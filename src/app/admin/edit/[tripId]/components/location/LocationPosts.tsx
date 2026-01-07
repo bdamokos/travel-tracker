@@ -15,6 +15,13 @@ type BlogPost = NonNullable<Location['blogPosts']>[number];
 
 type MediaPostUpdateHandler = (postId: string, updates: Partial<{ url: string; caption: string }>) => void;
 
+type InstagramImportPost = {
+  id: string;
+  shortcode: string;
+  caption: string;
+  displayUrl: string;
+};
+
 interface MediaPostItemProps {
   post: { id: string; url: string; caption?: string };
   onUpdate: MediaPostUpdateHandler;
@@ -203,6 +210,7 @@ const BlogPostItem = ({ post, onUpdate, onRemove }: BlogPostItemProps) => {
 interface LocationPostsProps {
   location: Location;
   isVisible: boolean;
+  instagramUsername?: string;
   newInstagramPost: Partial<{ url: string; caption: string }>;
   setNewInstagramPost: React.Dispatch<React.SetStateAction<Partial<{ url: string; caption: string }>>>;
   newTikTokPost: Partial<{ url: string; caption: string }>;
@@ -218,6 +226,7 @@ interface LocationPostsProps {
 export default function LocationPosts({
   location,
   isVisible,
+  instagramUsername,
   newInstagramPost,
   setNewInstagramPost,
   newTikTokPost,
@@ -229,9 +238,24 @@ export default function LocationPosts({
   onAddTikTokPost,
   onAddBlogPost,
 }: LocationPostsProps) {
+  const [instagramPosts, setInstagramPosts] = useState<InstagramImportPost[]>([]);
+  const [instagramLoading, setInstagramLoading] = useState(false);
+  const [instagramError, setInstagramError] = useState<string | null>(null);
+  const [selectedInstagramId, setSelectedInstagramId] = useState('');
+
   if (!isVisible) {
     return null;
   }
+
+  useEffect(() => {
+    setSelectedInstagramId('');
+    setInstagramError(null);
+  }, [location.id]);
+
+  useEffect(() => {
+    setInstagramPosts([]);
+    setSelectedInstagramId('');
+  }, [instagramUsername]);
 
   const handleRemoveInstagramPost = (postId: string) => {
     const updatedLocation = {
@@ -284,6 +308,47 @@ export default function LocationPosts({
     onLocationUpdate(updatedLocation);
   };
 
+  const loadInstagramPosts = async () => {
+    if (!instagramUsername) {
+      setInstagramError('Set a global Instagram username to import posts.');
+      return;
+    }
+
+    setInstagramLoading(true);
+    setInstagramError(null);
+
+    try {
+      const response = await fetch(`/api/instagram?username=${encodeURIComponent(instagramUsername)}`);
+      if (!response.ok) {
+        setInstagramError(`Unable to load posts (status ${response.status}).`);
+        setInstagramPosts([]);
+        return;
+      }
+
+      const payload = await response.json();
+      const posts = (payload?.posts as InstagramImportPost[]) || [];
+      setInstagramPosts(posts);
+    } catch (error) {
+      console.error('Failed to load Instagram posts:', error);
+      setInstagramError('Unable to load Instagram posts.');
+      setInstagramPosts([]);
+    } finally {
+      setInstagramLoading(false);
+    }
+  };
+
+  const handleImportChange = (postId: string) => {
+    setSelectedInstagramId(postId);
+    const post = instagramPosts.find(item => item.id === postId);
+    if (!post) {
+      return;
+    }
+    setNewInstagramPost({
+      url: `https://www.instagram.com/p/${post.shortcode}/`,
+      caption: post.caption || ''
+    });
+  };
+
   return (
     <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
       <h6 className="font-medium mb-4 text-gray-900 dark:text-white">Instagram, TikTok & Blog Posts</h6>
@@ -291,6 +356,37 @@ export default function LocationPosts({
       {/* Instagram Posts */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instagram Posts</label>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <select
+            value={selectedInstagramId}
+            onChange={(e) => handleImportChange(e.target.value)}
+            className="min-w-[220px] flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
+            disabled={instagramLoading || !instagramUsername}
+          >
+            <option value="">
+              {instagramUsername ? 'Import latest Instagram post…' : 'Set Instagram username first'}
+            </option>
+            {instagramPosts.map((post) => (
+              <option key={post.id} value={post.id}>
+                {post.caption ? `${post.caption.slice(0, 80)}${post.caption.length > 80 ? '…' : ''}` : post.shortcode}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={loadInstagramPosts}
+            disabled={!instagramUsername || instagramLoading}
+            className="px-3 py-1 bg-gray-200 text-gray-800 rounded-sm text-sm hover:bg-gray-300 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {instagramLoading ? 'Loading…' : 'Refresh'}
+          </button>
+          {instagramUsername && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">Using @{instagramUsername}</span>
+          )}
+        </div>
+        {instagramError && (
+          <p className="text-xs text-red-600 mb-2">{instagramError}</p>
+        )}
         <div className="flex gap-2 mb-2">
           <input
             type="url"

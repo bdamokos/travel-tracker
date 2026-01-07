@@ -43,6 +43,7 @@ export function useTripEditor(tripId: string | null) {
     description: '',
     startDate: new Date(),
     endDate: new Date(),
+    instagramUsername: '',
     locations: [],
     routes: [],
     accommodations: []
@@ -181,6 +182,7 @@ export function useTripEditor(tripId: string | null) {
       description: tripData.description || '',
       startDate: tripData.startDate ? (tripData.startDate instanceof Date ? tripData.startDate : new Date(tripData.startDate)) : new Date(),
       endDate: tripData.endDate ? (tripData.endDate instanceof Date ? tripData.endDate : new Date(tripData.endDate)) : new Date(),
+      instagramUsername: tripData.instagramUsername || '',
       locations: migratedLocations,
       routes: migratedRoutes,
       accommodations: tripData.accommodations || []

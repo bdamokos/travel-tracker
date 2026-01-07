@@ -11,6 +11,7 @@ import LocationPosts from './LocationPosts';
 interface LocationListProps {
   locations: Location[];
   tripId: string;
+  instagramUsername?: string;
   travelLookup: ExpenseTravelLookup | null;
   costData: CostTrackingData | null;
   selectedLocationForPosts: string | null;
@@ -32,6 +33,7 @@ interface LocationListProps {
 export default function LocationList({
   locations,
   tripId,
+  instagramUsername,
   travelLookup,
   costData,
   selectedLocationForPosts,
@@ -149,6 +151,7 @@ export default function LocationList({
                   <LocationPosts
                     location={location}
                     isVisible={selectedLocationForPosts === location.id}
+                    instagramUsername={instagramUsername}
                     newInstagramPost={newInstagramPost}
                     setNewInstagramPost={setNewInstagramPost}
                     newTikTokPost={newTikTokPost}

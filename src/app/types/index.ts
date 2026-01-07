@@ -105,6 +105,7 @@ export interface TravelData {
   description: string;
   startDate: Date;
   endDate: Date;
+  instagramUsername?: string;
   locations: Location[];
   routes: TravelRoute[];
   accommodations?: Accommodation[];

@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       description: unifiedData.description,
       startDate: unifiedData.startDate,
       endDate: unifiedData.endDate,
+      instagramUsername: unifiedData.travelData?.instagramUsername,
       locations: unifiedData.travelData?.locations || [],
       routes: unifiedData.travelData?.routes || [],
       days: unifiedData.travelData?.days,
