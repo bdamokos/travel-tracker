@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
-import { ensureMapDataPreloaderRunning } from './lib/mapDataPreloader';
+import { ensureMapDataPreloaderRunning } from '@/app/lib/mapDataPreloader';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -12,13 +12,13 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
 };
 
-ensureMapDataPreloaderRunning();
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  ensureMapDataPreloaderRunning();
+
   return (
     <html lang="en">
       <head>

@@ -1,15 +1,24 @@
 import 'server-only';
 
 import { formatISO, isAfter } from 'date-fns';
-import { Location } from '../types';
-import { wikipediaService } from '../services/wikipediaService';
-import { weatherService } from '../services/weatherService';
-import { listAllTrips, loadUnifiedTripData } from './unifiedDataService';
-import { generateWikipediaFilename } from './wikipediaUtils';
+import { Location } from '@/app/types';
+import { wikipediaService } from '@/app/services/wikipediaService';
+import { weatherService } from '@/app/services/weatherService';
+import { listAllTrips, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { generateWikipediaFilename } from '@/app/lib/wikipediaUtils';
+
+type NormalizedLocation = Location & {
+  date: Date;
+  endDate: Date;
+  coordinates: [number, number];
+  name: string;
+  id: string;
+  wikipediaRef?: string;
+};
 
 type LocationEnrichmentTarget = {
   tripId: string;
-  location: Location;
+  location: NormalizedLocation;
 };
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -29,7 +38,20 @@ function normalizeCoordinates(coords: unknown): [number, number] | null {
   return [lat, lon];
 }
 
-function normalizeLocationForEnrichment(location: Location, fallbackDate?: Date): Location | null {
+function isNormalizedLocation(location: Location): location is NormalizedLocation {
+  return (
+    location?.date instanceof Date &&
+    location?.endDate instanceof Date &&
+    Array.isArray(location.coordinates) &&
+    location.coordinates.length === 2 &&
+    Number.isFinite(location.coordinates[0]) &&
+    Number.isFinite(location.coordinates[1]) &&
+    typeof location.name === 'string' &&
+    typeof location.id === 'string'
+  );
+}
+
+function normalizeLocationForEnrichment(location: Location, fallbackDate?: Date): NormalizedLocation | null {
   const coords = normalizeCoordinates(location.coordinates);
   if (!coords) return null;
 
@@ -49,17 +71,17 @@ function normalizeLocationForEnrichment(location: Location, fallbackDate?: Date)
     date: startDate,
     endDate,
     wikipediaRef: wikipediaRef || undefined
-  } as Location;
+  };
 }
 
 function toISODate(date: Date): string {
   return formatISO(date, { representation: 'date' });
 }
 
-function buildWeatherKey(location: Location): string {
+function buildWeatherKey(location: NormalizedLocation): string {
   const [lat, lon] = location.coordinates;
-  const start = toISODate(toValidDate(location.date) ?? new Date());
-  const end = toISODate(toValidDate(location.endDate) ?? toValidDate(location.date) ?? new Date());
+  const start = toISODate(location.date);
+  const end = toISODate(location.endDate);
   return `${lat.toFixed(4)}_${lon.toFixed(4)}_${start}_${end}`;
 }
 
@@ -73,14 +95,19 @@ export async function gatherMapLocationTargets(): Promise<LocationEnrichmentTarg
         const unified = await loadUnifiedTripData(trip.id);
         if (!unified?.travelData) continue;
 
-        const tripStartDate = toValidDate((unified.travelData as { startDate?: Date | string }).startDate);
+        const tripStartDate =
+          toValidDate((unified as { startDate?: Date | string }).startDate) ||
+          toValidDate((unified.travelData as { startDate?: Date | string }).startDate);
         const directLocations = Array.isArray(unified.travelData.locations) ? unified.travelData.locations : [];
         const dayLocations = Array.isArray(unified.travelData.days)
-          ? unified.travelData.days.flatMap(day => (Array.isArray((day as { locations?: Location[] }).locations) ? (day as { locations?: Location[] }).locations! : []))
+          ? unified.travelData.days.flatMap(day => {
+              const locations = (day as { locations?: Location[] }).locations;
+              return Array.isArray(locations) ? locations : [];
+            })
           : [];
 
         for (const loc of [...directLocations, ...dayLocations]) {
-          const normalized = normalizeLocationForEnrichment(loc as Location, tripStartDate);
+          const normalized = normalizeLocationForEnrichment(loc, tripStartDate);
           if (normalized) {
             targets.push({ tripId: trip.id, location: normalized });
           }
@@ -107,7 +134,9 @@ export async function precalculateMapDynamicData(targets?: LocationEnrichmentTar
   console.log('[MapPrecalc] Pre-calculating dynamic map data for %d location stays', resolvedTargets.length);
 
   for (const target of resolvedTargets) {
-    const normalized = normalizeLocationForEnrichment(target.location);
+    const normalized = isNormalizedLocation(target.location)
+      ? target.location
+      : normalizeLocationForEnrichment(target.location);
     if (!normalized) continue;
 
     const tasks: Array<Promise<unknown>> = [];
@@ -126,11 +155,12 @@ export async function precalculateMapDynamicData(targets?: LocationEnrichmentTar
 
     if (!tasks.length) continue;
 
-    try {
-      await Promise.allSettled(tasks);
-    } catch (error) {
-      console.warn('[MapPrecalc] Failed to pre-calculate for location %s:', normalized.name, error);
-    }
+    const results = await Promise.allSettled(tasks);
+    results.forEach(result => {
+      if (result.status === 'rejected') {
+        console.warn('[MapPrecalc] Failed to pre-calculate for location %s:', normalized.name, result.reason);
+      }
+    });
   }
 }
 
@@ -140,10 +170,17 @@ class MapDataPreloader {
 
   start(): void {
     if (this.interval) return;
-    this.run();
+    setTimeout(() => this.run(), 100);
     this.interval = setInterval(() => this.run(), ONE_DAY_MS);
     if (typeof this.interval.unref === 'function') {
       this.interval.unref();
+    }
+  }
+
+  stop(): void {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
     }
   }
 
