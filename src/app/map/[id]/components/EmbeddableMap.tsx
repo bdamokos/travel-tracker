@@ -162,14 +162,17 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
           <span>TikTok</span>
         </div>
         ${location.tikTokPosts
-          .map((post, index) => `
-            <div style="margin-top: 2px;">
-              <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
-                TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}
-              </a>
-              ${post.caption ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #e5e7eb;' : 'color: #6b7280;'}">${post.caption}</div>` : ''}
-            </div>
-          `)
+          .map((post, index) => {
+            const fallbackLabel = `TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}`;
+            const linkLabel = post.caption || fallbackLabel;
+            return `
+              <div style="margin-top: 2px;">
+                <a href="${post.url}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
+                  ${linkLabel}
+                </a>
+              </div>
+            `;
+          })
           .join('')}
       </div>
     `;
