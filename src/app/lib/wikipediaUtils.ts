@@ -246,3 +246,22 @@ export function parseWikipediaReference(wikipediaRef?: string): {
 
   return { type: null, value: null, isValid: false };
 }
+
+/**
+ * Build a canonical URL for a parsed Wikipedia reference.
+ */
+export function buildWikipediaReferenceUrl(reference: {
+  type: 'article' | 'wikidata' | null;
+  value: string | null;
+  isValid: boolean;
+}): string | null {
+  if (!reference.isValid || !reference.value) {
+    return null;
+  }
+
+  if (reference.type === 'wikidata') {
+    return `https://www.wikidata.org/wiki/${reference.value}`;
+  }
+
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(reference.value).replace(/%20/g, '_')}`;
+}

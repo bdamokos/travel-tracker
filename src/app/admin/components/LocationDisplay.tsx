@@ -7,7 +7,7 @@ import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
-import { parseWikipediaReference } from '@/app/lib/wikipediaUtils';
+import { buildWikipediaReferenceUrl, parseWikipediaReference } from '@/app/lib/wikipediaUtils';
 
 interface LocationDisplayProps {
   location: Location;
@@ -63,11 +63,7 @@ export default function LocationDisplay({
   const hasCoords = location.coordinates[0] !== 0 || location.coordinates[1] !== 0;
   const wikipediaRef = location.wikipediaRef?.trim();
   const parsedWikipediaRef = parseWikipediaReference(wikipediaRef);
-  const wikipediaLink = parsedWikipediaRef.isValid
-    ? parsedWikipediaRef.type === 'wikidata'
-      ? `https://www.wikidata.org/wiki/${parsedWikipediaRef.value}`
-      : `https://en.wikipedia.org/wiki/${encodeURIComponent(parsedWikipediaRef.value ?? '').replace(/%20/g, '_')}`
-    : null;
+  const wikipediaLink = buildWikipediaReferenceUrl(parsedWikipediaRef);
 
   const containerClassName = [
     frameless
@@ -156,7 +152,7 @@ export default function LocationDisplay({
             <a
               href={wikipediaLink}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
             >
               {parsedWikipediaRef.type === 'wikidata'
