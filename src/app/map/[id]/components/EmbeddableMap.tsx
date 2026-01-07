@@ -202,6 +202,7 @@ const SPIDER_PIXEL_RADIUS = 24;
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const collapsedByUserRef = useRef<Set<string>>(new Set());
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   
@@ -429,6 +430,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     };
 
     const expanded = new Set<string>();
+    const collapsedByUser = collapsedByUserRef.current;
     const singles: L.Marker[] = [];
     const groupLayers = new Map<string, GroupLayerState>();
 
@@ -494,13 +496,6 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       const state = groupLayers.get(groupKey);
       if (!state) return;
 
-      const containsHighlighted = closestLocation
-        ? state.group.items.some(location => location.id === closestLocation.id)
-        : false;
-      if (containsHighlighted) {
-        return;
-      }
-
       state.childMarkers.forEach(marker => marker.remove());
       state.childMarkers = [];
       state.legs.forEach(leg => leg.remove());
@@ -512,6 +507,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }
       state.groupMarker.addTo(map);
       expanded.delete(groupKey);
+      collapsedByUser.add(groupKey);
     };
 
     const expandGroup = (groupKey: string, providedState?: GroupLayerState) => {
@@ -529,6 +525,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }
 
       state.groupMarker.remove();
+      collapsedByUser.delete(groupKey);
 
       state.group.items.forEach((location, index) => {
         const distributed = distributeAroundPointPixels(map, state.group.center, index, state.group.items.length, SPIDER_PIXEL_RADIUS);
@@ -561,11 +558,21 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           expanded.delete(key);
         }
       }
+      for (const key of Array.from(collapsedByUser)) {
+        if (!validKeys.has(key)) {
+          collapsedByUser.delete(key);
+        }
+      }
 
       const highlightedGroup = closestLocation
         ? groups.find(group => group.items.some(location => location.id === closestLocation.id))
         : undefined;
-      if (highlightedGroup && highlightedGroup.items.length > 1 && !expanded.has(highlightedGroup.key)) {
+      if (
+        highlightedGroup
+        && highlightedGroup.items.length > 1
+        && !expanded.has(highlightedGroup.key)
+        && !collapsedByUser.has(highlightedGroup.key)
+      ) {
         expanded.add(highlightedGroup.key);
       }
 
