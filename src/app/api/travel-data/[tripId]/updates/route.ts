@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { TripUpdate } from '@/app/types';
@@ -5,8 +6,7 @@ import { TripUpdate } from '@/app/types';
 const MAX_STORED_UPDATES = 100;
 const UPDATE_ID_PREFIX = 'update';
 
-const createUpdateId = () =>
-  `${UPDATE_ID_PREFIX}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+const createUpdateId = () => `${UPDATE_ID_PREFIX}-${randomUUID()}`;
 
 const parseIsoDate = (value: unknown): string | null => {
   if (typeof value !== 'string' || !value.trim()) return null;
