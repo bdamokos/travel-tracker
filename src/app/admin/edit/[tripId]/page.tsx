@@ -11,6 +11,7 @@ import TripMetadataForm from './components/TripMetadataForm';
 import LocationManager from './components/LocationManager';
 import RouteManager from './components/RouteManager';
 import AccommodationManager from './components/AccommodationManager';
+import TripUpdatesManager from './components/TripUpdatesManager';
 
 /**
  * Render the trip editor page for creating or editing a travel map, including metadata, locations, routes, accommodations, export, and admin access checks.
@@ -663,6 +664,11 @@ export default function TripEditorPage() {
                 travelLookup={travelLookup}
                 costData={costData}
               />
+            </section>
+
+            {/* Public updates feed */}
+            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <TripUpdatesManager tripId={tripId === 'new' ? (travelData.id || null) : tripId} />
             </section>
           </div>
 

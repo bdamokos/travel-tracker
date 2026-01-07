@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Trip, Location } from '@/app/types';
 import { 
   applyPlanningModeColors,
@@ -19,13 +19,15 @@ interface TripCalendarProps {
   planningMode?: boolean;
   isPublic?: (location: Location) => boolean;
   className?: string;
+  children?: ReactNode;
 }
 
 export default function TripCalendar({ 
   trip, 
   planningMode = false, 
   isPublic: isPublicProp,
-  className = ''
+  className = '',
+  children
 }: TripCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -126,6 +128,7 @@ export default function TripCalendar({
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-300">Loading calendar...</p>
         </div>
+        {children ? <div className="mt-4">{children}</div> : null}
       </div>
     );
   }
@@ -157,8 +160,10 @@ export default function TripCalendar({
               </div>
             </div>
           </div>
-        )}
+          )}
       </div>
+
+      {children ? <div className="mt-4">{children}</div> : null}
       
       {/* Multi-Month Calendar Grid */}
       <div className="space-y-8">

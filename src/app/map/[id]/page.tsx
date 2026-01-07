@@ -9,6 +9,7 @@ import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
 import TripUpdates from '../../components/TripUpdates';
 import { getCurrentTripStatus } from '../../lib/currentTripStatus';
+import { filterUpdatesForPublic } from '../../lib/updateFilters';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
@@ -56,23 +57,6 @@ interface TravelData {
   createdAt: string;
   publicUpdates?: TripUpdate[];
 }
-
-const filterUpdatesForPublic = (
-  updates: TripUpdate[] | undefined,
-  locations: TravelData['locations'],
-  routes: TravelData['routes']
-): TripUpdate[] => {
-  if (!updates) return [];
-  const allowedNames = new Set<string>();
-  locations.forEach(location => allowedNames.add(location.name));
-  routes.forEach(route => {
-    allowedNames.add(route.from);
-    allowedNames.add(route.to);
-  });
-  const names = Array.from(allowedNames).filter(Boolean);
-  if (names.length === 0) return [];
-  return updates.filter(update => names.some(name => update.message.includes(name)));
-};
 async function getTravelData(id: string, isAdmin: boolean = false): Promise<TravelData | null> {
   try {
     // Use unified API for both server and client side

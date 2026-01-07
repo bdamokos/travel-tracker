@@ -6,6 +6,7 @@ import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 import { getCurrentTripStatus } from '@/app/lib/currentTripStatus';
+import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 
 interface CalendarPageProps {
   params: Promise<{
@@ -131,23 +132,6 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
   return await loadUnifiedTripData(tripId);
 }
 
-const filterUpdatesForPublic = (
-  updates: NonNullable<Awaited<ReturnType<typeof loadUnifiedTripData>>>['publicUpdates'],
-  locations: Location[],
-  routes: Transportation[]
-) => {
-  if (!updates) return [];
-  const allowedNames = new Set<string>();
-  locations.forEach(location => allowedNames.add(location.name));
-  routes.forEach(route => {
-    allowedNames.add(route.from);
-    allowedNames.add(route.to);
-  });
-  const names = Array.from(allowedNames).filter(Boolean);
-  if (names.length === 0) return [];
-  return updates.filter(update => names.some(name => update.message.includes(name)));
-};
-
 export default async function TripCalendarPage({ params }: CalendarPageProps) {
   const { tripId } = await params;
   
@@ -218,13 +202,9 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
           </div>
         )}
 
-        <TripUpdates updates={updates} className="mb-6" currentStatus={currentStatus} />
-
-        <TripCalendar 
-          trip={displayTrip} 
-          planningMode={isAdmin}
-          className="w-full"
-        />
+        <TripCalendar trip={displayTrip} planningMode={isAdmin} className="w-full">
+          <TripUpdates updates={updates} className="mb-6" currentStatus={currentStatus} />
+        </TripCalendar>
         
         {/* Navigation back to map */}
         <div className="mt-8 text-center">
