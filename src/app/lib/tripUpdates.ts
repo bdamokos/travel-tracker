@@ -21,8 +21,8 @@ const toDayKey = (value: string | Date | undefined | null): string | null => {
 const getLocationRangeKey = (location: Location): string | null => {
   const startKey = toDayKey(location.date);
   const endKey = toDayKey(location.endDate ?? location.date);
-  if (!startKey && !endKey) return null;
-  return `${startKey ?? ''}|${endKey ?? ''}`;
+  if (!startKey || !endKey) return null;
+  return `${startKey}|${endKey}`;
 };
 
 const formatLocationRange = (location: Location): string => formatDateRange(location.date, location.endDate);
@@ -50,6 +50,10 @@ const resolveRouteTransport = (route: RouteLike): string => {
   if (!transport) return 'travel';
   return transport.toLowerCase();
 };
+
+const isPublicLocation = (location: Location): boolean => !location.notes?.includes('[PRIVATE]');
+
+const isPublicRoute = (route: Transportation): boolean => !route.privateNotes;
 
 const addPostUpdate = (
   updates: TripUpdate[],
@@ -79,7 +83,7 @@ export function buildTripUpdates(
     const nextLocationMap = new Map(incoming.locations.map(location => [location.id, location]));
 
     for (const location of incoming.locations) {
-      if (!previousLocationMap.has(location.id)) {
+      if (!previousLocationMap.has(location.id) && isPublicLocation(location)) {
         updates.push({
           id: createUpdateId(),
           createdAt,
@@ -89,7 +93,7 @@ export function buildTripUpdates(
     }
 
     for (const previousLocation of previousLocations) {
-      if (!nextLocationMap.has(previousLocation.id)) {
+      if (!nextLocationMap.has(previousLocation.id) && isPublicLocation(previousLocation)) {
         const range = formatLocationRange(previousLocation);
         updates.push({
           id: createUpdateId(),
@@ -107,7 +111,13 @@ export function buildTripUpdates(
 
       const previousRangeKey = getLocationRangeKey(previousLocation);
       const nextRangeKey = getLocationRangeKey(location);
-      if (previousRangeKey && nextRangeKey && previousRangeKey !== nextRangeKey) {
+      if (
+        previousRangeKey &&
+        nextRangeKey &&
+        previousRangeKey !== nextRangeKey &&
+        isPublicLocation(location) &&
+        isPublicLocation(previousLocation)
+      ) {
         const previousRange = formatLocationRange(previousLocation);
         const nextRange = formatLocationRange(location);
         if (previousRange && nextRange) {
@@ -119,46 +129,32 @@ export function buildTripUpdates(
         }
       }
 
-      const previousInstagramKeys = new Set(
-        (previousLocation.instagramPosts || [])
-          .map(getPostKey)
-          .filter((value): value is string => Boolean(value))
-      );
-      const newInstagramPosts = (location.instagramPosts || []).filter(post => {
-        const key = getPostKey(post);
-        return key ? !previousInstagramKeys.has(key) : false;
-      });
+      if (isPublicLocation(location)) {
+        const postConfigurations = [
+          { key: 'instagramPosts' as const, label: 'Instagram' as const },
+          { key: 'tikTokPosts' as const, label: 'TikTok' as const },
+          { key: 'blogPosts' as const, label: 'blog' as const },
+        ];
 
-      if (newInstagramPosts.length > 0) {
-        addPostUpdate(updates, location, 'Instagram', newInstagramPosts.length, createdAt);
-      }
+        for (const config of postConfigurations) {
+          const previousPosts = previousLocation[config.key];
+          const currentPosts = location[config.key];
 
-      const previousTikTokKeys = new Set(
-        (previousLocation.tikTokPosts || [])
-          .map(getPostKey)
-          .filter((value): value is string => Boolean(value))
-      );
-      const newTikTokPosts = (location.tikTokPosts || []).filter(post => {
-        const key = getPostKey(post);
-        return key ? !previousTikTokKeys.has(key) : false;
-      });
+          const previousPostKeys = new Set(
+            (previousPosts || [])
+              .map(getPostKey)
+              .filter((value): value is string => Boolean(value))
+          );
 
-      if (newTikTokPosts.length > 0) {
-        addPostUpdate(updates, location, 'TikTok', newTikTokPosts.length, createdAt);
-      }
+          const newPosts = (currentPosts || []).filter(post => {
+            const key = getPostKey(post);
+            return key ? !previousPostKeys.has(key) : false;
+          });
 
-      const previousBlogKeys = new Set(
-        (previousLocation.blogPosts || [])
-          .map(getPostKey)
-          .filter((value): value is string => Boolean(value))
-      );
-      const newBlogPosts = (location.blogPosts || []).filter(post => {
-        const key = getPostKey(post);
-        return key ? !previousBlogKeys.has(key) : false;
-      });
-
-      if (newBlogPosts.length > 0) {
-        addPostUpdate(updates, location, 'blog', newBlogPosts.length, createdAt);
+          if (newPosts.length > 0) {
+            addPostUpdate(updates, location, config.label, newPosts.length, createdAt);
+          }
+        }
       }
     }
   }
@@ -170,6 +166,7 @@ export function buildTripUpdates(
     for (const route of incoming.routes) {
       if (previousRouteMap.has(route.id)) continue;
       if (!route.from || !route.to) continue;
+      if (!isPublicRoute(route)) continue;
       const transport = resolveRouteTransport(route as RouteLike);
       updates.push({
         id: createUpdateId(),

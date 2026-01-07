@@ -5,6 +5,7 @@ import TripUpdates from '@/app/components/TripUpdates';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
+import { getCurrentTripStatus } from '@/app/lib/currentTripStatus';
 
 interface CalendarPageProps {
   params: Promise<{
@@ -130,6 +131,23 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
   return await loadUnifiedTripData(tripId);
 }
 
+const filterUpdatesForPublic = (
+  updates: NonNullable<Awaited<ReturnType<typeof loadUnifiedTripData>>>['publicUpdates'],
+  locations: Location[],
+  routes: Transportation[]
+) => {
+  if (!updates) return [];
+  const allowedNames = new Set<string>();
+  locations.forEach(location => allowedNames.add(location.name));
+  routes.forEach(route => {
+    allowedNames.add(route.from);
+    allowedNames.add(route.to);
+  });
+  const names = Array.from(allowedNames).filter(Boolean);
+  if (names.length === 0) return [];
+  return updates.filter(update => names.some(name => update.message.includes(name)));
+};
+
 export default async function TripCalendarPage({ params }: CalendarPageProps) {
   const { tripId } = await params;
   
@@ -170,6 +188,11 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
       })
     };
 
+    const updates = isAdmin
+      ? tripData.publicUpdates
+      : filterUpdatesForPublic(tripData.publicUpdates, displayTrip.locations, displayTrip.routes);
+    const currentStatus = getCurrentTripStatus(displayTrip.locations, displayTrip.routes);
+
     return (
       <div className="container mx-auto px-4 py-8">
         {/* Planning Mode Banner */}
@@ -195,7 +218,7 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
           </div>
         )}
 
-        <TripUpdates updates={tripData.publicUpdates} className="mb-6" />
+        <TripUpdates updates={updates} className="mb-6" currentStatus={currentStatus} />
 
         <TripCalendar 
           trip={displayTrip} 

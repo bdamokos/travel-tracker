@@ -241,7 +241,8 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
         routes: travelUpdates.routes as Transportation[] | undefined
       })
     : [];
-  const mergedUpdates = [...newUpdates, ...(baseData.publicUpdates || [])];
+  const MAX_STORED_UPDATES = 100;
+  const mergedUpdates = [...newUpdates, ...(baseData.publicUpdates || [])].slice(0, MAX_STORED_UPDATES);
 
   const updated: UnifiedTripData = {
     ...baseData,
@@ -308,12 +309,9 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
 
       const newAccommodations = travelUpdates.accommodations as Accommodation[] | undefined;
       return Array.isArray(newAccommodations) ? newAccommodations : [];
-    })()
+    })(),
+    publicUpdates: mergedUpdates
   };
-
-  if (mergedUpdates.length > 0) {
-    updated.publicUpdates = mergedUpdates;
-  }
 
   // Fix temp-location references in accommodations
   // This ensures that when locations are saved with accommodations, 
