@@ -55,6 +55,11 @@ const isPublicLocation = (location: Location): boolean => !location.notes?.inclu
 
 const isPublicRoute = (route: Transportation): boolean => !route.privateNotes;
 
+// Type guard for BlogPost
+const isBlogPost = (post: InstagramPost | TikTokPost | BlogPost): post is BlogPost => {
+  return 'title' in post && typeof post.title === 'string';
+};
+
 const addPostUpdate = (
   updates: TripUpdate[],
   location: Location,
@@ -67,8 +72,7 @@ const addPostUpdate = (
 
   // Extract links from posts
   const links: TripUpdateLink[] = posts.map(post => {
-    if ('title' in post) {
-      // BlogPost
+    if (isBlogPost(post)) {
       return { url: post.url, title: post.title };
     } else {
       // InstagramPost or TikTokPost

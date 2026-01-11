@@ -44,6 +44,16 @@ const getCookieValue = (name: string): string | null => {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : null;
 };
 
+// Validate URL to prevent XSS attacks (javascript: URLs)
+const isValidHttpUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export default function TripUpdates({ updates = [], className = '', currentStatus }: TripUpdatesProps) {
   const [expanded, setExpanded] = useState(false);
   const visibleUpdates = useMemo(() => {
@@ -117,20 +127,22 @@ export default function TripUpdates({ updates = [], className = '', currentStatu
                 {update.links && update.links.length > 0 && (
                   <>
                     {' '}
-                    {update.links.map((link, index) => (
-                      <span key={index}>
-                        {index > 0 && ', '}
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
-                          title={link.title || link.url}
-                        >
-                          {link.title || 'View post'}
-                        </a>
-                      </span>
-                    ))}
+                    {update.links
+                      .filter(link => isValidHttpUrl(link.url))
+                      .map((link, index) => (
+                        <span key={`${update.id}-link-${index}`}>
+                          {index > 0 && ', '}
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                            title={link.title || link.url}
+                          >
+                            {link.title || 'View post'}
+                          </a>
+                        </span>
+                      ))}
                   </>
                 )}
               </span>
