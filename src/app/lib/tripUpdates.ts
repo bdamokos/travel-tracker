@@ -1,5 +1,5 @@
 import { formatDateRange, normalizeUtcDateToLocalDay } from './dateUtils';
-import { Location, Transportation, TripUpdate, TripUpdateLink, InstagramPost, TikTokPost, BlogPost } from '../types';
+import { Location, Transportation, TripUpdate, TripUpdateLink, InstagramPost, TikTokPost, BlogPost } from '@/app/types';
 import { UnifiedTripData } from './dataMigration';
 
 type RouteLike = Transportation & { transportType?: string };
@@ -85,7 +85,11 @@ const addPostUpdate = (
     .filter(post => isValidHttpUrl(post.url))
     .map(post => {
       if (isBlogPost(post)) {
-        return { url: post.url, title: post.title };
+        // Truncate blog titles to 80 chars for UI consistency
+        const truncatedTitle = post.title.length > 80
+          ? post.title.substring(0, 77) + '...'
+          : post.title;
+        return { url: post.url, title: truncatedTitle };
       } else {
         // InstagramPost or TikTokPost
         const caption = post.caption;
