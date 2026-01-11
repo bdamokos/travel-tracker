@@ -60,6 +60,16 @@ const isBlogPost = (post: InstagramPost | TikTokPost | BlogPost): post is BlogPo
   return 'title' in post && typeof post.title === 'string';
 };
 
+// Validate URL to prevent XSS attacks - only allow http(s) protocols
+const isValidHttpUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 const addPostUpdate = (
   updates: TripUpdate[],
   location: Location,
@@ -70,22 +80,28 @@ const addPostUpdate = (
   const count = posts.length;
   const noun = count === 1 ? 'post' : 'posts';
 
-  // Extract links from posts
-  const links: TripUpdateLink[] = posts.map(post => {
-    if (isBlogPost(post)) {
-      return { url: post.url, title: post.title };
-    } else {
-      // InstagramPost or TikTokPost
-      const caption = post.caption;
-      if (!caption) {
-        return { url: post.url };
+  // Extract links from posts, validating URLs to prevent XSS
+  const links: TripUpdateLink[] = posts
+    .filter(post => isValidHttpUrl(post.url))
+    .map(post => {
+      if (isBlogPost(post)) {
+        return { url: post.url, title: post.title };
+      } else {
+        // InstagramPost or TikTokPost
+        const caption = post.caption;
+        if (!caption) {
+          return { url: post.url };
+        }
+        // Use the first line of the caption, truncated to 80 chars, for a cleaner UI.
+        const firstLine = caption.split('\n')[0].trim();
+        // Fall back to url-only if firstLine is empty after trimming
+        if (!firstLine) {
+          return { url: post.url };
+        }
+        const truncatedTitle = firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine;
+        return { url: post.url, title: truncatedTitle };
       }
-      // Use the first line of the caption, truncated to 80 chars, for a cleaner UI.
-      const firstLine = caption.split('\n')[0];
-      const truncatedTitle = firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine;
-      return { url: post.url, title: truncatedTitle };
-    }
-  });
+    });
 
   updates.push({
     id: createUpdateId(),
