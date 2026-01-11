@@ -6,11 +6,17 @@ export type BlogPost = {
   excerpt?: string;
 };
 
+export type TripUpdateLink = {
+  url: string;
+  title?: string;
+};
+
 export type TripUpdate = {
   id: string;
   createdAt: string | Date;
   message: string;
   kind?: 'auto' | 'manual';
+  links?: TripUpdateLink[];
 };
 
 // Cost tracking integration

@@ -112,7 +112,28 @@ export default function TripUpdates({ updates = [], className = '', currentStatu
                 {formatUtcDate(update.createdAt)}
               </span>
               <span className="text-gray-500 dark:text-gray-400">•</span>
-              <span>{update.message}</span>
+              <span>
+                {update.message}
+                {update.links && update.links.length > 0 && (
+                  <>
+                    {' '}
+                    {update.links.map((link, index) => (
+                      <span key={index}>
+                        {index > 0 && ', '}
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                          title={link.title || link.url}
+                        >
+                          {link.title || 'View post'}
+                        </a>
+                      </span>
+                    ))}
+                  </>
+                )}
+              </span>
             </li>
           ))}
         </ul>

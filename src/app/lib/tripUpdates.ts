@@ -1,5 +1,5 @@
 import { formatDateRange, normalizeUtcDateToLocalDay } from './dateUtils';
-import { Location, Transportation, TripUpdate } from '../types';
+import { Location, Transportation, TripUpdate, TripUpdateLink, InstagramPost, TikTokPost, BlogPost } from '../types';
 import { UnifiedTripData } from './dataMigration';
 
 type RouteLike = Transportation & { transportType?: string };
@@ -59,14 +59,28 @@ const addPostUpdate = (
   updates: TripUpdate[],
   location: Location,
   label: string,
-  count: number,
+  posts: (InstagramPost | TikTokPost | BlogPost)[],
   createdAt: string
 ) => {
+  const count = posts.length;
   const noun = count === 1 ? 'post' : 'posts';
+
+  // Extract links from posts
+  const links: TripUpdateLink[] = posts.map(post => {
+    if ('title' in post) {
+      // BlogPost
+      return { url: post.url, title: post.title };
+    } else {
+      // InstagramPost or TikTokPost
+      return { url: post.url, title: post.caption };
+    }
+  });
+
   updates.push({
     id: createUpdateId(),
     createdAt,
-    message: `New ${label} ${noun} added to the ${formatVisitReference(location)}.`
+    message: `New ${label} ${noun} added to the ${formatVisitReference(location)}.`,
+    links
   });
 };
 
@@ -152,7 +166,7 @@ export function buildTripUpdates(
           });
 
           if (newPosts.length > 0) {
-            addPostUpdate(updates, location, config.label, newPosts.length, createdAt);
+            addPostUpdate(updates, location, config.label, newPosts, createdAt);
           }
         }
       }
