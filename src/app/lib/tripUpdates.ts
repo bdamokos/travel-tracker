@@ -72,7 +72,14 @@ const addPostUpdate = (
       return { url: post.url, title: post.title };
     } else {
       // InstagramPost or TikTokPost
-      return { url: post.url, title: post.caption };
+      const caption = post.caption;
+      if (!caption) {
+        return { url: post.url };
+      }
+      // Use the first line of the caption, truncated to 80 chars, for a cleaner UI.
+      const firstLine = caption.split('\n')[0];
+      const truncatedTitle = firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine;
+      return { url: post.url, title: truncatedTitle };
     }
   });
 
