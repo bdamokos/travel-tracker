@@ -61,3 +61,5 @@ else
 fi
 
 echo "Worktree ready at ${target_dir}"
+echo "Switched to worktree: ${target_dir}"
+cd "$target_dir"
