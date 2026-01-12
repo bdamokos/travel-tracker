@@ -18,6 +18,9 @@ interface CalendarDayCellProps {
   locationColors: Map<string, string>;
 }
 
+const isShadowLocationName = (location?: Location | null) =>
+  location?.name.startsWith(SHADOW_LOCATION_PREFIX);
+
 export default function CalendarDayCell({
   cell,
   isSelected,
@@ -48,7 +51,7 @@ export default function CalendarDayCell({
   }
 
   // Check if this is a shadow location
-  const isShadowLocation = day.primaryLocation?.name.startsWith(SHADOW_LOCATION_PREFIX) || day.secondaryLocation?.name.startsWith(SHADOW_LOCATION_PREFIX);
+  const isShadowLocation = isShadowLocationName(day.primaryLocation) || isShadowLocationName(day.secondaryLocation);
 
   const baseClasses = `
     h-20 min-h-20 border border-gray-200 cursor-pointer relative overflow-hidden
