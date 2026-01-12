@@ -1,16 +1,25 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Expense, Location } from '@/app/types';
 import { formatCurrency } from '@/app/lib/costUtils';
+import { calculateDurationInDays } from '@/app/lib/durationUtils';
 import { LocationExpenseTotal } from '@/app/lib/expenseTravelLookup';
+
+type LeaderboardBreakdownItem = {
+  label: string;
+  count: number;
+  total: number;
+};
 
 type LeaderboardEntry = {
   key: string;
   label: string;
   count: number;
   total: number;
-  countries: Array<{ country: string; count: number; total: number }>;
+  breakdowns: LeaderboardBreakdownItem[];
+  days?: number;
+  perDayTotal?: number;
 };
 
 interface ExpenseLeaderboardsProps {
@@ -27,9 +36,21 @@ interface LeaderboardSectionProps {
   entries: LeaderboardEntry[];
   currency: string;
   minimumMentions: number;
+  breakdownTitle?: string;
+  emptyBreakdownMessage?: string;
+  emptySelectionMessage?: string;
+  headerExtras?: React.ReactNode;
+  getTotalValue?: (entry: LeaderboardEntry) => number;
+  getBreakdownTotal?: (entry: LeaderboardEntry, breakdown: LeaderboardBreakdownItem) => number;
+  mostExpensesTitle?: string;
+  highestCostTitle?: string;
 }
 
 const DEFAULT_MINIMUM_MENTIONS = 3;
+const LOCATION_COST_OPTIONS = [
+  { key: 'total' as const, label: 'Total' },
+  { key: 'perDay' as const, label: 'Per day' }
+];
 
 const normalizeLabel = (value: string): string => value.trim().toLowerCase();
 
@@ -43,7 +64,7 @@ const buildLeaderboardEntries = (
       label: string;
       count: number;
       total: number;
-      countries: Map<string, { country: string; count: number; total: number }>;
+      breakdowns: Map<string, LeaderboardBreakdownItem>;
     }
   >();
 
@@ -59,21 +80,21 @@ const buildLeaderboardEntries = (
       label: trimmed,
       count: 0,
       total: 0,
-      countries: new Map()
+      breakdowns: new Map()
     };
 
     existing.count += 1;
     existing.total += expense.amount;
 
-    const countryEntry = existing.countries.get(country) ?? {
-      country,
+    const breakdownEntry = existing.breakdowns.get(country) ?? {
+      label: country,
       count: 0,
       total: 0
     };
 
-    countryEntry.count += 1;
-    countryEntry.total += expense.amount;
-    existing.countries.set(country, countryEntry);
+    breakdownEntry.count += 1;
+    breakdownEntry.total += expense.amount;
+    existing.breakdowns.set(country, breakdownEntry);
 
     groups.set(key, existing);
   });
@@ -83,8 +104,20 @@ const buildLeaderboardEntries = (
     label: value.label,
     count: value.count,
     total: value.total,
-    countries: Array.from(value.countries.values()).sort((a, b) => b.total - a.total)
+    breakdowns: Array.from(value.breakdowns.values()).sort((a, b) => b.total - a.total)
   }));
+};
+
+const getLocationDays = (location: Location): number => {
+  if (location.duration && location.duration > 0) {
+    return location.duration;
+  }
+
+  if (location.date && location.endDate) {
+    return calculateDurationInDays(location.date, location.endDate);
+  }
+
+  return 1;
 };
 
 const buildLocationEntries = (
@@ -95,33 +128,58 @@ const buildLocationEntries = (
     .filter(location => locationTotals[location.id])
     .map(location => {
       const total = locationTotals[location.id];
+      const days = getLocationDays(location);
+      const perDayTotal = days > 0 ? total.amount / days : total.amount;
+      const breakdowns = total.categories
+        ? Object.values(total.categories)
+            .sort((a, b) => b.amount - a.amount)
+            .map(category => ({
+              label: category.category,
+              count: category.count,
+              total: category.amount
+            }))
+        : [];
       return {
         key: location.id,
         label: location.name || 'Unnamed location',
         count: total.count,
         total: total.amount,
-        countries: []
+        breakdowns,
+        days,
+        perDayTotal
       };
     });
 
-const sortByCount = (entries: LeaderboardEntry[]) =>
-  [...entries].sort((a, b) => b.count - a.count || b.total - a.total || a.label.localeCompare(b.label));
+const sortByCount = (
+  entries: LeaderboardEntry[],
+  getTotalValue: (entry: LeaderboardEntry) => number = entry => entry.total
+) =>
+  [...entries].sort(
+    (a, b) => b.count - a.count || getTotalValue(b) - getTotalValue(a) || a.label.localeCompare(b.label)
+  );
 
-const sortByTotal = (entries: LeaderboardEntry[]) =>
-  [...entries].sort((a, b) => b.total - a.total || b.count - a.count || a.label.localeCompare(b.label));
+const sortByTotal = (
+  entries: LeaderboardEntry[],
+  getTotalValue: (entry: LeaderboardEntry) => number = entry => entry.total
+) =>
+  [...entries].sort(
+    (a, b) => getTotalValue(b) - getTotalValue(a) || b.count - a.count || a.label.localeCompare(b.label)
+  );
 
 const LeaderboardList = ({
   title,
   entries,
   currency,
   selectedKey,
-  onSelect
+  onSelect,
+  getTotalValue = entry => entry.total
 }: {
   title: string;
   entries: LeaderboardEntry[];
   currency: string;
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  getTotalValue?: (entry: LeaderboardEntry) => number;
 }) => (
   <div className="space-y-3 rounded-md border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
     <div className="flex items-center justify-between">
@@ -142,10 +200,10 @@ const LeaderboardList = ({
         >
           <div>
             <div className="font-medium">{entry.label}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">{entry.count} mentions</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{entry.count} expenses</div>
           </div>
           <div className="text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
-            {formatCurrency(entry.total, currency)}
+            {formatCurrency(getTotalValue(entry), currency)}
           </div>
         </button>
       ))}
@@ -161,7 +219,15 @@ const LeaderboardSection = ({
   description,
   entries,
   currency,
-  minimumMentions
+  minimumMentions,
+  breakdownTitle = 'Country Breakdown',
+  emptyBreakdownMessage = 'No country breakdown available.',
+  emptySelectionMessage = 'Select an entry to see the country split.',
+  headerExtras,
+  getTotalValue = entry => entry.total,
+  getBreakdownTotal = (_entry, breakdown) => breakdown.total,
+  mostExpensesTitle = 'Most Expenses',
+  highestCostTitle = 'Highest Cost'
 }: LeaderboardSectionProps) => {
   const filteredEntries = useMemo(
     () => entries.filter(entry => entry.count >= minimumMentions),
@@ -172,8 +238,8 @@ const LeaderboardSection = ({
 
   const selectedEntry = filteredEntries.find(entry => entry.key === selectedKey) ?? filteredEntries[0];
 
-  const countSorted = useMemo(() => sortByCount(filteredEntries), [filteredEntries]);
-  const totalSorted = useMemo(() => sortByTotal(filteredEntries), [filteredEntries]);
+  const countSorted = useMemo(() => sortByCount(filteredEntries, getTotalValue), [filteredEntries, getTotalValue]);
+  const totalSorted = useMemo(() => sortByTotal(filteredEntries, getTotalValue), [filteredEntries, getTotalValue]);
 
   return (
     <section className="space-y-4">
@@ -181,52 +247,57 @@ const LeaderboardSection = ({
         <h5 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h5>
         <p className="text-sm text-gray-600 dark:text-gray-300">{description}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Showing entries with at least {minimumMentions} mentions.
+          Showing entries with at least {minimumMentions} expenses.
         </p>
+        {headerExtras && <div className="mt-3">{headerExtras}</div>}
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LeaderboardList
-              title="Most Mentioned"
+              title={mostExpensesTitle}
               entries={countSorted}
               currency={currency}
               selectedKey={selectedEntry?.key ?? null}
               onSelect={setSelectedKey}
+              getTotalValue={getTotalValue}
             />
             <LeaderboardList
-              title="Highest Cost"
+              title={highestCostTitle}
               entries={totalSorted}
               currency={currency}
               selectedKey={selectedEntry?.key ?? null}
               onSelect={setSelectedKey}
+              getTotalValue={getTotalValue}
             />
           </div>
         </div>
         <div className="rounded-md border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h6 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Country Breakdown</h6>
+          <h6 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{breakdownTitle}</h6>
           {selectedEntry ? (
             <div className="mt-3 space-y-2 text-sm">
               <div className="font-medium text-gray-900 dark:text-gray-100">{selectedEntry.label}</div>
-              {selectedEntry.countries.length > 0 ? (
-                selectedEntry.countries.map(country => (
-                  <div key={country.country} className="flex items-center justify-between text-gray-700 dark:text-gray-200">
+              {selectedEntry.breakdowns.length > 0 ? (
+                selectedEntry.breakdowns.map(breakdown => (
+                  <div key={breakdown.label} className="flex items-center justify-between text-gray-700 dark:text-gray-200">
                     <div>
-                      {country.country}
+                      {breakdown.label}
                       <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                        {country.count} mention{country.count === 1 ? '' : 's'}
+                        {breakdown.count} expense{breakdown.count === 1 ? '' : 's'}
                       </span>
                     </div>
-                    <div className="font-semibold">{formatCurrency(country.total, currency)}</div>
+                    <div className="font-semibold">
+                      {formatCurrency(getBreakdownTotal(selectedEntry, breakdown), currency)}
+                    </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No country breakdown available.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{emptyBreakdownMessage}</p>
               )}
             </div>
           ) : (
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Select an entry to see the country split.
+              {emptySelectionMessage}
             </p>
           )}
         </div>
@@ -242,6 +313,8 @@ export default function ExpenseLeaderboards({
   locationTotals,
   locations
 }: ExpenseLeaderboardsProps) {
+  const [locationCostMode, setLocationCostMode] = useState<'total' | 'perDay'>('total');
+
   const descriptionEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.description),
     [expenses]
@@ -251,12 +324,57 @@ export default function ExpenseLeaderboards({
     [expenses]
   );
   const locationEntries = useMemo(() => {
-    if (!locationTotals || !locations || locations.length === 0) {
+    if (!locationTotals || !locations) {
       return [];
     }
 
     return buildLocationEntries(locationTotals, locations);
   }, [locationTotals, locations]);
+
+  const locationTotalValue = useCallback(
+    (entry: LeaderboardEntry) =>
+      locationCostMode === 'perDay' ? entry.perDayTotal ?? entry.total : entry.total,
+    [locationCostMode]
+  );
+
+  const locationBreakdownTotal = useCallback(
+    (entry: LeaderboardEntry, breakdown: LeaderboardBreakdownItem) => {
+      if (locationCostMode === 'perDay' && entry.days && entry.days > 0) {
+        return breakdown.total / entry.days;
+      }
+      return breakdown.total;
+    },
+    [locationCostMode]
+  );
+
+  const locationHighestCostTitle = locationCostMode === 'perDay' ? 'Highest Cost/Day' : 'Highest Cost';
+
+  const locationHeaderExtras = (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+      <span className="font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cost view</span>
+      <div
+        role="group"
+        aria-label="Cost view mode"
+        className="inline-flex rounded-full border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-800"
+      >
+        {LOCATION_COST_OPTIONS.map(option => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setLocationCostMode(option.key)}
+            aria-pressed={locationCostMode === option.key}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              locationCostMode === option.key
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-8">
@@ -277,10 +395,17 @@ export default function ExpenseLeaderboards({
       {locationEntries.length > 0 && (
         <LeaderboardSection
           title="Top Locations by Spend"
-          description="Compare linked expenses by location to spot the biggest spenders."
+          description="Compare linked expenses by location to spot the biggest spenders or switch to per-day rates."
           entries={locationEntries}
           currency={currency}
           minimumMentions={1}
+          breakdownTitle="Category Breakdown"
+          emptyBreakdownMessage="No category breakdown available."
+          emptySelectionMessage="Select an entry to see the category split."
+          headerExtras={locationHeaderExtras}
+          getTotalValue={locationTotalValue}
+          getBreakdownTotal={locationBreakdownTotal}
+          highestCostTitle={locationHighestCostTitle}
         />
       )}
     </div>
