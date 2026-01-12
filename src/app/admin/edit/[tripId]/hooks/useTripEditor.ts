@@ -745,9 +745,9 @@ export function useTripEditor(tripId: string | null) {
     }
   };
 
-  const geocodeLocation = useCallback(async (locationName: string): Promise<[number, number] | null> => {
+  const geocodeLocation = useCallback(async (locationName: string): Promise<[number, number]> => {
     const result = await geocodeLocationService(locationName);
-    return result;
+    return result ?? [0, 0];
   }, []);
 
   // Wrapper functions for imported utilities
