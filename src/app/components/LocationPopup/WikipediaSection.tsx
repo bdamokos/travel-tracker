@@ -6,19 +6,16 @@
 'use client';
 
 import React from 'react';
-import { Location } from '@/app/types';
 import { StoredWikipediaData } from '@/app/types/wikipedia';
 import WikipediaAttribution from './WikipediaAttribution';
 
 interface WikipediaSectionProps {
-  location: Location;
   wikipediaData: StoredWikipediaData | null;
   loading: boolean;
   error: string | null;
 }
 
 export default function WikipediaSection({
-  
   wikipediaData,
   loading,
   error
