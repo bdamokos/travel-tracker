@@ -51,4 +51,11 @@ else
   echo "No .env found to copy from ${source_env}"
 fi
 
+if command -v bun >/dev/null 2>&1; then
+  echo "Installing dependencies in ${target_dir}"
+  bun install --cwd "$target_dir"
+else
+  echo "Bun not found; skipping dependency install."
+fi
+
 echo "Worktree ready at ${target_dir}"
