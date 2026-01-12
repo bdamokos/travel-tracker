@@ -3,15 +3,33 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TripUpdate } from '../types';
 import { formatUtcDate } from '../lib/dateUtils';
+import { getCurrentTripStatus } from '../lib/currentTripStatus';
 
 const MAX_UPDATES = 10;
 const MAX_DAYS = 30;
 const COOKIE_NAME = 'tt_updates_seen';
 
+type LocationTiming = {
+  name: string;
+  date: string | Date;
+  endDate?: string | Date;
+  notes?: string;
+};
+
+type RouteTiming = {
+  from: string;
+  to: string;
+  date?: string | Date;
+  departureTime?: string | Date;
+  arrivalTime?: string | Date;
+};
+
 type TripUpdatesProps = {
   updates?: TripUpdate[];
   className?: string;
   currentStatus?: string | null;
+  locations?: LocationTiming[];
+  routes?: RouteTiming[];
 };
 
 const getUpdateDate = (update: TripUpdate): Date | null => {
@@ -54,7 +72,7 @@ const isValidHttpUrl = (url: string): boolean => {
   }
 };
 
-export default function TripUpdates({ updates = [], className = '', currentStatus }: TripUpdatesProps) {
+export default function TripUpdates({ updates = [], className = '', currentStatus, locations, routes }: TripUpdatesProps) {
   const [expanded, setExpanded] = useState(false);
   const visibleUpdates = useMemo(() => {
     const now = new Date();
@@ -85,16 +103,21 @@ export default function TripUpdates({ updates = [], className = '', currentStatu
   }, [latestUpdateDate]);
 
   const updateItems = useMemo(() => {
-    if (!currentStatus) return visibleUpdates;
+    // Calculate current status on client-side if locations and routes are provided
+    const clientStatus = locations && routes
+      ? getCurrentTripStatus(locations, routes, new Date())
+      : currentStatus;
+
+    if (!clientStatus) return visibleUpdates;
     return [
       {
         id: 'current-status',
         createdAt: new Date().toISOString(),
-        message: currentStatus
+        message: clientStatus
       },
       ...visibleUpdates
     ];
-  }, [currentStatus, visibleUpdates]);
+  }, [currentStatus, locations, routes, visibleUpdates]);
 
   if (updateItems.length === 0) {
     return null;

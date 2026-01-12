@@ -8,7 +8,6 @@ import { Location, Transportation, TripUpdate } from '../../types';
 import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
 import TripUpdates from '../../components/TripUpdates';
-import { getCurrentTripStatus } from '../../lib/currentTripStatus';
 import { filterUpdatesForPublic } from '../../lib/updateFilters';
 // import NextStepsCard from '../../components/NextStepsCard';
 
@@ -245,7 +244,6 @@ export default async function MapPage({ params }: {
   const updates = isAdmin
     ? travelData.publicUpdates
     : filterUpdatesForPublic(travelData.publicUpdates, travelData.locations, travelData.routes);
-  const currentStatus = getCurrentTripStatus(travelData.locations, travelData.routes);
   
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
@@ -298,7 +296,12 @@ export default async function MapPage({ params }: {
           </div>
         </header>
 
-        <TripUpdates updates={updates} className="mb-6" currentStatus={currentStatus} />
+        <TripUpdates
+          updates={updates}
+          className="mb-6"
+          locations={travelData.locations}
+          routes={travelData.routes}
+        />
 
         {/* Next steps summary */}
         {/* <div className="mb-6">
