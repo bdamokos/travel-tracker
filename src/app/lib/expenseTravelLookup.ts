@@ -29,11 +29,18 @@ export interface TripData {
   };
 }
 
+export type LocationExpenseCategoryTotal = {
+  category: string;
+  count: number;
+  amount: number;
+};
+
 export type LocationExpenseTotal = {
   amount: number;
   currency: string;
   unconverted?: Record<string, number>;
   count: number;
+  categories?: Record<string, LocationExpenseCategoryTotal>;
 };
 
 export class ExpenseTravelLookup {
@@ -263,6 +270,23 @@ export function calculateExpenseTotalsByLocation({
 
   const totals: Record<string, LocationExpenseTotal> = {};
 
+  const updateCategoryTotals = (
+    currentTotal: LocationExpenseTotal,
+    category: string,
+    amount: number
+  ): LocationExpenseTotal => {
+    const categories = { ...(currentTotal.categories ?? {}) };
+    const existing = categories[category] ?? { category, count: 0, amount: 0 };
+
+    categories[category] = {
+      category,
+      count: existing.count + 1,
+      amount: existing.amount + amount
+    };
+
+    return { ...currentTotal, categories };
+  };
+
   expenses.forEach(expense => {
     const link = travelLookup.getTravelLinkForExpense(expense.id);
     if (!link) {
@@ -281,21 +305,24 @@ export function calculateExpenseTotalsByLocation({
     }
 
     const expenseCurrency = expense.currency || trackingCurrency;
+    const category = expense.category?.trim() || 'Uncategorized';
     const currentTotal = totals[locationId] ?? { amount: 0, currency: trackingCurrency, count: 0 };
     const nextTotal = { ...currentTotal, count: currentTotal.count + 1 };
 
     if (expense.cashTransaction?.kind === 'allocation') {
+      const amount = expense.cashTransaction.baseAmount;
       totals[locationId] = {
-        ...nextTotal,
-        amount: nextTotal.amount + expense.cashTransaction.baseAmount
+        ...updateCategoryTotals(nextTotal, category, amount),
+        amount: nextTotal.amount + amount
       };
       return;
     }
 
     if (expense.cashTransaction?.kind === 'source') {
+      const amount = expense.amount || 0;
       totals[locationId] = {
-        ...nextTotal,
-        amount: nextTotal.amount + (expense.amount || 0)
+        ...updateCategoryTotals(nextTotal, category, amount),
+        amount: nextTotal.amount + amount
       };
       return;
     }
@@ -311,9 +338,10 @@ export function calculateExpenseTotalsByLocation({
       return;
     }
 
+    const amount = expense.amount || 0;
     totals[locationId] = {
-      ...nextTotal,
-      amount: nextTotal.amount + (expense.amount || 0)
+      ...updateCategoryTotals(nextTotal, category, amount),
+      amount: nextTotal.amount + amount
     };
   });
 
