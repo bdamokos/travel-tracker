@@ -287,6 +287,18 @@ export function calculateExpenseTotalsByLocation({
     return { ...currentTotal, categories };
   };
 
+  const applyTrackedAmount = (
+    locationId: string,
+    nextTotal: LocationExpenseTotal,
+    category: string,
+    amount: number
+  ) => {
+    totals[locationId] = {
+      ...updateCategoryTotals(nextTotal, category, amount),
+      amount: nextTotal.amount + amount
+    };
+  };
+
   expenses.forEach(expense => {
     const link = travelLookup.getTravelLinkForExpense(expense.id);
     if (!link) {
@@ -311,25 +323,19 @@ export function calculateExpenseTotalsByLocation({
 
     if (expense.cashTransaction?.kind === 'allocation') {
       const amount = expense.cashTransaction.baseAmount;
-      totals[locationId] = {
-        ...updateCategoryTotals(nextTotal, category, amount),
-        amount: nextTotal.amount + amount
-      };
+      applyTrackedAmount(locationId, nextTotal, category, amount);
       return;
     }
 
     if (expense.cashTransaction?.kind === 'source') {
       const amount = expense.amount || 0;
-      totals[locationId] = {
-        ...updateCategoryTotals(nextTotal, category, amount),
-        amount: nextTotal.amount + amount
-      };
+      applyTrackedAmount(locationId, nextTotal, category, amount);
       return;
     }
 
     if (expenseCurrency !== trackingCurrency) {
       totals[locationId] = {
-        ...nextTotal,
+        ...updateCategoryTotals(nextTotal, category, 0),
         unconverted: {
           ...(nextTotal.unconverted || {}),
           [expenseCurrency]: (nextTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
@@ -339,10 +345,7 @@ export function calculateExpenseTotalsByLocation({
     }
 
     const amount = expense.amount || 0;
-    totals[locationId] = {
-      ...updateCategoryTotals(nextTotal, category, amount),
-      amount: nextTotal.amount + amount
-    };
+    applyTrackedAmount(locationId, nextTotal, category, amount);
   });
 
   return totals;

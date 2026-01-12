@@ -47,6 +47,10 @@ interface LeaderboardSectionProps {
 }
 
 const DEFAULT_MINIMUM_MENTIONS = 3;
+const LOCATION_COST_OPTIONS = [
+  { key: 'total' as const, label: 'Total' },
+  { key: 'perDay' as const, label: 'Per day' }
+];
 
 const normalizeLabel = (value: string): string => value.trim().toLowerCase();
 
@@ -320,7 +324,7 @@ export default function ExpenseLeaderboards({
     [expenses]
   );
   const locationEntries = useMemo(() => {
-    if (!locationTotals || !locations || locations.length === 0) {
+    if (!locationTotals || !locations) {
       return [];
     }
 
@@ -343,22 +347,22 @@ export default function ExpenseLeaderboards({
     [locationCostMode]
   );
 
-  const locationCostOptions = [
-    { key: 'total' as const, label: 'Total' },
-    { key: 'perDay' as const, label: 'Per day' }
-  ];
-
   const locationHighestCostTitle = locationCostMode === 'perDay' ? 'Highest Cost/Day' : 'Highest Cost';
 
   const locationHeaderExtras = (
     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
       <span className="font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cost view</span>
-      <div className="inline-flex rounded-full border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-800">
-        {locationCostOptions.map(option => (
+      <div
+        role="group"
+        aria-label="Cost view mode"
+        className="inline-flex rounded-full border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-800"
+      >
+        {LOCATION_COST_OPTIONS.map(option => (
           <button
             key={option.key}
             type="button"
             onClick={() => setLocationCostMode(option.key)}
+            aria-pressed={locationCostMode === option.key}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
               locationCostMode === option.key
                 ? 'bg-blue-600 text-white shadow-sm'
