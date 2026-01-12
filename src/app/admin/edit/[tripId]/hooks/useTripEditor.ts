@@ -747,8 +747,12 @@ export function useTripEditor(tripId: string | null) {
 
   const geocodeLocation = useCallback(async (locationName: string): Promise<[number, number]> => {
     const result = await geocodeLocationService(locationName);
-    return result ?? [0, 0];
-  }, []);
+    if (!result) {
+      showNotification(`Could not find coordinates for "${locationName}". Please enter them manually.`, 'error');
+      return [0, 0];
+    }
+    return result;
+  }, [showNotification]);
 
   // Wrapper functions for imported utilities
   const getMapUrlWrapper = (tripId: string) => getMapUrl(tripId);
