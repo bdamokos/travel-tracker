@@ -12,9 +12,6 @@ import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 export { SHADOW_LOCATION_PREFIX };
 
-/** Prefix used for shadow planning locations throughout the app */
-export const SHADOW_LOCATION_PREFIX = '🔮';
-
 type ShadowRoutePayload = {
   id?: string;
   from?: string;
