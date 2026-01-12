@@ -99,6 +99,23 @@ export async function GET(
             }
           });
         }
+
+        route.subRoutes?.forEach(segment => {
+          if (segment.costTrackingLinks) {
+            segment.costTrackingLinks.forEach(link => {
+              if (validExpenseIds.has(link.expenseId)) {
+                expenseLinks.push({
+                  expenseId: link.expenseId,
+                  travelItemId: segment.id,
+                  travelItemName: `${segment.from} → ${segment.to}`,
+                  travelItemType: 'route',
+                  description: link.description
+                });
+                processedExpenseIds.add(link.expenseId);
+              }
+            });
+          }
+        });
       });
     }
 
@@ -131,9 +148,17 @@ export async function GET(
             }
           } else if (travelRef.type === 'route' && travelRef.routeId) {
             const route = tripData.travelData?.routes?.find(r => r.id === travelRef.routeId);
+            const subRoute = tripData.travelData?.routes
+              ?.flatMap(r => r.subRoutes || [])
+              .find(segment => segment.id === travelRef.routeId);
+
             if (route) {
               travelItemId = route.id;
               travelItemName = `${route.from} → ${route.to}`;
+              travelItemType = 'route';
+            } else if (subRoute) {
+              travelItemId = subRoute.id;
+              travelItemName = `${subRoute.from} → ${subRoute.to}`;
               travelItemType = 'route';
             }
           }

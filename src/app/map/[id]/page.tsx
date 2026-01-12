@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 // import { getEmbedUrl } from '../../lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
-import { Location, Transportation, TripUpdate } from '../../types';
+import { Location, Transportation, TripUpdate, MapRouteSegment } from '../../types';
 import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
 import TripUpdates from '../../components/TripUpdates';
@@ -41,21 +41,44 @@ interface TravelData {
       excerpt?: string;
     }>;
   }>;
-  routes: Array<{
-    id: string;
-    from: string;
-    to: string;
-    fromCoords: [number, number];
-    toCoords: [number, number];
-    transportType: string;
-    date: string;
-    duration?: string;
-    notes?: string;
-    routePoints?: [number, number][]; // Pre-generated route points for better performance
-  }>;
+  routes: MapRouteSegment[];
   createdAt: string;
   publicUpdates?: TripUpdate[];
 }
+
+const toRouteSegment = (route: Transportation): MapRouteSegment => {
+  const fromCoords = (route as Transportation & { fromCoords?: [number, number] }).fromCoords || route.fromCoordinates;
+  const toCoords = (route as Transportation & { toCoords?: [number, number] }).toCoords || route.toCoordinates;
+
+  if (!fromCoords || !toCoords) {
+    console.warn(`[toRouteSegment] Missing coordinates for route ${route.id}`);
+  }
+
+  return {
+    id: route.id,
+    from: route.from,
+    to: route.to,
+    fromCoords: fromCoords || [0, 0],
+    toCoords: toCoords || [0, 0],
+    transportType: route.type,
+    date: route.departureTime || '',
+    duration: '',
+    notes: route.privateNotes || '',
+    routePoints: route.routePoints,
+    subRoutes: route.subRoutes?.map(segment => ({
+      id: segment.id,
+      from: segment.from,
+      to: segment.to,
+      fromCoords: segment.fromCoordinates || [0, 0],
+      toCoords: segment.toCoordinates || [0, 0],
+      transportType: segment.type,
+      date: segment.departureTime || '',
+      duration: '',
+      notes: segment.privateNotes || '',
+      routePoints: segment.routePoints
+    }))
+  };
+};
 async function getTravelData(id: string, isAdmin: boolean = false): Promise<TravelData | null> {
   try {
     // Use unified API for both server and client side
@@ -160,30 +183,20 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
             ],
             // Merge real routes with shadow routes
             routes: [
-              ...(shadowData.travelData?.routes || []).map((route: Transportation) => ({
-                id: route.id,
-                from: route.from,
-                to: route.to,
-                fromCoords: (route as Transportation & { fromCoords?: [number, number] }).fromCoords || [0, 0],
-                toCoords: (route as Transportation & { toCoords?: [number, number] }).toCoords || [0, 0],
-                transportType: route.type,
-                date: route.departureTime || '',
-                duration: '',
-                notes: route.privateNotes || '',
-                routePoints: route.routePoints,
-              })),
-              ...filteredShadowRoutes.map((route: Transportation) => ({
-                id: route.id,
-                from: `🔮 ${route.from}`,
-                to: `🔮 ${route.to}`,
-                fromCoords: route.fromCoordinates || [0, 0] as [number, number],
-                toCoords: route.toCoordinates || [0, 0] as [number, number],
-                transportType: route.type,
-                date: route.departureTime || '',
-                duration: '',
-                notes: route.privateNotes,
-                routePoints: route.routePoints,
-              }))
+              ...(shadowData.travelData?.routes || []).map((route: Transportation) => toRouteSegment(route)),
+              ...filteredShadowRoutes.map((route: Transportation) => {
+                const baseRoute = toRouteSegment(route);
+                return {
+                  ...baseRoute,
+                  from: `🔮 ${route.from}`,
+                  to: `🔮 ${route.to}`,
+                  subRoutes: baseRoute.subRoutes?.map(segment => ({
+                    ...segment,
+                    from: `🔮 ${segment.from}`,
+                    to: `🔮 ${segment.to}`
+                  }))
+                };
+              })
             ]
           };
           

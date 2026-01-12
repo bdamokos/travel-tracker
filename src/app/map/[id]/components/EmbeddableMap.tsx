@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '../../../lib/dateUtils';
-import { getRouteStyle } from '../../../lib/routeUtils';
+import { buildCompositeRoutePoints, getRouteStyle } from '../../../lib/routeUtils';
+import type { MapRouteSegment } from '../../../types';
 import {
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
@@ -60,20 +61,10 @@ interface TravelData {
       excerpt?: string;
     }>;
   }>;
-  routes: Array<{
-    id: string;
-    from: string;
-    to: string;
-    fromCoords: [number, number];
-    toCoords: [number, number];
-    transportType: string;
-    date: string;
-    duration?: string;
-    notes?: string;
-    routePoints?: [number, number][]; // Pre-generated route points for better performance
-  }>;
+  routes: MapRouteSegment[];
   createdAt: string;
 }
+
 
 interface EmbeddableMapProps {
   travelData: TravelData;
@@ -659,21 +650,25 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     map.on('zoomend', onViewChange);
 
-    // Add routes if any
-    travelData.routes.forEach(async (route) => {
-      // Use pre-generated route points if available, fallback to generating sync
-      let routePoints: [number, number][] = [];
-      
+    const resolveRoutePoints = (route: MapRouteSegment) => {
+      if (route.subRoutes?.length) {
+        return buildCompositeRoutePoints(route.subRoutes);
+      }
+
       if (route.routePoints && route.routePoints.length > 0) {
         // Use pre-generated points for better performance and accuracy
         console.log(`[EmbeddableMap] Using pre-generated route points for ${route.id}: ${route.routePoints.length} points`);
-        routePoints = route.routePoints;
-      } else {
-        // Fallback to straight lines if no pre-generated points available
-        console.log(`[EmbeddableMap] No pre-generated points for ${route.id}, using straight line fallback`);
-        routePoints = [route.fromCoords, route.toCoords];
+        return route.routePoints;
       }
-      
+
+      // Fallback to straight lines if no pre-generated points available
+      console.log(`[EmbeddableMap] No pre-generated points for ${route.id}, using straight line fallback`);
+      return [route.fromCoords, route.toCoords];
+    };
+
+    // Add routes if any
+    travelData.routes.forEach((route) => {
+      const routePoints = resolveRoutePoints(route);
       const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
       
       if (routePoints.length > 0) {

@@ -260,10 +260,64 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
   }
 };
 
+type RouteSegmentLike = {
+  routePoints?: [number, number][];
+  fromCoordinates?: [number, number];
+  toCoordinates?: [number, number];
+  fromCoords?: [number, number];
+  toCoords?: [number, number];
+};
+
+const COORD_EPSILON = 1e-6; // ~0.1m at the equator
+
+const isSamePoint = (left?: [number, number], right?: [number, number]) => {
+  if (!left || !right) return false;
+  return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
+};
+
+export const buildCompositeRoutePoints = (segments: RouteSegmentLike[]): [number, number][] => {
+  const stitched: [number, number][] = [];
+
+  segments.forEach((segment, index) => {
+    const from = segment.fromCoordinates ?? segment.fromCoords;
+    const to = segment.toCoordinates ?? segment.toCoords;
+    const segmentPoints = segment.routePoints?.length
+      ? segment.routePoints
+      : (from && to ? [from, to] : []);
+
+    if (segmentPoints.length === 0) {
+      console.warn(`[buildCompositeRoutePoints] Missing coordinates for sub-route index ${index}`);
+      return;
+    }
+
+    if (stitched.length === 0) {
+      stitched.push(...segmentPoints);
+      return;
+    }
+
+    const last = stitched[stitched.length - 1];
+    const first = segmentPoints[0];
+
+    if (!isSamePoint(last, first)) {
+      console.warn(`[buildCompositeRoutePoints] Discontinuity between segments at index ${index}: gap from [${last}] to [${first}]`);
+      stitched.push(first, ...segmentPoints.slice(1));
+      return;
+    }
+
+    stitched.push(...segmentPoints.slice(1));
+  });
+
+  return stitched;
+};
+
 // Generate route points based on transportation type
 export const generateRoutePoints = async (
   transportation: Transportation
 ): Promise<[number, number][]> => {
+  if (transportation.subRoutes?.length) {
+    return buildCompositeRoutePoints(transportation.subRoutes);
+  }
+
   const { type, fromCoordinates, toCoordinates, routePoints: storedRoutePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined
@@ -334,6 +388,10 @@ export const generateRoutePoints = async (
 export const generateRoutePointsSync = (
   transportation: Transportation
 ): [number, number][] => {
+  if (transportation.subRoutes?.length) {
+    return buildCompositeRoutePoints(transportation.subRoutes);
+  }
+
   const { type, fromCoordinates, toCoordinates, routePoints: storedRoutePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined

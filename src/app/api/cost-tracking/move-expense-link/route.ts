@@ -32,6 +32,21 @@ export async function POST(request: Request) {
                 if (item.costTrackingLinks && item.costTrackingLinks.length < initialLinkCount) {
                     linkRemoved = true;
                 }
+
+                if (itemType === 'routes') {
+                    const routeItem = item as { subRoutes?: Array<{ costTrackingLinks?: CostTrackingLink[] }> };
+                    if (routeItem.subRoutes) {
+                        for (const segment of routeItem.subRoutes) {
+                            const segmentLinkCount = segment.costTrackingLinks?.length || 0;
+                            if (segment.costTrackingLinks) {
+                                segment.costTrackingLinks = segment.costTrackingLinks.filter((link: CostTrackingLink) => link.expenseId !== expenseId);
+                            }
+                            if (segment.costTrackingLinks && segment.costTrackingLinks.length < segmentLinkCount) {
+                                linkRemoved = true;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -73,6 +88,26 @@ export async function POST(request: Request) {
                 item.costTrackingLinks.push(newLink);
                 linkAdded = true;
                 break;
+            }
+
+            if (itemType === 'routes') {
+                const routeItem = items.find(i =>
+                    (i as { subRoutes?: Array<{ id: string }> }).subRoutes?.some(segment => segment.id === newTravelItemId)
+                ) as { subRoutes?: Array<{ id: string; costTrackingLinks?: CostTrackingLink[] }> } | undefined;
+
+                const segment = routeItem?.subRoutes?.find(segment => segment.id === newTravelItemId);
+                if (segment) {
+                    if (!segment.costTrackingLinks) {
+                        segment.costTrackingLinks = [];
+                    }
+                    const newLink: CostTrackingLink = { expenseId };
+                    if (newLinkDescription) {
+                        newLink.description = newLinkDescription;
+                    }
+                    segment.costTrackingLinks.push(newLink);
+                    linkAdded = true;
+                    break;
+                }
             }
         }
     }

@@ -295,13 +295,35 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
         return newRoutes.map((newRoute) => {
           const existingRoute = existingRoutes.find(r => r.id === newRoute.id);
           const { costTrackingLinks: _, ...routeWithoutLinks } = newRoute;
+
+          const mergeSubRoutes = (
+            incomingSubRoutes?: Transportation['subRoutes'],
+            existingSubRoutes?: Transportation['subRoutes']
+          ): Transportation['subRoutes'] => {
+            if (!incomingSubRoutes) return existingSubRoutes;
+
+            return incomingSubRoutes.map((subRoute) => {
+              const existingSubRoute = existingSubRoutes?.find(existing => existing.id === subRoute.id);
+              const { costTrackingLinks: __, ...subRouteWithoutLinks } = subRoute;
+              return {
+                ...existingSubRoute,
+                ...subRouteWithoutLinks,
+                // Preserve existing routePoints if not provided in the update
+                routePoints: subRoute.routePoints || existingSubRoute?.routePoints,
+                // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
+                costTrackingLinks: existingSubRoute?.costTrackingLinks || []
+              };
+            });
+          };
+
           return {
             ...existingRoute,
             ...routeWithoutLinks,
             // Preserve existing routePoints if not provided in the update
             routePoints: newRoute.routePoints || existingRoute?.routePoints,
             // Preserve existing costTrackingLinks - they're managed by the SWR expense linking system
-            costTrackingLinks: existingRoute?.costTrackingLinks || []
+            costTrackingLinks: existingRoute?.costTrackingLinks || [],
+            subRoutes: mergeSubRoutes(newRoute.subRoutes, existingRoute?.subRoutes)
           };
         });
       })(),

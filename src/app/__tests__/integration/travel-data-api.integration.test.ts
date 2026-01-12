@@ -3,7 +3,7 @@
  * Tests the core CRUD operations for travel data management
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 
 const BASE_URL = (() => {
   const fromEnv = process.env.TEST_API_BASE_URL;
@@ -86,6 +86,143 @@ describe('Travel Data API Endpoints', () => {
       
       // Store for cleanup and further tests
       createdTripId = result.id;
+    });
+
+    it('should create a trip with composite sub-routes', async () => {
+      const compositeData = {
+        title: 'Composite Route Trip',
+        description: 'Trip with sub-routes',
+        startDate: '2024-07-01T00:00:00.000Z',
+        endDate: '2024-07-10T00:00:00.000Z',
+        locations: [],
+        routes: [
+          {
+            id: 'composite-route-1',
+            from: 'San Pedro',
+            to: 'Santiago',
+            fromCoords: [-22.9111, -68.1997],
+            toCoords: [-33.4489, -70.6693],
+            transportType: 'other',
+            date: new Date('2024-07-05T00:00:00.000Z'),
+            subRoutes: [
+              {
+                id: 'segment-1',
+                from: 'San Pedro',
+                to: 'Calama',
+                fromCoords: [-22.9111, -68.1997],
+                toCoords: [-22.4572, -68.9238],
+                transportType: 'bus',
+                date: new Date('2024-07-05T00:00:00.000Z'),
+                routePoints: [
+                  [-22.9111, -68.1997],
+                  [-22.4572, -68.9238]
+                ]
+              },
+              {
+                id: 'segment-2',
+                from: 'Calama',
+                to: 'Santiago',
+                fromCoords: [-22.4572, -68.9238],
+                toCoords: [-33.4489, -70.6693],
+                transportType: 'plane',
+                date: new Date('2024-07-06T00:00:00.000Z')
+              }
+            ]
+          }
+        ]
+      };
+
+      const response = await apiCall('/api/travel-data', {
+        method: 'POST',
+        body: JSON.stringify(compositeData)
+      });
+
+      const result = await response.json();
+      expect(result.success).toBe(true);
+
+      const getResponse = await apiCall(`/api/travel-data?id=${result.id}`);
+      const tripData = await getResponse.json();
+
+      expect(tripData.routes[0].subRoutes).toHaveLength(2);
+      expect(tripData.routes[0].from).toBe('San Pedro');
+      expect(tripData.routes[0].to).toBe('Santiago');
+      expect(tripData.routes[0].subRoutes[0].transportType).toBe('bus');
+      expect(tripData.routes[0].subRoutes[1].transportType).toBe('plane');
+
+      await apiCall(`/api/travel-data?id=${result.id}`, {
+        method: 'DELETE'
+      });
+    });
+
+    it('should reject sub-routes with mismatched endpoints', async () => {
+      const invalidCompositeData = {
+        title: 'Invalid Composite Trip',
+        routes: [
+          {
+            id: 'invalid-route-1',
+            from: 'Mismatch',
+            to: 'End',
+            subRoutes: [
+              {
+                id: 'segment-1',
+                from: 'Start',
+                to: 'End',
+                fromCoords: [0, 0],
+                toCoords: [1, 1],
+                transportType: 'bus',
+                date: new Date('2024-07-05T00:00:00.000Z')
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(
+        apiCall('/api/travel-data', {
+          method: 'POST',
+          body: JSON.stringify(invalidCompositeData)
+        })
+      ).rejects.toThrow(/400/);
+    });
+
+    it('should reject sub-routes with disconnected segments', async () => {
+      const invalidCompositeData = {
+        title: 'Disconnected Composite Trip',
+        routes: [
+          {
+            id: 'invalid-route-2',
+            from: 'Start',
+            to: 'End',
+            subRoutes: [
+              {
+                id: 'segment-1',
+                from: 'Start',
+                to: 'Middle',
+                fromCoords: [0, 0],
+                toCoords: [1, 1],
+                transportType: 'bus',
+                date: new Date('2024-07-05T00:00:00.000Z')
+              },
+              {
+                id: 'segment-2',
+                from: 'Elsewhere',
+                to: 'End',
+                fromCoords: [2, 2],
+                toCoords: [3, 3],
+                transportType: 'plane',
+                date: new Date('2024-07-06T00:00:00.000Z')
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(
+        apiCall('/api/travel-data', {
+          method: 'POST',
+          body: JSON.stringify(invalidCompositeData)
+        })
+      ).rejects.toThrow(/400/);
     });
 
     it('should handle trip creation with minimal data', async () => {
@@ -218,7 +355,7 @@ describe('Travel Data API Endpoints', () => {
       expect(trips.length).toBeGreaterThan(0);
       
       // Should include our created trip
-      const ourTrip = trips.find(trip => trip.id === createdTripId);
+      const ourTrip = trips.find((trip: { id: string }) => trip.id === createdTripId);
       expect(ourTrip).toBeDefined();
       expect(ourTrip.title).toBe('Updated API Test Trip');
       expect(ourTrip.locationCount).toBe(3);

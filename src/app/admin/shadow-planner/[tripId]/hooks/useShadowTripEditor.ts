@@ -9,6 +9,24 @@ import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
 
+type ShadowRoutePayload = {
+  id?: string;
+  from?: string;
+  to?: string;
+  type?: TravelRoute['transportType'];
+  transportType?: TravelRoute['transportType'];
+  departureTime?: string;
+  date?: string | Date;
+  fromCoords?: [number, number];
+  toCoords?: [number, number];
+  fromCoordinates?: [number, number];
+  toCoordinates?: [number, number];
+  subRoutes?: ShadowRoutePayload[];
+  routePoints?: [number, number][];
+  costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
+  privateNotes?: string;
+};
+
 export function useShadowTripEditor(tripId: string) {
   const [loading, setLoading] = useState(true);
   const [autoSaving, setAutoSaving] = useState(false);
@@ -200,12 +218,19 @@ export function useShadowTripEditor(tripId: string) {
               to: `📍 ${route.to}`,
               isReadOnly: true
             })),
-            ...shadowRoutes.map((route: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+            ...shadowRoutes.map((route: ShadowRoutePayload) => ({
               ...route,
               transportType: route.type || route.transportType,
               date: new Date(route.departureTime || route.date || new Date()),
-              fromCoords: route.fromCoords || [0, 0],
-              toCoords: route.toCoords || [0, 0],
+              fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
+              toCoords: route.toCoords || route.toCoordinates || [0, 0],
+              subRoutes: route.subRoutes?.map((segment: ShadowRoutePayload) => ({
+                ...segment,
+                transportType: segment.type || segment.transportType,
+                date: new Date(segment.departureTime || segment.date || new Date()),
+                fromCoords: segment.fromCoords || segment.fromCoordinates || [0, 0],
+                toCoords: segment.toCoords || segment.toCoordinates || [0, 0]
+              })),
               isReadOnly: false
             }))
           ]
@@ -228,7 +253,15 @@ export function useShadowTripEditor(tripId: string) {
                 ...route,
                 type: route.transportType,
                 departureTime: route.date?.toISOString(),
-                privateNotes: route.privateNotes
+                privateNotes: route.privateNotes,
+                subRoutes: route.subRoutes?.map(segment => ({
+                  ...segment,
+                  type: segment.transportType,
+                  departureTime: segment.date?.toISOString(),
+                  privateNotes: segment.privateNotes,
+                  fromCoordinates: segment.fromCoords,
+                  toCoordinates: segment.toCoords
+                }))
               })),
               costData: {
                 expenses: costData.expenses
@@ -276,7 +309,22 @@ export function useShadowTripEditor(tripId: string) {
               fromCoordinates: route.fromCoords,
               toCoordinates: route.toCoords,
               routePoints: route.routePoints,
-              costTrackingLinks: route.costTrackingLinks || []
+              costTrackingLinks: route.costTrackingLinks || [],
+              subRoutes: route.subRoutes?.map(segment => ({
+                id: segment.id,
+                from: segment.from,
+                to: segment.to,
+                type: segment.transportType,
+                departureTime: segment.date?.toISOString(),
+                privateNotes: segment.privateNotes,
+                fromCoordinates: segment.fromCoords,
+                toCoordinates: segment.toCoords,
+                routePoints: segment.routePoints,
+                costTrackingLinks: segment.costTrackingLinks || [],
+                useManualRoutePoints: segment.useManualRoutePoints,
+                isReturn: segment.isReturn,
+                isReadOnly: segment.isReadOnly
+              }))
             })),
           shadowAccommodations: accommodations.filter(acc => !acc.isReadOnly)
         };
@@ -481,6 +529,60 @@ export function useShadowTripEditor(tripId: string) {
     if (!travelData || !travelData.routes[index]) return;
     
     const route = travelData.routes[index];
+
+    if (route.subRoutes?.length) {
+      const hasManualSegments = route.subRoutes.some(segment =>
+        segment.useManualRoutePoints && (segment.routePoints?.length || 0) > 0
+      );
+
+      if (hasManualSegments) {
+        const proceed = confirm('One or more segments use manually imported coordinates. Recalculating will overwrite them. Continue?');
+        if (!proceed) {
+          showNotification('Manual segment routes kept. No changes made.', 'info');
+          return;
+        }
+      }
+
+      try {
+        const updatedSubRoutes = await Promise.all(route.subRoutes.map(async (segment) => {
+          const transportation: Transportation = {
+            id: segment.id,
+            type: segment.transportType,
+            from: segment.from,
+            to: segment.to,
+            fromCoordinates: segment.fromCoords,
+            toCoordinates: segment.toCoords,
+            useManualRoutePoints: false
+          };
+
+          console.log(`[recalculateRoutePoints] Regenerating segment route points for ${segment.from} → ${segment.to}`);
+          const routePoints = await generateRoutePoints(transportation);
+          return {
+            ...segment,
+            routePoints,
+            useManualRoutePoints: false
+          };
+        }));
+
+        setTravelData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            routes: prev.routes.map((r, i) =>
+              i === index ? { ...r, subRoutes: updatedSubRoutes, routePoints: undefined, useManualRoutePoints: false } : r
+            )
+          };
+        });
+
+        setHasUnsavedChanges(true);
+        console.log(`[recalculateRoutePoints] Successfully regenerated ${updatedSubRoutes.length} segment routes`);
+        showNotification('Segment route points recalculated successfully', 'success');
+      } catch (error) {
+        console.error('Failed to recalculate segment route points:', error);
+        showNotification('Failed to recalculate segment route points', 'error');
+      }
+      return;
+    }
 
     if (route.useManualRoutePoints && (route.routePoints?.length || 0) > 0) {
       const proceed = confirm('This route uses manually imported coordinates. Recalculating will overwrite them. Continue?');

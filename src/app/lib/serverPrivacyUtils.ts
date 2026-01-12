@@ -61,6 +61,13 @@ export function filterTransportationForServer(
     return transportation; // Admin sees everything
   }
 
+  const filteredSubRoutes = transportation.subRoutes?.map(subRoute => ({
+    ...subRoute,
+    privateNotes: undefined,
+    costTrackingLinks: undefined,
+    routePoints: subRoute.routePoints
+  }));
+
   // Public view - remove private data entirely  
   const filteredTransportation: Transportation = {
     ...transportation,
@@ -69,6 +76,7 @@ export function filterTransportationForServer(
     costTrackingLinks: undefined,
     // Preserve routePoints for public map display
     routePoints: transportation.routePoints,
+    subRoutes: filteredSubRoutes
   };
 
   return filteredTransportation;

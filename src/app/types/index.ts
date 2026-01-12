@@ -67,9 +67,11 @@ export type Location = {
 };
 
 // Transportation type for route segments
-export interface Transportation {
+export type TransportationType = 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other';
+
+export interface TransportationSegment {
   id: string;
-  type: 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other';
+  type: TransportationType;
   from: string;
   to: string;
   departureTime?: string;
@@ -87,14 +89,18 @@ export interface Transportation {
   costTrackingLinks?: CostTrackingLink[];
 }
 
+export interface Transportation extends TransportationSegment {
+  subRoutes?: TransportationSegment[];
+}
+
 // Travel route type for route segments (simplified version of Transportation)
-export interface TravelRoute {
+export interface TravelRouteSegment {
   id: string;
   from: string;
   to: string;
   fromCoords: [number, number];
   toCoords: [number, number];
-  transportType: Transportation['type'];
+  transportType: TransportationType;
   date: Date;
   duration?: string;
   notes?: string;
@@ -109,6 +115,24 @@ export interface TravelRoute {
   isReturn?: boolean;
   // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
   isReadOnly?: boolean;
+}
+
+export interface TravelRoute extends TravelRouteSegment {
+  subRoutes?: TravelRouteSegment[];
+}
+
+export interface MapRouteSegment {
+  id: string;
+  from: string;
+  to: string;
+  fromCoords: [number, number];
+  toCoords: [number, number];
+  transportType: string;
+  date: string;
+  duration?: string;
+  notes?: string;
+  routePoints?: [number, number][]; // Pre-generated route points for better performance
+  subRoutes?: MapRouteSegment[];
 }
 
 // Travel data structure for a complete trip

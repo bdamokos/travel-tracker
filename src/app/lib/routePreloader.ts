@@ -9,8 +9,30 @@ export const preloadRoutes = async (routes: Array<{
   from: string;
   to: string;
   id?: string;
+  subRoutes?: Array<{
+    id?: string;
+    transportType: string;
+    fromCoords: [number, number];
+    toCoords: [number, number];
+    from: string;
+    to: string;
+  }>;
 }>): Promise<void> => {
-  const promises = routes.map(async (route) => {
+  const flattenedRoutes = routes.flatMap(route => {
+    if (!route.subRoutes?.length) {
+      return [route];
+    }
+    return route.subRoutes.map(segment => ({
+      id: segment.id || route.id,
+      transportType: segment.transportType,
+      fromCoords: segment.fromCoords,
+      toCoords: segment.toCoords,
+      from: segment.from,
+      to: segment.to
+    }));
+  });
+
+  const promises = flattenedRoutes.map(async (route) => {
     try {
       const transportation: Transportation = {
         id: route.id || 'route',
