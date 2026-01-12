@@ -60,54 +60,6 @@ const getSortedLegendItems = (
   });
 };
 
-/** Prefix used for shadow planning locations in the calendar legend */
-const SHADOW_LOCATION_PREFIX = '🔮';
-
-/**
- * Helper function to sort legend items by earliest date.
- * Moved outside component to prevent recreation on each render.
- */
-const getSortedLegendItems = (
-  locationColors: Map<string, string>,
-  locations: Location[]
-): [string, string][] => {
-  // Create a map of location name to earliest date
-  const locationDates = new Map<string, Date>();
-
-  locations.forEach(location => {
-    const locationName = location.name;
-    const locationDate = new Date(location.date);
-
-    // Validate date before storing - skip invalid dates
-    if (isNaN(locationDate.getTime())) {
-      return;
-    }
-
-    // If this location hasn't been seen before, or this date is earlier, update it
-    const existingDate = locationDates.get(locationName);
-    if (!existingDate || locationDate < existingDate) {
-      locationDates.set(locationName, locationDate);
-    }
-  });
-
-  // Sort the legend entries by earliest date
-  return Array.from(locationColors.entries()).sort(([nameA], [nameB]) => {
-    // Shadow locations have the prefix in keys but not in trip.locations,
-    // so we clean the names first before looking up dates
-    const cleanNameA = nameA.replace(SHADOW_LOCATION_PREFIX, '');
-    const cleanNameB = nameB.replace(SHADOW_LOCATION_PREFIX, '');
-
-    const actualDateA = locationDates.get(cleanNameA);
-    const actualDateB = locationDates.get(cleanNameB);
-
-    if (!actualDateA && !actualDateB) return 0;
-    if (!actualDateA) return 1;
-    if (!actualDateB) return -1;
-
-    return actualDateA.getTime() - actualDateB.getTime();
-  });
-};
-
 interface TripCalendarProps {
   trip: Trip;
   planningMode?: boolean;
