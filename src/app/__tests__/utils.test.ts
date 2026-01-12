@@ -25,12 +25,12 @@ import {
   generateId,
   getExpensesByCountry,
   EXPENSE_CATEGORIES
-} from '../lib/costUtils';
+} from '@/app/lib/costUtils';
 
-import { parseAccommodationData } from '../lib/privacyUtils';
+import { parseAccommodationData } from '@/app/lib/privacyUtils';
 
-import { parseYnabFile } from '../lib/ynabUtils';
-import { CostTrackingData, Expense, BudgetItem } from '../types';
+import { parseYnabFile } from '@/app/lib/ynabUtils';
+import { CostTrackingData, Expense, BudgetItem } from '@/app/types';
 
 describe('Core Business Workflow Tests', () => {
   

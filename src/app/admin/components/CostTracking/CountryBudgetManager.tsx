@@ -1,8 +1,8 @@
 'use client';
 
-import { BudgetItem, CountryPeriod, CostTrackingData } from '../../../types';
-import AccessibleDatePicker from '../../components/AccessibleDatePicker';
-import { calculateInclusiveDays, formatCurrency, formatDate, generateId } from '../../../lib/costUtils';
+import { BudgetItem, CountryPeriod, CostTrackingData } from '@/app/types';
+import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
+import { calculateInclusiveDays, formatCurrency, formatDate, generateId } from '@/app/lib/costUtils';
 
 interface CountryBudgetManagerProps {
   costData: CostTrackingData;

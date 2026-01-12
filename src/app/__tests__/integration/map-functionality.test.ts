@@ -8,8 +8,8 @@
 
 import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
-import { getDataDir } from '../../lib/dataDirectory'
-import { isExternalApiAvailable, getMockRoutePoints, setupRouteMocking } from '../utils/mockRouteUtils'
+import { getDataDir } from '@/app/lib/dataDirectory'
+import { isExternalApiAvailable, getMockRoutePoints, setupRouteMocking } from '@/app/__tests__/utils/mockRouteUtils'
 
 // Expected coordinates that OSRM actually returns for our test route
 const EXPECTED_OSRM_START = [51.507478, -0.127965];

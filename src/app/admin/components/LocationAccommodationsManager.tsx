@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Accommodation, CostTrackingLink } from '../../types';
-import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
-import { CostTrackingData } from '../../types';
-import { useAccommodations } from '../../hooks/useAccommodations';
-import { useExpenseLinksForTravelItem } from '../../hooks/useExpenseLinks';
+import { Accommodation, CostTrackingLink, CostTrackingData } from '@/app/types';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { useAccommodations } from '@/app/hooks/useAccommodations';
+import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 import AccommodationInput from './AccommodationInput';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import LinkedExpensesDisplay from './LinkedExpensesDisplay';

@@ -1,4 +1,4 @@
-import { Journey, Location, Transportation, JourneyPeriod } from '../types';
+import { Journey, Location, Transportation, JourneyPeriod } from '@/app/types';
 
 interface TravelData {
   locations?: Location[];

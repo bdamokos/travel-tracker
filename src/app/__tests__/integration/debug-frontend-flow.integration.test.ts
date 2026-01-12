@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from '@jest/globals'
-import { generateRoutePoints } from '../../lib/routeUtils'
-import { Transportation } from '../../types'
+import { generateRoutePoints } from '@/app/lib/routeUtils'
+import { Transportation } from '@/app/types'
 
 const BASE_URL = (() => {
   const fromEnv = process.env.TEST_API_BASE_URL

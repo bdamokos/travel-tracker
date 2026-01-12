@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Expense } from '../../types';
+import { Expense } from '@/app/types';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import { getAllocationSegments, isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Expense, ExpenseType } from '../../types';
+import { Expense, ExpenseType } from '@/app/types';
 import TravelItemSelector from './TravelItemSelector';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';

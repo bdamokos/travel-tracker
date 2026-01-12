@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { wikipediaService } from '../../../services/wikipediaService';
+import { wikipediaService } from '@/app/services/wikipediaService';
 
 /**
  * GET /api/wikipedia/[locationName]

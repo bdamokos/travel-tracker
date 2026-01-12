@@ -1,4 +1,4 @@
-import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '../types';
+import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '@/app/types';
 import { formatUtcDate } from './dateUtils';
 
 const MS_IN_DAY = 1000 * 60 * 60 * 24;

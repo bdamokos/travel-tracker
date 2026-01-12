@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Transportation, TravelRoute } from '../../types';
-import { transportationLabels } from '../../lib/routeUtils';
+import { Transportation, TravelRoute } from '@/app/types';
+import { transportationLabels } from '@/app/lib/routeUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface RouteDisplayProps {

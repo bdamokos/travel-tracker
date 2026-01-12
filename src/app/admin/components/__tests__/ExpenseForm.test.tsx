@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import ExpenseForm from '../ExpenseForm';
-import { ExpenseType } from '../../../types';
-import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
+import ExpenseForm from '@/app/admin/components/ExpenseForm';
+import { ExpenseType } from '@/app/types';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 
 const mockTravelItemSelector = jest.fn();
 jest.mock('../TravelItemSelector', () => ({

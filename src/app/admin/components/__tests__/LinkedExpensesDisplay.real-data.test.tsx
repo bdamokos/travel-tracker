@@ -5,10 +5,10 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import LinkedExpensesDisplay from '../LinkedExpensesDisplay';
-import { ExpenseLink, useExpenseLinks } from '../../../hooks/useExpenseLinks';
-import { useExpenses } from '../../../hooks/useExpenses';
-import { Accommodation, Expense, Location, Transportation } from '../../../types';
+import LinkedExpensesDisplay from '@/app/admin/components/LinkedExpensesDisplay';
+import { ExpenseLink, useExpenseLinks } from '@/app/hooks/useExpenseLinks';
+import { useExpenses } from '@/app/hooks/useExpenses';
+import { Accommodation, Expense, Location, Transportation } from '@/app/types';
 
 // Mock the cost utils
 jest.mock('../../../lib/costUtils', () => ({

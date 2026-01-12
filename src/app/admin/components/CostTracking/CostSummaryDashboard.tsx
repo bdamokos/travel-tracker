@@ -1,7 +1,7 @@
 'use client';
 
-import { CostSummary, CostTrackingData } from '../../../types';
-import { formatCurrency, formatCurrencyWithRefunds } from '../../../lib/costUtils';
+import { CostSummary, CostTrackingData } from '@/app/types';
+import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
 
 interface CostSummaryDashboardProps {
   costSummary: CostSummary;

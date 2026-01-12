@@ -6,8 +6,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Location, JourneyDay } from '../types';
-import { LocationPopupData } from '../components/LocationPopup';
+import { Location, JourneyDay } from '@/app/types';
+import { LocationPopupData } from '@/app/components/LocationPopup';
 
 interface UseLocationPopupResult {
   isOpen: boolean;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
-import { Transportation, TravelReference } from '../../../types';
+import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { Transportation, TravelReference } from '@/app/types';
 
 interface LinkExpenseRequest {
   tripId: string;

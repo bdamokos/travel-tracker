@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { listAllTrips, loadUnifiedTripData } from '../lib/unifiedDataService';
-import { formatUtcDate } from '../lib/dateUtils';
+import { listAllTrips, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { formatUtcDate } from '@/app/lib/dateUtils';
 
 // Force dynamic rendering to ensure trip list is always current
 export const dynamic = 'force-dynamic';

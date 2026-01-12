@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { listAllTrips, loadUnifiedTripData } from '../../../lib/unifiedDataService';
-import { Expense } from '../../../types';
-import { isAdminDomain } from '../../../lib/server-domains';
-import { validateAllTripBoundaries } from '../../../lib/tripBoundaryValidation';
+import { listAllTrips, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { Expense } from '@/app/types';
+import { isAdminDomain } from '@/app/lib/server-domains';
+import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 
 
 export async function GET() {

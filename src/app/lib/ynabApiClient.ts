@@ -1,5 +1,5 @@
 import * as ynab from 'ynab';
-import { YnabBudget, YnabCategory, YnabApiTransaction, YnabApiError } from '../types';
+import { YnabBudget, YnabCategory, YnabApiTransaction, YnabApiError } from '@/app/types';
 
 const YNAB_API_BASE_URL = 'https://api.ynab.com/v1';
 

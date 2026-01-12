@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import AriaSelect from './AriaSelect';
-import { useExpenses } from '../../hooks/useExpenses';
+import { useExpenses } from '@/app/hooks/useExpenses';
 import { 
   useExpenseLinks,
   useExpenseLinksForTravelItem, 
   useLinkExpense, 
   useUnlinkExpense,
   useMoveExpenseLink 
-} from '../../hooks/useExpenseLinks';
+} from '@/app/hooks/useExpenseLinks';
 
 interface CostTrackingLinksManagerProps {
   tripId: string;

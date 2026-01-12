@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { Location, TravelRoute } from '@/app/types';
-import RouteForm from '../../../components/RouteForm';
-import LinkedExpensesDisplay from '../../../components/LinkedExpensesDisplay';
-import InPlaceEditor from '../../../components/InPlaceEditor';
-import RouteDisplay from '../../../components/RouteDisplay';
-import RouteInlineEditor from '../../../components/RouteInlineEditor';
+import RouteForm from '@/app/admin/components/RouteForm';
+import LinkedExpensesDisplay from '@/app/admin/components/LinkedExpensesDisplay';
+import InPlaceEditor from '@/app/admin/components/InPlaceEditor';
+import RouteDisplay from '@/app/admin/components/RouteDisplay';
+import RouteInlineEditor from '@/app/admin/components/RouteInlineEditor';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 
 // Component to conditionally show LinkedExpensesDisplay using SWR hook

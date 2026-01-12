@@ -7,8 +7,8 @@
  */
 
 import { beforeAll, describe, it, expect, jest } from '@jest/globals'
-import { generateRoutePoints } from '../../lib/routeUtils'
-import { Transportation } from '../../types'
+import { generateRoutePoints } from '@/app/lib/routeUtils'
+import { Transportation } from '@/app/types'
 
 const RUN_DEBUG_TESTS = process.env.RUN_DEBUG_TESTS === 'true'
 

@@ -1,4 +1,4 @@
-import { Transportation } from '../types';
+import { Transportation } from '@/app/types';
 
 // Transportation configuration with styles and metadata
 export const transportationConfig: Record<Transportation['type'], {

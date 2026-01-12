@@ -11,9 +11,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
-import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '../../lib/dataMigration';
-import { ExpenseTravelLookup, TripData } from '../../lib/expenseTravelLookup';
-import { validateTripBoundary } from '../../lib/tripBoundaryValidation';
+import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '@/app/lib/dataMigration';
+import { ExpenseTravelLookup, TripData } from '@/app/lib/expenseTravelLookup';
+import { validateTripBoundary } from '@/app/lib/tripBoundaryValidation';
 
 const BASE_URL = (() => {
     const fromEnv = process.env.TEST_API_BASE_URL;

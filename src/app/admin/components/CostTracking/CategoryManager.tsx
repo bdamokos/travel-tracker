@@ -1,7 +1,7 @@
 'use client';
 
-import { CostTrackingData } from '../../../types';
-import { CASH_CATEGORY_NAME } from '../../../lib/costUtils';
+import { CostTrackingData } from '@/app/types';
+import { CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
 
 interface CategoryManagerProps {
   costData: CostTrackingData;

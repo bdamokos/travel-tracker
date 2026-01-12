@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { JourneyDay, Location, Transportation, InstagramPost, BlogPost, TikTokPost } from '../types';
-import AccessibleDatePicker from '../admin/components/AccessibleDatePicker';
-import AriaSelect from '../admin/components/AriaSelect';
+import { JourneyDay, Location, Transportation, InstagramPost, BlogPost, TikTokPost } from '@/app/types';
+import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
+import AriaSelect from '@/app/admin/components/AriaSelect';
 import { 
   geocodeLocation, 
   reverseGeocode,
   calculateDistance,
   estimateTravelTime,
   formatTravelTime
-} from '../services/geocoding';
+} from '@/app/services/geocoding';
 
 interface EditFormProps {
   day?: JourneyDay;

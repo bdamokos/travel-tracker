@@ -6,7 +6,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import AccessibleModal from '../AccessibleModal';
+import AccessibleModal from '@/app/admin/components/AccessibleModal';
 
 describe('AccessibleModal', () => {
   const mockOnClose = jest.fn();

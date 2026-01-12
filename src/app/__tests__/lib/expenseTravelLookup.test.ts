@@ -2,8 +2,8 @@
  * Tests for ExpenseTravelLookup service with trip isolation
  */
 
-import { ExpenseTravelLookup, TripData } from '../../lib/expenseTravelLookup';
-import { Location, Accommodation, Transportation, CostTrackingLink, Expense } from '../../types';
+import { ExpenseTravelLookup, TripData } from '@/app/lib/expenseTravelLookup';
+import { Location, Accommodation, Transportation, CostTrackingLink, Expense } from '@/app/types';
 
 describe('ExpenseTravelLookup', () => {
   const mockTripData: TripData = {

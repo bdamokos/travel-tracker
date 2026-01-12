@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TripList from './components/TripList';
 import CostTrackerList from './components/CostTracking/CostTrackerList';
-import { ExistingCostEntry } from '../types';
+import { ExistingCostEntry } from '@/app/types';
 
 function AdminPageContent() {
   const searchParams = useSearchParams();

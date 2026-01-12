@@ -4,7 +4,7 @@
  * Handles cleanup and management of cost tracking links when travel items are deleted
  */
 
-import { Expense, TravelReference } from '../types';
+import { Expense, TravelReference } from '@/app/types';
 
 export interface LinkedExpense {
   id: string;

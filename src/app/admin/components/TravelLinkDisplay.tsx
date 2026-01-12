@@ -1,6 +1,6 @@
 'use client';
 
-import { TravelLinkInfo } from '../../lib/expenseTravelLookup';
+import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 
 interface TravelLinkDisplayProps {
   travelLinkInfo: TravelLinkInfo;

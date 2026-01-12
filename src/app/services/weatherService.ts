@@ -3,7 +3,7 @@ import path from 'path';
 import { addDays, differenceInCalendarDays, formatISO, isAfter, isBefore, isValid, parseISO } from 'date-fns';
 import { Location } from '@/app/types';
 import { WeatherData, WeatherSummary } from '@/app/types/weather';
-import { getDataDir } from '../lib/dataDirectory';
+import { getDataDir } from '@/app/lib/dataDirectory';
 
 type CacheSources = {
   hasHistoricalAverage: boolean;

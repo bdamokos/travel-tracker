@@ -1,7 +1,7 @@
 'use client';
 
-import { CostSummary } from '../../../types';
-import { formatCurrency, getCountryAverageDisplay, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '../../../lib/costUtils';
+import { CostSummary } from '@/app/types';
+import { formatCurrency, getCountryAverageDisplay, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
 
 interface CountryBreakdownDisplayProps {
   costSummary: CostSummary;

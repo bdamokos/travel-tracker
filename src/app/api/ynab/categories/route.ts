@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { YnabApiClient } from '../../../lib/ynabApiClient';
-import { YnabApiError } from '../../../types';
+import { YnabApiClient } from '@/app/lib/ynabApiClient';
+import { YnabApiError } from '@/app/types';
 
 export async function GET(request: NextRequest) {
   try {

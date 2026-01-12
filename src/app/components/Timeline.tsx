@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Journey, JourneyDay, Transportation } from '../types';
-import { transportationColors } from '../lib/routeUtils';
-import AccommodationDisplay from './AccommodationDisplay';
-import TikTokIcon from './icons/TikTokIcon';
-
-import { ExpenseTravelLookup } from '../lib/expenseTravelLookup';
-import { CostTrackingData } from '../types';
-import { formatCurrency } from '../lib/costUtils';
+import { Journey, JourneyDay, Transportation } from '@/app/types';
+import { transportationColors } from '@/app/lib/routeUtils';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import AccommodationDisplay from '@/app/components/AccommodationDisplay';
+import TikTokIcon from '@/app/components/icons/TikTokIcon';
+import { CostTrackingData } from '@/app/types';
+import { formatCurrency } from '@/app/lib/costUtils';
 
 interface TimelineProps {
   journey: Journey | null;

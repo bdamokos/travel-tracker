@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { parseAccommodationData, PrivacyOptions } from '../lib/privacyUtils';
-import { ExpenseTravelLookup } from '../lib/expenseTravelLookup';
-import { CostTrackingData } from '../types';
-import { formatCurrency } from '../lib/costUtils';
+import { parseAccommodationData, PrivacyOptions } from '@/app/lib/privacyUtils';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { CostTrackingData } from '@/app/types';
+import { formatCurrency } from '@/app/lib/costUtils';
 
 interface AccommodationDisplayProps {
   accommodationData?: string;

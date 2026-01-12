@@ -1,13 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Accommodation } from '../../types';
-import { parseAccommodationData } from '../../lib/privacyUtils';
-import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
-import { CostTrackingData } from '../../types';
-import { formatCurrency } from '../../lib/costUtils';
-import { useExpenseLinksForTravelItem } from '../../hooks/useExpenseLinks';
-import { useExpenses } from '../../hooks/useExpenses';
+import { Accommodation, CostTrackingData } from '@/app/types';
+import { parseAccommodationData } from '@/app/lib/privacyUtils';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { formatCurrency } from '@/app/lib/costUtils';
+import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
+import { useExpenses } from '@/app/hooks/useExpenses';
 
 interface AccommodationReadOnlyDisplayProps {
   accommodation: Accommodation;

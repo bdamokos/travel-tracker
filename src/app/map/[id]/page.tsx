@@ -1,16 +1,16 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-// import { getEmbedUrl } from '../../lib/domains';
+// import { getEmbedUrl } from '@/app/lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
-import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '../../lib/dateUtils';
-import { Location, Transportation, TripUpdate, MapRouteSegment } from '../../types';
-import InstagramIcon from '../../components/icons/InstagramIcon';
-import TikTokIcon from '../../components/icons/TikTokIcon';
-import TripUpdates from '../../components/TripUpdates';
-import { filterUpdatesForPublic } from '../../lib/updateFilters';
-import { SHADOW_LOCATION_PREFIX } from '../../lib/shadowConstants';
-// import NextStepsCard from '../../components/NextStepsCard';
+import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
+import { Location, Transportation, TripUpdate, MapRouteSegment } from '@/app/types';
+import InstagramIcon from '@/app/components/icons/InstagramIcon';
+import TikTokIcon from '@/app/components/icons/TikTokIcon';
+import TripUpdates from '@/app/components/TripUpdates';
+import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
+import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
+// import NextStepsCard from '@/app/components/NextStepsCard';
 
 interface TravelData {
   id: string;

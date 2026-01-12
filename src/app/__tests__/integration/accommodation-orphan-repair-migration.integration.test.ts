@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '../../lib/dataMigration';
+import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '@/app/lib/dataMigration';
 
 describe('Accommodation orphan repair migration (v6→v7)', () => {
   it('creates placeholder accommodations for missing location accommodationIds and re-attaches expense links', () => {

@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react';
 import AccessibleDatePicker from './AccessibleDatePicker';
-import { formatDuration } from '../../lib/durationUtils';
-import { Location } from '../../types';
-import LocationAccommodationsManager from './LocationAccommodationsManager';
-import CostTrackingLinksManager from './CostTrackingLinksManager';
-import { CostTrackingData } from '../../types';
-import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import CostTrackingLinksManager from '@/app/admin/components/CostTrackingLinksManager';
+import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
+import { formatDuration } from '@/app/lib/durationUtils';
+import { Location, CostTrackingData } from '@/app/types';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);

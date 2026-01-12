@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateCostData, loadUnifiedTripData } from '../../lib/unifiedDataService';
-import { maybeSyncPendingYnabTransactions } from '../../lib/ynabPendingSync';
-import { isAdminDomain } from '../../lib/server-domains';
-import { validateAllTripBoundaries } from '../../lib/tripBoundaryValidation';
-import { dateReviver } from '../../lib/jsonDateReviver';
+import { updateCostData, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
+import { isAdminDomain } from '@/app/lib/server-domains';
+import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
+import { dateReviver } from '@/app/lib/jsonDateReviver';
 
 
 export async function POST(request: NextRequest) {

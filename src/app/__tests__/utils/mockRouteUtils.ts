@@ -4,7 +4,7 @@
  * Provides conditional mocking for route generation based on external API availability
  */
 
-import { Transportation } from '../../types';
+import { Transportation } from '@/app/types';
 
 // Mock route data for different transportation types
 export const MOCK_ROUTE_DATA: Record<string, [number, number][]> = {

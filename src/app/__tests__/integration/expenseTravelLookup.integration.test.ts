@@ -2,8 +2,8 @@
  * Integration test for ExpenseTravelLookup service with trip isolation
  */
 
-import { ExpenseTravelLookup, TripData } from '../../lib/expenseTravelLookup';
-import { UnifiedTripData } from '../../lib/dataMigration';
+import { ExpenseTravelLookup, TripData } from '@/app/lib/expenseTravelLookup';
+import { UnifiedTripData } from '@/app/lib/dataMigration';
 
 describe('ExpenseTravelLookup Integration', () => {
   const mockUnifiedTripData: UnifiedTripData = {

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import YnabImportForm from '../YnabImportForm';
-import { CostTrackingData } from '../../../types';
+import YnabImportForm from '@/app/admin/components/YnabImportForm';
+import { CostTrackingData } from '@/app/types';
 
 const mockCostData: CostTrackingData = {
   id: 'demo-cost-id',

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TripUpdate } from '../types';
-import { formatUtcDate } from '../lib/dateUtils';
-import { getCurrentTripStatus, LocationTiming, RouteTiming } from '../lib/currentTripStatus';
+import { TripUpdate } from '@/app/types';
+import { formatUtcDate } from '@/app/lib/dateUtils';
+import { getCurrentTripStatus, LocationTiming, RouteTiming } from '@/app/lib/currentTripStatus';
 
 const MAX_UPDATES = 10;
 const MAX_DAYS = 30;

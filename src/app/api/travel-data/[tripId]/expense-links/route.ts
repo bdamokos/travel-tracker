@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData } from '../../../../lib/unifiedDataService';
+import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 
 interface ExpenseLink {
   expenseId: string;

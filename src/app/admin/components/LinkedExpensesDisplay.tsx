@@ -1,10 +1,10 @@
 'use client';
 
-import { formatCurrency, formatDate } from '../../lib/costUtils';
-import { useExpenseLinks } from '../../hooks/useExpenseLinks';
-import { useExpenses } from '../../hooks/useExpenses';
-import { CostTrackingData } from '../../types';
-import { ExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import { formatCurrency, formatDate } from '@/app/lib/costUtils';
+import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
+import { useExpenses } from '@/app/hooks/useExpenses';
+import { CostTrackingData } from '@/app/types';
+import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 
 interface LinkedExpensesDisplayProps {
   // New: support multiple items

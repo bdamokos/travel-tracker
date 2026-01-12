@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { ExistingCostEntry } from '../../../types';
-import { formatCurrency, formatDate } from '../../../lib/costUtils';
+import { ExistingCostEntry } from '@/app/types';
+import { formatCurrency, formatDate } from '@/app/lib/costUtils';
 
 interface CostTrackerListProps {
   existingCostEntries: ExistingCostEntry[];

@@ -1,11 +1,11 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getMapUrl } from '../../lib/domains';
-import EmbeddableMap from '../../map/[id]/components/EmbeddableMap';
-import { formatUtcDate } from '../../lib/dateUtils';
-import InstagramIcon from '../../components/icons/InstagramIcon';
-import TikTokIcon from '../../components/icons/TikTokIcon';
-import type { MapRouteSegment } from '../../types';
+import { getMapUrl } from '@/app/lib/domains';
+import EmbeddableMap from '@/app/map/[id]/components/EmbeddableMap';
+import { formatUtcDate } from '@/app/lib/dateUtils';
+import InstagramIcon from '@/app/components/icons/InstagramIcon';
+import TikTokIcon from '@/app/components/icons/TikTokIcon';
+import type { MapRouteSegment } from '@/app/types';
 
 interface TravelData {
   id: string;

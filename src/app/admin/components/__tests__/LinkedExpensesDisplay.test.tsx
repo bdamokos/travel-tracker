@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import LinkedExpensesDisplay from '../LinkedExpensesDisplay';
-import * as useExpenseLinksModule from '../../../hooks/useExpenseLinks';
-import * as useExpensesModule from '../../../hooks/useExpenses';
+import LinkedExpensesDisplay from '@/app/admin/components/LinkedExpensesDisplay';
+import * as useExpenseLinksModule from '@/app/hooks/useExpenseLinks';
+import * as useExpensesModule from '@/app/hooks/useExpenses';
 
 // Mock the cost utils
 jest.mock('../../../lib/costUtils', () => ({

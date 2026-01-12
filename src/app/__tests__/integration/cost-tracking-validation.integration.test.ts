@@ -3,37 +3,37 @@
  */
 
 import { NextRequest } from 'next/server';
-import { POST as costTrackingPOST, GET as costTrackingGET, PUT as costTrackingPUT } from '../../api/cost-tracking/route';
-import { GET as costTrackingListGET } from '../../api/cost-tracking/list/route';
-import { POST as ynabProcessPOST } from '../../api/cost-tracking/[id]/ynab-process/route';
-import { POST as validatePOST, GET as validateGET } from '../../api/cost-tracking/[id]/validate/route';
-import { loadUnifiedTripData, updateCostData } from '../../lib/unifiedDataService';
-import { UnifiedTripData } from '../../lib/dataMigration';
-import { Expense, BudgetItem, YnabCategoryMapping, YnabTransaction } from '../../types';
+import { POST as costTrackingPOST, GET as costTrackingGET, PUT as costTrackingPUT } from '@/app/api/cost-tracking/route';
+import { GET as costTrackingListGET } from '@/app/api/cost-tracking/list/route';
+import { POST as ynabProcessPOST } from '@/app/api/cost-tracking/[id]/ynab-process/route';
+import { POST as validatePOST, GET as validateGET } from '@/app/api/cost-tracking/[id]/validate/route';
+import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
+import { UnifiedTripData } from '@/app/lib/dataMigration';
+import { Expense, BudgetItem, YnabCategoryMapping, YnabTransaction } from '@/app/types';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
-import { getDataDir } from '../../lib/dataDirectory';
+import { getDataDir } from '@/app/lib/dataDirectory';
 
 // Mock the admin domain check
-jest.mock('../../lib/server-domains', () => ({
+jest.mock('@/app/lib/server-domains', () => ({
   __esModule: true,
   isAdminDomain: jest.fn()
 }));
 
 // Mock the unified data service
-jest.mock('../../lib/unifiedDataService', () => ({
+jest.mock('@/app/lib/unifiedDataService', () => ({
   __esModule: true,
   loadUnifiedTripData: jest.fn(),
   updateCostData: jest.fn(),
   listAllTrips: jest.fn()
 }));
 
-const { isAdminDomain: mockIsAdminDomain } = jest.requireMock('../../lib/server-domains');
+const { isAdminDomain: mockIsAdminDomain } = jest.requireMock('@/app/lib/server-domains');
 const {
   loadUnifiedTripData: mockLoadUnifiedTripData,
   updateCostData: mockUpdateCostData,
   listAllTrips: mockListAllTrips
-} = jest.requireMock('../../lib/unifiedDataService');
+} = jest.requireMock('@/app/lib/unifiedDataService');
 
 (mockIsAdminDomain as jest.Mock).mockResolvedValue(true);
 

@@ -1,4 +1,4 @@
-import { formatUtcDate, formatDateRange, normalizeUtcDateToLocalDay } from '../dateUtils';
+import { formatUtcDate, formatDateRange, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 
 describe('dateUtils UTC helpers', () => {
   describe('formatUtcDate', () => {

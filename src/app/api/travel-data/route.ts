@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '../../lib/unifiedDataService';
-import { filterTravelDataForServer } from '../../lib/serverPrivacyUtils';
-import { isAdminDomain } from '../../lib/server-domains';
+import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '@/app/lib/unifiedDataService';
+import { filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
 

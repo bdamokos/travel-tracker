@@ -4,18 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Journey, JourneyDay, Location } from '../types';
-import { generateRoutePointsSync, getRouteStyle } from '../lib/routeUtils';
-import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '../lib/dateUtils';
-import { LocationPopupModal } from './LocationPopup';
-import { useLocationPopup } from '../hooks/useLocationPopup';
+import { Journey, JourneyDay, Location } from '@/app/types';
+import { generateRoutePointsSync, getRouteStyle } from '@/app/lib/routeUtils';
+import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
+import { LocationPopupModal } from '@/app/components/LocationPopup';
+import { useLocationPopup } from '@/app/hooks/useLocationPopup';
 import {
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
   createMarkerIcon,
   getDominantMarkerTone,
   getMarkerDistanceBucket,
-} from '../lib/mapIconUtils';
+} from '@/app/lib/mapIconUtils';
 
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {

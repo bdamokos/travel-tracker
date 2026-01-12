@@ -1,7 +1,7 @@
 import { YnabApiClient, ynabUtils } from './ynabApiClient';
 import { updateCostData } from './unifiedDataService';
 import { UnifiedTripData } from './dataMigration';
-import { Expense, YnabApiTransaction, YnabConfig } from '../types';
+import { Expense, YnabApiTransaction, YnabConfig } from '@/app/types';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 

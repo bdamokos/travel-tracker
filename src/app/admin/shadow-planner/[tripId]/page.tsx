@@ -4,9 +4,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useShadowTripEditor, SHADOW_LOCATION_PREFIX } from './hooks/useShadowTripEditor';
 // Dialogs will be added later if needed for shadow trips
-import TripMetadataForm from '../../edit/[tripId]/components/TripMetadataForm';
-import LocationManager from '../../edit/[tripId]/components/LocationManager';
-import RouteManager from '../../edit/[tripId]/components/RouteManager';
+import TripMetadataForm from '@/app/admin/edit/[tripId]/components/TripMetadataForm';
+import LocationManager from '@/app/admin/edit/[tripId]/components/LocationManager';
+import RouteManager from '@/app/admin/edit/[tripId]/components/RouteManager';
 
 
 export default function ShadowPlannerPage() {

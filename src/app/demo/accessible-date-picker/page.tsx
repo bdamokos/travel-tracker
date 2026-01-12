@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import AccessibleDatePicker from '../../admin/components/AccessibleDatePicker';
+import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 
 export default function AccessibleDatePickerDemo() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);

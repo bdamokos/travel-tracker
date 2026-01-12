@@ -1,8 +1,8 @@
 'use client';
 
-import { CostTrackingData, ExistingTrip } from '../../../types';
-import { formatDate } from '../../../lib/costUtils';
-import AriaSelect from '../AriaSelect';
+import { CostTrackingData, ExistingTrip } from '@/app/types';
+import { formatDate } from '@/app/lib/costUtils';
+import AriaSelect from '@/app/admin/components/AriaSelect';
 
 interface BudgetSetupProps {
   costData: CostTrackingData;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
-import { Accommodation } from '../../../types';
-import { isAdminDomain } from '../../../lib/server-domains';
+import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { Accommodation } from '@/app/types';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 
 // Generate unique ID

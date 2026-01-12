@@ -1,7 +1,7 @@
 // Geocoding service for Travel Tracker
 // Provides location search, reverse geocoding, and route calculations
 
-import { Transportation } from '../types';
+import { Transportation } from '@/app/types';
 
 /**
  * Convert a location name to coordinates using OpenStreetMap Nominatim

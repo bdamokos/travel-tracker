@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import CostTrackingLinksManager from '../CostTrackingLinksManager';
-import { useExpenses } from '../../../hooks/useExpenses';
+import CostTrackingLinksManager from '@/app/admin/components/CostTrackingLinksManager';
+import { useExpenses } from '@/app/hooks/useExpenses';
 import {
   useExpenseLinks,
   useExpenseLinksForTravelItem,
   useLinkExpense,
   useMoveExpenseLink,
   useUnlinkExpense
-} from '../../../hooks/useExpenseLinks';
+} from '@/app/hooks/useExpenseLinks';
 
 jest.mock('../../../hooks/useExpenses');
 jest.mock('../../../hooks/useExpenseLinks');
