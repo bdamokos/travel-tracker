@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-// import { getEmbedUrl } from '@/app/lib/domains';
+import { getDomainConfig } from '@/app/lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 import { Location, Transportation, TripUpdate, MapRouteSegment } from '@/app/types';
@@ -82,8 +82,8 @@ const toRouteSegment = (route: Transportation): MapRouteSegment => {
 };
 async function getTravelData(id: string, isAdmin: boolean = false): Promise<TravelData | null> {
   try {
-    // Use unified API for both server and client side
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const { embedDomain } = getDomainConfig();
+    const baseUrl = embedDomain || 'http://localhost:3000';
     
     // In admin mode, try to load shadow data first, fallback to regular data
     if (isAdmin) {

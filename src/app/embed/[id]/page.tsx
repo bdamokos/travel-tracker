@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { NextRequest } from 'next/server';
 import { getDomainConfig, getMapUrl } from '@/app/lib/domains';
+import { GET as getTravelDataApi } from '@/app/api/travel-data/route';
 import EmbeddableMap from '@/app/map/[id]/components/EmbeddableMap';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
@@ -43,10 +45,12 @@ interface TravelData {
 
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
+    // Call API route handler directly to avoid network round trip
     const { embedDomain } = getDomainConfig();
-    const response = await fetch(`${embedDomain}/api/travel-data?id=${id}`, {
-      cache: 'no-store' // Always fetch fresh data
-    });
+    const baseUrl = embedDomain || 'http://localhost:3000';
+    const url = new URL(`${baseUrl}/api/travel-data?id=${id}`);
+    const request = new NextRequest(url);
+    const response = await getTravelDataApi(request);
 
     if (!response.ok) {
       return null;
