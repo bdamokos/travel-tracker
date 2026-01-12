@@ -6,8 +6,8 @@
 'use client';
 
 import React from 'react';
-import { Location } from '../../types';
-import { StoredWikipediaData } from '../../types/wikipedia';
+import { Location } from '@/app/types';
+import { StoredWikipediaData } from '@/app/types/wikipedia';
 import WikipediaAttribution from './WikipediaAttribution';
 
 interface WikipediaSectionProps {

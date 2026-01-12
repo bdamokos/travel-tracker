@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { LinkedExpense } from '../../lib/costLinkCleanup';
-import { formatCurrency } from '../../lib/costUtils';
+import { LinkedExpense } from '@/app/lib/costLinkCleanup';
+import { formatCurrency } from '@/app/lib/costUtils';
 import { useDialog } from '@react-aria/dialog';
 import { useModal, OverlayContainer, useOverlay, usePreventScroll } from '@react-aria/overlays';
 import { FocusScope } from '@react-aria/focus';

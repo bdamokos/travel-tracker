@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { TravelRoute } from '../../types';
-import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
+import { TravelRoute } from '@/app/types';
+import { transportationTypes, transportationLabels } from '@/app/lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
-import { CostTrackingLink, Location, Transportation, Accommodation, TravelReference } from '../../../types';
-import { isAdminDomain } from '../../../lib/server-domains';
-import { validateTripBoundary, ValidationErrorType } from '../../../lib/tripBoundaryValidation';
+import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { CostTrackingLink, Location, Transportation, Accommodation, TravelReference } from '@/app/types';
+import { isAdminDomain } from '@/app/lib/server-domains';
+import { validateTripBoundary, ValidationErrorType } from '@/app/lib/tripBoundaryValidation';
 
 export async function POST(request: NextRequest) {
   try {

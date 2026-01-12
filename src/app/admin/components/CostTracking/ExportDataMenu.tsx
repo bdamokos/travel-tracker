@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
-import { CostTrackingData, CountryPeriod } from '../../../types';
-import { ExpenseLink } from '../../../hooks/useExpenseLinks';
+import { CostTrackingData, CountryPeriod } from '@/app/types';
+import { ExpenseLink } from '@/app/hooks/useExpenseLinks';
 
 interface ExportDataMenuProps {
   costData: CostTrackingData;

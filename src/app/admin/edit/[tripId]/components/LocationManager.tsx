@@ -4,7 +4,7 @@ import React from 'react';
 import { Location, Transportation, CostTrackingLink } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
-import LocationForm from '../../../components/LocationForm';
+import LocationForm from '@/app/admin/components/LocationForm';
 import LocationList from './location/LocationList';
 
 interface TravelData {

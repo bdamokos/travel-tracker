@@ -2,8 +2,8 @@
  * Unit tests for cost tracking API validation functionality
  */
 
-import { validateAllTripBoundaries } from '../../lib/tripBoundaryValidation';
-import { UnifiedTripData } from '../../lib/dataMigration';
+import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
+import { UnifiedTripData } from '@/app/lib/dataMigration';
 
 describe('Cost Tracking API Validation', () => {
   const createMockTripData = (hasValidLinks = true): UnifiedTripData => ({

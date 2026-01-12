@@ -2,7 +2,7 @@
  * Backward compatibility tests for ExpenseTravelLookup service
  */
 
-import { createExpenseTravelLookup } from '../../lib/expenseTravelLookup';
+import { createExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 
 describe('ExpenseTravelLookup Backward Compatibility', () => {
   const originalFetch = global.fetch;

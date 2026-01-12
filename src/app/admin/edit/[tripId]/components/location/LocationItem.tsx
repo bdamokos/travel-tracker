@@ -5,12 +5,12 @@ import { Location } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { formatUtcDate } from '@/app/lib/dateUtils';
-import LocationAccommodationsManager from '../../../../components/LocationAccommodationsManager';
-import AccommodationDisplay from '../../../../../components/AccommodationDisplay';
-import LinkedExpensesDisplay from '../../../../components/LinkedExpensesDisplay';
-import InPlaceEditor from '../../../../components/InPlaceEditor';
-import LocationDisplay from '../../../../components/LocationDisplay';
-import LocationInlineEditor from '../../../../components/LocationInlineEditor';
+import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
+import AccommodationDisplay from '@/app/components/AccommodationDisplay';
+import LinkedExpensesDisplay from '@/app/admin/components/LinkedExpensesDisplay';
+import InPlaceEditor from '@/app/admin/components/InPlaceEditor';
+import LocationDisplay from '@/app/admin/components/LocationDisplay';
+import LocationInlineEditor from '@/app/admin/components/LocationInlineEditor';
 
 interface LocationItemProps {
   location: Location;

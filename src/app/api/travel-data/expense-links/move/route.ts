@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData, saveUnifiedTripData } from '../../../../lib/unifiedDataService';
+import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
 
 interface MoveExpenseRequest {
   tripId: string;

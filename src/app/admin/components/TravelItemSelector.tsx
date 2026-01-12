@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Location, Transportation, Accommodation } from '../../types';
-import { ExpenseTravelLookup, TravelLinkInfo } from '../../lib/expenseTravelLookup';
-import { useExpenseLinks } from '../../hooks/useExpenseLinks';
-import AriaSelect from './AriaSelect';
-import { buildSideTripMap } from '../../lib/sideTripUtils';
+import { Location, Transportation, Accommodation } from '@/app/types';
+import { ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
+import AriaSelect from '@/app/admin/components/AriaSelect';
+import { buildSideTripMap } from '@/app/lib/sideTripUtils';
 
 interface TravelItem {
   id: string;

@@ -2,7 +2,7 @@
 
 import { CalendarCell, CalendarDay, muteColor } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
-import WeatherIcon from '../Weather/WeatherIcon';
+import WeatherIcon from '@/app/components/Weather/WeatherIcon';
 import { useMemo } from 'react';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 

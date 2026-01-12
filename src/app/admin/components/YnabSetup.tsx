@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { YnabBudget, YnabConfig } from '../../types';
+import { YnabBudget, YnabConfig } from '@/app/types';
 import AccessibleModal from './AccessibleModal';
 import AriaSelect from './AriaSelect';
 

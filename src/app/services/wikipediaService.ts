@@ -13,8 +13,8 @@ import {
   WikipediaErrorType,
   LocationMatchingResult,
   WikipediaServiceConfig,
-} from '../types/wikipedia';
-import { Location } from '../types';
+} from '@/app/types/wikipedia';
+import { Location } from '@/app/types';
 import { 
   generateWikipediaFilename, 
   normalizeLocationName, 
@@ -23,8 +23,8 @@ import {
   isCacheExpired,
   getOptimalThumbnailUrl,
   parseWikipediaReference
-} from '../lib/wikipediaUtils';
-import { getDataDir } from '../lib/dataDirectory';
+} from '@/app/lib/wikipediaUtils';
+import { getDataDir } from '@/app/lib/dataDirectory';
 
 const DEFAULT_CONFIG: WikipediaServiceConfig = {
   userAgent: 'TravelTracker/1.0 (https://github.com/bdamokos/travel-tracker) BasedOnWikipediaAPI',

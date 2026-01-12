@@ -3,7 +3,7 @@
  */
 
 import { createHash } from 'crypto';
-import { WikipediaAPIResponse } from '../types/wikipedia';
+import { WikipediaAPIResponse } from '@/app/types/wikipedia';
 
 /**
  * Generate consistent cache key for location data

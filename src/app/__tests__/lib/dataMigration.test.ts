@@ -7,7 +7,7 @@ import {
   migrateToLatestSchema,
   CURRENT_SCHEMA_VERSION,
   UnifiedTripData
-} from '../../lib/dataMigration';
+} from '@/app/lib/dataMigration';
 
 describe('Data Migration System', () => {
   describe('migrateFromV3ToV4', () => {

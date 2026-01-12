@@ -13,7 +13,7 @@ import {
   migrateToLatestSchema,
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
-import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '../types';
+import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '@/app/types';
 import { backupService } from './backupService';
 import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
 import { getDataDir } from './dataDirectory';

@@ -6,13 +6,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Location, JourneyDay } from '../../types';
-import { useWikipediaData } from '../../hooks/useWikipediaData';
-import WikipediaSection from './WikipediaSection';
-import TripContextSection from './TripContextSection';
-import WeatherSummary from '../Weather/WeatherSummary';
-import { useWeather } from '../../hooks/useWeather';
-import AccessibleModal from '../../admin/components/AccessibleModal';
+import { Location, JourneyDay } from '@/app/types';
+import { useWikipediaData } from '@/app/hooks/useWikipediaData';
+import TripContextSection from '@/app/components/LocationPopup/TripContextSection';
+import WikipediaSection from '@/app/components/LocationPopup/WikipediaSection';
+import WeatherSummary from '@/app/components/Weather/WeatherSummary';
+import { useWeather } from '@/app/hooks/useWeather';
+import AccessibleModal from '@/app/admin/components/AccessibleModal';
 
 export interface LocationPopupData {
   location: Location;

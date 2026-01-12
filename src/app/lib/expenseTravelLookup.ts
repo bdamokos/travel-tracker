@@ -9,7 +9,7 @@
  * Updated for trip isolation: Works with provided trip data instead of fetching externally.
  */
 
-import { Accommodation, Location, Transportation, CostTrackingLink, Expense } from '../types';
+import { Accommodation, Location, Transportation, CostTrackingLink, Expense } from '@/app/types';
 
 export interface TravelLinkInfo {
   type: 'location' | 'accommodation' | 'route';

@@ -2,7 +2,7 @@
  * Integration test for trip data isolation migration (v3 to v4)
  */
 
-import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '../../lib/dataMigration';
+import { migrateToLatestSchema, UnifiedTripData, CURRENT_SCHEMA_VERSION } from '@/app/lib/dataMigration';
 
 describe('Trip Data Isolation Migration Integration', () => {
   it('should successfully migrate real-world data structure from v3 to v4', () => {

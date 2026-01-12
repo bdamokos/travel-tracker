@@ -5,8 +5,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
 import type { TooltipProps } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
-import { CostSummary, CountryBreakdown } from '../../types';
-import { formatCurrency, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '../../lib/costUtils';
+import { CostSummary, CountryBreakdown } from '@/app/types';
+import { formatCurrency, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
 import AriaSelect from './AriaSelect';
 
 interface CostPieChartsProps {

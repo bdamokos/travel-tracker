@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Map, Marker } from 'leaflet';
-import { getRouteStyle, generateRoutePoints, calculateGreatCirclePoints, calculateSimpleArc } from '../../lib/routeUtils';
-import { Transportation } from '../../types';
+import { getRouteStyle, generateRoutePoints, calculateGreatCirclePoints, calculateSimpleArc } from '@/app/lib/routeUtils';
+import { Transportation } from '@/app/types';
 
 interface RoutePreviewProps {
   from: string;

@@ -1,28 +1,27 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CostTrackingData, Expense } from '../../../types';
-import { TravelLinkInfo } from '../../../lib/expenseTravelLookup';
-import ExpenseForm from '../ExpenseForm';
-import InPlaceEditor from '../InPlaceEditor';
-import ExpenseDisplay from '../ExpenseDisplay';
-import ExpenseInlineEditor from '../ExpenseInlineEditor';
-import TravelLinkDisplay from '../TravelLinkDisplay';
-import TravelItemSelector from '../TravelItemSelector';
-import { ExpenseTravelLookup } from '../../../lib/expenseTravelLookup';
+import { CostTrackingData, Expense } from '@/app/types';
+import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import {
   useExpenseLinks,
   useLinkExpense,
   useMoveExpenseLink
-} from '../../../hooks/useExpenseLinks';
-import CashTransactionManager from './CashTransactionManager';
+} from '@/app/hooks/useExpenseLinks';
 import {
   getAllocationSegments,
   getAllocationsForSource,
   isCashAllocation,
   isCashSource,
   restoreAllocationSegmentsOnSources
-} from '../../../lib/cashTransactions';
+} from '@/app/lib/cashTransactions';
+import ExpenseForm from '@/app/admin/components/ExpenseForm';
+import ExpenseDisplay from '@/app/admin/components/ExpenseDisplay';
+import ExpenseInlineEditor from '@/app/admin/components/ExpenseInlineEditor';
+import InPlaceEditor from '@/app/admin/components/InPlaceEditor';
+import TravelItemSelector from '@/app/admin/components/TravelItemSelector';
+import TravelLinkDisplay from '@/app/admin/components/TravelLinkDisplay';
+import CashTransactionManager from '@/app/admin/components/CostTracking/CashTransactionManager';
 
 interface ExpenseManagerProps {
   costData: CostTrackingData;

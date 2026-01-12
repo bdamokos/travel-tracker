@@ -11,8 +11,8 @@ import {
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import CalendarGrid from './CalendarGrid';
 import styles from './Calendar.module.css';
-import { LocationPopupModal } from '../LocationPopup';
-import { useLocationPopup } from '../../hooks/useLocationPopup';
+import { LocationPopupModal } from '@/app/components/LocationPopup';
+import { useLocationPopup } from '@/app/hooks/useLocationPopup';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 /**

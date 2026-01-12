@@ -1,4 +1,4 @@
-import { Location, Transportation, Journey, JourneyPeriod } from '../types';
+import { Location, Transportation, Journey, JourneyPeriod } from '@/app/types';
 
 /**
  * Privacy utilities for filtering private/public data

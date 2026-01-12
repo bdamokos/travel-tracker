@@ -7,7 +7,7 @@
 
 import { loadUnifiedTripData, saveUnifiedTripData } from './unifiedDataService';
 import { UnifiedTripData } from './dataMigration';
-import { CostTrackingLink, Location, Transportation, Accommodation } from '../types';
+import { CostTrackingLink, Location, Transportation, Accommodation } from '@/app/types';
 import { TravelLinkInfo } from './expenseTravelLookup';
 
 export interface ExpenseLinkOperation {

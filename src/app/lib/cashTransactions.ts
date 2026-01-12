@@ -4,7 +4,7 @@ import {
   CashTransactionSourceDetails,
   Expense,
   TravelReference
-} from '../types';
+} from '@/app/types';
 import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME, generateId } from './costUtils';
 
 const CURRENCY_EPSILON = 0.000001;

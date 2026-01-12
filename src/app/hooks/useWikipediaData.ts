@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { StoredWikipediaData } from '../types/wikipedia';
-import { Location } from '../types';
+import { StoredWikipediaData } from '@/app/types/wikipedia';
+import { Location } from '@/app/types';
 
 interface UseWikipediaDataResult {
   data: StoredWikipediaData | null;

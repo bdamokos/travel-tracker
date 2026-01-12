@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import YnabImportForm from '../YnabImportForm';
-import { CostTrackingData } from '../../../types';
+import YnabImportForm from '@/app/admin/components/YnabImportForm';
+import { CostTrackingData } from '@/app/types';
 
 // Mock fetch
 const mockFetch = jest.fn();

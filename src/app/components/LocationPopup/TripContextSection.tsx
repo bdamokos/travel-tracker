@@ -6,10 +6,10 @@
 'use client';
 
 import React from 'react';
-import { Location, JourneyDay } from '../../types';
-import { formatDateRange } from '../../lib/dateUtils';
-import InstagramIcon from '../icons/InstagramIcon';
-import TikTokIcon from '../icons/TikTokIcon';
+import { Location, JourneyDay } from '@/app/types';
+import { formatDateRange } from '@/app/lib/dateUtils';
+import InstagramIcon from '@/app/components/icons/InstagramIcon';
+import TikTokIcon from '@/app/components/icons/TikTokIcon';
 
 interface TripContextSectionProps {
   location: Location;

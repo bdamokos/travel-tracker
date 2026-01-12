@@ -6,7 +6,7 @@
 'use client';
 
 import React from 'react';
-import { StoredWikipediaData } from '../../types/wikipedia';
+import { StoredWikipediaData } from '@/app/types/wikipedia';
 
 interface WikipediaAttributionProps {
   wikipediaData: StoredWikipediaData;

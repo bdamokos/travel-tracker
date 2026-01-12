@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import YnabMappingManager from '../YnabMappingManager';
+import YnabMappingManager from '@/app/admin/components/YnabMappingManager';
 import { CostTrackingData, YnabCategoryMapping } from '@/app/types';
 
 // Mock the AccessibleModal component

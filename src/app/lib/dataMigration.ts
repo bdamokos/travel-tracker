@@ -4,7 +4,7 @@
  * Handles unified data model and schema migrations
  */
 
-import { Journey, CostTrackingData, Location, Transportation, Accommodation, Expense, TripUpdate } from '../types';
+import { Journey, CostTrackingData, Location, Transportation, Accommodation, Expense, TripUpdate } from '@/app/types';
 
 /**
  * Unified data model that contains both travel and cost data

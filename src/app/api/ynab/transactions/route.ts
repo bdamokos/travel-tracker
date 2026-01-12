@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { YnabApiClient, ynabUtils } from '../../../lib/ynabApiClient';
-import { YnabApiError, ProcessedYnabTransaction, CategoryMapping } from '../../../types';
+import { YnabApiClient, ynabUtils } from '@/app/lib/ynabApiClient';
+import { YnabApiError, ProcessedYnabTransaction, CategoryMapping } from '@/app/types';
 
 /**
  * Retrieve YNAB transactions filtered by mapped category IDs and return them in ProcessedYnabTransaction format.

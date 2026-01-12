@@ -15,9 +15,9 @@ import {
   findTravelItemById,
   getTravelItemType,
   ValidationErrorType
-} from '../../lib/tripBoundaryValidation';
-import { UnifiedTripData } from '../../lib/dataMigration';
-import { Location, Transportation, Accommodation, Expense } from '../../types';
+} from '@/app/lib/tripBoundaryValidation';
+import { UnifiedTripData } from '@/app/lib/dataMigration';
+import { Location, Transportation, Accommodation, Expense } from '@/app/types';
 import { describe, it, expect } from '@jest/globals';
 
 describe('Trip Boundary Validation', () => {

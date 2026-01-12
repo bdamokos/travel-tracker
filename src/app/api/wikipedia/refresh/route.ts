@@ -4,18 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { listAllTrips, loadUnifiedTripData } from '../../../lib/unifiedDataService';
-import { Location } from '../../../types';
-import { wikipediaService } from '../../../services/wikipediaService';
+import { listAllTrips, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { Location } from '@/app/types';
+import { wikipediaService } from '@/app/services/wikipediaService';
 import {
   RefreshJobConfig,
   RefreshResult,
   RefreshJobSummary,
   WikipediaMetadata
-} from '../../../types/wikipedia';
+} from '@/app/types/wikipedia';
 import fs from 'fs/promises';
 import path from 'path';
-import { getDataDir } from '../../../lib/dataDirectory';
+import { getDataDir } from '@/app/lib/dataDirectory';
 
 const DEFAULT_REFRESH_CONFIG: RefreshJobConfig = {
   batchSize: 20, // Process 20 locations at a time

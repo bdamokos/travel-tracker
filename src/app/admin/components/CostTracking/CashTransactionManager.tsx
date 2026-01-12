@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
-import { CostTrackingData, Expense } from '../../../types';
-import AccessibleDatePicker from '../AccessibleDatePicker';
-import AriaSelect from '../AriaSelect';
-import TravelItemSelector from '../TravelItemSelector';
-import { TravelLinkInfo } from '../../../lib/expenseTravelLookup';
+import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
+import AriaSelect from '@/app/admin/components/AriaSelect';
+import TravelItemSelector from '@/app/admin/components/TravelItemSelector';
+import { CostTrackingData, Expense } from '@/app/types';
+import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import {
   createCashAllocationExpense,
   createCashConversion,
@@ -15,8 +15,8 @@ import {
   isCashAllocation,
   isCashSource,
   roundCurrency
-} from '../../../lib/cashTransactions';
-import { CASH_CATEGORY_NAME, generateId } from '../../../lib/costUtils';
+} from '@/app/lib/cashTransactions';
+import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
 
 interface CashTransactionManagerProps {
   costData: CostTrackingData;

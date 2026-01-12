@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncLegacyTravelReferences } from '../../../lib/expenseLinkingService';
-import { isAdminDomain } from '../../../lib/server-domains';
+import { syncLegacyTravelReferences } from '@/app/lib/expenseLinkingService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 export async function POST(request: NextRequest) {
   try {

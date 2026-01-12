@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { parseAccommodationData, generateAccommodationTemplate } from '../../lib/privacyUtils';
+import { parseAccommodationData, generateAccommodationTemplate } from '@/app/lib/privacyUtils';
 
 interface AccommodationInputProps {
   accommodationData?: string;

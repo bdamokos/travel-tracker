@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import AccessibleModal from '../AccessibleModal';
+import AccessibleModal from '@/app/admin/components/AccessibleModal';
 
 // Mock form component that simulates real usage
 function MockFormModal() {

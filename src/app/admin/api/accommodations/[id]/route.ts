@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData } from '../../../../lib/unifiedDataService';
-import { isAdminDomain } from '../../../../lib/server-domains';
+import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 // GET - Get single accommodation by ID
 export async function GET(

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import AccessibleModal from '../AccessibleModal';
+import AccessibleModal from '@/app/admin/components/AccessibleModal';
 
 // This is a demo component to manually test the AccessibleModal
 // Run this in a browser to verify functionality

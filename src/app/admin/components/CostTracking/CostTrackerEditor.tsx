@@ -12,27 +12,27 @@ import {
   Location,
   YnabCategoryMapping,
   YnabConfig
-} from '../../../types';
-import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '../../../lib/costUtils';
-import CostPieCharts from '../CostPieCharts';
-import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
-import BudgetSetup from './BudgetSetup';
-import CountryBudgetManager from './CountryBudgetManager';
-import CategoryManager from './CategoryManager';
-import ExpenseManager from './ExpenseManager';
-import CountryBreakdownDisplay from './CountryBreakdownDisplay';
-import CostSummaryDashboard from './CostSummaryDashboard';
-import ExpenseLeaderboards from './ExpenseLeaderboards';
-import YnabImportForm from '../YnabImportForm';
-import YnabMappingManager from '../YnabMappingManager';
-import YnabSetup from '../YnabSetup';
-import ExportDataMenu from './ExportDataMenu';
+} from '@/app/types';
+import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+import CostPieCharts from '@/app/admin/components/CostPieCharts';
+import BudgetSetup from '@/app/admin/components/CostTracking/BudgetSetup';
+import CountryBudgetManager from '@/app/admin/components/CostTracking/CountryBudgetManager';
+import CategoryManager from '@/app/admin/components/CostTracking/CategoryManager';
+import ExpenseManager from '@/app/admin/components/CostTracking/ExpenseManager';
+import CountryBreakdownDisplay from '@/app/admin/components/CostTracking/CountryBreakdownDisplay';
+import CostSummaryDashboard from '@/app/admin/components/CostTracking/CostSummaryDashboard';
+import ExpenseLeaderboards from '@/app/admin/components/CostTracking/ExpenseLeaderboards';
+import ExportDataMenu from '@/app/admin/components/CostTracking/ExportDataMenu';
+import YnabImportForm from '@/app/admin/components/YnabImportForm';
+import YnabMappingManager from '@/app/admin/components/YnabMappingManager';
+import YnabSetup from '@/app/admin/components/YnabSetup';
 import {
   applyAllocationSegmentsToSources,
   getAllocationSegments,
   isCashAllocation,
   isCashSource
-} from '../../../lib/cashTransactions';
+} from '@/app/lib/cashTransactions';
 
 interface CostTrackerEditorProps {
   costData: CostTrackingData;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Accommodation } from '../types';
+import { Accommodation } from '@/app/types';
 
 interface UseAccommodationsResult {
   accommodations: Accommodation[];

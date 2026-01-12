@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData } from '../../../../lib/unifiedDataService';
-import { isAdminDomain } from '../../../../lib/server-domains';
+import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 import { 
   validateTripBoundary, 
   validateExpenseBelongsToTrip, 
   validateAllTripBoundaries
-} from '../../../../lib/tripBoundaryValidation';
+} from '@/app/lib/tripBoundaryValidation';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

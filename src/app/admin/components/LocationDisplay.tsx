@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Location } from '../../types';
-import { formatDuration } from '../../lib/durationUtils';
+import { Location } from '@/app/types';
+import { formatDuration } from '@/app/lib/durationUtils';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { formatUtcDate } from '@/app/lib/dateUtils';

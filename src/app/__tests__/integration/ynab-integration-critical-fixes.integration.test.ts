@@ -7,7 +7,7 @@
  * 3. TypeScript errors resolved in cost-tracking API
  */
 
-import { YnabCategoryMapping, YnabConfig, CostTrackingData } from '../../types';
+import { YnabCategoryMapping, YnabConfig, CostTrackingData } from '@/app/types';
 
 describe('YNAB Integration Critical Fixes', () => {
   

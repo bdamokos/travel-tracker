@@ -1,4 +1,4 @@
-import { Location, Transportation } from '../types';
+import { Location, Transportation } from '@/app/types';
 
 // Interface for TravelRoute from TravelDataForm
 interface TravelRoute {

@@ -2,9 +2,9 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { CostTrackingData, ExistingTrip } from '../../../types';
-import { EXPENSE_CATEGORIES } from '../../../lib/costUtils';
-import CostTrackerEditor from '../../components/CostTracking/CostTrackerEditor';
+import { CostTrackingData, ExistingTrip } from '@/app/types';
+import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
+import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEditor';
 
 export default function CostTrackingPage() {
   const params = useParams();

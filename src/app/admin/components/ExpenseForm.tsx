@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import TravelItemSelector from './TravelItemSelector';
 import AriaSelect from './AriaSelect';
-import { Expense, ExpenseType } from '../../types';
+import { Expense, ExpenseType } from '@/app/types';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
 import AccessibleDatePicker from './AccessibleDatePicker';

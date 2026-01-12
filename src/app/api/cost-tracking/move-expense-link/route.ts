@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
-import { loadUnifiedTripData, saveUnifiedTripData } from '../../../lib/unifiedDataService';
-import { CostTrackingLink } from '../../../types';
+import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { CostTrackingLink } from '@/app/types';
 
 export async function POST(request: Request) {
   try {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadUnifiedTripData, saveUnifiedTripData } from '../../../../lib/unifiedDataService';
-import { isAdminDomain } from '../../../../lib/server-domains';
+import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 export async function PATCH(request: NextRequest) {
   try {

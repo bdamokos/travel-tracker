@@ -5,8 +5,8 @@
  * If not accessible, sets up mocking for integration tests.
  */
 
-import { generateRoutePoints } from '../../lib/routeUtils';
-import { isExternalApiAvailable } from '../utils/mockRouteUtils';
+import { generateRoutePoints } from '@/app/lib/routeUtils';
+import { isExternalApiAvailable } from '@/app/__tests__/utils/mockRouteUtils';
 
 const TEST_ROUTE = {
   id: 'connectivity-test',

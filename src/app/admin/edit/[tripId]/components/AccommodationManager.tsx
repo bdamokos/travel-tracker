@@ -4,8 +4,8 @@ import React from 'react';
 import { Location, Transportation, CostTrackingLink } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
-import LocationAccommodationsManager from '../../../components/LocationAccommodationsManager';
-import AccommodationDisplay from '../../../../components/AccommodationDisplay';
+import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
+import AccommodationDisplay from '@/app/components/AccommodationDisplay';
 
 interface TravelRoute {
   id: string;

@@ -4,18 +4,18 @@ import { useEffect, useRef, useState } from 'react';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
-import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '../../../lib/dateUtils';
-import { buildCompositeRoutePoints, getRouteStyle } from '../../../lib/routeUtils';
-import type { MapRouteSegment } from '../../../types';
+import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
+import { buildCompositeRoutePoints, getRouteStyle } from '@/app/lib/routeUtils';
+import type { MapRouteSegment } from '@/app/types';
 import {
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
   createMarkerIcon,
   getDominantMarkerTone,
   getMarkerDistanceBucket,
-} from '../../../lib/mapIconUtils';
-import { getInstagramIconMarkup } from '../../../components/icons/InstagramIcon';
-import { getTikTokIconMarkup } from '../../../components/icons/TikTokIcon';
+} from '@/app/lib/mapIconUtils';
+import { getInstagramIconMarkup } from '@/app/components/icons/InstagramIcon';
+import { getTikTokIconMarkup } from '@/app/components/icons/TikTokIcon';
 
 const INSTAGRAM_ICON_MARKUP = getInstagramIconMarkup({
   containerClassName: 'w-5 h-5',

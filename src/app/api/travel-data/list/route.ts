@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listAllTrips } from '../../../lib/unifiedDataService';
+import { listAllTrips } from '@/app/lib/unifiedDataService';
 
 export async function GET() {
   try {

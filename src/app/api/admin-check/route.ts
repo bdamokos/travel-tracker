@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { isAdminDomain } from '../../lib/server-domains';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 export async function GET() {
   try {
