@@ -263,11 +263,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Remove the specific link from the specified travel item (modern system)
+    const routes = tripData.travelData?.routes || [];
     const allTravelItems = [
       ...(tripData.travelData?.locations || []),
       ...(tripData.accommodations || []),
-      ...(tripData.travelData?.routes || []),
-      ...(tripData.travelData?.routes || []).flatMap(route => route.subRoutes || [])
+      ...routes,
+      ...routes.flatMap(route => route.subRoutes || [])
     ];
 
     const travelItem = allTravelItems.find(item => item.id === travelItemId);

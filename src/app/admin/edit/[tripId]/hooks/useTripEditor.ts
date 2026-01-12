@@ -8,6 +8,7 @@ import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExp
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
+import { generateId } from '@/app/lib/costUtils';
 
 interface ExistingTrip {
   id: string;
@@ -299,8 +300,6 @@ export function useTripEditor(tripId: string | null) {
     }
   }, [tripId, loadTripForEditing, loadExistingTrips]);
 
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
-
   const autoSaveTravelData = useCallback(async () => {
     try {
       const method = mode === 'edit' ? 'PUT' : 'POST';
@@ -461,27 +460,32 @@ export function useTripEditor(tripId: string | null) {
     };
 
     // Pre-generate route points for better public map performance (skip when manual override provided)
+    let routeToSave: TravelRoute;
     if (newRoute.subRoutes?.length) {
-      newRoute.subRoutes = await Promise.all(newRoute.subRoutes.map(async (segment) => ensureRoutePoints(segment)));
-      newRoute.routePoints = undefined;
-      newRoute.useManualRoutePoints = false;
+      const updatedSubRoutes = await Promise.all(newRoute.subRoutes.map(async (segment) => ensureRoutePoints(segment)));
+      routeToSave = {
+        ...newRoute,
+        subRoutes: updatedSubRoutes,
+        routePoints: undefined,
+        useManualRoutePoints: false
+      };
     } else {
-      newRoute = await ensureRoutePoints(newRoute);
+      routeToSave = await ensureRoutePoints(newRoute);
     }
 
     if (editingRouteIndex !== null) {
       // Update existing route
       const updatedRoutes = [...travelData.routes];
-      updatedRoutes[editingRouteIndex] = newRoute;
-      console.log(`[handleRouteAdded] Updating route at index ${editingRouteIndex}, routePoints: ${newRoute.routePoints?.length}`);
+      updatedRoutes[editingRouteIndex] = routeToSave;
+      console.log(`[handleRouteAdded] Updating route at index ${editingRouteIndex}, routePoints: ${routeToSave.routePoints?.length}`);
       setTravelData(prev => ({ ...prev, routes: updatedRoutes, locations: updatedLocations }));
       setEditingRouteIndex(null);
     } else {
       // Add new route
-      console.log(`[handleRouteAdded] Adding new route, routePoints: ${newRoute.routePoints?.length}`);
+      console.log(`[handleRouteAdded] Adding new route, routePoints: ${routeToSave.routePoints?.length}`);
       setTravelData(prev => ({
         ...prev,
-        routes: [...prev.routes, newRoute],
+        routes: [...prev.routes, routeToSave],
         locations: updatedLocations
       }));
     }

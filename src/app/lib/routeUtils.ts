@@ -268,7 +268,7 @@ type RouteSegmentLike = {
   toCoords?: [number, number];
 };
 
-const COORD_EPSILON = 1e-9;
+const COORD_EPSILON = 1e-6; // ~0.1m at the equator
 
 const isSamePoint = (left?: [number, number], right?: [number, number]) => {
   if (!left || !right) return false;
@@ -299,6 +299,7 @@ export const buildCompositeRoutePoints = (segments: RouteSegmentLike[]): [number
     const first = segmentPoints[0];
 
     if (!isSamePoint(last, first)) {
+      console.warn(`[buildCompositeRoutePoints] Discontinuity between segments at index ${index}: gap from [${last}] to [${first}]`);
       stitched.push(first, ...segmentPoints.slice(1));
       return;
     }

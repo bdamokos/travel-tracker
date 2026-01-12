@@ -305,18 +305,12 @@ export default function RouteInlineEditor({
         throw new Error('No LineString coordinates found in GeoJSON');
       }
 
-      const normalized = rawCoords;
-
-      if (normalized.length === 0) {
-        throw new Error('Unable to parse coordinates (expected [lng, lat] numbers)');
-      }
-
       setFormData(prev => ({
         ...prev,
-        routePoints: normalized,
+        routePoints: rawCoords,
         useManualRoutePoints: true
       }));
-      setImportStatus(`Imported ${normalized.length} points from ${file.name}`);
+      setImportStatus(`Imported ${rawCoords.length} points from ${file.name}`);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Failed to import GeoJSON');
       setImportStatus('');
@@ -336,16 +330,10 @@ export default function RouteInlineEditor({
         throw new Error('No LineString coordinates found in GeoJSON');
       }
 
-      const normalized = rawCoords;
-
-      if (normalized.length === 0) {
-        throw new Error('Unable to parse coordinates (expected [lng, lat] numbers)');
-      }
-
       setFormData(prev => {
         const subRoutes = prev.subRoutes?.map(segment =>
           segment.id === segmentId
-            ? { ...segment, routePoints: normalized, useManualRoutePoints: true }
+            ? { ...segment, routePoints: rawCoords, useManualRoutePoints: true }
             : segment
         );
         return {
@@ -356,7 +344,7 @@ export default function RouteInlineEditor({
 
       setSegmentImportStatus(prev => ({
         ...prev,
-        [segmentId]: `Imported ${normalized.length} points from ${file.name}`
+        [segmentId]: `Imported ${rawCoords.length} points from ${file.name}`
       }));
     } catch (err) {
       setSegmentImportError(prev => ({
@@ -439,33 +427,54 @@ export default function RouteInlineEditor({
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               From *
             </label>
-            <AriaComboBox
-              id="from-locations-inline"
-              value={formData.from}
-              onChange={(value) => setFormData(prev => ({ ...prev, from: value }))}
-              className="w-full px-2 py-1 text-sm"
-              options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
-              placeholder="Paris"
-              required
-              allowsCustomValue={true}
-            />
+            {hasSubRoutes ? (
+              <input
+                type="text"
+                value={formData.from}
+                disabled
+                className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+              />
+            ) : (
+              <AriaComboBox
+                id="from-locations-inline"
+                value={formData.from}
+                onChange={(value) => setFormData(prev => ({ ...prev, from: value }))}
+                className="w-full px-2 py-1 text-sm"
+                options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
+                placeholder="Paris"
+                required
+                allowsCustomValue={true}
+              />
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               To *
             </label>
-            <AriaComboBox
-              id="to-locations-inline"
-              value={formData.to}
-              onChange={(value) => setFormData(prev => ({ ...prev, to: value }))}
-              className="w-full px-2 py-1 text-sm"
-              options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
-              placeholder="London"
-              required
-              allowsCustomValue={true}
-            />
+            {hasSubRoutes ? (
+              <input
+                type="text"
+                value={formData.to}
+                disabled
+                className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+              />
+            ) : (
+              <AriaComboBox
+                id="to-locations-inline"
+                value={formData.to}
+                onChange={(value) => setFormData(prev => ({ ...prev, to: value }))}
+                className="w-full px-2 py-1 text-sm"
+                options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
+                placeholder="London"
+                required
+                allowsCustomValue={true}
+              />
+            )}
           </div>
         </div>
+        {hasSubRoutes && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">From/To are derived from first and last segments.</p>
+        )}
 
         {/* Sub-routes */}
         <div className="border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 rounded p-3 space-y-3">

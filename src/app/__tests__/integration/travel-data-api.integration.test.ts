@@ -146,6 +146,8 @@ describe('Travel Data API Endpoints', () => {
       expect(tripData.routes[0].subRoutes).toHaveLength(2);
       expect(tripData.routes[0].from).toBe('San Pedro');
       expect(tripData.routes[0].to).toBe('Santiago');
+      expect(tripData.routes[0].subRoutes[0].transportType).toBe('bus');
+      expect(tripData.routes[0].subRoutes[1].transportType).toBe('plane');
 
       await apiCall(`/api/travel-data?id=${result.id}`, {
         method: 'DELETE'
