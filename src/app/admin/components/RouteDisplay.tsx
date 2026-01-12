@@ -48,6 +48,9 @@ export default function RouteDisplay({
     return coords[0] !== 0 || coords[1] !== 0;
   };
 
+  const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
+  const hasManualSegments = route.subRoutes?.some(segment => segment.useManualRoutePoints) || false;
+
   return (
     <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
       {/* Header */}
@@ -69,11 +72,25 @@ export default function RouteDisplay({
                 <span>{route.duration}</span>
               </>
             )}
+            {hasSubRoutes && (
+              <>
+                <span className="mx-2">•</span>
+                <span>{route.subRoutes?.length} segments</span>
+              </>
+            )}
             {route.useManualRoutePoints && (
               <>
                 <span className="mx-2">•</span>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
                   Manual route
+                </span>
+              </>
+            )}
+            {hasManualSegments && (
+              <>
+                <span className="mx-2">•</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                  Manual segments
                 </span>
               </>
             )}

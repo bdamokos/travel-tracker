@@ -13,13 +13,40 @@ interface MoveExpenseRequest {
 interface TripData {
   travelData?: {
     locations?: Array<{ id: string; name: string; costTrackingLinks?: Array<{ expenseId: string; description?: string }> }>;
-    routes?: Array<{ id: string; from: string; to: string; costTrackingLinks?: Array<{ expenseId: string; description?: string }> }>;
+    routes?: Array<{
+      id: string;
+      from: string;
+      to: string;
+      costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
+      subRoutes?: Array<{
+        id: string;
+        from: string;
+        to: string;
+        costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
+      }>;
+    }>;
   };
   accommodations?: Array<{ id: string; name: string; costTrackingLinks?: Array<{ expenseId: string; description?: string }> }>;
   costData?: {
     expenses?: Array<{ id: string; [key: string]: unknown }>;
   };
 }
+
+const findRouteItem = (tripData: TripData, travelItemId: string) => {
+  if (!tripData.travelData?.routes) return null;
+
+  for (const route of tripData.travelData.routes) {
+    if (route.id === travelItemId) {
+      return route;
+    }
+    const subRoute = route.subRoutes?.find(segment => segment.id === travelItemId);
+    if (subRoute) {
+      return subRoute;
+    }
+  }
+
+  return null;
+};
 
 // Helper function to find travel item by ID and type
 function findTravelItem(tripData: TripData, travelItemId: string, travelItemType: string) {
@@ -29,7 +56,7 @@ function findTravelItem(tripData: TripData, travelItemId: string, travelItemType
     case 'accommodation':
       return tripData.accommodations?.find(item => item.id === travelItemId);
     case 'route':
-      return tripData.travelData?.routes?.find(item => item.id === travelItemId);
+      return findRouteItem(tripData, travelItemId);
     default:
       return null;
   }
@@ -66,6 +93,16 @@ function removeExpenseLinkFromAll(tripData: TripData, expenseId: string) {
         route.costTrackingLinks = route.costTrackingLinks.filter(
           link => link.expenseId !== expenseId
         );
+      }
+
+      if (route.subRoutes) {
+        route.subRoutes.forEach(segment => {
+          if (segment.costTrackingLinks) {
+            segment.costTrackingLinks = segment.costTrackingLinks.filter(
+              link => link.expenseId !== expenseId
+            );
+          }
+        });
       }
     });
   }

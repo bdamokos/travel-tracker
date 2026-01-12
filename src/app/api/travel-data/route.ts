@@ -5,9 +5,81 @@ import { isAdminDomain } from '../../lib/server-domains';
 
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
 
+type RouteSegmentPayload = {
+  from: string;
+  to: string;
+  fromCoords?: [number, number];
+  toCoords?: [number, number];
+};
+
+type RoutePayload = RouteSegmentPayload & {
+  id: string;
+  subRoutes?: RouteSegmentPayload[];
+};
+
+const isSameCoords = (left?: [number, number], right?: [number, number]) => {
+  if (!left || !right) return false;
+  return left[0] === right[0] && left[1] === right[1];
+};
+
+const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
+  if (!routes) return { routes };
+
+  const normalized = routes.map((route) => {
+    if (!route.subRoutes?.length) {
+      return route;
+    }
+
+    const first = route.subRoutes[0];
+    const last = route.subRoutes[route.subRoutes.length - 1];
+
+    if (route.from && route.from !== first.from) {
+      return { error: `Route ${route.id} from does not match sub-route start` };
+    }
+
+    if (route.to && route.to !== last.to) {
+      return { error: `Route ${route.id} to does not match sub-route end` };
+    }
+
+    if (route.fromCoords && first.fromCoords && !isSameCoords(route.fromCoords, first.fromCoords)) {
+      return { error: `Route ${route.id} fromCoords does not match sub-route start` };
+    }
+
+    if (route.toCoords && last.toCoords && !isSameCoords(route.toCoords, last.toCoords)) {
+      return { error: `Route ${route.id} toCoords does not match sub-route end` };
+    }
+
+    return {
+      ...route,
+      from: first.from,
+      to: last.to,
+      fromCoords: first.fromCoords ?? route.fromCoords,
+      toCoords: last.toCoords ?? route.toCoords
+    };
+  });
+
+  const errorResult = normalized.find((entry) => typeof entry === 'object' && 'error' in entry) as
+    | { error: string }
+    | undefined;
+
+  if (errorResult) {
+    return { error: errorResult.error };
+  }
+
+  return { routes: normalized as RoutePayload[] };
+};
+
 export async function POST(request: NextRequest) {
   try {
     const travelData = await request.json();
+
+    const { routes, error } = normalizeCompositeRoutes(travelData.routes);
+    if (error) {
+      return NextResponse.json(
+        { error },
+        { status: 400 }
+      );
+    }
     
     // Generate a unique ID for this travel map
     const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -15,6 +87,7 @@ export async function POST(request: NextRequest) {
     // Use unified data service to save travel data
     await updateTravelData(id, {
       ...travelData,
+      routes,
       id,
       createdAt: new Date().toISOString()
     });
@@ -121,6 +194,14 @@ export async function PUT(request: NextRequest) {
     }
     
     const updatedData = await request.json();
+
+    const { routes, error } = normalizeCompositeRoutes(updatedData.routes);
+    if (error) {
+      return NextResponse.json(
+        { error },
+        { status: 400 }
+      );
+    }
     
     if (DEBUG_TRAVEL_DATA) {
       console.log('[PUT] Received data for trip %s, %d routes', id, updatedData.routes?.length || 0);
@@ -141,6 +222,7 @@ export async function PUT(request: NextRequest) {
     // Use unified data service to update travel data
     await updateTravelData(id, {
       ...updatedData,
+      routes,
       id
     });
     

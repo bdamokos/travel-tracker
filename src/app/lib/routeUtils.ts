@@ -260,10 +260,60 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
   }
 };
 
+type RouteSegmentLike = {
+  routePoints?: [number, number][];
+  fromCoordinates?: [number, number];
+  toCoordinates?: [number, number];
+  fromCoords?: [number, number];
+  toCoords?: [number, number];
+};
+
+const isSamePoint = (left?: [number, number], right?: [number, number]) => {
+  if (!left || !right) return false;
+  return left[0] === right[0] && left[1] === right[1];
+};
+
+export const buildCompositeRoutePoints = (segments: RouteSegmentLike[]): [number, number][] => {
+  const stitched: [number, number][] = [];
+
+  segments.forEach((segment) => {
+    const from = segment.fromCoordinates ?? segment.fromCoords;
+    const to = segment.toCoordinates ?? segment.toCoords;
+    const segmentPoints = segment.routePoints?.length
+      ? segment.routePoints
+      : (from && to ? [from, to] : []);
+
+    if (segmentPoints.length === 0) {
+      return;
+    }
+
+    if (stitched.length === 0) {
+      stitched.push(...segmentPoints);
+      return;
+    }
+
+    const last = stitched[stitched.length - 1];
+    const first = segmentPoints[0];
+
+    if (!isSamePoint(last, first)) {
+      stitched.push(first, ...segmentPoints.slice(1));
+      return;
+    }
+
+    stitched.push(...segmentPoints.slice(1));
+  });
+
+  return stitched;
+};
+
 // Generate route points based on transportation type
 export const generateRoutePoints = async (
   transportation: Transportation
 ): Promise<[number, number][]> => {
+  if (transportation.subRoutes?.length) {
+    return buildCompositeRoutePoints(transportation.subRoutes);
+  }
+
   const { type, fromCoordinates, toCoordinates, routePoints: storedRoutePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined
@@ -334,6 +384,10 @@ export const generateRoutePoints = async (
 export const generateRoutePointsSync = (
   transportation: Transportation
 ): [number, number][] => {
+  if (transportation.subRoutes?.length) {
+    return buildCompositeRoutePoints(transportation.subRoutes);
+  }
+
   const { type, fromCoordinates, toCoordinates, routePoints: storedRoutePoints, useManualRoutePoints } = transportation;
   
   // Handle case where coordinates are undefined

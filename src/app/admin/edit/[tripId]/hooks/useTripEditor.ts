@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
 import { calculateSmartDurations } from '@/app/lib/durationUtils';
-import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelData, Transportation, Accommodation } from '@/app/types';
+import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelRouteSegment, TravelData, Transportation, Accommodation } from '@/app/types';
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
@@ -173,7 +173,28 @@ export function useTripEditor(tripId: string | null) {
       notes: route.notes || '',
       privateNotes: route.privateNotes,
       costTrackingLinks: route.costTrackingLinks || [],
-      routePoints: route.routePoints // Preserve existing routePoints
+      routePoints: route.routePoints, // Preserve existing routePoints
+      useManualRoutePoints: route.useManualRoutePoints,
+      isReturn: route.isReturn,
+      subRoutes: route.subRoutes?.map((segment: Partial<TravelRoute>) => ({
+        id: segment.id || generateId(),
+        from: segment.from || '',
+        to: segment.to || '',
+        fromCoords: segment.fromCoords || [0, 0] as [number, number],
+        toCoords: segment.toCoords || [0, 0] as [number, number],
+        transportType: segment.transportType || route.transportType || 'car',
+        date: segment.date
+          ? (segment.date instanceof Date ? segment.date : new Date(segment.date))
+          : (route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date()),
+        duration: segment.duration,
+        notes: segment.notes || '',
+        privateNotes: segment.privateNotes,
+        costTrackingLinks: segment.costTrackingLinks || [],
+        routePoints: segment.routePoints,
+        useManualRoutePoints: segment.useManualRoutePoints,
+        isReturn: segment.isReturn,
+        isReadOnly: segment.isReadOnly
+      }))
     })) || [];
 
     return {
@@ -233,7 +254,16 @@ export function useTripEditor(tripId: string | null) {
             to: route.to,
             fromCoordinates: route.fromCoords,
             toCoordinates: route.toCoords,
-            costTrackingLinks: route.costTrackingLinks
+            costTrackingLinks: route.costTrackingLinks,
+            subRoutes: route.subRoutes?.map(segment => ({
+              id: segment.id,
+              type: segment.transportType,
+              from: segment.from,
+              to: segment.to,
+              fromCoordinates: segment.fromCoords,
+              toCoordinates: segment.toCoords,
+              costTrackingLinks: segment.costTrackingLinks
+            }))
           }));
           
           const lookup = new ExpenseTravelLookup(costData.tripId, {
@@ -361,78 +391,82 @@ export function useTripEditor(tripId: string | null) {
   const handleRouteAdded = async (newRoute: TravelRoute) => {
     // Auto-create missing locations for route endpoints
     const updatedLocations = [...travelData.locations];
-    
-    // Check if 'from' location exists
-    const fromExists = updatedLocations.some(loc => 
-      loc.name.toLowerCase().trim() === newRoute.from.toLowerCase().trim()
-    );
-    
-    if (!fromExists && newRoute.fromCoords && (newRoute.fromCoords[0] !== 0 || newRoute.fromCoords[1] !== 0)) {
-      const fromLocation: Location = {
-        id: generateId(),
-        name: newRoute.from,
-        coordinates: newRoute.fromCoords,
-        date: newRoute.date,
-      notes: '',
-      instagramPosts: [],
-      tikTokPosts: [],
-      blogPosts: [],
-      accommodationData: '',
-        isAccommodationPublic: false,
-        costTrackingLinks: []
-      };
-      updatedLocations.push(fromLocation);
-    }
-    
-    // Check if 'to' location exists
-    const toExists = updatedLocations.some(loc => 
-      loc.name.toLowerCase().trim() === newRoute.to.toLowerCase().trim()
-    );
-    
-    if (!toExists && newRoute.toCoords && (newRoute.toCoords[0] !== 0 || newRoute.toCoords[1] !== 0)) {
-      const toLocation: Location = {
-        id: generateId(),
-        name: newRoute.to,
-        coordinates: newRoute.toCoords,
-        date: newRoute.date,
-        notes: '',
-        instagramPosts: [],
-        tikTokPosts: [],
-        blogPosts: [],
-        accommodationData: '',
-        isAccommodationPublic: false,
-        costTrackingLinks: []
-      };
-      updatedLocations.push(toLocation);
-    }
+    const endpointCandidates = newRoute.subRoutes?.length
+      ? newRoute.subRoutes.flatMap(segment => ([
+          { name: segment.from, coords: segment.fromCoords, date: segment.date },
+          { name: segment.to, coords: segment.toCoords, date: segment.date }
+        ]))
+      : [
+          { name: newRoute.from, coords: newRoute.fromCoords, date: newRoute.date },
+          { name: newRoute.to, coords: newRoute.toCoords, date: newRoute.date }
+        ];
 
-    // Pre-generate route points for better public map performance (skip when manual override provided)
-    const hasManualRoute = newRoute.useManualRoutePoints && (newRoute.routePoints?.length || 0) > 0;
-    if (!hasManualRoute) {
+    endpointCandidates.forEach(endpoint => {
+      if (!endpoint.name.trim()) return;
+      const exists = updatedLocations.some(loc => 
+        loc.name.toLowerCase().trim() === endpoint.name.toLowerCase().trim()
+      );
+
+      if (!exists && endpoint.coords && (endpoint.coords[0] !== 0 || endpoint.coords[1] !== 0)) {
+        const newLocation: Location = {
+          id: generateId(),
+          name: endpoint.name,
+          coordinates: endpoint.coords,
+          date: endpoint.date,
+          notes: '',
+          instagramPosts: [],
+          tikTokPosts: [],
+          blogPosts: [],
+          accommodationData: '',
+          isAccommodationPublic: false,
+          costTrackingLinks: []
+        };
+        updatedLocations.push(newLocation);
+      }
+    });
+
+    const ensureRoutePoints = async <T extends TravelRouteSegment>(segment: T): Promise<T> => {
+      const hasManualSegment = segment.useManualRoutePoints && (segment.routePoints?.length || 0) > 0;
+      if (hasManualSegment) {
+        return segment;
+      }
+
       try {
         const transportation: Transportation = {
-          id: newRoute.id,
-          type: newRoute.transportType,
-          from: newRoute.from,
-          to: newRoute.to,
-          fromCoordinates: newRoute.fromCoords,
-          toCoordinates: newRoute.toCoords,
-          useManualRoutePoints: newRoute.useManualRoutePoints
+          id: segment.id,
+          type: segment.transportType,
+          from: segment.from,
+          to: segment.to,
+          fromCoordinates: segment.fromCoords,
+          toCoordinates: segment.toCoords,
+          useManualRoutePoints: segment.useManualRoutePoints
         };
-        
-        console.log(`[handleRouteAdded] Generating route points for ${newRoute.from} → ${newRoute.to}`);
+
+        console.log(`[handleRouteAdded] Generating route points for ${segment.from} → ${segment.to}`);
         const routePoints = await generateRoutePoints(transportation);
-        newRoute.routePoints = routePoints;
-        newRoute.useManualRoutePoints = false; // generated, not manual
-        console.log(`[handleRouteAdded] Generated ${routePoints.length} route points, assigned to newRoute`);
-        console.log(`[handleRouteAdded] newRoute.routePoints length:`, newRoute.routePoints?.length);
+        return {
+          ...segment,
+          routePoints,
+          useManualRoutePoints: false
+        } as T;
       } catch (error) {
         console.warn('Failed to pre-generate route points:', error);
         // Don't block route creation if route generation fails
-        newRoute.routePoints = [newRoute.fromCoords, newRoute.toCoords];
-        newRoute.useManualRoutePoints = false;
-        console.log(`[handleRouteAdded] Fallback: assigned ${newRoute.routePoints?.length} fallback points`);
+        return {
+          ...segment,
+          routePoints: [segment.fromCoords, segment.toCoords],
+          useManualRoutePoints: false
+        } as T;
       }
+    };
+
+    // Pre-generate route points for better public map performance (skip when manual override provided)
+    if (newRoute.subRoutes?.length) {
+      newRoute.subRoutes = await Promise.all(newRoute.subRoutes.map(async (segment) => ensureRoutePoints(segment)));
+      newRoute.routePoints = undefined;
+      newRoute.useManualRoutePoints = false;
+    } else {
+      newRoute = await ensureRoutePoints(newRoute);
     }
 
     if (editingRouteIndex !== null) {
@@ -546,8 +580,16 @@ export function useTripEditor(tripId: string | null) {
     
     // Check for linked expenses
     const linkedExpenses = await getLinkedExpenses('route', route.id);
+    const subRouteIds = route.subRoutes?.map(segment => segment.id) || [];
+    const subRouteExpenseResults = await Promise.all(
+      subRouteIds.map(id => getLinkedExpenses('route', id))
+    );
+    const combinedExpenses = [
+      ...linkedExpenses,
+      ...subRouteExpenseResults.flat()
+    ];
     
-    if (linkedExpenses.length > 0) {
+    if (combinedExpenses.length > 0) {
       // Show safe deletion dialog
       setDeleteDialog({
         isOpen: true,
@@ -555,7 +597,7 @@ export function useTripEditor(tripId: string | null) {
         itemIndex: index,
         itemId: route.id,
         itemName: `${route.from} → ${route.to}`,
-        linkedExpenses
+        linkedExpenses: combinedExpenses
       });
     } else {
       // No linked expenses, safe to delete directly
@@ -569,7 +611,58 @@ export function useTripEditor(tripId: string | null) {
 
   const recalculateRoutePoints = async (index: number) => {
     const route = travelData.routes[index];
-    
+
+    if (route.subRoutes?.length) {
+      const hasManualSegments = route.subRoutes.some(segment =>
+        segment.useManualRoutePoints && (segment.routePoints?.length || 0) > 0
+      );
+
+      if (hasManualSegments) {
+        const proceed = confirm('One or more segments use manually imported coordinates. Recalculating will overwrite them. Continue?');
+        if (!proceed) {
+          showNotification('Manual segment routes kept. No changes made.', 'info');
+          return;
+        }
+      }
+
+      try {
+        const updatedSubRoutes = await Promise.all(route.subRoutes.map(async (segment) => {
+          const transportation: Transportation = {
+            id: segment.id,
+            type: segment.transportType,
+            from: segment.from,
+            to: segment.to,
+            fromCoordinates: segment.fromCoords,
+            toCoordinates: segment.toCoords,
+            useManualRoutePoints: false
+          };
+
+          console.log(`[recalculateRoutePoints] Regenerating segment route points for ${segment.from} → ${segment.to}`);
+          const routePoints = await generateRoutePoints(transportation);
+          return {
+            ...segment,
+            routePoints,
+            useManualRoutePoints: false
+          };
+        }));
+
+        setTravelData(prev => ({
+          ...prev,
+          routes: prev.routes.map((r, i) =>
+            i === index ? { ...r, subRoutes: updatedSubRoutes, routePoints: undefined, useManualRoutePoints: false } : r
+          )
+        }));
+
+        setHasUnsavedChanges(true);
+        console.log(`[recalculateRoutePoints] Successfully regenerated ${updatedSubRoutes.length} segment routes`);
+        showNotification('Segment route points recalculated successfully', 'success');
+      } catch (error) {
+        console.error('Failed to recalculate segment route points:', error);
+        showNotification('Failed to recalculate segment route points', 'error');
+      }
+      return;
+    }
+
     // Protect manual imports from silent overwrite
     if (route.useManualRoutePoints && (route.routePoints?.length || 0) > 0) {
       const proceed = confirm('This route uses manually imported coordinates. Recalculating will overwrite them. Continue?');

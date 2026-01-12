@@ -35,20 +35,22 @@ interface TravelData {
       excerpt?: string;
     }>;
   }>;
-  routes: Array<{
-    id: string;
-    from: string;
-    to: string;
-    fromCoords: [number, number];
-    toCoords: [number, number];
-    transportType: string;
-    date: string;
-    duration?: string;
-    notes?: string;
-    routePoints?: [number, number][]; // Pre-generated route points for better performance
-  }>;
+  routes: Array<RouteSegment & { subRoutes?: RouteSegment[] }>;
   createdAt: string;
 }
+
+type RouteSegment = {
+  id: string;
+  from: string;
+  to: string;
+  fromCoords: [number, number];
+  toCoords: [number, number];
+  transportType: string;
+  date: string;
+  duration?: string;
+  notes?: string;
+  routePoints?: [number, number][]; // Pre-generated route points for better performance
+};
 
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {

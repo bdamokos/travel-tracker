@@ -29,13 +29,40 @@ interface UnlinkExpenseRequest {
 interface TripData {
   travelData?: {
     locations?: Array<{ id: string; name: string; costTrackingLinks?: Array<{ expenseId: string; description?: string }> }>;
-    routes?: Array<{ id: string; from: string; to: string; costTrackingLinks?: Array<{ expenseId: string; description?: string }> }>;
+    routes?: Array<{
+      id: string;
+      from: string;
+      to: string;
+      costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
+      subRoutes?: Array<{
+        id: string;
+        from: string;
+        to: string;
+        costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
+      }>;
+    }>;
   };
   accommodations?: Array<{ id: string; name: string; costTrackingLinks?: Array<{ expenseId: string; description?: string }> }>;
   costData?: {
     expenses?: Array<{ id: string; [key: string]: unknown }>;
   };
 }
+
+const findRouteItem = (tripData: TripData, travelItemId: string) => {
+  if (!tripData.travelData?.routes) return null;
+
+  for (const route of tripData.travelData.routes) {
+    if (route.id === travelItemId) {
+      return { item: route, name: `${route.from} → ${route.to}` };
+    }
+    const subRoute = route.subRoutes?.find(segment => segment.id === travelItemId);
+    if (subRoute) {
+      return { item: subRoute, name: `${subRoute.from} → ${subRoute.to}` };
+    }
+  }
+
+  return null;
+};
 
 // Helper function to find where an expense is currently linked
 function findExistingExpenseLink(tripData: TripData, expenseId: string) {
@@ -65,13 +92,24 @@ function findExistingExpenseLink(tripData: TripData, expenseId: string) {
     }
   }
 
-  // Check routes
+  // Check routes and sub-routes
   if (tripData.travelData?.routes) {
     for (const route of tripData.travelData.routes) {
       if (route.costTrackingLinks?.some(link => link.expenseId === expenseId)) {
         return {
           travelItemId: route.id,
           travelItemName: `${route.from} → ${route.to}`,
+          travelItemType: 'route'
+        };
+      }
+
+      const linkedSubRoute = route.subRoutes?.find(segment =>
+        segment.costTrackingLinks?.some(link => link.expenseId === expenseId)
+      );
+      if (linkedSubRoute) {
+        return {
+          travelItemId: linkedSubRoute.id,
+          travelItemName: `${linkedSubRoute.from} → ${linkedSubRoute.to}`,
           travelItemType: 'route'
         };
       }
@@ -89,7 +127,7 @@ function findTravelItem(tripData: TripData, travelItemId: string, travelItemType
     case 'accommodation':
       return tripData.accommodations?.find(item => item.id === travelItemId);
     case 'route':
-      return tripData.travelData?.routes?.find(item => item.id === travelItemId);
+      return findRouteItem(tripData, travelItemId)?.item ?? null;
     default:
       return null;
   }
