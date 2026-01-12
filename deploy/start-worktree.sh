@@ -3,14 +3,16 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./start-worktree.sh <branch> [target-dir] [base-branch]
+Usage: source ./start-worktree.sh <branch> [target-dir] [base-branch]
 
 Creates a new git worktree for the given branch. If the branch does not exist,
 it is created from the base branch (defaults to the current branch or main).
 
+Note: This script must be sourced so the final cd changes your shell.
+
 Examples:
-  ./start-worktree.sh feature/new-map
-  ./start-worktree.sh feature/new-map ../worktrees/new-map main
+  source ./start-worktree.sh feature/new-map
+  source ./start-worktree.sh feature/new-map ../worktrees/new-map main
 EOF
 }
 
