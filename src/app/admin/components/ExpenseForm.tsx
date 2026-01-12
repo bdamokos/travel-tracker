@@ -46,7 +46,12 @@ export default function ExpenseForm({
     if (editingExpenseIndex !== null && currentExpense.id && tripId) {
       // Fetch existing links for this expense
       fetch(`/api/travel-data/${tripId}/expense-links`)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to load expense links (${response.status})`);
+          }
+          return response.json();
+        })
         .then((links: Array<{expenseId: string, travelItemId: string, travelItemName: string, travelItemType: string}>) => {
           const existingLink = links.find(link => link.expenseId === currentExpense.id);
           if (existingLink) {

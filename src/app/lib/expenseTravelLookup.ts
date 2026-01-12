@@ -358,7 +358,11 @@ export function calculateExpenseTotalsByLocation({
 export async function createExpenseTravelLookup(tripId: string): Promise<ExpenseTravelLookup> {
   // Use proper baseURL handling for both server and client
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-  const tripData: TripData = await fetch(`${baseUrl}/api/travel-data?id=${tripId}`).then(r => r.json());
+  const response = await fetch(`${baseUrl}/api/travel-data?id=${tripId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to load trip data (${response.status})`);
+  }
+  const tripData: TripData = await response.json();
 
   const lookup = new ExpenseTravelLookup(tripId, tripData);
   return lookup;

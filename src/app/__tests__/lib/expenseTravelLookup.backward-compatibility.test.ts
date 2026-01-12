@@ -41,6 +41,8 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
       };
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
         json: () => Promise.resolve(mockTripData)
       });
 
