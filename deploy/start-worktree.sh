@@ -51,6 +51,8 @@ else
   echo "No .env found to copy from ${source_env}"
 fi
 
+mkdir -p "${target_dir}/data/backups"
+
 if command -v bun >/dev/null 2>&1; then
   echo "Installing dependencies in ${target_dir}"
   bun install --cwd "$target_dir"
