@@ -118,6 +118,45 @@ export default function TripCalendar({
     openPopup(location, journeyDay, trip.id);
   };
 
+  // Helper function to sort legend items by earliest date
+  const getSortedLegendItems = (
+    locationColors: Map<string, string>, 
+    locations: Location[]
+  ): [string, string][] => {
+    // Create a map of location name to earliest date
+    const locationDates = new Map<string, Date>();
+    
+    locations.forEach(location => {
+      const locationName = location.name;
+      const locationDate = new Date(location.date);
+      
+      // If this location hasn't been seen before, or this date is earlier, update it
+      const existingDate = locationDates.get(locationName);
+      if (!existingDate || locationDate < existingDate) {
+        locationDates.set(locationName, locationDate);
+      }
+    });
+    
+    // Sort the legend entries by earliest date
+    return Array.from(locationColors.entries()).sort(([nameA], [nameB]) => {
+      const dateA = locationDates.get(nameA);
+      const dateB = locationDates.get(nameB);
+      
+      // Handle shadow locations by removing the 🔮 prefix for date comparison
+      const cleanNameA = nameA.replace('🔮', '');
+      const cleanNameB = nameB.replace('🔮', '');
+      
+      const actualDateA = dateA || locationDates.get(cleanNameA);
+      const actualDateB = dateB || locationDates.get(cleanNameB);
+      
+      if (!actualDateA && !actualDateB) return 0;
+      if (!actualDateA) return 1;
+      if (!actualDateB) return -1;
+      
+      return actualDateA.getTime() - actualDateB.getTime();
+    });
+  };
+
   // Show loading state until mounted and data loaded to prevent hydration issues
   if (!mounted || !calendarData) {
     return (
@@ -192,7 +231,7 @@ export default function TripCalendar({
       <div className="location-legend mt-6 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
         <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Locations</h3>
         <div className="flex flex-wrap gap-3">
-          {Array.from(calendarData.locationColors.entries()).map(([locationName, color]) => {
+          {getSortedLegendItems(calendarData.locationColors, trip.locations).map(([locationName, color]) => {
             const isShadowLocation = locationName.startsWith('🔮');
             return (
               <div key={locationName} className="flex items-center space-x-2">
