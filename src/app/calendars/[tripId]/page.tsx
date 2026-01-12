@@ -5,7 +5,6 @@ import TripUpdates from '@/app/components/TripUpdates';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
-import { getCurrentTripStatus } from '@/app/lib/currentTripStatus';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 
 interface CalendarPageProps {
@@ -175,7 +174,6 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
     const updates = isAdmin
       ? tripData.publicUpdates
       : filterUpdatesForPublic(tripData.publicUpdates, displayTrip.locations, displayTrip.routes);
-    const currentStatus = getCurrentTripStatus(displayTrip.locations, displayTrip.routes);
 
     return (
       <div className="container mx-auto px-4 py-8">
@@ -203,7 +201,12 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
         )}
 
         <TripCalendar trip={displayTrip} planningMode={isAdmin} className="w-full">
-          <TripUpdates updates={updates} className="mb-6" currentStatus={currentStatus} />
+          <TripUpdates
+            updates={updates}
+            className="mb-6"
+            locations={displayTrip.locations}
+            routes={displayTrip.routes}
+          />
         </TripCalendar>
         
         {/* Navigation back to map */}
