@@ -187,6 +187,7 @@ export default function CostTrackerEditor({
       }
     } catch (error) {
       console.error('Failed to initialize travel lookup:', error);
+      setTravelLookup(null);
       setTripLocations([]);
       setTripAccommodations([]);
     }
