@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Journey, JourneyDay, Transportation } from '@/app/types';
+import { CostTrackingData, Journey, JourneyDay, Transportation } from '@/app/types';
 import { transportationColors } from '@/app/lib/routeUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AccommodationDisplay from '@/app/components/AccommodationDisplay';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
-import { CostTrackingData } from '@/app/types';
 import { formatCurrency } from '@/app/lib/costUtils';
 
 interface TimelineProps {

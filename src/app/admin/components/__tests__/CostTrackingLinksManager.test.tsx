@@ -9,8 +9,8 @@ import {
   useUnlinkExpense
 } from '@/app/hooks/useExpenseLinks';
 
-jest.mock('../../../hooks/useExpenses');
-jest.mock('../../../hooks/useExpenseLinks');
+jest.mock('@/app/hooks/useExpenses');
+jest.mock('@/app/hooks/useExpenseLinks');
 
 const mockUseExpenses = useExpenses as jest.MockedFunction<typeof useExpenses>;
 const mockUseExpenseLinks = useExpenseLinks as jest.MockedFunction<typeof useExpenseLinks>;

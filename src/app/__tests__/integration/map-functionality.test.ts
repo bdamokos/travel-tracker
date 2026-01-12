@@ -354,7 +354,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       
       if (await isExternalApiAvailable()) {
         // Use real API
-        const { generateRoutePoints } = await import('../../lib/routeUtils')
+        const { generateRoutePoints } = await import('@/app/lib/routeUtils')
         routePoints = await generateRoutePoints(transportation)
         console.log(`✅ Test 3: Generated ${routePoints.length} RoutePoints via external API`)
       } else {
@@ -456,7 +456,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       
       if (await isExternalApiAvailable()) {
         // Import and use real route generation function
-        const { generateRoutePoints } = await import('../../lib/routeUtils')
+        const { generateRoutePoints } = await import('@/app/lib/routeUtils')
         routePoints = await generateRoutePoints(transportation)
         console.log(`✅ Test 3: Direct route generation via external API - ${routePoints.length} points`)
       } else {
@@ -526,7 +526,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
         toCoordinates: TEST_ROUTE.toCoords
       }
       
-      const { generateRoutePoints } = await import('../../lib/routeUtils')
+      const { generateRoutePoints } = await import('@/app/lib/routeUtils')
       const routePoints = await generateRoutePoints(routeData)
       const routeWithPoints = { ...routeData, routePoints }
       

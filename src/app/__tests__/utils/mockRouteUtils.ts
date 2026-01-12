@@ -154,8 +154,8 @@ export const setupRouteMocking = () => {
   });
   
   // Mock the route utils module
-  jest.doMock('../../lib/routeUtils', () => ({
-    ...jest.requireActual('../../lib/routeUtils'),
+  jest.doMock('@/app/lib/routeUtils', () => ({
+    ...jest.requireActual('@/app/lib/routeUtils'),
     generateRoutePoints: mockGenerateRoutePoints
   }));
   

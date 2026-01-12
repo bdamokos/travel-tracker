@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import AccessibleDatePicker from './AccessibleDatePicker';
+import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 import CostTrackingLinksManager from '@/app/admin/components/CostTrackingLinksManager';
 import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
 import { Location, CostTrackingData } from '@/app/types';
