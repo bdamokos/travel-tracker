@@ -13,9 +13,7 @@ import CalendarGrid from './CalendarGrid';
 import styles from './Calendar.module.css';
 import { LocationPopupModal } from '../LocationPopup';
 import { useLocationPopup } from '../../hooks/useLocationPopup';
-
-/** Prefix used for shadow planning locations in the calendar legend */
-const SHADOW_LOCATION_PREFIX = '🔮';
+import { SHADOW_LOCATION_PREFIX } from '@/app/admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
 
 /**
  * Helper function to sort legend items by earliest date.
@@ -210,7 +208,7 @@ export default function TripCalendar({
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 bg-blue-200 border-2 border-dashed border-blue-400 rounded"></div>
-                <span>🔮 Shadow planning locations</span>
+                <span>{SHADOW_LOCATION_PREFIX} Shadow planning locations</span>
               </div>
             </div>
           </div>

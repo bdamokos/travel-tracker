@@ -4,6 +4,7 @@ import { CalendarCell, CalendarDay, muteColor } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
 import WeatherIcon from '../Weather/WeatherIcon';
 import { useMemo } from 'react';
+import { SHADOW_LOCATION_PREFIX } from '@/app/admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
 
 interface CalendarDayCellProps {
   cell: CalendarCell;
@@ -47,7 +48,7 @@ export default function CalendarDayCell({
   }
 
   // Check if this is a shadow location
-  const isShadowLocation = day.primaryLocation?.name.startsWith('🔮') || day.secondaryLocation?.name.startsWith('🔮');
+  const isShadowLocation = day.primaryLocation?.name.startsWith(SHADOW_LOCATION_PREFIX) || day.secondaryLocation?.name.startsWith(SHADOW_LOCATION_PREFIX);
 
   const baseClasses = `
     h-20 min-h-20 border border-gray-200 cursor-pointer relative overflow-hidden

@@ -9,6 +9,9 @@ import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
 
+/** Prefix used for shadow planning locations throughout the app */
+export const SHADOW_LOCATION_PREFIX = '🔮';
+
 type ShadowRoutePayload = {
   id?: string;
   from?: string;
