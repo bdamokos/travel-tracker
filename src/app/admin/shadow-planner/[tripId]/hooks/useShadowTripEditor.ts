@@ -8,7 +8,7 @@ import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
-import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
+import { SHADOW_LOCATION_PREFIX, REAL_LOCATION_MARKER } from '@/app/lib/shadowConstants';
 
 type ShadowRoutePayload = {
   id?: string;
@@ -158,7 +158,7 @@ export function useShadowTripEditor(tripId: string) {
         const mergedAccommodations = [
           ...realAccommodations.map((acc: Accommodation) => ({
             ...acc,
-            name: `${SHADOW_LOCATION_PREFIX} ${acc.name}`, // Mark real accommodations with icon
+            name: `${REAL_LOCATION_MARKER} ${acc.name}`, // Mark real accommodations with icon
             isReadOnly: true
           })),
           ...shadowAccommodations.map((acc: Accommodation) => ({
@@ -185,7 +185,7 @@ export function useShadowTripEditor(tripId: string) {
               return {
                 ...loc,
                 id: loc.id,
-                name: `${SHADOW_LOCATION_PREFIX} ${loc.name}`, // Mark real locations with icon
+                name: `${REAL_LOCATION_MARKER} ${loc.name}`, // Mark real locations with icon
                 date: new Date(loc.date),
                 // Mark as read-only by adding a flag we can check in the editor
                 isReadOnly: true,
@@ -215,8 +215,8 @@ export function useShadowTripEditor(tripId: string) {
               date: new Date(route.departureTime || route.date || new Date()),
               fromCoords: route.fromCoords || [0, 0],
               toCoords: route.toCoords || [0, 0],
-              from: `${SHADOW_LOCATION_PREFIX} ${route.from}`, // Mark real routes
-              to: `${SHADOW_LOCATION_PREFIX} ${route.to}`,
+              from: `${REAL_LOCATION_MARKER} ${route.from}`, // Mark real routes
+              to: `${REAL_LOCATION_MARKER} ${route.to}`,
               isReadOnly: true
             })),
             ...shadowRoutes.map((route: ShadowRoutePayload) => ({
