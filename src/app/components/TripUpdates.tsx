@@ -3,26 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TripUpdate } from '../types';
 import { formatUtcDate } from '../lib/dateUtils';
-import { getCurrentTripStatus } from '../lib/currentTripStatus';
+import { getCurrentTripStatus, LocationTiming, RouteTiming } from '../lib/currentTripStatus';
 
 const MAX_UPDATES = 10;
 const MAX_DAYS = 30;
 const COOKIE_NAME = 'tt_updates_seen';
-
-type LocationTiming = {
-  name: string;
-  date: string | Date;
-  endDate?: string | Date;
-  notes?: string;
-};
-
-type RouteTiming = {
-  from: string;
-  to: string;
-  date?: string | Date;
-  departureTime?: string | Date;
-  arrivalTime?: string | Date;
-};
 
 type TripUpdatesProps = {
   updates?: TripUpdate[];

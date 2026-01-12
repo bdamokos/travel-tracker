@@ -1,13 +1,13 @@
 import { normalizeUtcDateToLocalDay } from './dateUtils';
 
-type LocationTiming = {
+export type LocationTiming = {
   name: string;
   date: string | Date;
   endDate?: string | Date;
   notes?: string;
 };
 
-type RouteTiming = {
+export type RouteTiming = {
   from: string;
   to: string;
   date?: string | Date;
