@@ -62,5 +62,15 @@ describe('ExpenseTravelLookup Backward Compatibility', () => {
 
       await expect(createExpenseTravelLookup('test-trip')).rejects.toThrow('Network error');
     });
+
+    it('should handle non-OK responses', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ error: 'Not found' })
+      });
+
+      await expect(createExpenseTravelLookup('test-trip')).rejects.toThrow('Failed to load trip data (404)');
+    });
   });
 });
