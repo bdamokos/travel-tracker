@@ -4,7 +4,7 @@ import { CalendarCell, CalendarDay, muteColor } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
 import WeatherIcon from '../Weather/WeatherIcon';
 import { useMemo } from 'react';
-import { SHADOW_LOCATION_PREFIX } from '@/app/admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
+import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 interface CalendarDayCellProps {
   cell: CalendarCell;

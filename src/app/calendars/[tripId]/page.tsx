@@ -7,7 +7,7 @@ import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
-import { SHADOW_LOCATION_PREFIX } from '@/app/admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
+import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 interface CalendarPageProps {
   params: Promise<{
@@ -20,7 +20,10 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
   if (isAdmin) {
     try {
       // Try to load shadow data first
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const headersList = await headers();
+      const host = headersList.get('host') || 'localhost:3000';
+      const protocol = headersList.get('x-forwarded-proto') || 'http';
+      const baseUrl = `${protocol}://${host}`;
       const response = await fetch(`${baseUrl}/api/shadow-trips/${tripId}`, {
         cache: 'no-store'
       });

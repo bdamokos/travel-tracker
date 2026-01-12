@@ -2,7 +2,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-
 import { pickDistinctColors } from 'pick-distinct-colors';
 import { Trip, Location } from '@/app/types';
 import { buildSideTripMap } from './sideTripUtils';
-import { SHADOW_LOCATION_PREFIX } from '@/app/admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
+import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 function toCalendarDay(value: string | Date): Date {
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);

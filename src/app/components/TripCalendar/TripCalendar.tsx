@@ -13,7 +13,7 @@ import CalendarGrid from './CalendarGrid';
 import styles from './Calendar.module.css';
 import { LocationPopupModal } from '../LocationPopup';
 import { useLocationPopup } from '../../hooks/useLocationPopup';
-import { SHADOW_LOCATION_PREFIX } from '@/app/admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
+import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 /**
  * Helper function to sort legend items by earliest date.

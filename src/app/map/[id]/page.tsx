@@ -9,7 +9,7 @@ import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
 import TripUpdates from '../../components/TripUpdates';
 import { filterUpdatesForPublic } from '../../lib/updateFilters';
-import { SHADOW_LOCATION_PREFIX } from '../../admin/shadow-planner/[tripId]/hooks/useShadowTripEditor';
+import { SHADOW_LOCATION_PREFIX } from '../../lib/shadowConstants';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
