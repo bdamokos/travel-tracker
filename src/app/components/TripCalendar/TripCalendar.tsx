@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Trip, Location } from '@/app/types';
 import { 
   applyPlanningModeColors,
@@ -13,6 +13,54 @@ import CalendarGrid from './CalendarGrid';
 import styles from './Calendar.module.css';
 import { LocationPopupModal } from '../LocationPopup';
 import { useLocationPopup } from '../../hooks/useLocationPopup';
+
+/** Prefix used for shadow planning locations in the calendar legend */
+const SHADOW_LOCATION_PREFIX = '🔮';
+
+/**
+ * Helper function to sort legend items by earliest date.
+ * Moved outside component to prevent recreation on each render.
+ */
+const getSortedLegendItems = (
+  locationColors: Map<string, string>,
+  locations: Location[]
+): [string, string][] => {
+  // Create a map of location name to earliest date
+  const locationDates = new Map<string, Date>();
+
+  locations.forEach(location => {
+    const locationName = location.name;
+    const locationDate = new Date(location.date);
+
+    // Validate date before storing - skip invalid dates
+    if (isNaN(locationDate.getTime())) {
+      return;
+    }
+
+    // If this location hasn't been seen before, or this date is earlier, update it
+    const existingDate = locationDates.get(locationName);
+    if (!existingDate || locationDate < existingDate) {
+      locationDates.set(locationName, locationDate);
+    }
+  });
+
+  // Sort the legend entries by earliest date
+  return Array.from(locationColors.entries()).sort(([nameA], [nameB]) => {
+    // Shadow locations have the prefix in keys but not in trip.locations,
+    // so we clean the names first before looking up dates
+    const cleanNameA = nameA.replace(SHADOW_LOCATION_PREFIX, '');
+    const cleanNameB = nameB.replace(SHADOW_LOCATION_PREFIX, '');
+
+    const actualDateA = locationDates.get(cleanNameA);
+    const actualDateB = locationDates.get(cleanNameB);
+
+    if (!actualDateA && !actualDateB) return 0;
+    if (!actualDateA) return 1;
+    if (!actualDateB) return -1;
+
+    return actualDateA.getTime() - actualDateB.getTime();
+  });
+};
 
 interface TripCalendarProps {
   trip: Trip;
@@ -118,44 +166,11 @@ export default function TripCalendar({
     openPopup(location, journeyDay, trip.id);
   };
 
-  // Helper function to sort legend items by earliest date
-  const getSortedLegendItems = (
-    locationColors: Map<string, string>, 
-    locations: Location[]
-  ): [string, string][] => {
-    // Create a map of location name to earliest date
-    const locationDates = new Map<string, Date>();
-    
-    locations.forEach(location => {
-      const locationName = location.name;
-      const locationDate = new Date(location.date);
-      
-      // If this location hasn't been seen before, or this date is earlier, update it
-      const existingDate = locationDates.get(locationName);
-      if (!existingDate || locationDate < existingDate) {
-        locationDates.set(locationName, locationDate);
-      }
-    });
-    
-    // Sort the legend entries by earliest date
-    return Array.from(locationColors.entries()).sort(([nameA], [nameB]) => {
-      const dateA = locationDates.get(nameA);
-      const dateB = locationDates.get(nameB);
-      
-      // Handle shadow locations by removing the 🔮 prefix for date comparison
-      const cleanNameA = nameA.replace('🔮', '');
-      const cleanNameB = nameB.replace('🔮', '');
-      
-      const actualDateA = dateA || locationDates.get(cleanNameA);
-      const actualDateB = dateB || locationDates.get(cleanNameB);
-      
-      if (!actualDateA && !actualDateB) return 0;
-      if (!actualDateA) return 1;
-      if (!actualDateB) return -1;
-      
-      return actualDateA.getTime() - actualDateB.getTime();
-    });
-  };
+  // Memoize the sorted legend items to prevent re-sorting on every render
+  const sortedLegendItems = useMemo(() => {
+    if (!calendarData) return [];
+    return getSortedLegendItems(calendarData.locationColors, trip.locations);
+  }, [calendarData, trip.locations]);
 
   // Show loading state until mounted and data loaded to prevent hydration issues
   if (!mounted || !calendarData) {
@@ -231,8 +246,8 @@ export default function TripCalendar({
       <div className="location-legend mt-6 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
         <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Locations</h3>
         <div className="flex flex-wrap gap-3">
-          {getSortedLegendItems(calendarData.locationColors, trip.locations).map(([locationName, color]) => {
-            const isShadowLocation = locationName.startsWith('🔮');
+          {sortedLegendItems.map(([locationName, color]) => {
+            const isShadowLocation = locationName.startsWith(SHADOW_LOCATION_PREFIX);
             return (
               <div key={locationName} className="flex items-center space-x-2">
                 <div 
