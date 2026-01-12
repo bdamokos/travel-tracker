@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
+import Link from 'next/link';
 import { TripCalendar } from '@/app/components/TripCalendar';
 import TripUpdates from '@/app/components/TripUpdates';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
@@ -201,13 +202,13 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
         )}
 
         {/* Header with View Map button */}
-        <div className="flex items-start justify-end mb-6">
-          <a
-            href={`/map/${trip.id}`}
-            className="inline-flex items-center px-4 py-2 border border-purple-300 rounded-md shadow-sm bg-white text-sm font-medium text-purple-700 hover:bg-purple-50 dark:bg-gray-700 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-gray-600"
+        <div className="flex justify-end mb-6">
+          <Link
+            href={`/map/${tripId}`}
+            className="inline-flex items-center px-4 py-2 border border-purple-300 rounded-md shadow-sm bg-white text-sm font-medium text-purple-700 hover:bg-purple-50 dark:bg-gray-700 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
           >
             View Map
-          </a>
+          </Link>
         </div>
 
         <TripCalendar trip={displayTrip} planningMode={isAdmin} className="w-full">
