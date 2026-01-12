@@ -1,5 +1,5 @@
 import { formatDateRange, normalizeUtcDateToLocalDay } from './dateUtils';
-import { Location, Transportation, TripUpdate } from '../types';
+import { Location, Transportation, TripUpdate, TripUpdateLink, InstagramPost, TikTokPost, BlogPost } from '@/app/types';
 import { UnifiedTripData } from './dataMigration';
 
 type RouteLike = Transportation & { transportType?: string };
@@ -55,18 +55,63 @@ const isPublicLocation = (location: Location): boolean => !location.notes?.inclu
 
 const isPublicRoute = (route: Transportation): boolean => !route.privateNotes;
 
+// Type guard for BlogPost
+const isBlogPost = (post: InstagramPost | TikTokPost | BlogPost): post is BlogPost => {
+  return 'title' in post && typeof post.title === 'string';
+};
+
+// Validate URL to prevent XSS attacks - only allow http(s) protocols
+const isValidHttpUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 const addPostUpdate = (
   updates: TripUpdate[],
   location: Location,
   label: string,
-  count: number,
+  posts: (InstagramPost | TikTokPost | BlogPost)[],
   createdAt: string
 ) => {
+  const count = posts.length;
   const noun = count === 1 ? 'post' : 'posts';
+
+  // Extract links from posts, validating URLs to prevent XSS
+  const links: TripUpdateLink[] = posts
+    .filter(post => isValidHttpUrl(post.url))
+    .map(post => {
+      if (isBlogPost(post)) {
+        // Truncate blog titles to 80 chars for UI consistency
+        const truncatedTitle = post.title.length > 80
+          ? post.title.substring(0, 77) + '...'
+          : post.title;
+        return { url: post.url, title: truncatedTitle };
+      } else {
+        // InstagramPost or TikTokPost
+        const caption = post.caption;
+        if (!caption) {
+          return { url: post.url };
+        }
+        // Use the first line of the caption, truncated to 80 chars, for a cleaner UI.
+        const firstLine = caption.split('\n')[0].trim();
+        // Fall back to url-only if firstLine is empty after trimming
+        if (!firstLine) {
+          return { url: post.url };
+        }
+        const truncatedTitle = firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine;
+        return { url: post.url, title: truncatedTitle };
+      }
+    });
+
   updates.push({
     id: createUpdateId(),
     createdAt,
-    message: `New ${label} ${noun} added to the ${formatVisitReference(location)}.`
+    message: `New ${label} ${noun} added to the ${formatVisitReference(location)}.`,
+    links
   });
 };
 
@@ -152,7 +197,7 @@ export function buildTripUpdates(
           });
 
           if (newPosts.length > 0) {
-            addPostUpdate(updates, location, config.label, newPosts.length, createdAt);
+            addPostUpdate(updates, location, config.label, newPosts, createdAt);
           }
         }
       }
