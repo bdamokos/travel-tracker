@@ -9,6 +9,7 @@ import InstagramIcon from '../../components/icons/InstagramIcon';
 import TikTokIcon from '../../components/icons/TikTokIcon';
 import TripUpdates from '../../components/TripUpdates';
 import { filterUpdatesForPublic } from '../../lib/updateFilters';
+import { SHADOW_LOCATION_PREFIX } from '../../lib/shadowConstants';
 // import NextStepsCard from '../../components/NextStepsCard';
 
 interface TravelData {
@@ -178,7 +179,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
               })),
               ...filteredShadowLocations.map((loc: Location) => ({
                 ...loc,
-                name: `🔮 ${loc.name}` // Prefix shadow locations
+                name: `${SHADOW_LOCATION_PREFIX} ${loc.name}` // Prefix shadow locations
               }))
             ],
             // Merge real routes with shadow routes
@@ -188,12 +189,12 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
                 const baseRoute = toRouteSegment(route);
                 return {
                   ...baseRoute,
-                  from: `🔮 ${route.from}`,
-                  to: `🔮 ${route.to}`,
+                  from: `${SHADOW_LOCATION_PREFIX} ${route.from}`,
+                  to: `${SHADOW_LOCATION_PREFIX} ${route.to}`,
                   subRoutes: baseRoute.subRoutes?.map(segment => ({
                     ...segment,
-                    from: `🔮 ${segment.from}`,
-                    to: `🔮 ${segment.to}`
+                    from: `${SHADOW_LOCATION_PREFIX} ${segment.from}`,
+                    to: `${SHADOW_LOCATION_PREFIX} ${segment.to}`
                   }))
                 };
               })
@@ -276,7 +277,7 @@ export default async function MapPage({ params }: {
                 </h3>
                 <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
                   <p>
-                    You are viewing this map with shadow planning data. Shadow locations and routes are marked with 🔮.
+                    You are viewing this map with shadow planning data. Shadow locations and routes are marked with {SHADOW_LOCATION_PREFIX}.
                   </p>
                 </div>
               </div>
@@ -289,7 +290,7 @@ export default async function MapPage({ params }: {
             <div>
               <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
                 {travelData.title}
-                {isAdmin && <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">🔮 Planning Mode</span>}
+                {isAdmin && <span className="ml-2 text-sm text-blue-600 dark:text-blue-400">{SHADOW_LOCATION_PREFIX} Planning Mode</span>}
               </h1>
               {travelData.description && (
                 <p className="text-gray-600 dark:text-gray-300 mb-2">{travelData.description}</p>

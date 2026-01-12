@@ -7,6 +7,7 @@ import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
+import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 interface CalendarPageProps {
   params: Promise<{
@@ -19,7 +20,10 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
   if (isAdmin) {
     try {
       // Try to load shadow data first
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const headersList = await headers();
+      const host = headersList.get('host') || 'localhost:3000';
+      const protocol = headersList.get('x-forwarded-proto') || 'http';
+      const baseUrl = `${protocol}://${host}`;
       const response = await fetch(`${baseUrl}/api/shadow-trips/${tripId}`, {
         cache: 'no-store'
       });
@@ -97,8 +101,8 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
               ...(shadowData.travelData?.locations || []),
               ...filteredShadowLocations.map((loc: Location) => ({
                 ...loc,
-                name: `🔮 ${loc.name}`, // Prefix shadow locations
-                notes: loc.notes ? `🔮 PLANNED: ${loc.notes}` : '🔮 PLANNED LOCATION'
+                name: `${SHADOW_LOCATION_PREFIX} ${loc.name}`, // Prefix shadow locations
+                notes: loc.notes ? `${SHADOW_LOCATION_PREFIX} PLANNED: ${loc.notes}` : `${SHADOW_LOCATION_PREFIX} PLANNED LOCATION`
               }))
             ],
             // Merge real routes with shadow routes  
@@ -106,9 +110,9 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
               ...(shadowData.travelData?.routes || []),
               ...filteredShadowRoutes.map((route: Transportation) => ({
                 ...route,
-                from: `🔮 ${route.from}`,
-                to: `🔮 ${route.to}`,
-                privateNotes: route.privateNotes ? `🔮 PLANNED: ${route.privateNotes}` : '🔮 PLANNED ROUTE'
+                from: `${SHADOW_LOCATION_PREFIX} ${route.from}`,
+                to: `${SHADOW_LOCATION_PREFIX} ${route.to}`,
+                privateNotes: route.privateNotes ? `${SHADOW_LOCATION_PREFIX} PLANNED: ${route.privateNotes}` : `${SHADOW_LOCATION_PREFIX} PLANNED ROUTE`
               }))
             ]
           },
@@ -117,8 +121,8 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
             ...(shadowData.accommodations || []),
             ...(shadowData.shadowData?.shadowAccommodations || []).map((acc: Accommodation) => ({
               ...acc,
-              name: `🔮 ${acc.name}`,
-              accommodationData: acc.accommodationData ? `🔮 PLANNED: ${acc.accommodationData}` : '🔮 PLANNED ACCOMMODATION'
+              name: `${SHADOW_LOCATION_PREFIX} ${acc.name}`,
+              accommodationData: acc.accommodationData ? `${SHADOW_LOCATION_PREFIX} PLANNED: ${acc.accommodationData}` : `${SHADOW_LOCATION_PREFIX} PLANNED ACCOMMODATION`
             }))
           ]
         };
@@ -193,7 +197,7 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
                 </h3>
                 <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
                   <p>
-                    You are viewing this calendar with shadow planning data. Shadow items are marked with 🔮.
+                    You are viewing this calendar with shadow planning data. Shadow items are marked with {SHADOW_LOCATION_PREFIX}.
                   </p>
                 </div>
               </div>

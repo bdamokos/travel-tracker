@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useShadowTripEditor } from './hooks/useShadowTripEditor';
+import { useShadowTripEditor, SHADOW_LOCATION_PREFIX } from './hooks/useShadowTripEditor';
 // Dialogs will be added later if needed for shadow trips
 import TripMetadataForm from '../../edit/[tripId]/components/TripMetadataForm';
 import LocationManager from '../../edit/[tripId]/components/LocationManager';
@@ -190,7 +190,7 @@ export default function ShadowPlannerPage() {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                🔮 Shadow Trip Planner
+                {SHADOW_LOCATION_PREFIX} Shadow Trip Planner
               </h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Plan future parts of "{travelData?.title || 'Unknown'}" trip
