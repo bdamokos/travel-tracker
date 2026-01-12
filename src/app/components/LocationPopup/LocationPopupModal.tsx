@@ -61,9 +61,6 @@ export default function LocationPopupModal({
   const { location, day, tripId } = data;
   
   // Determine active Wikipedia data based on tab selection
-  const activeLocation = isTransition 
-    ? (activeTab === 'departure' ? departureLocation : arrivalLocation)
-    : departureLocation;
   const activeWikipediaData = isTransition 
     ? (activeTab === 'departure' ? departureWikipediaData : arrivalWikipediaData)
     : departureWikipediaData;
@@ -172,7 +169,6 @@ export default function LocationPopupModal({
             
             {/* Active Wikipedia Section */}
             <WikipediaSection
-              location={activeLocation || location}
               wikipediaData={activeWikipediaData}
               loading={activeWikipediaLoading}
               error={activeWikipediaError}
@@ -180,7 +176,6 @@ export default function LocationPopupModal({
           </div>
         ) : (
           <WikipediaSection
-            location={location}
             wikipediaData={activeWikipediaData}
             loading={activeWikipediaLoading}
             error={activeWikipediaError}
