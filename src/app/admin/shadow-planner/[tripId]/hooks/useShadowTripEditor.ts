@@ -8,7 +8,7 @@ import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
-import { SHADOW_LOCATION_PREFIX, REAL_LOCATION_MARKER } from '@/app/lib/shadowConstants';
+import { REAL_LOCATION_MARKER } from '@/app/lib/shadowConstants'; // Fixed: removed unused SHADOW_LOCATION_PREFIX import
 
 type ShadowRoutePayload = {
   id?: string;
