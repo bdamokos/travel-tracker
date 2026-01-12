@@ -5,7 +5,7 @@ import * as useExpenseLinksModule from '@/app/hooks/useExpenseLinks';
 import * as useExpensesModule from '@/app/hooks/useExpenses';
 
 // Mock the cost utils
-jest.mock('../../../lib/costUtils', () => ({
+jest.mock('@/app/lib/costUtils', () => ({
   formatCurrency: (amount: number, currency: string) => `${currency} ${amount.toFixed(2)}`,
   formatDate: (date: Date | string) => {
     const d = date instanceof Date ? date : new Date(date);
@@ -13,8 +13,8 @@ jest.mock('../../../lib/costUtils', () => ({
   }
 }));
 
-jest.mock('../../../hooks/useExpenseLinks');
-jest.mock('../../../hooks/useExpenses');
+jest.mock('@/app/hooks/useExpenseLinks');
+jest.mock('@/app/hooks/useExpenses');
 
 const mockUseExpenseLinks = jest.mocked(useExpenseLinksModule.useExpenseLinks);
 const mockUseExpenses = jest.mocked(useExpensesModule.useExpenses);
