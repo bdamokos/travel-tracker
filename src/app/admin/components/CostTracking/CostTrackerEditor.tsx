@@ -430,7 +430,7 @@ export default function CostTrackerEditor({
         // Still show success since import completed, just refresh failed
       }
     }
-  };;
+  };
 
   const handleYnabMappingsSave = async (mappings: YnabCategoryMapping[]) => {
     try {

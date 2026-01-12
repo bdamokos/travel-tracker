@@ -164,9 +164,6 @@ export async function DELETE(
     // For now, return success
     // Future enhancement: use coordinates for more precise cache deletion
 
-    // TODO: Implement cache deletion in WikipediaService
-    // For now, return success
-    
     return NextResponse.json({
       success: true,
       message: 'Wikipedia cache cleared successfully',
