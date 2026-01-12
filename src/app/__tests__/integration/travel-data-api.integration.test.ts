@@ -183,6 +183,46 @@ describe('Travel Data API Endpoints', () => {
       ).rejects.toThrow(/400/);
     });
 
+    it('should reject sub-routes with disconnected segments', async () => {
+      const invalidCompositeData = {
+        title: 'Disconnected Composite Trip',
+        routes: [
+          {
+            id: 'invalid-route-2',
+            from: 'Start',
+            to: 'End',
+            subRoutes: [
+              {
+                id: 'segment-1',
+                from: 'Start',
+                to: 'Middle',
+                fromCoords: [0, 0],
+                toCoords: [1, 1],
+                transportType: 'bus',
+                date: new Date('2024-07-05T00:00:00.000Z')
+              },
+              {
+                id: 'segment-2',
+                from: 'Elsewhere',
+                to: 'End',
+                fromCoords: [2, 2],
+                toCoords: [3, 3],
+                transportType: 'plane',
+                date: new Date('2024-07-06T00:00:00.000Z')
+              }
+            ]
+          }
+        ]
+      };
+
+      await expect(
+        apiCall('/api/travel-data', {
+          method: 'POST',
+          body: JSON.stringify(invalidCompositeData)
+        })
+      ).rejects.toThrow(/400/);
+    });
+
     it('should handle trip creation with minimal data', async () => {
       const minimalData = {
         title: 'Minimal Trip'

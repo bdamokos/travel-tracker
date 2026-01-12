@@ -17,9 +17,11 @@ type RoutePayload = RouteSegmentPayload & {
   subRoutes?: RouteSegmentPayload[];
 };
 
+const COORD_EPSILON = 1e-9;
+
 const isSameCoords = (left?: [number, number], right?: [number, number]) => {
   if (!left || !right) return false;
-  return left[0] === right[0] && left[1] === right[1];
+  return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
 };
 
 const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
@@ -47,6 +49,22 @@ const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
 
     if (route.toCoords && last.toCoords && !isSameCoords(route.toCoords, last.toCoords)) {
       return { error: `Route ${route.id} toCoords does not match sub-route end` };
+    }
+
+    const disconnectedIndex = route.subRoutes.findIndex((segment, index) => {
+      if (index === 0) return false;
+      const previous = route.subRoutes![index - 1];
+      if (previous.to && segment.from && previous.to !== segment.from) {
+        return true;
+      }
+      if (previous.toCoords && segment.fromCoords && !isSameCoords(previous.toCoords, segment.fromCoords)) {
+        return true;
+      }
+      return false;
+    });
+
+    if (disconnectedIndex > 0) {
+      return { error: `Route ${route.id} sub-route ${disconnectedIndex + 1} does not connect to previous segment` };
     }
 
     return {
@@ -82,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Generate a unique ID for this travel map
-    const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
     
     // Use unified data service to save travel data
     await updateTravelData(id, {

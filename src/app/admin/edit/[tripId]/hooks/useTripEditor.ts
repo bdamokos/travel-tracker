@@ -176,7 +176,7 @@ export function useTripEditor(tripId: string | null) {
       routePoints: route.routePoints, // Preserve existing routePoints
       useManualRoutePoints: route.useManualRoutePoints,
       isReturn: route.isReturn,
-      subRoutes: route.subRoutes?.map((segment: Partial<TravelRoute>) => ({
+      subRoutes: route.subRoutes?.map((segment: Partial<TravelRouteSegment>) => ({
         id: segment.id || generateId(),
         from: segment.from || '',
         to: segment.to || '',

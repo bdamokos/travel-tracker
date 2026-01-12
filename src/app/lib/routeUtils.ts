@@ -268,15 +268,17 @@ type RouteSegmentLike = {
   toCoords?: [number, number];
 };
 
+const COORD_EPSILON = 1e-9;
+
 const isSamePoint = (left?: [number, number], right?: [number, number]) => {
   if (!left || !right) return false;
-  return left[0] === right[0] && left[1] === right[1];
+  return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
 };
 
 export const buildCompositeRoutePoints = (segments: RouteSegmentLike[]): [number, number][] => {
   const stitched: [number, number][] = [];
 
-  segments.forEach((segment) => {
+  segments.forEach((segment, index) => {
     const from = segment.fromCoordinates ?? segment.fromCoords;
     const to = segment.toCoordinates ?? segment.toCoords;
     const segmentPoints = segment.routePoints?.length
@@ -284,6 +286,7 @@ export const buildCompositeRoutePoints = (segments: RouteSegmentLike[]): [number
       : (from && to ? [from, to] : []);
 
     if (segmentPoints.length === 0) {
+      console.warn(`[buildCompositeRoutePoints] Missing coordinates for sub-route index ${index}`);
       return;
     }
 

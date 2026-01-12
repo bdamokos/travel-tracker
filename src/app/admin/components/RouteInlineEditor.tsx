@@ -43,6 +43,7 @@ export default function RouteInlineEditor({
   const [importError, setImportError] = useState<string>('');
   const [segmentImportStatus, setSegmentImportStatus] = useState<Record<string, string>>({});
   const [segmentImportError, setSegmentImportError] = useState<Record<string, string>>({});
+  const [validationError, setValidationError] = useState<string>('');
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
 
@@ -66,18 +67,28 @@ export default function RouteInlineEditor({
     return fallback || [0, 0];
   };
 
+  const COORD_EPSILON = 1e-9;
+
+  const isSamePoint = (left?: [number, number], right?: [number, number]) => {
+    if (!left || !right) return false;
+    return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError('');
 
     const hasSubRoutes = (formData.subRoutes?.length || 0) > 0;
     
     // Validate required fields
     if (!hasSubRoutes) {
       if (!formData.transportType || !formData.from.trim() || !formData.to.trim() || !formData.date) {
+        setValidationError('Please fill in all required fields.');
         return;
       }
 
       if (formData.from === formData.to) {
+        setValidationError('From and To locations must be different.');
         return;
       }
     } else {
@@ -86,6 +97,7 @@ export default function RouteInlineEditor({
       );
 
       if (!allSegmentsValid) {
+        setValidationError('Please complete all sub-route fields.');
         return;
       }
     }
@@ -105,6 +117,29 @@ export default function RouteInlineEditor({
       : undefined;
 
     if (updatedSubRoutes && updatedSubRoutes.length > 0) {
+      const invalidSegment = updatedSubRoutes.find(segment => segment.from === segment.to);
+      if (invalidSegment) {
+        setValidationError('Sub-route From and To locations must be different.');
+        return;
+      }
+
+      const disconnectedIndex = updatedSubRoutes.findIndex((segment, index) => {
+        if (index === 0) return false;
+        const previous = updatedSubRoutes[index - 1];
+        if (previous.to !== segment.from) {
+          return true;
+        }
+        if (previous.toCoords && segment.fromCoords && !isSamePoint(previous.toCoords, segment.fromCoords)) {
+          return true;
+        }
+        return false;
+      });
+
+      if (disconnectedIndex > 0) {
+        setValidationError(`Sub-route ${disconnectedIndex + 1} must start where the previous segment ends.`);
+        return;
+      }
+
       const first = updatedSubRoutes[0];
       const last = updatedSubRoutes[updatedSubRoutes.length - 1];
 
@@ -363,6 +398,11 @@ export default function RouteInlineEditor({
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 shadow-sm">
       <form onSubmit={handleSubmit} className="space-y-3">
+        {validationError && (
+          <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded p-2">
+            {validationError}
+          </div>
+        )}
         {/* Transport Type and Date */}
         <div className="grid grid-cols-2 gap-2">
           <div>
