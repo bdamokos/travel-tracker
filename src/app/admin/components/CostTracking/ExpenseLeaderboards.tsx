@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Expense } from '@/app/types';
+import { Expense, Location } from '@/app/types';
 import { formatCurrency } from '@/app/lib/costUtils';
+import { LocationExpenseTotal } from '@/app/lib/expenseTravelLookup';
 
 type LeaderboardEntry = {
   key: string;
@@ -16,6 +17,8 @@ interface ExpenseLeaderboardsProps {
   expenses: Expense[];
   currency: string;
   minimumMentions?: number;
+  locationTotals?: Record<string, LocationExpenseTotal> | null;
+  locations?: Location[];
 }
 
 interface LeaderboardSectionProps {
@@ -83,6 +86,23 @@ const buildLeaderboardEntries = (
     countries: Array.from(value.countries.values()).sort((a, b) => b.total - a.total)
   }));
 };
+
+const buildLocationEntries = (
+  locationTotals: Record<string, LocationExpenseTotal>,
+  locations: Location[]
+): LeaderboardEntry[] =>
+  locations
+    .filter(location => locationTotals[location.id])
+    .map(location => {
+      const total = locationTotals[location.id];
+      return {
+        key: location.id,
+        label: location.name || 'Unnamed location',
+        count: total.count,
+        total: total.amount,
+        countries: []
+      };
+    });
 
 const sortByCount = (entries: LeaderboardEntry[]) =>
   [...entries].sort((a, b) => b.count - a.count || b.total - a.total || a.label.localeCompare(b.label));
@@ -188,17 +208,21 @@ const LeaderboardSection = ({
           {selectedEntry ? (
             <div className="mt-3 space-y-2 text-sm">
               <div className="font-medium text-gray-900 dark:text-gray-100">{selectedEntry.label}</div>
-              {selectedEntry.countries.map(country => (
-                <div key={country.country} className="flex items-center justify-between text-gray-700 dark:text-gray-200">
-                  <div>
-                    {country.country}
-                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                      {country.count} mention{country.count === 1 ? '' : 's'}
-                    </span>
+              {selectedEntry.countries.length > 0 ? (
+                selectedEntry.countries.map(country => (
+                  <div key={country.country} className="flex items-center justify-between text-gray-700 dark:text-gray-200">
+                    <div>
+                      {country.country}
+                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                        {country.count} mention{country.count === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <div className="font-semibold">{formatCurrency(country.total, currency)}</div>
                   </div>
-                  <div className="font-semibold">{formatCurrency(country.total, currency)}</div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No country breakdown available.</p>
+              )}
             </div>
           ) : (
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -214,7 +238,9 @@ const LeaderboardSection = ({
 export default function ExpenseLeaderboards({
   expenses,
   currency,
-  minimumMentions = DEFAULT_MINIMUM_MENTIONS
+  minimumMentions = DEFAULT_MINIMUM_MENTIONS,
+  locationTotals,
+  locations
 }: ExpenseLeaderboardsProps) {
   const descriptionEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.description),
@@ -224,6 +250,13 @@ export default function ExpenseLeaderboards({
     () => buildLeaderboardEntries(expenses, expense => expense.notes || expense.source),
     [expenses]
   );
+  const locationEntries = useMemo(() => {
+    if (!locationTotals || !locations || locations.length === 0) {
+      return [];
+    }
+
+    return buildLocationEntries(locationTotals, locations);
+  }, [locationTotals, locations]);
 
   return (
     <div className="space-y-8">
@@ -241,6 +274,15 @@ export default function ExpenseLeaderboards({
         currency={currency}
         minimumMentions={minimumMentions}
       />
+      {locationEntries.length > 0 && (
+        <LeaderboardSection
+          title="Top Locations by Spend"
+          description="Compare linked expenses by location to spot the biggest spenders."
+          entries={locationEntries}
+          currency={currency}
+          minimumMentions={1}
+        />
+      )}
     </div>
   );
 }

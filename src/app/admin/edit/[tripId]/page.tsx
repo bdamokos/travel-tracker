@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTripEditor } from './hooks/useTripEditor';
 import { formatDateRange } from '@/app/lib/dateUtils';
 import { formatDate } from '@/app/lib/costUtils';
+import { calculateExpenseTotalsByLocation } from '@/app/lib/expenseTravelLookup';
 import DeleteWarningDialog from '../../components/DeleteWarningDialog';
 import ReassignmentDialog from '../../components/ReassignmentDialog';
 import TripMetadataForm from './components/TripMetadataForm';
@@ -121,71 +122,12 @@ export default function TripEditorPage() {
       return null;
     }
 
-    const accommodationLocationMap = new Map<string, string>();
-    (travelData.accommodations || []).forEach(accommodation => {
-      if (accommodation.locationId) {
-        accommodationLocationMap.set(accommodation.id, accommodation.locationId);
-      }
+    return calculateExpenseTotalsByLocation({
+      expenses: costData.expenses || [],
+      travelLookup,
+      accommodations: travelData.accommodations || [],
+      trackingCurrency: costData.currency || 'USD'
     });
-
-    const trackingCurrency = costData.currency || 'USD';
-    const totals: Record<string, { amount: number; currency: string; unconverted?: Record<string, number> }> = {};
-    const expenses = costData.expenses || [];
-
-    expenses.forEach(expense => {
-      const link = travelLookup.getTravelLinkForExpense(expense.id);
-      if (!link) {
-        return;
-      }
-
-      let locationId: string | null = null;
-      if (link.type === 'location') {
-        locationId = link.id;
-      } else if (link.type === 'accommodation') {
-        locationId = accommodationLocationMap.get(link.id) || null;
-      }
-
-      if (!locationId) {
-        return;
-      }
-
-      const expenseCurrency = expense.currency || trackingCurrency;
-      const currentTotal = totals[locationId] || { amount: 0, currency: trackingCurrency };
-
-      if (expense.cashTransaction?.kind === 'allocation') {
-        totals[locationId] = {
-          ...currentTotal,
-          amount: currentTotal.amount + expense.cashTransaction.baseAmount
-        };
-        return;
-      }
-
-      if (expense.cashTransaction?.kind === 'source') {
-        totals[locationId] = {
-          ...currentTotal,
-          amount: currentTotal.amount + (expense.amount || 0)
-        };
-        return;
-      }
-
-      if (expenseCurrency !== trackingCurrency) {
-        totals[locationId] = {
-          ...currentTotal,
-          unconverted: {
-            ...(currentTotal.unconverted || {}),
-            [expenseCurrency]: (currentTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
-          }
-        };
-        return;
-      }
-
-      totals[locationId] = {
-        ...currentTotal,
-        amount: currentTotal.amount + (expense.amount || 0)
-      };
-    });
-
-    return totals;
   }, [costData, travelLookup, travelData.accommodations]);
 
   const expenseTotalsByRoute = useMemo(() => {

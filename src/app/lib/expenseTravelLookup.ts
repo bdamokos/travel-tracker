@@ -29,6 +29,13 @@ export interface TripData {
   };
 }
 
+export type LocationExpenseTotal = {
+  amount: number;
+  currency: string;
+  unconverted?: Record<string, number>;
+  count: number;
+};
+
 export class ExpenseTravelLookup {
   private expenseToTravelMap = new Map<string, TravelLinkInfo>();
   private tripTitle: string = '';
@@ -234,6 +241,83 @@ export class ExpenseTravelLookup {
 
     return linkInfo;
   }
+}
+
+export function calculateExpenseTotalsByLocation({
+  expenses,
+  travelLookup,
+  accommodations,
+  trackingCurrency
+}: {
+  expenses: Expense[];
+  travelLookup: ExpenseTravelLookup;
+  accommodations?: Accommodation[];
+  trackingCurrency: string;
+}): Record<string, LocationExpenseTotal> {
+  const accommodationLocationMap = new Map<string, string>();
+  (accommodations ?? []).forEach(accommodation => {
+    if (accommodation.locationId) {
+      accommodationLocationMap.set(accommodation.id, accommodation.locationId);
+    }
+  });
+
+  const totals: Record<string, LocationExpenseTotal> = {};
+
+  expenses.forEach(expense => {
+    const link = travelLookup.getTravelLinkForExpense(expense.id);
+    if (!link) {
+      return;
+    }
+
+    let locationId: string | null = null;
+    if (link.type === 'location') {
+      locationId = link.id;
+    } else if (link.type === 'accommodation') {
+      locationId = accommodationLocationMap.get(link.id) || null;
+    }
+
+    if (!locationId) {
+      return;
+    }
+
+    const expenseCurrency = expense.currency || trackingCurrency;
+    const currentTotal = totals[locationId] ?? { amount: 0, currency: trackingCurrency, count: 0 };
+    const nextTotal = { ...currentTotal, count: currentTotal.count + 1 };
+
+    if (expense.cashTransaction?.kind === 'allocation') {
+      totals[locationId] = {
+        ...nextTotal,
+        amount: nextTotal.amount + expense.cashTransaction.baseAmount
+      };
+      return;
+    }
+
+    if (expense.cashTransaction?.kind === 'source') {
+      totals[locationId] = {
+        ...nextTotal,
+        amount: nextTotal.amount + (expense.amount || 0)
+      };
+      return;
+    }
+
+    if (expenseCurrency !== trackingCurrency) {
+      totals[locationId] = {
+        ...nextTotal,
+        unconverted: {
+          ...(nextTotal.unconverted || {}),
+          [expenseCurrency]: (nextTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
+        }
+      };
+      return;
+    }
+
+    totals[locationId] = {
+      ...nextTotal,
+      amount: nextTotal.amount + (expense.amount || 0)
+    };
+  });
+
+  return totals;
 }
 
 /**

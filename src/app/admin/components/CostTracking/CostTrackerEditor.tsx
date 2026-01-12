@@ -1,10 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { CostTrackingData, Expense, BudgetItem, CostSummary, CountryPeriod, ExistingTrip, YnabCategoryMapping, YnabConfig } from '../../../types';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  Accommodation,
+  CostTrackingData,
+  Expense,
+  BudgetItem,
+  CostSummary,
+  CountryPeriod,
+  ExistingTrip,
+  Location,
+  YnabCategoryMapping,
+  YnabConfig
+} from '../../../types';
 import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '../../../lib/costUtils';
 import CostPieCharts from '../CostPieCharts';
-import { ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
+import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '../../../lib/expenseTravelLookup';
 import BudgetSetup from './BudgetSetup';
 import CountryBudgetManager from './CountryBudgetManager';
 import CategoryManager from './CategoryManager';
@@ -104,6 +115,8 @@ export default function CostTrackerEditor({
 
   
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
+  const [tripLocations, setTripLocations] = useState<Location[]>([]);
+  const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([]);
   
   const getCategories = (): string[] => {
     const baseCategories = costData.customCategories ? [...costData.customCategories] : [...EXPENSE_CATEGORIES];
@@ -143,12 +156,19 @@ export default function CostTrackerEditor({
   };
 
   const initializeTravelLookup = async (tripId: string) => {
-    if (!tripId || tripId === '') return;
+    if (!tripId || tripId === '') {
+      setTravelLookup(null);
+      setTripLocations([]);
+      setTripAccommodations([]);
+      return;
+    }
     try {
       // Fetch trip data to provide to the lookup service
       const response = await fetch(`/api/travel-data?id=${tripId}`);
       if (response.ok) {
         const tripData = await response.json();
+        setTripLocations(tripData.locations ?? []);
+        setTripAccommodations(tripData.accommodations ?? []);
         const lookup = new ExpenseTravelLookup(tripId, {
           title: tripData.title,
           locations: tripData.locations,
@@ -162,9 +182,14 @@ export default function CostTrackerEditor({
       } else {
         console.error('Failed to fetch trip data for travel lookup');
         setTravelLookup(null);
+        setTripLocations([]);
+        setTripAccommodations([]);
       }
     } catch (error) {
       console.error('Failed to initialize travel lookup:', error);
+      setTravelLookup(null);
+      setTripLocations([]);
+      setTripAccommodations([]);
     }
   };
 
@@ -186,6 +211,19 @@ export default function CostTrackerEditor({
       travelLookup.hydrateFromExpenses(costData.expenses);
     }
   }, [costData.expenses, travelLookup]);
+
+  const locationTotals = useMemo(() => {
+    if (!travelLookup || tripLocations.length === 0) {
+      return null;
+    }
+
+    return calculateExpenseTotalsByLocation({
+      expenses: costData.expenses || [],
+      travelLookup,
+      accommodations: tripAccommodations,
+      trackingCurrency: costData.currency || 'USD'
+    });
+  }, [costData.currency, costData.expenses, travelLookup, tripAccommodations, tripLocations]);
 
   const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo) => {
     let expense: Expense = { ...incomingExpense };
@@ -577,7 +615,12 @@ export default function CostTrackerEditor({
         )}
 
         {costData.expenses.length > 0 && (
-          <ExpenseLeaderboards expenses={costData.expenses} currency={costData.currency} />
+          <ExpenseLeaderboards
+            expenses={costData.expenses}
+            currency={costData.currency}
+            locationTotals={locationTotals}
+            locations={tripLocations}
+          />
         )}
 
         <div className="flex justify-end items-center gap-4">
