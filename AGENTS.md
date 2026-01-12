@@ -27,7 +27,8 @@
 ## Deployment Notes
 - Multi-stage Dockerfile installs/builds with Bun and runs the Next standalone output on port 3000 via `bun server.js`.
 - `docker-compose.yml` defines two services: admin UI on host port 3001 and embeddable/public maps on 3002 (both mount the shared `travel-data` volume and set `NEXT_PUBLIC_APP_MODE`).
-- For production setup references, see the `deploy/` directory. 
+- For production setup references, see the `deploy/` directory.
+- Use `deploy/start-worktree.sh` to create a new worktree; it copies `deploy/.env` into the worktree if available.
 
 # Sample map data for a freshly set up server
 Use the same trip/location/route payloads as the integration test in `src/app/__tests__/integration/map-functionality.test.ts` to seed a server with realistic map data. The workflow mirrors the test pyramid (create trip → add locations → add route points).

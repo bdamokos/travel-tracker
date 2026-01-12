@@ -47,3 +47,4 @@ sync-from-github.sh
 test-data/*
 .vscode/
 deploy/backups/*
+worktrees/
