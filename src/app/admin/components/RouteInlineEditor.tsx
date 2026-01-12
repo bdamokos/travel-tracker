@@ -413,6 +413,23 @@ export default function RouteInlineEditor({
     setImportError('');
   };
 
+  const refreshSegmentCoords = async (index: number, key: 'fromCoords' | 'toCoords') => {
+    const segment = formData.subRoutes?.[index];
+    if (!segment) return;
+
+    const locationName = key === 'fromCoords' ? segment.from : segment.to;
+    const coords = await resolveLocationCoords(locationName, undefined, false);
+
+    setFormData(prev => {
+      const subRoutes = [...(prev.subRoutes || [])];
+      subRoutes[index] = { ...subRoutes[index], [key]: coords } as TravelRouteSegment;
+      return {
+        ...prev,
+        subRoutes
+      };
+    });
+  };
+
   const hasSubRoutes = (formData.subRoutes?.length || 0) > 0;
 
   return (
@@ -624,13 +641,23 @@ export default function RouteInlineEditor({
 
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        From Coordinates
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                          From Coordinates
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void refreshSegmentCoords(index, 'fromCoords')}
+                          className="px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50"
+                          title="Refresh coordinates from location name"
+                        >
+                          Refresh
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="number"
-                          step="0.000001"
+                          step="any"
                           value={segment.fromCoords?.[0] ?? 0}
                           onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 0, e.target.value)}
                           className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -638,7 +665,7 @@ export default function RouteInlineEditor({
                         />
                         <input
                           type="number"
-                          step="0.000001"
+                          step="any"
                           value={segment.fromCoords?.[1] ?? 0}
                           onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 1, e.target.value)}
                           className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -647,13 +674,23 @@ export default function RouteInlineEditor({
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        To Coordinates
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                          To Coordinates
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void refreshSegmentCoords(index, 'toCoords')}
+                          className="px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50"
+                          title="Refresh coordinates from location name"
+                        >
+                          Refresh
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="number"
-                          step="0.000001"
+                          step="any"
                           value={segment.toCoords?.[0] ?? 0}
                           onChange={(e) => updateSubRouteCoord(index, 'toCoords', 0, e.target.value)}
                           className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -661,7 +698,7 @@ export default function RouteInlineEditor({
                         />
                         <input
                           type="number"
-                          step="0.000001"
+                          step="any"
                           value={segment.toCoords?.[1] ?? 0}
                           onChange={(e) => updateSubRouteCoord(index, 'toCoords', 1, e.target.value)}
                           className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -806,18 +843,30 @@ export default function RouteInlineEditor({
         </div>
 
         {/* Duration */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Duration
-          </label>
-          <input
-            type="text"
-            value={formData.duration || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            placeholder="e.g., 2h 30m, 1 day"
-          />
-        </div>
+        {hasSubRoutes ? (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Duration
+            </label>
+            <div className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+              {formData.subRoutes?.map(s => s.duration).filter(Boolean).join(' + ') || 'Set duration on each segment'}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Duration is derived from segments.</p>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Duration
+            </label>
+            <input
+              type="text"
+              value={formData.duration || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="e.g., 2h 30m, 1 day"
+            />
+          </div>
+        )}
 
         {/* Return Route Checkbox */}
         <div className="flex items-center">
@@ -861,67 +910,64 @@ export default function RouteInlineEditor({
           />
         </div>
 
-        {/* Manual route import (any transport type) */}
-        <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                Manual route (GeoJSON)
-              </div>
-              <p className="text-xs text-amber-700 dark:text-amber-300">
-                Import a GeoJSON LineString to override the route for any transport type. Imported routes are kept until you clear them.
-              </p>
-              {hasSubRoutes && (
-                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                  When sub-routes exist, the map uses segment routes instead of this override.
+        {/* Manual route import (only shown when no sub-routes) */}
+        {!hasSubRoutes && (
+          <div className="border border-amber-200 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 rounded p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  Manual route (GeoJSON)
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  Import a GeoJSON LineString to override the route for any transport type. Imported routes are kept until you clear them.
                 </p>
+              </div>
+              {formData.useManualRoutePoints && (
+                <span className="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
+                  Active
+                </span>
               )}
             </div>
-            {formData.useManualRoutePoints && (
-              <span className="text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">
-                Active
-              </span>
+            <input
+              type="file"
+              accept=".geojson,application/geo+json,application/json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  void handleGeoJSONImport(file);
+                }
+              }}
+              className="text-xs text-gray-700 dark:text-gray-200"
+            />
+            {importStatus && (
+              <div className="text-xs text-green-700 dark:text-green-300">
+                {importStatus}
+                {formData.routePoints?.length ? ` (${formData.routePoints.length} points)` : ''}
+              </div>
+            )}
+            {importError && (
+              <div className="text-xs text-red-700 dark:text-red-300">
+                {importError}
+              </div>
+            )}
+            {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
+              <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
+                <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
+                <button
+                  type="button"
+                  onClick={clearManualRoute}
+                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                >
+                  Clear manual route
+                </button>
+              </div>
+            ) : (
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                Tip: first feature with LineString is used; coordinates should be [lng, lat].
+              </div>
             )}
           </div>
-          <input
-            type="file"
-            accept=".geojson,application/geo+json,application/json"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                void handleGeoJSONImport(file);
-              }
-            }}
-            className="text-xs text-gray-700 dark:text-gray-200"
-          />
-          {importStatus && (
-            <div className="text-xs text-green-700 dark:text-green-300">
-              {importStatus}
-              {formData.routePoints?.length ? ` (${formData.routePoints.length} points)` : ''}
-            </div>
-          )}
-          {importError && (
-            <div className="text-xs text-red-700 dark:text-red-300">
-              {importError}
-            </div>
-          )}
-          {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
-            <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
-              <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
-              <button
-                type="button"
-                onClick={clearManualRoute}
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                Clear manual route
-              </button>
-            </div>
-          ) : (
-            <div className="text-xs text-gray-600 dark:text-gray-300">
-              Tip: first feature with LineString is used; coordinates should be [lng, lat].
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Cost Tracking Links */}
         <div>
