@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getMapUrl } from '@/app/lib/domains';
+import { getDomainConfig, getMapUrl } from '@/app/lib/domains';
 import EmbeddableMap from '@/app/map/[id]/components/EmbeddableMap';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
@@ -43,17 +43,15 @@ interface TravelData {
 
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
-    // Use unified API for both server and client side
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    
-    const response = await fetch(`${baseUrl}/api/travel-data?id=${id}`, {
+    const { embedDomain } = getDomainConfig();
+    const response = await fetch(`${embedDomain}/api/travel-data?id=${id}`, {
       cache: 'no-store' // Always fetch fresh data
     });
-    
+
     if (!response.ok) {
       return null;
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('Error fetching travel data:', error);
