@@ -52,7 +52,15 @@ export default function RouteInlineEditor({
     label: transportationLabels[type]
   }));
 
-  const resolveLocationCoords = async (locationName: string, fallback?: [number, number]) => {
+  const resolveLocationCoords = async (
+    locationName: string,
+    fallback?: [number, number],
+    preferFallback: boolean = false
+  ) => {
+    if (preferFallback && fallback && (fallback[0] !== 0 || fallback[1] !== 0)) {
+      return fallback;
+    }
+
     const location = locationOptions.find(loc => loc.name === locationName);
     if (location) {
       return location.coordinates;
@@ -105,8 +113,8 @@ export default function RouteInlineEditor({
     const updatedSubRoutes = formData.subRoutes
       ? await Promise.all(
           formData.subRoutes.map(async (segment) => {
-            const fromCoords = await resolveLocationCoords(segment.from, segment.fromCoords);
-            const toCoords = await resolveLocationCoords(segment.to, segment.toCoords);
+            const fromCoords = await resolveLocationCoords(segment.from, segment.fromCoords, true);
+            const toCoords = await resolveLocationCoords(segment.to, segment.toCoords, true);
             return {
               ...segment,
               fromCoords,
@@ -171,6 +179,30 @@ export default function RouteInlineEditor({
     setFormData(prev => {
       const subRoutes = [...(prev.subRoutes || [])];
       subRoutes[index] = { ...subRoutes[index], ...updates } as TravelRouteSegment;
+      return {
+        ...prev,
+        subRoutes
+      };
+    });
+  };
+
+  const updateSubRouteCoord = (
+    index: number,
+    key: 'fromCoords' | 'toCoords',
+    axis: 0 | 1,
+    value: string
+  ) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
+    setFormData(prev => {
+      const subRoutes = [...(prev.subRoutes || [])];
+      const existing = subRoutes[index];
+      const coords = [...(existing[key] || [0, 0])] as [number, number];
+      coords[axis] = parsed;
+      subRoutes[index] = { ...existing, [key]: coords } as TravelRouteSegment;
       return {
         ...prev,
         subRoutes
@@ -587,6 +619,55 @@ export default function RouteInlineEditor({
                         required
                         allowsCustomValue={true}
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        From Coordinates
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={segment.fromCoords?.[0] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 0, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          placeholder="Lat"
+                        />
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={segment.fromCoords?.[1] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 1, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          placeholder="Lng"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        To Coordinates
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={segment.toCoords?.[0] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 0, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          placeholder="Lat"
+                        />
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={segment.toCoords?.[1] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 1, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          placeholder="Lng"
+                        />
+                      </div>
                     </div>
                   </div>
 
