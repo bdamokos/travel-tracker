@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
@@ -46,7 +46,25 @@ export default function RouteInlineEditor({
   const [segmentImportError, setSegmentImportError] = useState<Record<string, string>>({});
   const [validationError, setValidationError] = useState<string>('');
   const [segmentRefreshStatus, setSegmentRefreshStatus] = useState<Record<string, string>>({});
+  const refreshTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  useEffect(() => {
+    return () => {
+      Object.values(refreshTimeouts.current).forEach(timeoutId => clearTimeout(timeoutId));
+      refreshTimeouts.current = {};
+    };
+  }, []);
+
+  const scheduleRefreshStatusClear = (statusKey: string, delay: number) => {
+    const existingTimeout = refreshTimeouts.current[statusKey];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    refreshTimeouts.current[statusKey] = setTimeout(() => {
+      setSegmentRefreshStatus(prev => ({ ...prev, [statusKey]: '' }));
+      delete refreshTimeouts.current[statusKey];
+    }, delay);
+  };
 
   const transportOptions = transportationTypes.map(type => ({
     value: type,
@@ -441,14 +459,14 @@ export default function RouteInlineEditor({
         setSegmentRefreshStatus(prev => ({ ...prev, [statusKey]: 'Not found' }));
       }
 
-      setTimeout(() => setSegmentRefreshStatus(prev => ({ ...prev, [statusKey]: '' })), 2000);
+      scheduleRefreshStatusClear(statusKey, 2000);
     } catch (error) {
       console.warn('Failed to refresh coordinates:', error);
       setSegmentRefreshStatus(prev => ({
         ...prev,
         [statusKey]: 'Failed'
       }));
-      setTimeout(() => setSegmentRefreshStatus(prev => ({ ...prev, [statusKey]: '' })), 3000);
+      scheduleRefreshStatusClear(statusKey, 3000);
     }
   };
 
