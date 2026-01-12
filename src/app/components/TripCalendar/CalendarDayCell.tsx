@@ -19,7 +19,7 @@ interface CalendarDayCellProps {
 }
 
 const isShadowLocationName = (location?: Location | null) =>
-  location?.name.startsWith(SHADOW_LOCATION_PREFIX);
+  !!location?.name.startsWith(SHADOW_LOCATION_PREFIX);
 
 export default function CalendarDayCell({
   cell,
