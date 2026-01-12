@@ -43,11 +43,16 @@ const getSortedLegendItems = (
   });
 
   // Sort the legend entries by earliest date
+  const normalizeLocationName = (name: string) =>
+    name.startsWith(SHADOW_LOCATION_PREFIX)
+      ? name.replace(SHADOW_LOCATION_PREFIX, '').trim()
+      : name;
+
   return Array.from(locationColors.entries()).sort(([nameA], [nameB]) => {
     // Shadow locations have the prefix in keys but not in trip.locations,
     // so we clean the names first before looking up dates
-    const cleanNameA = nameA.replace(SHADOW_LOCATION_PREFIX, '');
-    const cleanNameB = nameB.replace(SHADOW_LOCATION_PREFIX, '');
+    const cleanNameA = normalizeLocationName(nameA);
+    const cleanNameB = normalizeLocationName(nameB);
 
     const actualDateA = locationDates.get(cleanNameA);
     const actualDateB = locationDates.get(cleanNameB);
