@@ -9,6 +9,7 @@ import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
+import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 
 interface ExistingTrip {
   id: string;
@@ -744,18 +745,10 @@ export function useTripEditor(tripId: string | null) {
     }
   };
 
-  const geocodeLocation = async (locationName: string) => {
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}&limit=1`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        return [parseFloat(data[0].lat), parseFloat(data[0].lon)] as [number, number];
-      }
-    } catch (error) {
-      console.error('Geocoding error:', error);
-    }
-    return [0, 0] as [number, number];
-  };
+  const geocodeLocation = useCallback(async (locationName: string): Promise<[number, number]> => {
+    const result = await geocodeLocationService(locationName);
+    return result ?? [0, 0];
+  }, []);
 
   // Wrapper functions for imported utilities
   const getMapUrlWrapper = (tripId: string) => getMapUrl(tripId);
