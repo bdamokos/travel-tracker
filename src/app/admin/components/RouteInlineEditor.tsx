@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '../../types';
 import { transportationTypes, transportationLabels } from '../../lib/routeUtils';
+import { generateId } from '../../lib/costUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -45,7 +46,6 @@ export default function RouteInlineEditor({
   const [segmentImportError, setSegmentImportError] = useState<Record<string, string>>({});
   const [validationError, setValidationError] = useState<string>('');
 
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
 
   const transportOptions = transportationTypes.map(type => ({
     value: type,

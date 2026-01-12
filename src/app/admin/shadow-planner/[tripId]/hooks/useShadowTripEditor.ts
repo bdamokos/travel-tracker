@@ -322,7 +322,8 @@ export function useShadowTripEditor(tripId: string) {
                 routePoints: segment.routePoints,
                 costTrackingLinks: segment.costTrackingLinks || [],
                 useManualRoutePoints: segment.useManualRoutePoints,
-                isReturn: segment.isReturn
+                isReturn: segment.isReturn,
+                isReadOnly: segment.isReadOnly
               }))
             })),
           shadowAccommodations: accommodations.filter(acc => !acc.isReadOnly)

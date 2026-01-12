@@ -121,6 +121,20 @@ export interface TravelRoute extends TravelRouteSegment {
   subRoutes?: TravelRouteSegment[];
 }
 
+export interface MapRouteSegment {
+  id: string;
+  from: string;
+  to: string;
+  fromCoords: [number, number];
+  toCoords: [number, number];
+  transportType: string;
+  date: string;
+  duration?: string;
+  notes?: string;
+  routePoints?: [number, number][]; // Pre-generated route points for better performance
+  subRoutes?: MapRouteSegment[];
+}
+
 // Travel data structure for a complete trip
 export interface TravelData {
   id?: string;

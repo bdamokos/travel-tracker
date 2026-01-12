@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '../../../lib/dateUtils';
 import { buildCompositeRoutePoints, getRouteStyle } from '../../../lib/routeUtils';
+import type { MapRouteSegment } from '../../../types';
 import {
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
@@ -60,22 +61,10 @@ interface TravelData {
       excerpt?: string;
     }>;
   }>;
-  routes: Array<RouteSegment & { subRoutes?: RouteSegment[] }>;
+  routes: MapRouteSegment[];
   createdAt: string;
 }
 
-type RouteSegment = {
-  id: string;
-  from: string;
-  to: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  transportType: string;
-  date: string;
-  duration?: string;
-  notes?: string;
-  routePoints?: [number, number][]; // Pre-generated route points for better performance
-};
 
 interface EmbeddableMapProps {
   travelData: TravelData;
@@ -661,7 +650,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     map.on('zoomend', onViewChange);
 
-    const resolveRoutePoints = (route: RouteSegment & { subRoutes?: RouteSegment[] }) => {
+    const resolveRoutePoints = (route: MapRouteSegment) => {
       if (route.subRoutes?.length) {
         return buildCompositeRoutePoints(route.subRoutes);
       }
@@ -678,7 +667,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     };
 
     // Add routes if any
-    travelData.routes.forEach(async (route) => {
+    travelData.routes.forEach((route) => {
       const routePoints = resolveRoutePoints(route);
       const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
       
