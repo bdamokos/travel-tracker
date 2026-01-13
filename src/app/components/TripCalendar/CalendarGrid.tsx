@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { MonthCalendar, CalendarDay } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
 import CalendarDayCell from './CalendarDayCell';
@@ -26,8 +27,11 @@ export default function CalendarGrid({
 }: CalendarGridProps) {
 
   // Filter out weeks that consist entirely of outside-month days
-  const weeks = monthCalendar.weeks.filter(week =>
-    week.some(cell => !cell.day.isOutsideMonth)
+  const weeks = useMemo(
+    () => monthCalendar.weeks.filter(week =>
+      week.some(cell => !cell.day.isOutsideMonth)
+    ),
+    [monthCalendar.weeks]
   );
 
   return (

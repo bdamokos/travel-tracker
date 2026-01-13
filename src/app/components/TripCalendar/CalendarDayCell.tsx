@@ -89,6 +89,7 @@ export default function CalendarDayCell({
     return (
       <div
         className="h-20 min-h-20"
+        aria-hidden="true"
         style={{
           gridColumn: mergeInfo?.colspan ? `span ${mergeInfo.colspan}` : undefined,
         }}
