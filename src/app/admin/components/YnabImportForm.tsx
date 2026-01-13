@@ -86,6 +86,31 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     [costData.customCategories]
   );
 
+  // Calculate the most common category from historical expenses to use as default
+  const mostCommonCategory = useMemo(() => {
+    // Count category frequencies from all expenses
+    const categoryCounts = new Map<string, number>();
+
+    (costData.expenses || []).forEach(expense => {
+      if (expense.category && availableCategories.includes(expense.category)) {
+        categoryCounts.set(expense.category, (categoryCounts.get(expense.category) || 0) + 1);
+      }
+    });
+
+    // Find the category with the highest count
+    let maxCount = 0;
+    let mostCommon = availableCategories[0]; // fallback to first alphabetically if no expenses
+
+    categoryCounts.forEach((count, category) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = category;
+      }
+    });
+
+    return mostCommon;
+  }, [costData.expenses, availableCategories]);
+
   const duplicateCount = useMemo(() =>
     processedTransactions.filter(txn => (txn.possibleDuplicateMatches?.length ?? 0) > 0).length,
     [processedTransactions]
@@ -260,7 +285,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   }, [costData.ynabImportData?.payeeCategoryDefaults]);
 
   const getDefaultCategoryForTransaction = useCallback((transaction: ProcessedYnabTransaction) => {
-    const fallback = availableCategories[0];
+    const fallback = mostCommonCategory;
     const normalizedPayee = transaction.description?.trim();
     if (!normalizedPayee) {
       return fallback;
@@ -270,7 +295,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       return rememberedCategory;
     }
     return fallback;
-  }, [availableCategories, payeeCategoryDefaults]);
+  }, [availableCategories, payeeCategoryDefaults, mostCommonCategory]);
 
   const getTransactionId = useCallback((transaction: ProcessedYnabTransaction, index?: number) => {
     if (transaction.instanceId || transaction.sourceIndex !== undefined) {
