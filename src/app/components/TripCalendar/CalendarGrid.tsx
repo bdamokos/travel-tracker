@@ -24,8 +24,11 @@ export default function CalendarGrid({
   onLocationSelect,
   locationColors
 }: CalendarGridProps) {
-  
-  const weeks = monthCalendar.weeks;
+
+  // Filter out weeks that consist entirely of outside-month days
+  const weeks = monthCalendar.weeks.filter(week =>
+    week.some(cell => !cell.day.isOutsideMonth)
+  );
 
   return (
     <div className={styles.calendarGrid}>

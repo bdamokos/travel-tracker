@@ -84,11 +84,11 @@ export default function CalendarDayCell({
     )`
   } : {};
 
-  // For outside-month days, render an empty cell to preserve grid layout
+  // For outside-month days, render an invisible cell to preserve grid layout
   if (day.isOutsideMonth) {
     return (
       <div
-        className="h-20 min-h-20 border border-gray-200 bg-gray-50"
+        className="h-20 min-h-20"
         style={{
           gridColumn: mergeInfo?.colspan ? `span ${mergeInfo.colspan}` : undefined,
         }}
