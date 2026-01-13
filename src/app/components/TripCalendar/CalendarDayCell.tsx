@@ -84,6 +84,19 @@ export default function CalendarDayCell({
     )`
   } : {};
 
+  // For outside-month days, render an invisible cell to preserve grid layout
+  if (day.isOutsideMonth) {
+    return (
+      <div
+        className="h-20 min-h-20"
+        aria-hidden="true"
+        style={{
+          gridColumn: cellStyle.gridColumn,
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className={baseClasses}
@@ -92,17 +105,17 @@ export default function CalendarDayCell({
     >
       {/* Diagonal background for transition cells */}
       {diagonalSplit && (
-        <div 
+        <div
           className="absolute inset-0"
           style={diagonalStyle}
         />
       )}
-      
+
       {/* Shadow overlay indicator for shadow locations */}
       {isShadowLocation && (
         <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 to-purple-100/20 pointer-events-none" />
       )}
-      
+
       {/* Day number */}
       <div className="absolute top-1 left-2 text-sm font-medium z-10">
         {day.date.getDate()}
@@ -114,7 +127,7 @@ export default function CalendarDayCell({
           <WeatherIcon icon={todayHint.icon} label={todayHint.label} />
         </div>
       )}
-      
+
       {/* Location label for merged cells */}
       {mergeInfo && mergeInfo.position === 'start' && day.primaryLocation && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -123,7 +136,7 @@ export default function CalendarDayCell({
           </span>
         </div>
       )}
-      
+
       {/* Single location label */}
       {!mergeInfo && day.primaryLocation && !diagonalSplit && (
         <div className={`absolute ${hasSideTrips ? 'bottom-6' : 'bottom-1'} left-1 right-1 z-10`}>
@@ -132,7 +145,7 @@ export default function CalendarDayCell({
           </span>
         </div>
       )}
-      
+
       {/* Transition day labels */}
       {diagonalSplit && day.primaryLocation && day.secondaryLocation && (
         <>
@@ -176,9 +189,9 @@ export default function CalendarDayCell({
           })}
         </div>
       )}
-      
-      {/* Outside trip or month styling */}
-      {(day.isOutsideTrip || day.isOutsideMonth) && (
+
+      {/* Outside trip styling */}
+      {day.isOutsideTrip && (
         <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800/50 opacity-50" />
       )}
     </div>
