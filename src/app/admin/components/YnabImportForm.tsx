@@ -88,25 +88,33 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
   // Calculate the most common category from historical expenses to use as default
   const mostCommonCategory = useMemo(() => {
-    // Count category frequencies from all expenses
-    const categoryCounts = new Map<string, number>();
+    const DEFAULT_FALLBACK = 'Miscellaneous';
 
-    (costData.expenses || []).forEach(expense => {
+    // If no categories available, return hardcoded fallback
+    if (!availableCategories || availableCategories.length === 0) {
+      return DEFAULT_FALLBACK;
+    }
+
+    // Use reduce to find the most common category in a single pass
+    const categoryFrequency = (costData.expenses || []).reduce((acc, expense) => {
       if (expense.category && availableCategories.includes(expense.category)) {
-        categoryCounts.set(expense.category, (categoryCounts.get(expense.category) || 0) + 1);
+        acc[expense.category] = (acc[expense.category] || 0) + 1;
       }
-    });
+      return acc;
+    }, {} as Record<string, number>);
 
-    // Find the category with the highest count
+    // Find the category with the highest frequency
+    let mostCommon = availableCategories.includes(DEFAULT_FALLBACK)
+      ? DEFAULT_FALLBACK
+      : availableCategories[0];
     let maxCount = 0;
-    let mostCommon = availableCategories[0]; // fallback to first alphabetically if no expenses
 
-    categoryCounts.forEach((count, category) => {
+    for (const [category, count] of Object.entries(categoryFrequency)) {
       if (count > maxCount) {
         maxCount = count;
         mostCommon = category;
       }
-    });
+    }
 
     return mostCommon;
   }, [costData.expenses, availableCategories]);
