@@ -6,17 +6,16 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Journey, JourneyDay, Location } from '@/app/types';
 import { generateRoutePointsSync, getRouteStyle } from '@/app/lib/routeUtils';
-import {
-  findClosestLocationToCurrentDate,
-  formatDateRange,
-  getLocationTemporalDistanceDays,
-} from '@/app/lib/dateUtils';
+import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
 import { LocationPopupModal } from '@/app/components/LocationPopup';
 import { useLocationPopup } from '@/app/hooks/useLocationPopup';
 import {
+  buildLocationAriaLabel,
+  buildLocationLabelKey,
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
   createMarkerIcon,
+  createMarkerKeyHandlers,
   getDominantMarkerTone,
   getMarkerDistanceBucket,
 } from '@/app/lib/mapIconUtils';
@@ -371,16 +370,24 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return getLocationTemporalDistanceDays(enriched);
   }, [locationDateLookup]);
 
-  const getLocationAriaLabel = useCallback((location: Location, day?: JourneyDay) => {
+  const getLocationLabelData = useCallback((location: Location, day?: JourneyDay) => {
     const { status } = getTemporalDistanceForLocation(location);
     const start = day?.date ?? location.date ?? locationDateLookup.get(location.id)?.date ?? null;
     const end = location.endDate ?? day?.endDate ?? locationDateLookup.get(location.id)?.endDate ?? null;
-    const dateLabel = start ? formatDateRange(start, end ?? undefined) : '';
-    const statusLabel = status === 'present' ? 'current' : status;
-    return `${location.name}, ${statusLabel} location${dateLabel ? `, ${dateLabel}` : ''}`;
+    const labelInput = {
+      id: location.id,
+      name: location.name,
+      status,
+      startDate: start,
+      endDate: end,
+    };
+    return {
+      label: buildLocationAriaLabel(labelInput),
+      labelKey: buildLocationLabelKey(labelInput),
+    };
   }, [getTemporalDistanceForLocation, locationDateLookup]);
 
-  const buildMarkerIcon = useCallback((location: Location, label: string, isHighlighted: boolean) => {
+  const buildMarkerIcon = useCallback((location: Location, label: string, labelKey: string, isHighlighted: boolean) => {
     const { status, days } = getTemporalDistanceForLocation(location);
     const bucket = getMarkerDistanceBucket(days);
 
@@ -388,7 +395,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       return createHighlightedMarkerIcon(L, status, bucket, { label });
     }
 
-    const cacheKey = `${location.id}:${status}:${bucket}:${label}`;
+    const cacheKey = `${status}:${bucket}:${labelKey}`;
     const cached = markerIconCacheRef.current.get(cacheKey);
     if (cached) return cached;
 
@@ -401,27 +408,19 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return findClosestLocationToCurrentDate(datedLocations);
   }, [datedLocations]);
 
-  const createMarkerKeyHandlers = useCallback((onActivate: () => void) => {
-    let keydownHandler: ((event: KeyboardEvent) => void) | null = null;
-    return {
-      add: (event: L.LeafletEvent) => {
-        const element = (event.target as L.Marker).getElement?.();
-        if (!element) return;
-        keydownHandler = (keyboardEvent: KeyboardEvent) => {
-          if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-            keyboardEvent.preventDefault();
-            onActivate();
-          }
-        };
-        element.addEventListener('keydown', keydownHandler);
-      },
-      remove: (event: L.LeafletEvent) => {
-        const element = (event.target as L.Marker).getElement?.();
-        if (!element || !keydownHandler) return;
-        element.removeEventListener('keydown', keydownHandler);
-        keydownHandler = null;
-      },
-    };
+  const markerKeyHandlersRef = useRef(
+    new globalThis.Map<string, ReturnType<typeof createMarkerKeyHandlers>>()
+  );
+
+  const getMarkerKeyHandlers = useCallback((key: string, onActivate: () => void) => {
+    const existing = markerKeyHandlersRef.current.get(key);
+    if (existing) {
+      existing.update(onActivate);
+      return existing;
+    }
+    const created = createMarkerKeyHandlers(onActivate);
+    markerKeyHandlersRef.current.set(key, created);
+    return created;
   }, []);
 
   const handleLocationActivate = useCallback((location: Location, day: JourneyDay) => {
@@ -511,11 +510,11 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
           groups.forEach(group => {
             if (group.items.length === 1) {
               const { location, day } = group.items[0];
-              const label = getLocationAriaLabel(location, day);
+              const { label, labelKey } = getLocationLabelData(location, day);
               const isHighlighted = closestLocation?.id === location.id;
-              const icon = buildMarkerIcon(location, label, isHighlighted);
+              const icon = buildMarkerIcon(location, label, labelKey, isHighlighted);
               const onActivate = () => handleLocationActivate(location, day);
-              const keyHandlers = createMarkerKeyHandlers(onActivate);
+              const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
 
               elements.push(
                 <Marker
@@ -553,7 +552,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   return next;
                 });
               };
-              const keyHandlers = createMarkerKeyHandlers(onActivate);
+              const keyHandlers = getMarkerKeyHandlers(group.key, onActivate);
 
               elements.push(
                 <Marker
@@ -580,11 +579,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                     pathOptions={{ color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }}
                   />
                 );
-                const label = getLocationAriaLabel(location, day);
+                const { label, labelKey } = getLocationLabelData(location, day);
                 const isHighlighted = closestLocation?.id === location.id;
-                const icon = buildMarkerIcon(location, label, isHighlighted);
+                const icon = buildMarkerIcon(location, label, labelKey, isHighlighted);
                 const onActivate = () => handleLocationActivate(location, day);
-                const keyHandlers = createMarkerKeyHandlers(onActivate);
+                const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
+
 
                 elements.push(
                   <Marker

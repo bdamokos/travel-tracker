@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Map, Marker } from 'leaflet';
 import { getRouteStyle, generateRoutePoints, calculateGreatCirclePoints, calculateSimpleArc } from '@/app/lib/routeUtils';
+import { attachMarkerKeyHandlers, escapeAttribute, formatCoordLabel } from '@/app/lib/mapIconUtils';
 import { Transportation } from '@/app/types';
 
 interface RoutePreviewProps {
@@ -12,17 +13,6 @@ interface RoutePreviewProps {
   toCoords: [number, number];
   transportType: Transportation['type'];
 }
-
-const escapeAttribute = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-const formatCoordLabel = (coords: [number, number]) =>
-  `${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`;
 
 const buildPreviewMarkerHtml = (label: string, color: string, text: string) => `
   <div class="travel-marker-interactive" role="button" tabindex="0" aria-label="${escapeAttribute(label)}">
@@ -42,31 +32,6 @@ const buildPreviewMarkerHtml = (label: string, color: string, text: string) => `
     ">${text}</div>
   </div>
 `;
-
-const attachPreviewKeyHandlers = (marker: Marker, onActivate: () => void) => {
-  const handler = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onActivate();
-    }
-  };
-
-  const addHandler = () => {
-    const element = marker.getElement();
-    if (!element) return;
-    element.addEventListener('keydown', handler);
-  };
-
-  const removeHandler = () => {
-    const element = marker.getElement();
-    if (!element) return;
-    element.removeEventListener('keydown', handler);
-  };
-
-  marker.on('add', addHandler);
-  marker.on('remove', removeHandler);
-  addHandler();
-};
 
 const RoutePreviewMap: React.FC<RoutePreviewProps> = ({ 
   from, 
@@ -228,8 +193,8 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
           .addTo(map)
           .bindPopup(`<strong>End: ${to}</strong><br/><small>${formatCoordLabel(toCoords)}</small>`);
 
-        attachPreviewKeyHandlers(startMarker, () => startMarker.openPopup());
-        attachPreviewKeyHandlers(endMarker, () => endMarker.openPopup());
+        attachMarkerKeyHandlers(startMarker, () => startMarker.openPopup());
+        attachMarkerKeyHandlers(endMarker, () => endMarker.openPopup());
 
         // Store marker references for updates
         startMarkerRef.current = startMarker;
@@ -290,8 +255,8 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
   // Update popup content when location names change (without recreating map)
   useEffect(() => {
     if (startMarkerRef.current && endMarkerRef.current) {
-      const startPopupContent = `<strong>Start: ${from}</strong><br/><small>${fromCoords[0].toFixed(4)}, ${fromCoords[1].toFixed(4)}</small>`;
-      const endPopupContent = `<strong>End: ${to}</strong><br/><small>${toCoords[0].toFixed(4)}, ${toCoords[1].toFixed(4)}</small>`;
+      const startPopupContent = `<strong>Start: ${from}</strong><br/><small>${formatCoordLabel(fromCoords)}</small>`;
+      const endPopupContent = `<strong>End: ${to}</strong><br/><small>${formatCoordLabel(toCoords)}</small>`;
       
       startMarkerRef.current.setPopupContent(startPopupContent);
       endMarkerRef.current.setPopupContent(endPopupContent);

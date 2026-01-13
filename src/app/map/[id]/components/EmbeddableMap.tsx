@@ -8,9 +8,13 @@ import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalD
 import { buildCompositeRoutePoints, getRouteStyle } from '@/app/lib/routeUtils';
 import type { MapRouteSegment } from '@/app/types';
 import {
+  attachMarkerKeyHandlers,
+  buildLocationAriaLabel,
+  buildLocationLabelKey,
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
   createMarkerIcon,
+  escapeAttribute,
   getDominantMarkerTone,
   getMarkerDistanceBucket,
 } from '@/app/lib/mapIconUtils';
@@ -76,8 +80,6 @@ const escapeHTML = (value: string) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-
-const escapeAttribute = (value: string) => escapeHTML(value);
 
 // Function to generate popup HTML with Wikipedia and Weather data
 const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?: {
@@ -229,38 +231,6 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
 
-const formatLocationLabel = (location: TravelData['locations'][0]) => {
-  const { status } = getLocationTemporalDistanceDays(location);
-  const dateLabel = formatDateRange(location.date, location.endDate);
-  const statusLabel = status === 'present' ? 'current' : status;
-  return `${location.name}, ${statusLabel} location${dateLabel ? `, ${dateLabel}` : ''}`;
-};
-
-const attachMarkerKeyHandlers = (marker: L.Marker, onActivate: () => void) => {
-  const handler = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onActivate();
-    }
-  };
-
-  const addHandler = () => {
-    const element = marker.getElement();
-    if (!element) return;
-    element.addEventListener('keydown', handler);
-  };
-
-  const removeHandler = () => {
-    const element = marker.getElement();
-    if (!element) return;
-    element.removeEventListener('keydown', handler);
-  };
-
-  marker.on('add', addHandler);
-  marker.on('remove', removeHandler);
-  addHandler();
-};
-
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -328,24 +298,41 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const getMarkerIcon = (
       location: TravelData['locations'][0],
       isHighlighted: boolean,
-      label: string
+      label: string,
+      labelKey: string
     ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
       const { status, days } = getLocationTemporalDistanceDays(location);
       const bucket = getMarkerDistanceBucket(days);
       if (isHighlighted) {
-        const highlightedKey = `highlight:${status}:${bucket}:${label}`;
+        const highlightedKey = `highlight:${status}:${bucket}:${labelKey}`;
         const cachedHighlighted = highlightedIconCache.get(highlightedKey);
         if (cachedHighlighted) return cachedHighlighted;
         const icon = createHighlightedMarkerIcon(L, status, bucket, { label });
         highlightedIconCache.set(highlightedKey, icon);
         return icon;
       }
-      const cacheKey = `${status}:${bucket}:${label}`;
+      const cacheKey = `${status}:${bucket}:${labelKey}`;
       const cached = markerIconCache.get(cacheKey);
       if (cached) return cached;
       const icon = createMarkerIcon(L, status, bucket, { label });
       markerIconCache.set(cacheKey, icon);
       return icon;
+    };
+
+    const getLocationLabelData = (location: TravelData['locations'][0]) => {
+      const { status } = getLocationTemporalDistanceDays(location);
+      const labelInput = {
+        id: location.id,
+        name: location.name,
+        status,
+        startDate: location.date,
+        endDate: location.endDate,
+      };
+
+      return {
+        label: buildLocationAriaLabel(labelInput),
+        labelKey: buildLocationLabelKey(labelInput),
+      };
     };
 
     // Note: meters-based fallback removed to avoid unused warnings
@@ -595,9 +582,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 3, opacity: 0.8, dashArray: '2 4' }).addTo(map);
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
-        const label = formatLocationLabel(location);
+        const { label, labelKey } = getLocationLabelData(location);
         const markerOptions: L.MarkerOptions = { keyboard: false };
-        const icon = getMarkerIcon(location, isHighlighted, label);
+        const icon = getMarkerIcon(location, isHighlighted, label, labelKey);
         if (icon) {
           markerOptions.icon = icon;
         }
@@ -645,9 +632,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         if (group.items.length === 1) {
           const location = group.items[0];
           const isHighlighted = closestLocation?.id === location.id;
-          const label = formatLocationLabel(location);
+          const { label, labelKey } = getLocationLabelData(location);
           const markerOptions: L.MarkerOptions = { keyboard: false };
-          const icon = getMarkerIcon(location, isHighlighted, label);
+          const icon = getMarkerIcon(location, isHighlighted, label, labelKey);
           if (icon) {
             markerOptions.icon = icon;
           }

@@ -1,3 +1,7 @@
+import type { LeafletEvent, Marker } from 'leaflet';
+
+import { formatDateRange } from '@/app/lib/dateUtils';
+
 export type MarkerTone = 'past' | 'present' | 'future';
 
 const MARKER_WIDTH = 25;
@@ -17,13 +21,98 @@ type MarkerAccessibility = {
   className?: string;
 };
 
-const escapeAttribute = (value: string) =>
+export const escapeAttribute = (value: string) =>
   value
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+
+export const formatCoordLabel = (coords: [number, number]) =>
+  `${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`;
+
+type LocationLabelInput = {
+  id?: string;
+  name: string;
+  status: MarkerTone;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
+};
+
+const formatDateKey = (value?: string | Date | null) => {
+  if (!value) return 'unknown';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toISOString();
+};
+
+export const buildLocationAriaLabel = ({ name, status, startDate, endDate }: LocationLabelInput) => {
+  const statusLabel = status === 'present' ? 'current' : status;
+  const dateLabel = startDate ? formatDateRange(startDate, endDate ?? undefined) : '';
+  return `${name}, ${statusLabel} location${dateLabel ? `, ${dateLabel}` : ''}`;
+};
+
+export const buildLocationLabelKey = ({ id, name, status, startDate, endDate }: LocationLabelInput) => {
+  const base = id ?? name;
+  return `${base}:${status}:${formatDateKey(startDate)}:${formatDateKey(endDate)}`;
+};
+
+const createKeyboardActivationHandler = (onActivate: () => void) => (event: KeyboardEvent) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    onActivate();
+  }
+};
+
+type MarkerKeyHandlers = {
+  add: (event: LeafletEvent) => void;
+  remove: (event: LeafletEvent) => void;
+  update: (next: () => void) => void;
+};
+
+export const createMarkerKeyHandlers = (onActivate: () => void): MarkerKeyHandlers => {
+  const activationRef = { current: onActivate };
+  const keydownHandler = createKeyboardActivationHandler(() => activationRef.current());
+
+  return {
+    update: (next: () => void) => {
+      activationRef.current = next;
+    },
+    add: (event: LeafletEvent) => {
+      const element = (event.target as Marker).getElement?.();
+      if (!element) return;
+      element.addEventListener('keydown', keydownHandler);
+    },
+    remove: (event: LeafletEvent) => {
+      const element = (event.target as Marker).getElement?.();
+      if (!element) return;
+      element.removeEventListener('keydown', keydownHandler);
+    },
+  };
+};
+
+export const attachMarkerKeyHandlers = (marker: Marker, onActivate: () => void) => {
+  const keydownHandler = createKeyboardActivationHandler(onActivate);
+
+  const addHandler = () => {
+    const element = marker.getElement();
+    if (!element) return;
+    element.addEventListener('keydown', keydownHandler);
+  };
+
+  const removeHandler = () => {
+    const element = marker.getElement();
+    if (!element) return;
+    element.removeEventListener('keydown', keydownHandler);
+  };
+
+  marker.on('add', addHandler);
+  marker.on('remove', removeHandler);
+  addHandler();
+};
 
 const wrapMarkerHtml = (content: string, accessibility?: MarkerAccessibility) => {
   if (!accessibility) return content;
