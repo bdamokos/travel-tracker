@@ -17,6 +17,9 @@ export interface TravelLinkInfo {
   name: string;
   locationName?: string; // For accommodations, the location they're in
   tripTitle?: string;
+  // Multi-route expense distribution
+  splitMode?: 'equal' | 'percentage' | 'fixed';
+  splitValue?: number; // For 'percentage' (0-100) or 'fixed' (amount in expense currency)
 }
 
 export interface TripData {
@@ -247,6 +250,44 @@ export class ExpenseTravelLookup {
     }
 
     return linkInfo;
+  }
+}
+
+/**
+ * Calculate the split amount for an expense based on the cost tracking link configuration
+ *
+ * @param expenseAmount The full expense amount
+ * @param link The cost tracking link with split configuration
+ * @param allLinksForExpense All links for this expense (needed for 'equal' mode)
+ * @returns The split amount allocated to this specific link
+ */
+export function calculateSplitAmount(
+  expenseAmount: number,
+  link: CostTrackingLink,
+  allLinksForExpense?: CostTrackingLink[]
+): number {
+  // If no split mode is set, this is a legacy single-link expense (100% allocation)
+  if (!link.splitMode) {
+    return expenseAmount;
+  }
+
+  switch (link.splitMode) {
+    case 'equal': {
+      // Divide equally among all links
+      const linkCount = allLinksForExpense?.length || 1;
+      return expenseAmount / linkCount;
+    }
+    case 'percentage': {
+      // Use the percentage value (0-100)
+      const percentage = link.splitValue || 0;
+      return (expenseAmount * percentage) / 100;
+    }
+    case 'fixed': {
+      // Use the fixed amount value
+      return link.splitValue || 0;
+    }
+    default:
+      return expenseAmount;
   }
 }
 

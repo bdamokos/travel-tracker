@@ -16,6 +16,8 @@ interface TravelItem {
   tripTitle: string;
   locationName?: string; // For accommodations
   baseLocationId?: string;
+  parentRouteId?: string; // For route segments (subRoutes)
+  parentRouteName?: string; // For displaying hierarchy
 }
 
 const normalizeDateString = (dateValue?: string | Date | null) => {
@@ -55,6 +57,11 @@ const formatItemLabel = (item: TravelItem) => {
   if (item.type === 'accommodation') {
     const locationSuffix = item.locationName ? ` (in ${item.locationName})` : '';
     return `${item.name}${locationSuffix} - ${dateLabel}`;
+  }
+
+  if (item.type === 'route' && item.parentRouteName) {
+    // This is a sub-route segment
+    return `  ↳ ${item.name} - ${dateLabel}`;
   }
 
   return `${item.name} - ${dateLabel}`;
@@ -165,17 +172,37 @@ export default function TravelItemSelector({
           });
         }
         
-        // Add routes
+        // Add routes and their sub-routes
         if (tripData.routes) {
-          tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: Date }) => {
+          tripData.routes.forEach((route: Transportation) => {
+            const routeDate = route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date;
+            const routeName = `${route.from} → ${route.to}`;
+
+            // Add parent route
             allItems.push({
               id: route.id,
               type: 'route',
-              name: `${route.from} → ${route.to}`,
-              description: `${route.transportType} transport`,
-              date: route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date,
+              name: routeName,
+              description: `${route.type} transport`,
+              date: routeDate,
               tripTitle: tripData.title
             });
+
+            // Add sub-routes if they exist
+            if (route.subRoutes && route.subRoutes.length > 0) {
+              route.subRoutes.forEach((subRoute) => {
+                allItems.push({
+                  id: subRoute.id,
+                  type: 'route',
+                  name: `${subRoute.from} → ${subRoute.to}`,
+                  description: `${subRoute.type} transport (segment)`,
+                  date: routeDate, // Sub-routes share the parent route's date
+                  tripTitle: tripData.title,
+                  parentRouteId: route.id,
+                  parentRouteName: routeName
+                });
+              });
+            }
           });
         }
         
