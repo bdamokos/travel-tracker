@@ -90,6 +90,24 @@ body {
   opacity: var(--travel-marker-debug-buckets, 0);
 }
 
+.travel-marker-interactive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  cursor: pointer;
+}
+
+.travel-marker-interactive:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+
+.travel-marker-interactive:focus-visible .travel-marker-visual {
+  transform: scale(1.05);
+}
+
 /* Set z-index for Leaflet popups that should appear over the map but below our modals */
 .leaflet-popup {
   z-index: 20;

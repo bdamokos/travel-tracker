@@ -65,7 +65,6 @@ interface TravelData {
   createdAt: string;
 }
 
-
 interface EmbeddableMapProps {
   travelData: TravelData;
 }
@@ -99,7 +98,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   const safeLocationName = escapeHTML(location.name);
   const safeDateRange = escapeHTML(formatDateRange(location.date, location.endDate));
   const safeNotes = location.notes ? escapeHTML(location.notes) : '';
-  
+
   let popupContent = `
     <div style="padding: 12px; max-width: 400px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
       <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${safeLocationName}</h4>
@@ -122,7 +121,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
   // Add Wikipedia section
   if (wikipediaData) {
     const safeWikipediaTitle = escapeHTML(wikipediaData.title);
@@ -144,7 +143,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
   // Add Instagram posts
   if (location.instagramPosts && location.instagramPosts.length > 0) {
     popupContent += `
@@ -222,7 +221,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
       </div>
     `;
   }
-  
+
   popupContent += '</div>';
   return popupContent;
 };
@@ -230,20 +229,52 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
 
+const formatLocationLabel = (location: TravelData['locations'][0]) => {
+  const { status } = getLocationTemporalDistanceDays(location);
+  const dateLabel = formatDateRange(location.date, location.endDate);
+  const statusLabel = status === 'present' ? 'current' : status;
+  return `${location.name}, ${statusLabel} location${dateLabel ? `, ${dateLabel}` : ''}`;
+};
+
+const attachMarkerKeyHandlers = (marker: L.Marker, onActivate: () => void) => {
+  const handler = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onActivate();
+    }
+  };
+
+  const addHandler = () => {
+    const element = marker.getElement();
+    if (!element) return;
+    element.addEventListener('keydown', handler);
+  };
+
+  const removeHandler = () => {
+    const element = marker.getElement();
+    if (!element) return;
+    element.removeEventListener('keydown', handler);
+  };
+
+  marker.on('add', addHandler);
+  marker.on('remove', removeHandler);
+  addHandler();
+};
+
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const collapsedByUserRef = useRef<Set<string>>(new Set());
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
-  
+
   // Simplified - no more client-side route generation
-  
+
   // Initialize client-side state
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   // Log what route data we received
   useEffect(() => {
     console.log(`[EmbeddableMap] Received travel data for trip ${travelData.id} with ${travelData.routes.length} routes`);
@@ -252,14 +283,14 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       console.log(`[EmbeddableMap] Received route ${index} (${route.id}): ${routePointsCount} route points`);
     });
   }, [travelData.id, travelData.routes]);
-  
+
   // Load Leaflet dynamically
   useEffect(() => {
     if (!isClient) return;
-    
+
     import('leaflet').then((leaflet) => {
       setL(leaflet);
-      
+
       // Fix Leaflet icon issues
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (leaflet.Icon.Default.prototype as any)._getIconUrl;
@@ -270,7 +301,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       });
     });
   }, [isClient]);
-  
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !L || !isClient) return;
 
@@ -296,22 +327,23 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     const getMarkerIcon = (
       location: TravelData['locations'][0],
-      isHighlighted: boolean
+      isHighlighted: boolean,
+      label: string
     ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
       const { status, days } = getLocationTemporalDistanceDays(location);
       const bucket = getMarkerDistanceBucket(days);
       if (isHighlighted) {
-        const highlightedKey = `highlight:${status}:${bucket}`;
+        const highlightedKey = `highlight:${status}:${bucket}:${label}`;
         const cachedHighlighted = highlightedIconCache.get(highlightedKey);
         if (cachedHighlighted) return cachedHighlighted;
-        const icon = createHighlightedMarkerIcon(L, status, bucket);
+        const icon = createHighlightedMarkerIcon(L, status, bucket, { label });
         highlightedIconCache.set(highlightedKey, icon);
         return icon;
       }
-      const cacheKey = `${status}:${bucket}`;
+      const cacheKey = `${status}:${bucket}:${label}`;
       const cached = markerIconCache.get(cacheKey);
       if (cached) return cached;
-      const icon = createMarkerIcon(L, status, bucket);
+      const icon = createMarkerIcon(L, status, bucket, { label });
       markerIconCache.set(cacheKey, icon);
       return icon;
     };
@@ -563,17 +595,19 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 3, opacity: 0.8, dashArray: '2 4' }).addTo(map);
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
-        const markerOptions: L.MarkerOptions = {};
-        const icon = getMarkerIcon(location, isHighlighted);
+        const label = formatLocationLabel(location);
+        const markerOptions: L.MarkerOptions = { keyboard: false };
+        const icon = getMarkerIcon(location, isHighlighted, label);
         if (icon) {
           markerOptions.icon = icon;
         }
         const child = L.marker(distributed, markerOptions).addTo(map);
         attachPopupAndEnrich(child, location);
+        attachMarkerKeyHandlers(child, () => child.openPopup());
         state.childMarkers.push(child);
       });
 
-      const collapseMarker = L.marker(state.group.center, { opacity: 0 }).addTo(map);
+      const collapseMarker = L.marker(state.group.center, { opacity: 0, keyboard: false }).addTo(map);
       collapseMarker.on('click', () => collapseGroup(groupKey));
       state.collapseMarker = collapseMarker;
       expanded.add(groupKey);
@@ -611,13 +645,15 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         if (group.items.length === 1) {
           const location = group.items[0];
           const isHighlighted = closestLocation?.id === location.id;
-          const markerOptions: L.MarkerOptions = {};
-          const icon = getMarkerIcon(location, isHighlighted);
+          const label = formatLocationLabel(location);
+          const markerOptions: L.MarkerOptions = { keyboard: false };
+          const icon = getMarkerIcon(location, isHighlighted, label);
           if (icon) {
             markerOptions.icon = icon;
           }
           const marker = L.marker(location.coordinates, markerOptions).addTo(map);
           attachPopupAndEnrich(marker, location);
+          attachMarkerKeyHandlers(marker, () => marker.openPopup());
           singles.push(marker);
           return;
         }
@@ -627,11 +663,19 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const groupDistanceBucket = getMarkerDistanceBucket(
           Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
         );
-        const groupMarker = L.marker(group.center, { icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket) }).addTo(map);
+        const label = `Group of ${group.items.length} locations. Activate to expand.`;
+        const groupMarker = L.marker(group.center, {
+          icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label }),
+          keyboard: false,
+        }).addTo(map);
         const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
         groupLayers.set(group.key, state);
 
         groupMarker.on('click', () => {
+          if (expanded.has(group.key)) return;
+          expandGroup(group.key, state);
+        });
+        attachMarkerKeyHandlers(groupMarker, () => {
           if (expanded.has(group.key)) return;
           expandGroup(group.key, state);
         });
@@ -670,7 +714,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     travelData.routes.forEach((route) => {
       const routePoints = resolveRoutePoints(route);
       const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
-      
+
       if (routePoints.length > 0) {
         L.polyline(routePoints, {
           color: routeStyle.color,
@@ -684,12 +728,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     // Fit map to show all locations
     if (travelData.locations.length > 0) {
       const allCoords = travelData.locations.map(loc => loc.coordinates);
-      
+
       // Add route coordinates
       travelData.routes.forEach(route => {
         allCoords.push(route.fromCoords, route.toCoords);
       });
-      
+
       if (allCoords.length > 1) {
         const bounds = L.latLngBounds(allCoords.map(coord => L.latLng(coord[0], coord[1])));
         map.fitBounds(bounds, { padding: [20, 20] });
@@ -729,4 +773,4 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   );
 };
 
-export default EmbeddableMap; 
+export default EmbeddableMap;
