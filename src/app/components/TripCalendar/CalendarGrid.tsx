@@ -29,9 +29,6 @@ export default function CalendarGrid({
   // Filter out weeks that consist entirely of outside-month days
   const weeks = useMemo(
     () => monthCalendar.weeks.filter(week =>
-  // Filter out weeks that consist entirely of outside-month days
-  const weeks = useMemo(() => 
-    monthCalendar.weeks.filter(week =>
       week.some(cell => !cell.day.isOutsideMonth)
     ),
     [monthCalendar.weeks]
