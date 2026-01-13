@@ -1,0 +1,71 @@
+import { useState } from 'react';
+import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+
+export interface SaveLinksOptions {
+  expenseId: string;
+  tripId: string;
+  links: TravelLinkInfo[] | TravelLinkInfo | undefined;
+}
+
+export interface UseMultiRouteLinksResult {
+  saving: boolean;
+  error: string | null;
+  saveLinks: (options: SaveLinksOptions) => Promise<boolean>;
+  clearError: () => void;
+}
+
+/**
+ * Hook for saving expense links (both single and multi-route)
+ * Handles API communication with the expense-links endpoint
+ */
+export function useMultiRouteLinks(): UseMultiRouteLinksResult {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveLinks = async (options: SaveLinksOptions): Promise<boolean> => {
+    const { expenseId, tripId, links } = options;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/travel-data/${tripId}/expense-links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expenseId,
+          links
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save expense links');
+      }
+
+      const result = await response.json();
+      console.log('Expense links saved:', result.message);
+      return true;
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save expense links';
+      setError(errorMessage);
+      console.error('Error saving expense links:', err);
+      return false;
+
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clearError = () => setError(null);
+
+  return {
+    saving,
+    error,
+    saveLinks,
+    clearError
+  };
+}

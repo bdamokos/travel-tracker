@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
+import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 
 interface ExpenseLink {
   expenseId: string;
@@ -180,8 +182,128 @@ export async function GET(
 
   } catch (error) {
     console.error('Error fetching expense links:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+/**
+ * POST - Create or update expense links (supports both single and multi-link)
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tripId: string }> }
+) {
+  try {
+    const { tripId } = await params;
+
+    if (!tripId) {
+      return NextResponse.json({
+        error: 'Trip ID is required'
+      }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { expenseId, links } = body as {
+      expenseId: string;
+      links: TravelLinkInfo[] | TravelLinkInfo | undefined
+    };
+
+    if (!expenseId) {
+      return NextResponse.json({
+        error: 'Expense ID is required'
+      }, { status: 400 });
+    }
+
+    const linkingService = createExpenseLinkingService(tripId);
+
+    // Handle remove operation (no links provided)
+    if (!links || (Array.isArray(links) && links.length === 0)) {
+      await linkingService.removeLink(expenseId);
+      return NextResponse.json({
+        success: true,
+        message: 'Expense link removed'
+      });
+    }
+
+    // Handle multi-link operation
+    if (Array.isArray(links)) {
+      if (links.length > 1) {
+        // Multi-link with split configuration
+        await linkingService.createMultipleLinks(expenseId, links);
+        return NextResponse.json({
+          success: true,
+          message: `Expense linked to ${links.length} routes with split configuration`
+        });
+      } else if (links.length === 1) {
+        // Single link from array
+        await linkingService.createOrUpdateLink(expenseId, links[0]);
+        return NextResponse.json({
+          success: true,
+          message: 'Expense link created'
+        });
+      }
+    }
+
+    // Handle single-link operation (backward compatibility)
+    if (!Array.isArray(links)) {
+      await linkingService.createOrUpdateLink(expenseId, links);
+      return NextResponse.json({
+        success: true,
+        message: 'Expense link created'
+      });
+    }
+
+    return NextResponse.json({
+      error: 'Invalid request format'
+    }, { status: 400 });
+
+  } catch (error) {
+    console.error('Error saving expense links:', error);
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE - Remove expense links
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ tripId: string }> }
+) {
+  try {
+    const { tripId } = await params;
+
+    if (!tripId) {
+      return NextResponse.json({
+        error: 'Trip ID is required'
+      }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const expenseId = searchParams.get('expenseId');
+
+    if (!expenseId) {
+      return NextResponse.json({
+        error: 'Expense ID is required'
+      }, { status: 400 });
+    }
+
+    const linkingService = createExpenseLinkingService(tripId);
+    await linkingService.removeLink(expenseId);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Expense link removed'
+    });
+
+  } catch (error) {
+    console.error('Error deleting expense link:', error);
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }
