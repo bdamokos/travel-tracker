@@ -408,6 +408,17 @@ export function calculateExpenseTotalsByLocation({
       splitValue: link.splitValue
     }));
 
+    // Find the first link that will actually be processed (has a valid locationId)
+    // This is important for counting: we only want to increment count once per expense,
+    // and it should be on the first link that actually gets tallied to a location
+    const firstValidLink = links.find(link => {
+      if (link.type === 'location') return true;
+      if (link.type === 'accommodation') {
+        return accommodationLocationMap.has(link.id);
+      }
+      return false;
+    });
+
     // Process each link (for multi-route expenses, split the amount)
     links.forEach(link => {
       let locationId: string | null = null;
@@ -423,12 +434,13 @@ export function calculateExpenseTotalsByLocation({
 
       const currentTotal = totals[locationId] ?? { amount: 0, currency: trackingCurrency, count: 0 };
 
-      // For multi-route expenses, only count the expense once (against the first link)
-      // But split the amount across all links
-      const isFirstLink = links[0] === link;
+      // For multi-route expenses, only count the expense once (against the first valid link)
+      // "First valid link" = first link that actually has a locationId and gets processed
+      // This prevents issues where the first link in the array is a route (no locationId) and gets skipped
+      const isFirstValidLink = firstValidLink === link;
       const nextTotal = {
         ...currentTotal,
-        count: isFirstLink ? currentTotal.count + 1 : currentTotal.count
+        count: isFirstValidLink ? currentTotal.count + 1 : currentTotal.count
       };
 
       // Calculate split amount for this link
