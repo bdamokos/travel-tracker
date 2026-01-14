@@ -108,6 +108,16 @@ body {
   transform: scale(1.05);
 }
 
+.travel-marker-collapse .travel-marker-group,
+.travel-marker-collapse .travel-marker-visual {
+  opacity: 0;
+}
+
+.travel-marker-collapse:focus-visible .travel-marker-group,
+.travel-marker-collapse:focus-visible .travel-marker-visual {
+  opacity: 1;
+}
+
 /* Set z-index for Leaflet popups that should appear over the map but below our modals */
 .leaflet-popup {
   z-index: 20;

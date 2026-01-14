@@ -594,8 +594,22 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.childMarkers.push(child);
       });
 
-      const collapseMarker = L.marker(state.group.center, { opacity: 0, keyboard: false }).addTo(map);
-      collapseMarker.on('click', () => collapseGroup(groupKey));
+      const temporalInfos = state.group.items.map(location => getLocationTemporalDistanceDays(location));
+      const collapseTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+      const collapseDistanceBucket = getMarkerDistanceBucket(
+        Math.min(...temporalInfos.filter(info => info.status === collapseTone).map(info => info.days))
+      );
+      const collapseLabel = `Collapse group of ${state.group.items.length} locations.`;
+      const collapseHandler = () => collapseGroup(groupKey);
+      const collapseMarker = L.marker(state.group.center, {
+        icon: createCountMarkerIcon(L, state.group.items.length, collapseTone, collapseDistanceBucket, {
+          label: collapseLabel,
+          className: 'travel-marker-collapse',
+        }),
+        keyboard: false,
+      }).addTo(map);
+      collapseMarker.on('click', collapseHandler);
+      attachMarkerKeyHandlers(collapseMarker, collapseHandler);
       state.collapseMarker = collapseMarker;
       expanded.add(groupKey);
     };

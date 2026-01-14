@@ -601,28 +601,44 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 );
               });
               // Add a small handler to collapse when clicking the center (invisible) area by rendering a transparent marker
+              const collapseHandler = () => {
+                setExpandedGroups(prev => {
+                  const next = new Set(prev);
+                  next.delete(group.key);
+                  return next;
+                });
+                setCollapsedGroups(prev => {
+                  if (prev.has(group.key)) {
+                    return prev;
+                  }
+                  const next = new Set(prev);
+                  next.add(group.key);
+                  return next;
+                });
+              };
+
+              const temporalInfos = group.items.map(({ location }) => getTemporalDistanceForLocation(location));
+              const collapseTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+              const collapseDistanceBucket = getMarkerDistanceBucket(
+                Math.min(...temporalInfos.filter(info => info.status === collapseTone).map(info => info.days))
+              );
+              const collapseLabel = `Collapse group of ${group.items.length} locations.`;
+              const collapseIcon = createCountMarkerIcon(L, group.items.length, collapseTone, collapseDistanceBucket, {
+                label: collapseLabel,
+                className: 'travel-marker-collapse',
+              });
+              const collapseKeyHandlers = getMarkerKeyHandlers(`collapse-${group.key}`, collapseHandler);
+
               elements.push(
                 <Marker
                   key={`collapse-${group.key}`}
                   position={group.center}
-                  opacity={0}
+                  icon={collapseIcon}
                   keyboard={false}
                   eventHandlers={{
-                    click: () => {
-                      setExpandedGroups(prev => {
-                        const next = new Set(prev);
-                        next.delete(group.key);
-                        return next;
-                      });
-                      setCollapsedGroups(prev => {
-                        if (prev.has(group.key)) {
-                          return prev;
-                        }
-                        const next = new Set(prev);
-                        next.add(group.key);
-                        return next;
-                      });
-                    },
+                    click: collapseHandler,
+                    add: collapseKeyHandlers.add,
+                    remove: collapseKeyHandlers.remove,
                   }}
                 />
               );
