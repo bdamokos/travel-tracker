@@ -51,8 +51,9 @@ export default function IframeAccessibilityFixer() {
           // For visible/other iframes, only add title (don't hide from screen readers)
           iframe.setAttribute('title', 'Embedded content');
         }
-      } else if (isTracking && !iframe.hasAttribute('aria-hidden')) {
-        // If iframe already has a title but is a tracking pixel without aria-hidden
+      } else if (isTracking && iframe.getAttribute('aria-hidden') !== 'true') {
+        // If iframe already has a title but is a tracking pixel, ensure aria-hidden is set
+        // This overrides any existing aria-hidden="false" values
         iframe.setAttribute('aria-hidden', 'true');
       }
     };
