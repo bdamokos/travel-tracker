@@ -436,8 +436,11 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   }, []);
 
   const registerMarkerElement = useCallback((key: string, label: string, event: L.LeafletEvent) => {
-    const element = (event.target as L.Marker).getElement?.();
-    if (!element) return;
+    const wrapper = (event.target as L.Marker).getElement?.();
+    if (!wrapper) return;
+
+    // Find the inner focusable element (.travel-marker-interactive has tabindex)
+    const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
 
     markerLabelRef.current.set(key, label);
 
@@ -514,17 +517,8 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return order;
   }, [groups, expandedGroups]);
 
-  useEffect(() => {
-    markerElementsRef.current.forEach((_, key) => {
-      if (!focusOrder.includes(key)) {
-        unregisterMarkerElement(key);
-      }
-    });
-
-    if (focusedMarkerKey && !focusOrder.includes(focusedMarkerKey)) {
-      setFocusedMarkerKey(null);
-    }
-  }, [focusOrder, focusedMarkerKey, unregisterMarkerElement]);
+  // Note: Marker cleanup is handled automatically via Marker component 'remove' event handlers.
+  // The focusedMarkerKey is reset when the focused marker is removed from the DOM.
 
   const focusMarkerByIndex = useCallback((index: number) => {
     if (index < 0 || index >= focusOrder.length) return;

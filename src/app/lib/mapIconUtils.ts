@@ -82,13 +82,17 @@ export const createMarkerKeyHandlers = (onActivate: () => void): MarkerKeyHandle
       activationRef.current = next;
     },
     add: (event: LeafletEvent) => {
-      const element = (event.target as Marker).getElement?.();
-      if (!element) return;
+      const wrapper = (event.target as Marker).getElement?.();
+      if (!wrapper) return;
+      // Find the inner focusable element (.travel-marker-interactive has tabindex)
+      const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
       element.addEventListener('keydown', keydownHandler);
     },
     remove: (event: LeafletEvent) => {
-      const element = (event.target as Marker).getElement?.();
-      if (!element) return;
+      const wrapper = (event.target as Marker).getElement?.();
+      if (!wrapper) return;
+      // Find the inner focusable element (.travel-marker-interactive has tabindex)
+      const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
       element.removeEventListener('keydown', keydownHandler);
     },
   };
@@ -98,14 +102,18 @@ export const attachMarkerKeyHandlers = (marker: Marker, onActivate: () => void) 
   const keydownHandler = createKeyboardActivationHandler(onActivate);
 
   const addHandler = () => {
-    const element = marker.getElement();
-    if (!element) return;
+    const wrapper = marker.getElement();
+    if (!wrapper) return;
+    // Find the inner focusable element (.travel-marker-interactive has tabindex)
+    const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
     element.addEventListener('keydown', keydownHandler);
   };
 
   const removeHandler = () => {
-    const element = marker.getElement();
-    if (!element) return;
+    const wrapper = marker.getElement();
+    if (!wrapper) return;
+    // Find the inner focusable element (.travel-marker-interactive has tabindex)
+    const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
     element.removeEventListener('keydown', keydownHandler);
   };
 

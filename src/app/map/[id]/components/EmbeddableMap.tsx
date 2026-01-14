@@ -289,8 +289,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   }, []);
 
   const registerMarkerElement = useCallback((key: string, label: string, marker: Marker) => {
-    const element = marker.getElement();
-    if (!element) return;
+    const wrapper = marker.getElement();
+    if (!wrapper) return;
+
+    // Find the inner focusable element (.travel-marker-interactive has tabindex)
+    const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
 
     markerLabelRef.current.set(key, label);
 
@@ -311,6 +314,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     element.addEventListener('focus', focusHandler);
     markerElementsRef.current.set(key, element);
 
+    // Remove any existing 'remove' listeners to prevent accumulation
+    marker.off('remove');
     marker.on('remove', () => unregisterMarkerElement(key));
   }, [unregisterMarkerElement, updateFocusAnnouncement]);
 
@@ -666,8 +671,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.groupMarker.remove();
       });
       groupLayers.clear();
-      const keys = Array.from(markerElementsRef.current.keys());
-      keys.forEach(key => unregisterMarkerElement(key));
+      // Note: unregisterMarkerElement is called automatically via marker 'remove' event handlers
       focusOrderRef.current = [];
       focusedMarkerKeyRef.current = null;
     };
