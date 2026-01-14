@@ -10,9 +10,12 @@ import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } fro
 import { LocationPopupModal } from '@/app/components/LocationPopup';
 import { useLocationPopup } from '@/app/hooks/useLocationPopup';
 import {
+  buildLocationAriaLabel,
+  buildLocationLabelKey,
   createCountMarkerIcon,
   createHighlightedMarkerIcon,
   createMarkerIcon,
+  createMarkerKeyHandlers,
   getDominantMarkerTone,
   getMarkerDistanceBucket,
 } from '@/app/lib/mapIconUtils';
@@ -21,11 +24,11 @@ import {
 const fixLeafletIcons = () => {
   // Only run on client
   if (typeof window === 'undefined') return;
-  
+
   // Fix leaflet's default icon paths
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (L.Icon.Default.prototype as any)._getIconUrl;
-  
+
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: '/images/marker-icon-2x.png',
     iconUrl: '/images/marker-icon.png',
@@ -246,7 +249,6 @@ const MapEventBridge: React.FC<{
   return null;
 };
 
-
 interface MapProps {
   journey: Journey | null;
   selectedDayId?: string;
@@ -269,7 +271,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     }
     return next;
   }, []);
-  
+
   const handleViewChange = useCallback(() => {
     setViewChangeTick(t => t + 1);
   }, []);
@@ -277,16 +279,16 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const handleMapReady = useCallback((mapInstance: L.Map) => {
     mapRef.current = mapInstance;
   }, []);
-  
+
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
   const markerIconCacheRef = useRef<globalThis.Map<string, L.DivIcon>>(new globalThis.Map());
-  
+
   // Fix Leaflet icons
   useEffect(() => {
     fixLeafletIcons();
   }, []);
-  
+
   // Cleanup effect to handle strict mode double initialization
   useEffect(() => {
     return () => {
@@ -301,7 +303,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       setDays([]);
       return;
     }
-    
+
     if (selectedDayId) {
       // Show only the selected day
       const selectedDay = journey.days.find(day => day.id === selectedDayId);
@@ -311,19 +313,19 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       setDays(journey.days);
     }
   }, [journey, selectedDayId]);
-  
+
   // Fit map bounds to show all locations
   useEffect(() => {
     if (!mapRef.current || days.length === 0) return;
 
     const allLocations: [number, number][] = [];
-    
+
     // Collect all location coordinates
     days.forEach(day => {
       day.locations.forEach(location => {
         allLocations.push(location.coordinates);
       });
-      
+
       if (day.transportation) {
         if (day.transportation.fromCoordinates) {
           allLocations.push(day.transportation.fromCoordinates);
@@ -333,9 +335,9 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         }
       }
     });
-    
+
     if (allLocations.length === 0) return;
-    
+
     // Create a bounds object and fit the map to it
     const bounds = L.latLngBounds(allLocations.map(coords => L.latLng(coords[0], coords[1])));
     mapRef.current.fitBounds(bounds, { padding: [50, 50] });
@@ -368,15 +370,36 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return getLocationTemporalDistanceDays(enriched);
   }, [locationDateLookup]);
 
-  const getMarkerIconForLocation = useCallback((location: Location) => {
+  const getLocationLabelData = useCallback((location: Location, day?: JourneyDay) => {
+    const { status } = getTemporalDistanceForLocation(location);
+    const start = day?.date ?? location.date ?? locationDateLookup.get(location.id)?.date ?? null;
+    const end = location.endDate ?? day?.endDate ?? locationDateLookup.get(location.id)?.endDate ?? null;
+    const labelInput = {
+      id: location.id,
+      name: location.name,
+      status,
+      startDate: start,
+      endDate: end,
+    };
+    return {
+      label: buildLocationAriaLabel(labelInput),
+      labelKey: buildLocationLabelKey(labelInput),
+    };
+  }, [getTemporalDistanceForLocation, locationDateLookup]);
+
+  const buildMarkerIcon = useCallback((location: Location, label: string, labelKey: string, isHighlighted: boolean) => {
     const { status, days } = getTemporalDistanceForLocation(location);
     const bucket = getMarkerDistanceBucket(days);
-    const cacheKey = `${status}:${bucket}`;
 
+    if (isHighlighted) {
+      return createHighlightedMarkerIcon(L, status, bucket, { label });
+    }
+
+    const cacheKey = `${status}:${bucket}:${labelKey}`;
     const cached = markerIconCacheRef.current.get(cacheKey);
     if (cached) return cached;
 
-    const icon = createMarkerIcon(L, status, bucket);
+    const icon = createMarkerIcon(L, status, bucket, { label });
     markerIconCacheRef.current.set(cacheKey, icon);
     return icon;
   }, [getTemporalDistanceForLocation]);
@@ -385,14 +408,32 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return findClosestLocationToCurrentDate(datedLocations);
   }, [datedLocations]);
 
-  const highlightedIcon = useMemo(() => {
-    if (!closestLocation) {
-      return createHighlightedMarkerIcon(L, 'present');
+  const markerKeyHandlersRef = useRef(
+    new globalThis.Map<string, ReturnType<typeof createMarkerKeyHandlers>>()
+  );
+
+  const getMarkerKeyHandlers = useCallback((key: string, onActivate: () => void) => {
+    const existing = markerKeyHandlersRef.current.get(key);
+    if (existing) {
+      existing.update(onActivate);
+      return existing;
     }
-    const { status, days } = getLocationTemporalDistanceDays(closestLocation);
-    const bucket = getMarkerDistanceBucket(days);
-    return createHighlightedMarkerIcon(L, status, bucket);
-  }, [closestLocation]);
+    const created = createMarkerKeyHandlers(onActivate);
+    markerKeyHandlersRef.current.set(key, created);
+    return created;
+  }, []);
+
+  const handleLocationActivate = useCallback((location: Location, day: JourneyDay) => {
+    const journeyDay = {
+      id: day.id,
+      date: new Date(day.date),
+      title: location.name,
+      locations: day.locations,
+      transportation: day.transportation,
+    };
+    openPopup(location, journeyDay, journey?.id || 'unknown');
+    if (onLocationClick) onLocationClick(location);
+  }, [openPopup, onLocationClick, journey?.id]);
 
   const groups = useMemo<Group[]>(() => {
     // reference tick so lint understands it intentionally triggers recompute
@@ -437,10 +478,9 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       </div>
     );
   }
-  
+
   return (
     <>
-    
       <MapContainer
         key={key} // Force re-creation on key change
         className="h-full w-full"
@@ -449,159 +489,182 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         scrollWheelZoom={true}
         ref={mapRef}
       >
-      <MapEventBridge onReady={handleMapReady} onViewChange={handleViewChange} />
-      <TileLayer
-        attribution={
-          typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }
-        url={
-          typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        }
-      />
-      
-      {/* Render locations with grouping + spiderfy */}
-      {(() => {
-        const elements: React.ReactNode[] = [];
-
-        groups.forEach(group => {
-          if (group.items.length === 1) {
-            const { location, day } = group.items[0];
-            elements.push(
-              <Marker 
-                key={location.id} 
-                position={location.coordinates}
-                icon={closestLocation?.id === location.id ? highlightedIcon : getMarkerIconForLocation(location)}
-                eventHandlers={{
-                  click: () => {
-                    const journeyDay = {
-                      id: day.id,
-                      date: new Date(day.date),
-                      title: location.name,
-                      locations: day.locations,
-                      transportation: day.transportation
-                    };
-                    openPopup(location, journeyDay, journey?.id || 'unknown');
-                    if (onLocationClick) onLocationClick(location);
-                  }
-                }}
-              />
-            );
-            return;
+        <MapEventBridge onReady={handleMapReady} onViewChange={handleViewChange} />
+        <TileLayer
+          attribution={
+            typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           }
+          url={
+            typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+              : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          }
+        />
 
-          const isExpanded = expandedGroups.has(group.key);
-          if (!isExpanded) {
-            // Render a single badge marker representing the group
-            const temporalInfos = group.items.map(({ location }) => getTemporalDistanceForLocation(location));
-            const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
-            const groupDistanceBucket = getMarkerDistanceBucket(
-              Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
-            );
-            elements.push(
-              <Marker
-                key={`group-${group.key}`}
-                position={group.center}
-                icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket)}
-                eventHandlers={{
-                  click: () => {
-                    setExpandedGroups(prev => new Set(prev).add(group.key));
-                    setCollapsedGroups(prev => {
-                      if (!prev.has(group.key)) {
-                        return prev;
-                      }
-                      const next = new Set(prev);
-                      next.delete(group.key);
-                      return next;
-                    });
-                  }
-                }}
-              />
-            );
-          } else {
-            // Spiderfy: render distributed markers and legs
-            group.items.forEach(({ location, day }, index) => {
-              const distributed = distributeAroundPointPixels(mapRef.current, group.center, index, group.items.length, 24);
-              // Spider leg connecting back to center (tasteful connection to true location)
-              elements.push(
-                <Polyline
-                  key={`leg-${group.key}-${location.id}`}
-                  positions={[location.coordinates, distributed]}
-                  pathOptions={{ color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }}
-                />
-              );
+        {/* Render locations with grouping + spiderfy */}
+        {(() => {
+          const elements: React.ReactNode[] = [];
+
+          groups.forEach(group => {
+            if (group.items.length === 1) {
+              const { location, day } = group.items[0];
+              const { label, labelKey } = getLocationLabelData(location, day);
+              const isHighlighted = closestLocation?.id === location.id;
+              const icon = buildMarkerIcon(location, label, labelKey, isHighlighted);
+              const onActivate = () => handleLocationActivate(location, day);
+              const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
+
               elements.push(
                 <Marker
                   key={location.id}
-                  position={distributed}
-                  icon={closestLocation?.id === location.id ? highlightedIcon : getMarkerIconForLocation(location)}
+                  position={location.coordinates}
+                  icon={icon}
+                  keyboard={false}
                   eventHandlers={{
-                    click: () => {
-                      const journeyDay = {
-                        id: day.id,
-                        date: new Date(day.date),
-                        title: location.name,
-                        locations: day.locations,
-                        transportation: day.transportation
-                      };
-                      openPopup(location, journeyDay, journey?.id || 'unknown');
-                      if (onLocationClick) onLocationClick(location);
-                    }
+                    click: onActivate,
+                    add: keyHandlers.add,
+                    remove: keyHandlers.remove,
                   }}
                 />
               );
-            });
-            // Add a small handler to collapse when clicking the center (invisible) area by rendering a transparent marker
-            elements.push(
-              <Marker
-                key={`collapse-${group.key}`}
-                position={group.center}
-                opacity={0}
-                eventHandlers={{
-                  click: () => {
-                    setExpandedGroups(prev => {
-                      const next = new Set(prev);
-                      next.delete(group.key);
-                      return next;
-                    });
-                    setCollapsedGroups(prev => {
-                      if (prev.has(group.key)) {
-                        return prev;
-                      }
-                      const next = new Set(prev);
-                      next.add(group.key);
-                      return next;
-                    });
-                  }
-                }}
-              />
-            );
-          }
-        });
+              return;
+            }
 
-        return elements;
-      })()}
-      
-      {/* Render transportation routes */}
-      {days.map(day => {
-        if (!day.transportation) return null;
-        
-        const routePoints = generateRoutePointsSync(day.transportation);
-        const routeStyle = getRouteStyle(day.transportation.type);
-        
-        return (
-          <Polyline
-            key={day.transportation.id}
-            positions={routePoints}
-            pathOptions={routeStyle}
-          />
-        );
-      })}
-    </MapContainer>
-    
+            const isExpanded = expandedGroups.has(group.key);
+            if (!isExpanded) {
+              // Render a single badge marker representing the group
+              const temporalInfos = group.items.map(({ location }) => getTemporalDistanceForLocation(location));
+              const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+              const groupDistanceBucket = getMarkerDistanceBucket(
+                Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))
+              );
+              const label = `Group of ${group.items.length} locations. Activate to expand.`;
+              const onActivate = () => {
+                setExpandedGroups(prev => new Set(prev).add(group.key));
+                setCollapsedGroups(prev => {
+                  if (!prev.has(group.key)) {
+                    return prev;
+                  }
+                  const next = new Set(prev);
+                  next.delete(group.key);
+                  return next;
+                });
+              };
+              const keyHandlers = getMarkerKeyHandlers(group.key, onActivate);
+
+              elements.push(
+                <Marker
+                  key={`group-${group.key}`}
+                  position={group.center}
+                  icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label })}
+                  keyboard={false}
+                  eventHandlers={{
+                    click: onActivate,
+                    add: keyHandlers.add,
+                    remove: keyHandlers.remove,
+                  }}
+                />
+              );
+            } else {
+              // Spiderfy: render distributed markers and legs
+              group.items.forEach(({ location, day }, index) => {
+                const distributed = distributeAroundPointPixels(mapRef.current, group.center, index, group.items.length, 24);
+                // Spider leg connecting back to center (tasteful connection to true location)
+                elements.push(
+                  <Polyline
+                    key={`leg-${group.key}-${location.id}`}
+                    positions={[location.coordinates, distributed]}
+                    pathOptions={{ color: '#9CA3AF', weight: 1, opacity: 0.8, dashArray: '2 4' }}
+                  />
+                );
+                const { label, labelKey } = getLocationLabelData(location, day);
+                const isHighlighted = closestLocation?.id === location.id;
+                const icon = buildMarkerIcon(location, label, labelKey, isHighlighted);
+                const onActivate = () => handleLocationActivate(location, day);
+                const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
+
+
+                elements.push(
+                  <Marker
+                    key={location.id}
+                    position={distributed}
+                    icon={icon}
+                    keyboard={false}
+                    eventHandlers={{
+                      click: onActivate,
+                      add: keyHandlers.add,
+                      remove: keyHandlers.remove,
+                    }}
+                  />
+                );
+              });
+              // Add a small handler to collapse when clicking the center (invisible) area by rendering a transparent marker
+              const collapseHandler = () => {
+                setExpandedGroups(prev => {
+                  const next = new Set(prev);
+                  next.delete(group.key);
+                  return next;
+                });
+                setCollapsedGroups(prev => {
+                  if (prev.has(group.key)) {
+                    return prev;
+                  }
+                  const next = new Set(prev);
+                  next.add(group.key);
+                  return next;
+                });
+              };
+
+              const temporalInfos = group.items.map(({ location }) => getTemporalDistanceForLocation(location));
+              const collapseTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+              const collapseDistanceBucket = getMarkerDistanceBucket(
+                Math.min(...temporalInfos.filter(info => info.status === collapseTone).map(info => info.days))
+              );
+              const collapseLabel = `Collapse group of ${group.items.length} locations.`;
+              const collapseIcon = createCountMarkerIcon(L, group.items.length, collapseTone, collapseDistanceBucket, {
+                label: collapseLabel,
+                className: 'travel-marker-collapse',
+              });
+              const collapseKeyHandlers = getMarkerKeyHandlers(`collapse-${group.key}`, collapseHandler);
+
+              elements.push(
+                <Marker
+                  key={`collapse-${group.key}`}
+                  position={group.center}
+                  icon={collapseIcon}
+                  keyboard={false}
+                  eventHandlers={{
+                    click: collapseHandler,
+                    add: collapseKeyHandlers.add,
+                    remove: collapseKeyHandlers.remove,
+                  }}
+                />
+              );
+            }
+          });
+
+          return elements;
+        })()}
+
+        {/* Render transportation routes */}
+        {days.map(day => {
+          if (!day.transportation) return null;
+
+          const routePoints = generateRoutePointsSync(day.transportation);
+          const routeStyle = getRouteStyle(day.transportation.type);
+
+          return (
+            <Polyline
+              key={day.transportation.id}
+              positions={routePoints}
+              pathOptions={routeStyle}
+            />
+          );
+        })}
+      </MapContainer>
+
       {/* Location Popup Modal */}
       <LocationPopupModal
         isOpen={isOpen}
@@ -612,4 +675,4 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   );
 };
 
-export default Map; 
+export default Map;

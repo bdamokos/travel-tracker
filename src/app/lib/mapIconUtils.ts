@@ -1,3 +1,7 @@
+import type { LeafletEvent, Marker } from 'leaflet';
+
+import { formatDateRange } from '@/app/lib/dateUtils';
+
 export type MarkerTone = 'past' | 'present' | 'future';
 
 const MARKER_WIDTH = 25;
@@ -10,8 +14,123 @@ const markerColorVariables: Record<MarkerTone, string> = {
   future: '--travel-marker-color-future',
 };
 
+type MarkerAccessibility = {
+  label: string;
+  role?: string;
+  tabIndex?: number;
+  className?: string;
+};
+
+export const escapeAttribute = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+export const formatCoordLabel = (coords: [number, number]) =>
+  `${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`;
+
+type LocationLabelInput = {
+  id?: string;
+  name: string;
+  status: MarkerTone;
+  startDate?: string | Date | null;
+  endDate?: string | Date | null;
+};
+
+const formatDateKey = (value?: string | Date | null) => {
+  if (!value) return 'unknown';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toISOString();
+};
+
+export const buildLocationAriaLabel = ({ name, status, startDate, endDate }: LocationLabelInput) => {
+  const statusLabel = status === 'present' ? 'current' : status;
+  const dateLabel = startDate ? formatDateRange(startDate, endDate ?? undefined) : '';
+  return `${name}, ${statusLabel} location${dateLabel ? `, ${dateLabel}` : ''}`;
+};
+
+export const buildLocationLabelKey = ({ id, name, status, startDate, endDate }: LocationLabelInput) => {
+  const base = id ?? name;
+  return `${base}:${status}:${formatDateKey(startDate)}:${formatDateKey(endDate)}`;
+};
+
+const createKeyboardActivationHandler = (onActivate: () => void) => (event: KeyboardEvent) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    onActivate();
+  }
+};
+
+type MarkerKeyHandlers = {
+  add: (event: LeafletEvent) => void;
+  remove: (event: LeafletEvent) => void;
+  update: (next: () => void) => void;
+};
+
+export const createMarkerKeyHandlers = (onActivate: () => void): MarkerKeyHandlers => {
+  const activationRef = { current: onActivate };
+  const keydownHandler = createKeyboardActivationHandler(() => activationRef.current());
+
+  return {
+    update: (next: () => void) => {
+      activationRef.current = next;
+    },
+    add: (event: LeafletEvent) => {
+      const element = (event.target as Marker).getElement?.();
+      if (!element) return;
+      element.addEventListener('keydown', keydownHandler);
+    },
+    remove: (event: LeafletEvent) => {
+      const element = (event.target as Marker).getElement?.();
+      if (!element) return;
+      element.removeEventListener('keydown', keydownHandler);
+    },
+  };
+};
+
+export const attachMarkerKeyHandlers = (marker: Marker, onActivate: () => void) => {
+  const keydownHandler = createKeyboardActivationHandler(onActivate);
+
+  const addHandler = () => {
+    const element = marker.getElement();
+    if (!element) return;
+    element.addEventListener('keydown', keydownHandler);
+  };
+
+  const removeHandler = () => {
+    const element = marker.getElement();
+    if (!element) return;
+    element.removeEventListener('keydown', keydownHandler);
+  };
+
+  marker.on('add', addHandler);
+  marker.on('remove', removeHandler);
+  addHandler();
+};
+
+const wrapMarkerHtml = (content: string, accessibility?: MarkerAccessibility) => {
+  if (!accessibility) return content;
+  const role = accessibility.role ?? 'button';
+  const tabIndex = accessibility.tabIndex ?? 0;
+  const className = accessibility.className ? ` ${accessibility.className}` : '';
+  return `
+    <div class="travel-marker-interactive${className}" role="${role}" tabindex="${tabIndex}" aria-label="${escapeAttribute(
+      accessibility.label
+    )}">
+      ${content}
+    </div>
+  `;
+};
+
 const getMarkerSvgMarkup = (tone: MarkerTone) => `
   <svg
+    class="travel-marker-icon"
     xmlns="http://www.w3.org/2000/svg"
     width="${MARKER_WIDTH}"
     height="${MARKER_HEIGHT}"
@@ -85,22 +204,24 @@ export const getDominantMarkerTone = (tones: MarkerTone[]): MarkerTone => {
 export const createMarkerIcon = (
   leaflet: typeof import('leaflet'),
   tone: MarkerTone,
-  distanceBucket = MAX_DISTANCE_BUCKET
+  distanceBucket = MAX_DISTANCE_BUCKET,
+  accessibility?: MarkerAccessibility
 ) => {
   const normalizedBucket = normalizeDistanceBucket(distanceBucket);
+  const markerHtml = `
+    <div class="travel-marker-visual" style="
+      --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
+      width: ${MARKER_WIDTH}px;
+      height: ${MARKER_HEIGHT}px;
+      line-height: 0;
+      position: relative;
+      filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
+    " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
+  `;
 
   return leaflet.divIcon({
     className: `custom-${tone}-marker`,
-    html: `
-      <div style="
-        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
-        width: ${MARKER_WIDTH}px;
-        height: ${MARKER_HEIGHT}px;
-        line-height: 0;
-        position: relative;
-        filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
-      " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
-    `,
+    html: wrapMarkerHtml(markerHtml, accessibility),
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
@@ -110,24 +231,26 @@ export const createMarkerIcon = (
 export const createHighlightedMarkerIcon = (
   leaflet: typeof import('leaflet'),
   tone: MarkerTone,
-  distanceBucket = MAX_DISTANCE_BUCKET
+  distanceBucket = MAX_DISTANCE_BUCKET,
+  accessibility?: MarkerAccessibility
 ) => {
   const normalizedBucket = normalizeDistanceBucket(distanceBucket);
+  const markerHtml = `
+    <div class="travel-marker-visual" style="
+      --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
+      width: ${MARKER_WIDTH}px;
+      height: ${MARKER_HEIGHT}px;
+      line-height: 0;
+      position: relative;
+      filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1))
+        saturate(var(--travel-marker-highlight-saturation, 1.25))
+        brightness(var(--travel-marker-highlight-brightness, 1.08));
+    " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
+  `;
 
   return leaflet.divIcon({
     className: `custom-highlighted-marker custom-highlighted-marker-${tone}`,
-    html: `
-      <div style="
-        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
-        width: ${MARKER_WIDTH}px;
-        height: ${MARKER_HEIGHT}px;
-        line-height: 0;
-        position: relative;
-        filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1))
-          saturate(var(--travel-marker-highlight-saturation, 1.25))
-          brightness(var(--travel-marker-highlight-brightness, 1.08));
-      " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
-    `,
+    html: wrapMarkerHtml(markerHtml, accessibility),
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
@@ -138,32 +261,34 @@ export const createCountMarkerIcon = (
   leaflet: typeof import('leaflet'),
   count: number,
   tone: MarkerTone,
-  distanceBucket = MAX_DISTANCE_BUCKET
+  distanceBucket = MAX_DISTANCE_BUCKET,
+  accessibility?: MarkerAccessibility
 ) => {
   const width = 25;
   const height = 41;
   const badgeSize = 16;
   const normalizedBucket = normalizeDistanceBucket(distanceBucket);
+  const markerHtml = `
+    <div class="travel-marker-group" style="position: relative; width: ${width}px; height: ${height}px;">
+      <div class="travel-marker-visual" style="
+        --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
+        width: ${MARKER_WIDTH}px;
+        height: ${MARKER_HEIGHT}px;
+        line-height: 0;
+        position: relative;
+        filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
+      " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
+      <div aria-hidden="true" style="
+        position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
+        background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+        font-size: 10px; font-weight: 700; border: 2px solid white;
+      ">${count}</div>
+    </div>
+  `;
 
   return leaflet.divIcon({
     className: `group-count-marker group-count-marker-${tone}`,
-    html: `
-      <div style="position: relative; width: ${width}px; height: ${height}px;">
-        <div style="
-          --travel-marker-saturation: var(--travel-marker-saturation-step-${normalizedBucket}, 1);
-          width: ${MARKER_WIDTH}px;
-          height: ${MARKER_HEIGHT}px;
-          line-height: 0;
-          position: relative;
-          filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
-        " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
-        <div aria-label="${count} visits" style="
-          position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
-          background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-          font-size: 10px; font-weight: 700; border: 2px solid white;
-        ">${count}</div>
-      </div>
-    `,
+    html: wrapMarkerHtml(markerHtml, accessibility),
     iconSize: [width, height],
     iconAnchor: [Math.round(width / 2), height],
     popupAnchor: [0, -height],
