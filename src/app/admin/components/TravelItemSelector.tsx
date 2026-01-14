@@ -12,7 +12,7 @@ interface TravelItem {
   type: 'location' | 'accommodation' | 'route';
   name: string;
   description: string;
-  date: string;
+  date?: string; // Optional since some items (like routes without departureTime) may not have a date
   tripTitle: string;
   locationName?: string; // For accommodations
   baseLocationId?: string;
@@ -227,8 +227,12 @@ export default function TravelItemSelector({
           });
         }
         
-        // Sort by date
-        allItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // Sort by date (items without dates go to the end)
+        allItems.sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : Number.MAX_SAFE_INTEGER;
+          const dateB = b.date ? new Date(b.date).getTime() : Number.MAX_SAFE_INTEGER;
+          return dateA - dateB;
+        });
         setTravelItems(allItems);
       } catch (error) {
         console.error('Error loading travel items:', error);
