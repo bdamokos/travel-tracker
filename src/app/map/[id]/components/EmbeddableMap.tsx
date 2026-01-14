@@ -232,7 +232,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
 
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
-const MAP_PAN_STEP = 80;
+const MAP_PAN_STEP_PIXELS = 80;
 
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
@@ -241,6 +241,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
   const [mapAnnouncement, setMapAnnouncement] = useState('');
+  const [focusCount, setFocusCount] = useState(0);
 
   const mapInstructionsId = useId();
   const mapStatusId = useId();
@@ -374,38 +375,36 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         break;
       case 'ArrowUp':
         event.preventDefault();
-        map.panBy([0, -MAP_PAN_STEP]);
+        map.panBy([0, -MAP_PAN_STEP_PIXELS]);
         setMapAnnouncement('Map moved north.');
         break;
       case 'ArrowDown':
         event.preventDefault();
-        map.panBy([0, MAP_PAN_STEP]);
+        map.panBy([0, MAP_PAN_STEP_PIXELS]);
         setMapAnnouncement('Map moved south.');
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        map.panBy([-MAP_PAN_STEP, 0]);
+        map.panBy([-MAP_PAN_STEP_PIXELS, 0]);
         setMapAnnouncement('Map moved west.');
         break;
       case 'ArrowRight':
         event.preventDefault();
-        map.panBy([MAP_PAN_STEP, 0]);
+        map.panBy([MAP_PAN_STEP_PIXELS, 0]);
         setMapAnnouncement('Map moved east.');
         break;
       case '+':
       case '=': {
         event.preventDefault();
-        const nextZoom = map.getZoom() + 1;
         map.zoomIn();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        setMapAnnouncement(`Zoom level ${map.getZoom()}.`);
         break;
       }
       case '-':
       case '_': {
         event.preventDefault();
-        const nextZoom = map.getZoom() - 1;
         map.zoomOut();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        setMapAnnouncement(`Zoom level ${map.getZoom()}.`);
         break;
       }
       case 'Escape':
@@ -506,7 +505,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       center: [number, number],
       index: number,
       total: number,
-      pixelRadius = 24
+      pixelRadius = SPIDER_PIXEL_RADIUS
     ): [number, number] => {
       const angle = (2 * Math.PI * index) / total;
       const centerLL = L.latLng(center[0], center[1]);
@@ -690,6 +689,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       });
 
       focusOrderRef.current = nextFocusOrder;
+      setFocusCount(nextFocusOrder.length);
       if (focusedMarkerKeyRef.current && !nextFocusOrder.includes(focusedMarkerKeyRef.current)) {
         focusedMarkerKeyRef.current = null;
       }
@@ -724,7 +724,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
                 weatherBlock = { icon: today.conditions?.icon || '⛅', temp: today.temperature?.average ?? null, description: today.conditions?.description };
               }
             }
-          } catch {}
+          } catch (weatherError) {
+            console.debug('Failed to fetch weather data:', weatherError);
+          }
 
           const updatedPopupContent = generatePopupHTML(
             location,
@@ -974,7 +976,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   return (
     <>
       <div id={mapInstructionsId} className="sr-only">
-        {`Interactive travel map for ${travelData.title}. ${focusOrderRef.current.length} locations available.`}
+        Interactive travel map for {travelData.title}. {focusCount} locations available.
         Keyboard controls: Tab and Shift+Tab move between locations and groups. Enter or Space opens a location popup.
         Arrow keys pan the map in each direction. Plus and minus keys zoom in and out.
         Home key jumps to first location, End key jumps to last location.

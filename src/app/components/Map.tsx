@@ -42,7 +42,7 @@ const distributeAroundPoint = (
   center: [number, number],
   index: number,
   total: number,
-  radiusMeters = 14
+  radiusMeters = SPIDER_METERS_RADIUS
 ): [number, number] => {
   const [lat, lng] = center;
   const angle = (2 * Math.PI * index) / total;
@@ -59,7 +59,7 @@ const distributeAroundPointPixels = (
   center: [number, number],
   index: number,
   total: number,
-  pixelRadius = 24
+  pixelRadius = SPIDER_PIXEL_RADIUS
 ): [number, number] => {
   if (!map) return distributeAroundPoint(center, index, total);
   const angle = (2 * Math.PI * index) / total;
@@ -73,7 +73,9 @@ const distributeAroundPointPixels = (
 };
 
 const GROUP_PIXEL_THRESHOLD = 36;
-const MAP_PAN_STEP = 80;
+const SPIDER_PIXEL_RADIUS = 24;
+const SPIDER_METERS_RADIUS = 14;
+const MAP_PAN_STEP_PIXELS = 80;
 
 type GroupItem = { location: Location; day: JourneyDay };
 
@@ -588,38 +590,36 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         break;
       case 'ArrowUp':
         event.preventDefault();
-        map.panBy([0, -MAP_PAN_STEP]);
+        map.panBy([0, -MAP_PAN_STEP_PIXELS]);
         setMapAnnouncement('Map moved north.');
         break;
       case 'ArrowDown':
         event.preventDefault();
-        map.panBy([0, MAP_PAN_STEP]);
+        map.panBy([0, MAP_PAN_STEP_PIXELS]);
         setMapAnnouncement('Map moved south.');
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        map.panBy([-MAP_PAN_STEP, 0]);
+        map.panBy([-MAP_PAN_STEP_PIXELS, 0]);
         setMapAnnouncement('Map moved west.');
         break;
       case 'ArrowRight':
         event.preventDefault();
-        map.panBy([MAP_PAN_STEP, 0]);
+        map.panBy([MAP_PAN_STEP_PIXELS, 0]);
         setMapAnnouncement('Map moved east.');
         break;
       case '+':
       case '=': {
         event.preventDefault();
-        const nextZoom = map.getZoom() + 1;
         map.zoomIn();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        setMapAnnouncement(`Zoom level ${map.getZoom()}.`);
         break;
       }
       case '-':
       case '_': {
         event.preventDefault();
-        const nextZoom = map.getZoom() - 1;
         map.zoomOut();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        setMapAnnouncement(`Zoom level ${map.getZoom()}.`);
         break;
       }
       case 'Escape':
@@ -675,7 +675,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   return (
     <>
       <div id={mapInstructionsId} className="sr-only">
-        {`Interactive travel map for ${journey.title}. ${focusOrder.length} locations available.`}
+        Interactive travel map for {journey.title}. {focusOrder.length} locations available.
         Keyboard controls: Tab and Shift+Tab move between locations and groups. Enter or Space opens a location popup.
         Arrow keys pan the map in each direction. Plus and minus keys zoom in and out.
         Home key jumps to first location, End key jumps to last location.
@@ -798,7 +798,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
             } else {
               // Spiderfy: render distributed markers and legs
               group.items.forEach(({ location, day }, index) => {
-                const distributed = distributeAroundPointPixels(mapRef.current, group.center, index, group.items.length, 24);
+                const distributed = distributeAroundPointPixels(mapRef.current, group.center, index, group.items.length, SPIDER_PIXEL_RADIUS);
                 // Spider leg connecting back to center (tasteful connection to true location)
                 elements.push(
                   <Polyline
