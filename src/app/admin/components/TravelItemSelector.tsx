@@ -175,7 +175,8 @@ export default function TravelItemSelector({
         // Add routes and their sub-routes
         if (tripData.routes) {
           tripData.routes.forEach((route: Transportation) => {
-            const routeDate = route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date;
+            // Extract date from departureTime if available (Transportation doesn't have a date field)
+            const routeDate = route.departureTime ? route.departureTime.split('T')[0] : undefined;
             const routeName = `${route.from} → ${route.to}`;
 
             // Add parent route
@@ -191,12 +192,15 @@ export default function TravelItemSelector({
             // Add sub-routes if they exist
             if (route.subRoutes && route.subRoutes.length > 0) {
               route.subRoutes.forEach((subRoute) => {
+                // Extract date from subRoute's departureTime if available, otherwise use parent route's date
+                const subRouteDate = subRoute.departureTime ? subRoute.departureTime.split('T')[0] : routeDate;
+
                 allItems.push({
                   id: subRoute.id,
                   type: 'route',
                   name: `${subRoute.from} → ${subRoute.to}`,
                   description: `${subRoute.type} transport (segment)`,
-                  date: routeDate, // Sub-routes share the parent route's date
+                  date: subRouteDate,
                   tripTitle: tripData.title,
                   parentRouteId: route.id,
                   parentRouteName: routeName

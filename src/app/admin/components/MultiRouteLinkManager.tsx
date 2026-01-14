@@ -56,7 +56,7 @@ export default function MultiRouteLinkManager({
   const linksWithSplitValues = useMemo(() => {
     if (links.length === 0) return [];
 
-    return links.map((link, index) => {
+    return links.map((link) => {
       let calculatedSplitValue: number | undefined;
 
       switch (splitMode) {
@@ -250,7 +250,7 @@ export default function MultiRouteLinkManager({
               )}
             </div>
 
-            {links.map((link, index) => {
+            {links.map((link) => {
               const calculatedAmount = splitMode === 'percentage'
                 ? (expenseAmount * (link.splitValue || 0)) / 100
                 : (link.splitValue || 0);
