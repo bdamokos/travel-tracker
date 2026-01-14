@@ -40,12 +40,11 @@ describe('Cost Tracking API Validation', () => {
       locations: [{
         id: 'location-1',
         name: 'Test Location',
-        coordinates: { lat: 52.5, lng: 13.4 },
+        coordinates: [52.5, 13.4],
         country: 'Germany',
         costTrackingLinks: [{
           expenseId: hasValidLinks ? 'expense-1' : 'non-existent-expense',
-          linkType: 'manual',
-          notes: 'Test link'
+          description: 'Test link'
         }]
       }],
       routes: [],
@@ -116,12 +115,11 @@ describe('Cost Tracking API Validation', () => {
       tripData.travelData!.locations.push({
         id: 'location-2',
         name: 'Train Station',
-        coordinates: { lat: 52.6, lng: 13.5 },
+        coordinates: [52.6, 13.5],
         country: 'Germany',
         costTrackingLinks: [{
           expenseId: 'expense-2',
-          linkType: 'manual',
-          notes: 'Transport expense'
+          description: 'Transport expense'
         }]
       });
 
@@ -138,12 +136,11 @@ describe('Cost Tracking API Validation', () => {
       tripData.travelData!.locations.push({
         id: 'location-2',
         name: 'Invalid Location',
-        coordinates: { lat: 52.6, lng: 13.5 },
+        coordinates: [52.6, 13.5],
         country: 'Germany',
         costTrackingLinks: [{
           expenseId: 'non-existent-expense',
-          linkType: 'manual',
-          notes: 'Invalid link'
+          description: 'Invalid link'
         }]
       });
 
@@ -182,8 +179,7 @@ describe('Cost Tracking API Validation', () => {
         checkOut: '2024-01-04',
         costTrackingLinks: [{
           expenseId: 'another-non-existent-expense',
-          linkType: 'manual',
-          notes: 'Invalid accommodation link'
+          description: 'Invalid accommodation link'
         }]
       }];
 
@@ -221,12 +217,11 @@ describe('Cost Tracking API Validation', () => {
         tripData.travelData!.locations.push({
           id: `location-${i}`,
           name: `Location ${i}`,
-          coordinates: { lat: 52.5 + i * 0.01, lng: 13.4 + i * 0.01 },
+          coordinates: [52.5 + i * 0.01, 13.4 + i * 0.01],
           country: 'Germany',
           costTrackingLinks: [{
             expenseId: `expense-${i}`,
-            linkType: 'manual',
-            notes: `Link ${i}`
+            description: `Link ${i}`
           }]
         });
       }
