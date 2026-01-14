@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
+import IframeAccessibilityFixer from './components/IframeAccessibilityFixer';
 import { ensureMapDataPreloaderRunning } from '@/app/lib/mapDataPreloader';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -29,6 +30,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
       <body className={inter.className}>
+        <IframeAccessibilityFixer />
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
