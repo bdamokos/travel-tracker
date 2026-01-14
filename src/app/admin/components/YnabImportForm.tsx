@@ -86,6 +86,39 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     [costData.customCategories]
   );
 
+  // Calculate the most common category from historical expenses to use as default
+  const mostCommonCategory = useMemo(() => {
+    const DEFAULT_FALLBACK = 'Miscellaneous';
+
+    // If no categories available, return hardcoded fallback
+    if (!availableCategories || availableCategories.length === 0) {
+      return DEFAULT_FALLBACK;
+    }
+
+    // Use reduce to find the most common category in a single pass
+    const categoryFrequency = (costData.expenses || []).reduce((acc, expense) => {
+      if (expense.category && availableCategories.includes(expense.category)) {
+        acc[expense.category] = (acc[expense.category] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Find the category with the highest frequency
+    let mostCommon = availableCategories.includes(DEFAULT_FALLBACK)
+      ? DEFAULT_FALLBACK
+      : availableCategories[0];
+    let maxCount = 0;
+
+    for (const [category, count] of Object.entries(categoryFrequency)) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = category;
+      }
+    }
+
+    return mostCommon;
+  }, [costData.expenses, availableCategories]);
+
   const duplicateCount = useMemo(() =>
     processedTransactions.filter(txn => (txn.possibleDuplicateMatches?.length ?? 0) > 0).length,
     [processedTransactions]
@@ -260,7 +293,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   }, [costData.ynabImportData?.payeeCategoryDefaults]);
 
   const getDefaultCategoryForTransaction = useCallback((transaction: ProcessedYnabTransaction) => {
-    const fallback = availableCategories[0];
+    const fallback = mostCommonCategory;
     const normalizedPayee = transaction.description?.trim();
     if (!normalizedPayee) {
       return fallback;
@@ -270,7 +303,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       return rememberedCategory;
     }
     return fallback;
-  }, [availableCategories, payeeCategoryDefaults]);
+  }, [availableCategories, payeeCategoryDefaults, mostCommonCategory]);
 
   const getTransactionId = useCallback((transaction: ProcessedYnabTransaction, index?: number) => {
     if (transaction.instanceId || transaction.sourceIndex !== undefined) {
