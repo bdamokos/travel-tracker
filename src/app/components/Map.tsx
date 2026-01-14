@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -72,6 +73,7 @@ const distributeAroundPointPixels = (
 };
 
 const GROUP_PIXEL_THRESHOLD = 36;
+const MAP_PAN_STEP = 80;
 
 type GroupItem = { location: Location; day: JourneyDay };
 
@@ -262,6 +264,16 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [viewChangeTick, setViewChangeTick] = useState(0);
+  const [focusedMarkerKey, setFocusedMarkerKey] = useState<string | null>(null);
+  const [mapAnnouncement, setMapAnnouncement] = useState('');
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstructionsId = useId();
+  const mapStatusId = useId();
+
+  const markerElementsRef = useRef(new globalThis.Map<string, HTMLElement>());
+  const markerFocusHandlersRef = useRef(new globalThis.Map<string, () => void>());
+  const markerLabelRef = useRef(new globalThis.Map<string, string>());
 
   const filterExpandableKeys = useCallback((prev: Set<string>, nextGroups: Group[]): Set<string> => {
     const expandableKeys = new Set(nextGroups.filter(group => group.items.length > 1).map(group => group.key));
@@ -423,6 +435,44 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return created;
   }, []);
 
+  const registerMarkerElement = useCallback((key: string, label: string, event: L.LeafletEvent) => {
+    const element = (event.target as L.Marker).getElement?.();
+    if (!element) return;
+
+    markerLabelRef.current.set(key, label);
+
+    let focusHandler = markerFocusHandlersRef.current.get(key);
+    if (!focusHandler) {
+      focusHandler = () => {
+        setFocusedMarkerKey(key);
+        const currentLabel = markerLabelRef.current.get(key);
+        if (currentLabel) {
+          setMapAnnouncement(`Focused on ${currentLabel}.`);
+        }
+      };
+      markerFocusHandlersRef.current.set(key, focusHandler);
+    }
+
+    const previousElement = markerElementsRef.current.get(key);
+    if (previousElement && previousElement !== element) {
+      previousElement.removeEventListener('focus', focusHandler);
+    }
+    element.removeEventListener('focus', focusHandler);
+    element.addEventListener('focus', focusHandler);
+    markerElementsRef.current.set(key, element);
+  }, []);
+
+  const unregisterMarkerElement = useCallback((key: string) => {
+    const element = markerElementsRef.current.get(key);
+    const focusHandler = markerFocusHandlersRef.current.get(key);
+    if (element && focusHandler) {
+      element.removeEventListener('focus', focusHandler);
+    }
+    markerElementsRef.current.delete(key);
+    markerFocusHandlersRef.current.delete(key);
+    markerLabelRef.current.delete(key);
+  }, []);
+
   const handleLocationActivate = useCallback((location: Location, day: JourneyDay) => {
     const journeyDay = {
       id: day.id,
@@ -440,6 +490,149 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     void viewChangeTick;
     return groupLocationsForSpiderfy(mapRef.current, locationItems);
   }, [locationItems, viewChangeTick]);
+
+  const focusOrder = useMemo(() => {
+    const order: string[] = [];
+
+    groups.forEach(group => {
+      if (group.items.length === 1) {
+        order.push(group.items[0].location.id);
+        return;
+      }
+
+      if (!expandedGroups.has(group.key)) {
+        order.push(group.key);
+        return;
+      }
+
+      group.items.forEach(({ location }) => {
+        order.push(location.id);
+      });
+      order.push(`collapse-${group.key}`);
+    });
+
+    return order;
+  }, [groups, expandedGroups]);
+
+  useEffect(() => {
+    markerElementsRef.current.forEach((_, key) => {
+      if (!focusOrder.includes(key)) {
+        unregisterMarkerElement(key);
+      }
+    });
+
+    if (focusedMarkerKey && !focusOrder.includes(focusedMarkerKey)) {
+      setFocusedMarkerKey(null);
+    }
+  }, [focusOrder, focusedMarkerKey, unregisterMarkerElement]);
+
+  const focusMarkerByIndex = useCallback((index: number) => {
+    if (index < 0 || index >= focusOrder.length) return;
+    const key = focusOrder[index];
+    const element = markerElementsRef.current.get(key);
+    if (!element) return;
+    element.focus();
+    setFocusedMarkerKey(key);
+    const label = markerLabelRef.current.get(key);
+    if (label) {
+      setMapAnnouncement(`Focused on ${label}.`);
+    }
+  }, [focusOrder]);
+
+  const handleMapFocus = useCallback(() => {
+    if (focusOrder.length === 0) return;
+    if (!focusedMarkerKey) {
+      setMapAnnouncement(`Map focused. ${focusOrder.length} locations available.`);
+    }
+  }, [focusOrder.length, focusedMarkerKey]);
+
+  const handleMapKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const focusCount = focusOrder.length;
+    const currentIndex = focusedMarkerKey ? focusOrder.indexOf(focusedMarkerKey) : -1;
+    const isContainerTarget = event.target === mapContainerRef.current;
+
+    if (event.key === 'Tab' && focusCount > 0) {
+      if (isContainerTarget && event.shiftKey) {
+        return;
+      }
+      const direction = event.shiftKey ? -1 : 1;
+      const isAtStart = currentIndex <= 0;
+      const isAtEnd = currentIndex === focusCount - 1;
+
+      if (!isContainerTarget) {
+        if (event.shiftKey && isAtStart) return;
+        if (!event.shiftKey && isAtEnd) return;
+      }
+
+      event.preventDefault();
+      const nextIndex = currentIndex === -1
+        ? (direction === 1 ? 0 : focusCount - 1)
+        : (currentIndex + direction + focusCount) % focusCount;
+      focusMarkerByIndex(nextIndex);
+      return;
+    }
+
+    switch (event.key) {
+      case 'Home':
+        if (focusCount === 0) return;
+        event.preventDefault();
+        focusMarkerByIndex(0);
+        break;
+      case 'End':
+        if (focusCount === 0) return;
+        event.preventDefault();
+        focusMarkerByIndex(focusCount - 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        map.panBy([0, -MAP_PAN_STEP]);
+        setMapAnnouncement('Map moved north.');
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        map.panBy([0, MAP_PAN_STEP]);
+        setMapAnnouncement('Map moved south.');
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        map.panBy([-MAP_PAN_STEP, 0]);
+        setMapAnnouncement('Map moved west.');
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        map.panBy([MAP_PAN_STEP, 0]);
+        setMapAnnouncement('Map moved east.');
+        break;
+      case '+':
+      case '=': {
+        event.preventDefault();
+        const nextZoom = map.getZoom() + 1;
+        map.zoomIn();
+        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        break;
+      }
+      case '-':
+      case '_': {
+        event.preventDefault();
+        const nextZoom = map.getZoom() - 1;
+        map.zoomOut();
+        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        break;
+      }
+      case 'Escape':
+        if (isOpen) {
+          event.preventDefault();
+          closePopup();
+          setMapAnnouncement('Popup closed.');
+        }
+        break;
+      default:
+        break;
+    }
+  }, [closePopup, focusMarkerByIndex, focusOrder, focusedMarkerKey, isOpen]);
 
   useEffect(() => {
     setExpandedGroups(prev => filterExpandableKeys(prev, groups));
@@ -481,27 +674,44 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
 
   return (
     <>
-      <MapContainer
-        key={key} // Force re-creation on key change
-        className="h-full w-full"
-        center={[20, 0]} // Default center (will be overridden by the fit bounds)
-        zoom={2}
-        scrollWheelZoom={true}
-        ref={mapRef}
+      <div id={mapInstructionsId} className="sr-only">
+        Keyboard controls: Tab and Shift+Tab move between locations, Enter or Space opens a location, arrow keys pan the map,
+        plus or minus zooms, Home and End jump to the first or last location, Escape closes the popup.
+      </div>
+      <div id={mapStatusId} className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {mapAnnouncement}
+      </div>
+      <div
+        ref={mapContainerRef}
+        className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
+        tabIndex={0}
+        role="application"
+        aria-label={`Interactive travel map for ${journey.title}`}
+        aria-describedby={`${mapInstructionsId} ${mapStatusId}`}
+        onKeyDown={handleMapKeyDown}
+        onFocus={handleMapFocus}
       >
-        <MapEventBridge onReady={handleMapReady} onViewChange={handleViewChange} />
-        <TileLayer
-          attribution={
-            typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }
-          url={
-            typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-              : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-          }
-        />
+        <MapContainer
+          key={key} // Force re-creation on key change
+          className="h-full w-full"
+          center={[20, 0]} // Default center (will be overridden by the fit bounds)
+          zoom={2}
+          scrollWheelZoom={true}
+          ref={mapRef}
+        >
+          <MapEventBridge onReady={handleMapReady} onViewChange={handleViewChange} />
+          <TileLayer
+            attribution={
+              typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }
+            url={
+              typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            }
+          />
 
         {/* Render locations with grouping + spiderfy */}
         {(() => {
@@ -524,8 +734,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   keyboard={false}
                   eventHandlers={{
                     click: onActivate,
-                    add: keyHandlers.add,
-                    remove: keyHandlers.remove,
+                    add: event => {
+                      keyHandlers.add(event);
+                      registerMarkerElement(location.id, label, event);
+                    },
+                    remove: event => {
+                      keyHandlers.remove(event);
+                      unregisterMarkerElement(location.id);
+                    },
                   }}
                 />
               );
@@ -562,8 +778,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   keyboard={false}
                   eventHandlers={{
                     click: onActivate,
-                    add: keyHandlers.add,
-                    remove: keyHandlers.remove,
+                    add: event => {
+                      keyHandlers.add(event);
+                      registerMarkerElement(group.key, label, event);
+                    },
+                    remove: event => {
+                      keyHandlers.remove(event);
+                      unregisterMarkerElement(group.key);
+                    },
                   }}
                 />
               );
@@ -594,10 +816,17 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                     keyboard={false}
                     eventHandlers={{
                       click: onActivate,
-                      add: keyHandlers.add,
-                      remove: keyHandlers.remove,
+                      add: event => {
+                        keyHandlers.add(event);
+                        registerMarkerElement(location.id, label, event);
+                      },
+                      remove: event => {
+                        keyHandlers.remove(event);
+                        unregisterMarkerElement(location.id);
+                      },
                     }}
                   />
+
                 );
               });
               // Add a small handler to collapse when clicking the center (invisible) area by rendering a transparent marker
@@ -637,8 +866,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   keyboard={false}
                   eventHandlers={{
                     click: collapseHandler,
-                    add: collapseKeyHandlers.add,
-                    remove: collapseKeyHandlers.remove,
+                    add: event => {
+                      collapseKeyHandlers.add(event);
+                      registerMarkerElement(`collapse-${group.key}`, collapseLabel, event);
+                    },
+                    remove: event => {
+                      collapseKeyHandlers.remove(event);
+                      unregisterMarkerElement(`collapse-${group.key}`);
+                    },
                   }}
                 />
               );
@@ -664,6 +899,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
           );
         })}
       </MapContainer>
+      </div>
 
       {/* Location Popup Modal */}
       <LocationPopupModal

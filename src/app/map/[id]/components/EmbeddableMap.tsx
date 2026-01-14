@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { Marker } from 'leaflet';
 
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
@@ -230,6 +232,7 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
 
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
+const MAP_PAN_STEP = 80;
 
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
@@ -237,6 +240,16 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const collapsedByUserRef = useRef<Set<string>>(new Set());
   const [isClient, setIsClient] = useState(false);
   const [L, setL] = useState<typeof import('leaflet') | null>(null);
+  const [mapAnnouncement, setMapAnnouncement] = useState('');
+
+  const mapInstructionsId = useId();
+  const mapStatusId = useId();
+
+  const focusOrderRef = useRef<string[]>([]);
+  const markerElementsRef = useRef(new globalThis.Map<string, HTMLElement>());
+  const markerFocusHandlersRef = useRef(new globalThis.Map<string, () => void>());
+  const markerLabelRef = useRef(new globalThis.Map<string, string>());
+  const focusedMarkerKeyRef = useRef<string | null>(null);
 
   // Simplified - no more client-side route generation
 
@@ -253,6 +266,157 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       console.log(`[EmbeddableMap] Received route ${index} (${route.id}): ${routePointsCount} route points`);
     });
   }, [travelData.id, travelData.routes]);
+
+  const updateFocusAnnouncement = useCallback((key: string) => {
+    const label = markerLabelRef.current.get(key);
+    if (label) {
+      setMapAnnouncement(`Focused on ${label}.`);
+    }
+  }, []);
+
+  const unregisterMarkerElement = useCallback((key: string) => {
+    const element = markerElementsRef.current.get(key);
+    const focusHandler = markerFocusHandlersRef.current.get(key);
+    if (element && focusHandler) {
+      element.removeEventListener('focus', focusHandler);
+    }
+    markerElementsRef.current.delete(key);
+    markerFocusHandlersRef.current.delete(key);
+    markerLabelRef.current.delete(key);
+    if (focusedMarkerKeyRef.current === key) {
+      focusedMarkerKeyRef.current = null;
+    }
+  }, []);
+
+  const registerMarkerElement = useCallback((key: string, label: string, marker: Marker) => {
+    const element = marker.getElement();
+    if (!element) return;
+
+    markerLabelRef.current.set(key, label);
+
+    let focusHandler = markerFocusHandlersRef.current.get(key);
+    if (!focusHandler) {
+      focusHandler = () => {
+        focusedMarkerKeyRef.current = key;
+        updateFocusAnnouncement(key);
+      };
+      markerFocusHandlersRef.current.set(key, focusHandler);
+    }
+
+    const previousElement = markerElementsRef.current.get(key);
+    if (previousElement && previousElement !== element) {
+      previousElement.removeEventListener('focus', focusHandler);
+    }
+    element.removeEventListener('focus', focusHandler);
+    element.addEventListener('focus', focusHandler);
+    markerElementsRef.current.set(key, element);
+
+    marker.on('remove', () => unregisterMarkerElement(key));
+  }, [unregisterMarkerElement, updateFocusAnnouncement]);
+
+  const focusMarkerByIndex = useCallback((index: number) => {
+    const key = focusOrderRef.current[index];
+    if (!key) return;
+    const element = markerElementsRef.current.get(key);
+    if (!element) return;
+    element.focus();
+    focusedMarkerKeyRef.current = key;
+    updateFocusAnnouncement(key);
+  }, [updateFocusAnnouncement]);
+
+  const handleMapFocus = useCallback(() => {
+    const focusCount = focusOrderRef.current.length;
+    if (focusCount === 0) return;
+    setMapAnnouncement(`Map focused. ${focusCount} locations available.`);
+  }, []);
+
+  const handleMapKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const focusOrder = focusOrderRef.current;
+    const focusCount = focusOrder.length;
+    const currentKey = focusedMarkerKeyRef.current;
+    const currentIndex = currentKey ? focusOrder.indexOf(currentKey) : -1;
+    const isContainerTarget = event.target === containerRef.current;
+
+    if (event.key === 'Tab' && focusCount > 0) {
+      if (isContainerTarget && event.shiftKey) {
+        return;
+      }
+      const direction = event.shiftKey ? -1 : 1;
+      const isAtStart = currentIndex <= 0;
+      const isAtEnd = currentIndex === focusCount - 1;
+
+      if (!isContainerTarget) {
+        if (event.shiftKey && isAtStart) return;
+        if (!event.shiftKey && isAtEnd) return;
+      }
+
+      event.preventDefault();
+      const nextIndex = currentIndex === -1
+        ? (direction === 1 ? 0 : focusCount - 1)
+        : (currentIndex + direction + focusCount) % focusCount;
+      focusMarkerByIndex(nextIndex);
+      return;
+    }
+
+    switch (event.key) {
+      case 'Home':
+        if (focusCount === 0) return;
+        event.preventDefault();
+        focusMarkerByIndex(0);
+        break;
+      case 'End':
+        if (focusCount === 0) return;
+        event.preventDefault();
+        focusMarkerByIndex(focusCount - 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        map.panBy([0, -MAP_PAN_STEP]);
+        setMapAnnouncement('Map moved north.');
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        map.panBy([0, MAP_PAN_STEP]);
+        setMapAnnouncement('Map moved south.');
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        map.panBy([-MAP_PAN_STEP, 0]);
+        setMapAnnouncement('Map moved west.');
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        map.panBy([MAP_PAN_STEP, 0]);
+        setMapAnnouncement('Map moved east.');
+        break;
+      case '+':
+      case '=': {
+        event.preventDefault();
+        const nextZoom = map.getZoom() + 1;
+        map.zoomIn();
+        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        break;
+      }
+      case '-':
+      case '_': {
+        event.preventDefault();
+        const nextZoom = map.getZoom() - 1;
+        map.zoomOut();
+        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        break;
+      }
+      case 'Escape':
+        event.preventDefault();
+        map.closePopup();
+        setMapAnnouncement('Popup closed.');
+        break;
+      default:
+        break;
+    }
+  }, [focusMarkerByIndex]);
 
   // Load Leaflet dynamically
   useEffect(() => {
@@ -483,6 +647,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const collapsedByUser = collapsedByUserRef.current;
     const singles: L.Marker[] = [];
     const groupLayers = new Map<string, GroupLayerState>();
+    let currentGroups: Group[] = [];
 
     const clearAllMarkers = () => {
       singles.forEach(marker => marker.remove());
@@ -498,6 +663,36 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.groupMarker.remove();
       });
       groupLayers.clear();
+      const keys = Array.from(markerElementsRef.current.keys());
+      keys.forEach(key => unregisterMarkerElement(key));
+      focusOrderRef.current = [];
+      focusedMarkerKeyRef.current = null;
+    };
+
+    const updateFocusOrder = () => {
+      const nextFocusOrder: string[] = [];
+
+      currentGroups.forEach(group => {
+        if (group.items.length === 1) {
+          nextFocusOrder.push(group.items[0].id);
+          return;
+        }
+
+        if (!expanded.has(group.key)) {
+          nextFocusOrder.push(group.key);
+          return;
+        }
+
+        group.items.forEach(location => {
+          nextFocusOrder.push(location.id);
+        });
+        nextFocusOrder.push(`collapse-${group.key}`);
+      });
+
+      focusOrderRef.current = nextFocusOrder;
+      if (focusedMarkerKeyRef.current && !nextFocusOrder.includes(focusedMarkerKeyRef.current)) {
+        focusedMarkerKeyRef.current = null;
+      }
     };
 
     const attachPopupAndEnrich = async (marker: L.Marker, location: GroupItem) => {
@@ -558,6 +753,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       state.groupMarker.addTo(map);
       expanded.delete(groupKey);
       collapsedByUser.add(groupKey);
+      updateFocusOrder();
     };
 
     const expandGroup = (groupKey: string, providedState?: GroupLayerState) => {
@@ -591,6 +787,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const child = L.marker(distributed, markerOptions).addTo(map);
         attachPopupAndEnrich(child, location);
         attachMarkerKeyHandlers(child, () => child.openPopup());
+        registerMarkerElement(location.id, label, child);
         state.childMarkers.push(child);
       });
 
@@ -610,14 +807,17 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }).addTo(map);
       collapseMarker.on('click', collapseHandler);
       attachMarkerKeyHandlers(collapseMarker, collapseHandler);
+      registerMarkerElement(`collapse-${groupKey}`, collapseLabel, collapseMarker);
       state.collapseMarker = collapseMarker;
       expanded.add(groupKey);
+      updateFocusOrder();
     };
 
     const renderGroups = () => {
       clearAllMarkers();
 
       const groups = groupLocationsForSpiderfy(map, travelData.locations);
+      currentGroups = groups;
       const validKeys = new Set(groups.map(group => group.key));
       for (const key of Array.from(expanded)) {
         if (!validKeys.has(key)) {
@@ -655,6 +855,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const marker = L.marker(location.coordinates, markerOptions).addTo(map);
           attachPopupAndEnrich(marker, location);
           attachMarkerKeyHandlers(marker, () => marker.openPopup());
+          registerMarkerElement(location.id, label, marker);
           singles.push(marker);
           return;
         }
@@ -669,6 +870,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label }),
           keyboard: false,
         }).addTo(map);
+        registerMarkerElement(group.key, label, groupMarker);
         const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
         groupLayers.set(group.key, state);
 
@@ -685,6 +887,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           expandGroup(group.key, state);
         }
       });
+
+      updateFocusOrder();
     };
 
     renderGroups();
@@ -752,7 +956,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         mapRef.current = null;
       }
     };
-  }, [travelData, L, isClient]);
+  }, [travelData, L, isClient, registerMarkerElement, unregisterMarkerElement]);
 
   if (!isClient) {
     return (
@@ -766,11 +970,26 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full w-full"
-      style={{ minHeight: '400px' }}
-    />
+    <>
+      <div id={mapInstructionsId} className="sr-only">
+        Keyboard controls: Tab and Shift+Tab move between locations, Enter or Space opens a location, arrow keys pan the map,
+        plus or minus zooms, Home and End jump to the first or last location, Escape closes the popup.
+      </div>
+      <div id={mapStatusId} className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {mapAnnouncement}
+      </div>
+      <div
+        ref={containerRef}
+        className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
+        style={{ minHeight: '400px' }}
+        tabIndex={0}
+        role="application"
+        aria-label={`Interactive travel map for ${travelData.title}`}
+        aria-describedby={`${mapInstructionsId} ${mapStatusId}`}
+        onKeyDown={handleMapKeyDown}
+        onFocus={handleMapFocus}
+      />
+    </>
   );
 };
 
