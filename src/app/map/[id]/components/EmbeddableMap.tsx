@@ -974,7 +974,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   return (
     <>
       <div id={mapInstructionsId} className="sr-only">
-        Interactive travel map for ${travelData.title}. ${focusOrderRef.current.length} locations available.
+        {`Interactive travel map for ${travelData.title}. ${focusOrderRef.current.length} locations available.`}
         Keyboard controls: Tab and Shift+Tab move between locations and groups. Enter or Space opens a location popup.
         Arrow keys pan the map in each direction. Plus and minus keys zoom in and out.
         Home key jumps to first location, End key jumps to last location.
