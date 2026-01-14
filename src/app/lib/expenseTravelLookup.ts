@@ -47,7 +47,7 @@ export type LocationExpenseTotal = {
 };
 
 export class ExpenseTravelLookup {
-  private expenseToTravelMap = new Map<string, TravelLinkInfo>();
+  private expenseToTravelMap = new Map<string, TravelLinkInfo[]>();
   private tripTitle: string = '';
   private locations: Location[] = [];
   private accommodations: Accommodation[] = [];
@@ -58,6 +58,19 @@ export class ExpenseTravelLookup {
     // tripId is used for initialization but not stored
     if (tripData) {
       this.buildIndexFromData(tripData);
+    }
+  }
+
+  /**
+   * Helper method to add a link to the expense map
+   * Accumulates links instead of overwriting (supports multi-route expenses)
+   */
+  private addLinkToMap(expenseId: string, link: TravelLinkInfo): void {
+    const existing = this.expenseToTravelMap.get(expenseId);
+    if (existing) {
+      existing.push(link);
+    } else {
+      this.expenseToTravelMap.set(expenseId, [link]);
     }
   }
 
@@ -81,11 +94,13 @@ export class ExpenseTravelLookup {
       this.locations.forEach((location: Location) => {
         if (location.costTrackingLinks) {
           location.costTrackingLinks.forEach((link: CostTrackingLink) => {
-            this.expenseToTravelMap.set(link.expenseId, {
+            this.addLinkToMap(link.expenseId, {
               type: 'location',
               id: location.id,
               name: location.name,
-              tripTitle: this.tripTitle
+              tripTitle: this.tripTitle,
+              splitMode: link.splitMode,
+              splitValue: link.splitValue
             });
           });
         }
@@ -101,29 +116,52 @@ export class ExpenseTravelLookup {
             const location = this.locations?.find((loc: Location) => loc.id === accommodation.locationId);
             const locationName = location?.name || 'Unknown location';
 
-            this.expenseToTravelMap.set(link.expenseId, {
+            this.addLinkToMap(link.expenseId, {
               type: 'accommodation',
               id: accommodation.id,
               name: accommodation.name,
               locationName: locationName,
-              tripTitle: this.tripTitle
+              tripTitle: this.tripTitle,
+              splitMode: link.splitMode,
+              splitValue: link.splitValue
             });
           });
         }
       });
     }
 
-    // Index routes
+    // Index routes (including subRoutes)
     if (this.routes) {
       this.routes.forEach((route: Transportation) => {
+        // Index parent route
         if (route.costTrackingLinks) {
           route.costTrackingLinks.forEach((link: CostTrackingLink) => {
-            this.expenseToTravelMap.set(link.expenseId, {
+            this.addLinkToMap(link.expenseId, {
               type: 'route',
               id: route.id,
               name: `${route.from} → ${route.to}`,
-              tripTitle: this.tripTitle
+              tripTitle: this.tripTitle,
+              splitMode: link.splitMode,
+              splitValue: link.splitValue
             });
+          });
+        }
+
+        // Index subRoutes
+        if (route.subRoutes) {
+          route.subRoutes.forEach((subRoute) => {
+            if (subRoute.costTrackingLinks) {
+              subRoute.costTrackingLinks.forEach((link: CostTrackingLink) => {
+                this.addLinkToMap(link.expenseId, {
+                  type: 'route',
+                  id: subRoute.id,
+                  name: `${subRoute.from} → ${subRoute.to}`,
+                  tripTitle: this.tripTitle,
+                  splitMode: link.splitMode,
+                  splitValue: link.splitValue
+                });
+              });
+            }
           });
         }
       });
@@ -155,7 +193,8 @@ export class ExpenseTravelLookup {
       const linkInfo = this.resolveTravelLinkFromReference(expense);
 
       if (linkInfo) {
-        this.expenseToTravelMap.set(expense.id, linkInfo);
+        // For legacy travelReference, add as a single link (no multi-route support)
+        this.addLinkToMap(expense.id, linkInfo);
         updatedHydratedIds.add(expense.id);
       } else if (this.travelReferenceHydratedExpenseIds.has(expense.id)) {
         this.expenseToTravelMap.delete(expense.id);
@@ -172,10 +211,19 @@ export class ExpenseTravelLookup {
   }
 
   /**
-   * Gets travel link info for a specific expense
+   * Gets travel link info for a specific expense (backward compatible - returns first link only)
+   * @deprecated Use getTravelLinksForExpense() for multi-route support
    */
   getTravelLinkForExpense(expenseId: string): TravelLinkInfo | null {
-    return this.expenseToTravelMap.get(expenseId) || null;
+    const links = this.expenseToTravelMap.get(expenseId);
+    return links && links.length > 0 ? links[0] : null;
+  }
+
+  /**
+   * Gets all travel links for a specific expense (supports multi-route)
+   */
+  getTravelLinksForExpense(expenseId: string): TravelLinkInfo[] {
+    return this.expenseToTravelMap.get(expenseId) || [];
   }
 
   /**
@@ -184,8 +232,9 @@ export class ExpenseTravelLookup {
   getExpensesForTravelItem(itemType: 'location' | 'accommodation' | 'route', itemId: string): string[] {
     const expenseIds: string[] = [];
 
-    for (const [expenseId, linkInfo] of Array.from(this.expenseToTravelMap.entries())) {
-      if (linkInfo.type === itemType && linkInfo.id === itemId) {
+    for (const [expenseId, links] of Array.from(this.expenseToTravelMap.entries())) {
+      // Check if any of the links match this travel item
+      if (links.some(link => link.type === itemType && link.id === itemId)) {
         expenseIds.push(expenseId);
       }
     }
@@ -196,7 +245,7 @@ export class ExpenseTravelLookup {
   /**
    * Gets all travel links as a map (for bulk operations)
    */
-  getAllTravelLinks(): Map<string, TravelLinkInfo> {
+  getAllTravelLinks(): Map<string, TravelLinkInfo[]> {
     return new Map(this.expenseToTravelMap);
   }
 
@@ -341,52 +390,90 @@ export function calculateExpenseTotalsByLocation({
   };
 
   expenses.forEach(expense => {
-    const link = travelLookup.getTravelLinkForExpense(expense.id);
-    if (!link) {
-      return;
-    }
-
-    let locationId: string | null = null;
-    if (link.type === 'location') {
-      locationId = link.id;
-    } else if (link.type === 'accommodation') {
-      locationId = accommodationLocationMap.get(link.id) || null;
-    }
-
-    if (!locationId) {
+    const links = travelLookup.getTravelLinksForExpense(expense.id);
+    if (!links || links.length === 0) {
       return;
     }
 
     const expenseCurrency = expense.currency || trackingCurrency;
     const category = expense.category?.trim() || 'Uncategorized';
-    const currentTotal = totals[locationId] ?? { amount: 0, currency: trackingCurrency, count: 0 };
-    const nextTotal = { ...currentTotal, count: currentTotal.count + 1 };
+    const expenseAmount = expense.amount || 0;
 
-    if (expense.cashTransaction?.kind === 'allocation') {
-      const amount = expense.cashTransaction.baseAmount;
-      applyTrackedAmount(locationId, nextTotal, category, amount);
-      return;
-    }
+    // Get all costTrackingLinks for split calculation
+    // Convert TravelLinkInfo to CostTrackingLink format for calculateSplitAmount
+    const allCostTrackingLinks: CostTrackingLink[] = links.map(link => ({
+      expenseId: expense.id,
+      description: link.name,
+      splitMode: link.splitMode,
+      splitValue: link.splitValue
+    }));
 
-    if (expense.cashTransaction?.kind === 'source') {
-      const amount = expense.amount || 0;
-      applyTrackedAmount(locationId, nextTotal, category, amount);
-      return;
-    }
+    // Process each link (for multi-route expenses, split the amount)
+    links.forEach(link => {
+      let locationId: string | null = null;
+      if (link.type === 'location') {
+        locationId = link.id;
+      } else if (link.type === 'accommodation') {
+        locationId = accommodationLocationMap.get(link.id) || null;
+      }
 
-    if (expenseCurrency !== trackingCurrency) {
-      totals[locationId] = {
-        ...updateCategoryTotals(nextTotal, category, 0),
-        unconverted: {
-          ...(nextTotal.unconverted || {}),
-          [expenseCurrency]: (nextTotal.unconverted?.[expenseCurrency] || 0) + (expense.amount || 0)
-        }
+      if (!locationId) {
+        return;
+      }
+
+      const currentTotal = totals[locationId] ?? { amount: 0, currency: trackingCurrency, count: 0 };
+
+      // For multi-route expenses, only count the expense once (against the first link)
+      // But split the amount across all links
+      const isFirstLink = links[0] === link;
+      const nextTotal = {
+        ...currentTotal,
+        count: isFirstLink ? currentTotal.count + 1 : currentTotal.count
       };
-      return;
-    }
 
-    const amount = expense.amount || 0;
-    applyTrackedAmount(locationId, nextTotal, category, amount);
+      // Calculate split amount for this link
+      const costTrackingLink: CostTrackingLink = {
+        expenseId: expense.id,
+        description: link.name,
+        splitMode: link.splitMode,
+        splitValue: link.splitValue
+      };
+
+      let amountForThisLink = expenseAmount;
+
+      // Apply split calculation only if there are multiple links
+      if (links.length > 1) {
+        amountForThisLink = calculateSplitAmount(expenseAmount, costTrackingLink, allCostTrackingLinks);
+      }
+
+      if (expense.cashTransaction?.kind === 'allocation') {
+        const baseAmount = expense.cashTransaction.baseAmount;
+        // Split the base amount too
+        const splitBaseAmount = links.length > 1
+          ? calculateSplitAmount(baseAmount, costTrackingLink, allCostTrackingLinks)
+          : baseAmount;
+        applyTrackedAmount(locationId, nextTotal, category, splitBaseAmount);
+        return;
+      }
+
+      if (expense.cashTransaction?.kind === 'source') {
+        applyTrackedAmount(locationId, nextTotal, category, amountForThisLink);
+        return;
+      }
+
+      if (expenseCurrency !== trackingCurrency) {
+        totals[locationId] = {
+          ...updateCategoryTotals(nextTotal, category, 0),
+          unconverted: {
+            ...(nextTotal.unconverted || {}),
+            [expenseCurrency]: (nextTotal.unconverted?.[expenseCurrency] || 0) + amountForThisLink
+          }
+        };
+        return;
+      }
+
+      applyTrackedAmount(locationId, nextTotal, category, amountForThisLink);
+    });
   });
 
   return totals;
