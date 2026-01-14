@@ -146,14 +146,24 @@ const handleModeToggle = (enabled: boolean) => {
 ### Pattern 3: Validation Before Save
 
 ```typescript
+const [validationError, setValidationError] = useState<string | null>(null);
+
 const handleSave = async () => {
   if (useMultiLink && multiLinks.length === 0) {
-    alert('Please add at least one route');
+    setValidationError('Please add at least one route');
     return;
   }
 
+  setValidationError(null);
   await saveLinks({ expenseId, tripId, links: ... });
 };
+
+// In your JSX:
+{validationError && (
+  <div className="text-red-600 text-sm mt-2">
+    {validationError}
+  </div>
+)}
 ```
 
 ## Testing
