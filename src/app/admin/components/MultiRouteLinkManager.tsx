@@ -35,7 +35,7 @@ export default function MultiRouteLinkManager({
   const [showAddSelector, setShowAddSelector] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  // Initialize from props
+  // Initialize from props - always sync with initialLinks to prevent stale state
   useEffect(() => {
     if (initialLinks.length > 0) {
       const withTempIds = initialLinks.map((link) => ({
@@ -49,6 +49,10 @@ export default function MultiRouteLinkManager({
       if (initialLinks[0]?.splitMode) {
         setSplitMode(initialLinks[0].splitMode);
       }
+    } else {
+      // Clear state when navigating to an expense with no links
+      setLinks([]);
+      setSplitMode('equal');
     }
   }, [initialLinks]);
 

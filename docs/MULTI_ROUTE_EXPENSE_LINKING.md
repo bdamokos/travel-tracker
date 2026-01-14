@@ -279,7 +279,9 @@ The `MultiRouteLinkManager` component automatically validates:
 
 3. **Duplicate Detection:** Cannot add the same route twice
 
-4. **Minimum Links:** At least 1 route required for valid multi-link
+4. **Minimum Links:** At least 1 route required when saving multi-link configuration
+   - Zero links is valid for clearing all expense associations (unlink expense entirely)
+   - At least 1 route must be added before saving a new multi-link
 
 ## Backward Compatibility
 
