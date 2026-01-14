@@ -754,6 +754,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       expanded.delete(groupKey);
       collapsedByUser.add(groupKey);
       updateFocusOrder();
+      setMapAnnouncement(`Collapsed ${state.group.items.length} locations back to group marker.`);
     };
 
     const expandGroup = (groupKey: string, providedState?: GroupLayerState) => {
@@ -811,6 +812,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       state.collapseMarker = collapseMarker;
       expanded.add(groupKey);
       updateFocusOrder();
+      setMapAnnouncement(`Expanded group of ${state.group.items.length} locations. Press Tab to navigate to individual locations.`);
     };
 
     const renderGroups = () => {
@@ -972,8 +974,13 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   return (
     <>
       <div id={mapInstructionsId} className="sr-only">
-        Keyboard controls: Tab and Shift+Tab move between locations, Enter or Space opens a location, arrow keys pan the map,
-        plus or minus zooms, Home and End jump to the first or last location, Escape closes the popup.
+        Interactive travel map for ${travelData.title}. ${focusOrderRef.current.length} locations available.
+        Keyboard controls: Tab and Shift+Tab move between locations and groups. Enter or Space opens a location popup.
+        Arrow keys pan the map in each direction. Plus and minus keys zoom in and out.
+        Home key jumps to first location, End key jumps to last location.
+        Escape key closes popups and returns focus to map.
+        When a group is focused, activating it expands to show individual locations.
+        When expanded, a collapse marker is available to return to group view.
       </div>
       <div id={mapStatusId} className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {mapAnnouncement}
