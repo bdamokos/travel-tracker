@@ -41,7 +41,7 @@ describe('Cost Tracking API Validation', () => {
         id: 'location-1',
         name: 'Test Location',
         coordinates: [52.5, 13.4],
-        country: 'Germany',
+        date: new Date('2024-01-05'),
         costTrackingLinks: [{
           expenseId: hasValidLinks ? 'expense-1' : 'non-existent-expense',
           description: 'Test link'
@@ -116,7 +116,7 @@ describe('Cost Tracking API Validation', () => {
         id: 'location-2',
         name: 'Train Station',
         coordinates: [52.6, 13.5],
-        country: 'Germany',
+        date: new Date('2024-01-06'),
         costTrackingLinks: [{
           expenseId: 'expense-2',
           description: 'Transport expense'
@@ -137,7 +137,7 @@ describe('Cost Tracking API Validation', () => {
         id: 'location-2',
         name: 'Invalid Location',
         coordinates: [52.6, 13.5],
-        country: 'Germany',
+        date: new Date('2024-01-06'),
         costTrackingLinks: [{
           expenseId: 'non-existent-expense',
           description: 'Invalid link'
@@ -175,8 +175,7 @@ describe('Cost Tracking API Validation', () => {
         id: 'accommodation-1',
         name: 'Test Hotel',
         locationId: 'location-1',
-        checkIn: '2024-01-02',
-        checkOut: '2024-01-04',
+        createdAt: '2024-01-02T00:00:00.000Z',
         costTrackingLinks: [{
           expenseId: 'another-non-existent-expense',
           description: 'Invalid accommodation link'
@@ -218,7 +217,7 @@ describe('Cost Tracking API Validation', () => {
           id: `location-${i}`,
           name: `Location ${i}`,
           coordinates: [52.5 + i * 0.01, 13.4 + i * 0.01],
-          country: 'Germany',
+          date: new Date('2024-01-05'),
           costTrackingLinks: [{
             expenseId: `expense-${i}`,
             description: `Link ${i}`
