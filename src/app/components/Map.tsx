@@ -609,17 +609,17 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       case '+':
       case '=': {
         event.preventDefault();
-        const nextZoom = map.getZoom() + 1;
         map.zoomIn();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        const actualZoom = map.getZoom();
+        setMapAnnouncement(`Zoom level ${actualZoom}.`);
         break;
       }
       case '-':
       case '_': {
         event.preventDefault();
-        const nextZoom = map.getZoom() - 1;
         map.zoomOut();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        const actualZoom = map.getZoom();
+        setMapAnnouncement(`Zoom level ${actualZoom}.`);
         break;
       }
       case 'Escape':

@@ -395,23 +395,26 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       case '+':
       case '=': {
         event.preventDefault();
-        const nextZoom = map.getZoom() + 1;
         map.zoomIn();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        const actualZoom = map.getZoom();
+        setMapAnnouncement(`Zoom level ${actualZoom}.`);
         break;
       }
       case '-':
       case '_': {
         event.preventDefault();
-        const nextZoom = map.getZoom() - 1;
         map.zoomOut();
-        setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        const actualZoom = map.getZoom();
+        setMapAnnouncement(`Zoom level ${actualZoom}.`);
         break;
       }
       case 'Escape':
-        event.preventDefault();
-        map.closePopup();
-        setMapAnnouncement('Popup closed.');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((map as any)._popup && map.hasLayer((map as any)._popup)) {
+          event.preventDefault();
+          map.closePopup();
+          setMapAnnouncement('Popup closed.');
+        }
         break;
       default:
         break;
