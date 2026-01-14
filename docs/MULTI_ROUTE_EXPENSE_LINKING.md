@@ -15,7 +15,7 @@ export type CostTrackingLink = {
   description?: string;
   // Multi-route expense distribution
   splitMode?: 'equal' | 'percentage' | 'fixed';
-  splitValue?: number; // For 'percentage' (0-100) or 'fixed' (amount)
+  splitValue?: number; // For 'percentage' (0-100) or 'fixed' (amount in expense currency)
 }
 ```
 
@@ -29,7 +29,7 @@ export interface TravelLinkInfo {
   tripTitle?: string;
   // Multi-route expense distribution
   splitMode?: 'equal' | 'percentage' | 'fixed';
-  splitValue?: number;
+  splitValue?: number; // For 'percentage' (0-100) or 'fixed' (amount in expense currency)
 }
 ```
 
@@ -279,9 +279,10 @@ The `MultiRouteLinkManager` component automatically validates:
 
 3. **Duplicate Detection:** Cannot add the same route twice
 
-4. **Minimum Links:** At least 1 route required when saving multi-link configuration
-   - Zero links is valid for clearing all expense associations (unlink expense entirely)
-   - At least 1 route must be added before saving a new multi-link
+4. **Minimum Links:** Link quantity depends on the operation
+   - **Creating/updating multi-link**: At least 1 route must be added before saving
+   - **Unlinking expense**: Passing zero links clears all associations (valid operation)
+   - Cannot save an empty multi-link configuration (provide at least one route or unlink entirely)
 
 ## Backward Compatibility
 
