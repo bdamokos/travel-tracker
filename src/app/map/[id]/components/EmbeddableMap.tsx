@@ -248,8 +248,10 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const focusOrderRef = useRef<string[]>([]);
   const markerElementsRef = useRef(new globalThis.Map<string, HTMLElement>());
   const markerFocusHandlersRef = useRef(new globalThis.Map<string, () => void>());
+  const markerRemoveHandlersRef = useRef(new globalThis.Map<string, () => void>());
   const markerLabelRef = useRef(new globalThis.Map<string, string>());
   const focusedMarkerKeyRef = useRef<string | null>(null);
+  const popupOpenRef = useRef(false);
 
   // Simplified - no more client-side route generation
 
@@ -282,6 +284,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     }
     markerElementsRef.current.delete(key);
     markerFocusHandlersRef.current.delete(key);
+    markerRemoveHandlersRef.current.delete(key);
     markerLabelRef.current.delete(key);
     if (focusedMarkerKeyRef.current === key) {
       focusedMarkerKeyRef.current = null;
@@ -314,9 +317,13 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     element.addEventListener('focus', focusHandler);
     markerElementsRef.current.set(key, element);
 
-    // Remove any existing 'remove' listeners to prevent accumulation
-    marker.off('remove');
-    marker.on('remove', () => unregisterMarkerElement(key));
+    const existingRemoveHandler = markerRemoveHandlersRef.current.get(key);
+    if (existingRemoveHandler) {
+      marker.off('remove', existingRemoveHandler);
+    }
+    const removeHandler = () => unregisterMarkerElement(key);
+    markerRemoveHandlersRef.current.set(key, removeHandler);
+    marker.on('remove', removeHandler);
   }, [unregisterMarkerElement, updateFocusAnnouncement]);
 
   const focusMarkerByIndex = useCallback((index: number) => {
@@ -400,25 +407,32 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       case '+':
       case '=': {
         event.preventDefault();
-        map.zoomIn();
-        const actualZoom = map.getZoom();
-        setMapAnnouncement(`Zoom level ${actualZoom}.`);
+        const currentZoom = map.getZoom();
+        const maxZoom = map.getMaxZoom();
+        const nextZoom = Math.min(currentZoom + 1, maxZoom);
+        if (nextZoom !== currentZoom) {
+          map.zoomIn();
+          setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        }
         break;
       }
       case '-':
       case '_': {
         event.preventDefault();
-        map.zoomOut();
-        const actualZoom = map.getZoom();
-        setMapAnnouncement(`Zoom level ${actualZoom}.`);
+        const currentZoom = map.getZoom();
+        const minZoom = map.getMinZoom();
+        const nextZoom = Math.max(currentZoom - 1, minZoom);
+        if (nextZoom !== currentZoom) {
+          map.zoomOut();
+          setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        }
         break;
       }
       case 'Escape':
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((map as any)._popup && map.hasLayer((map as any)._popup)) {
+        if (popupOpenRef.current) {
           event.preventDefault();
           map.closePopup();
-          setMapAnnouncement('Popup closed.');
+          // Announcement is now handled by the 'popupclose' event listener
         }
         break;
       default:
@@ -461,6 +475,12 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     L.tileLayer(tileLayerUrl, {
       attribution: attribution
     }).addTo(map);
+
+    map.on('popupopen', () => { popupOpenRef.current = true; });
+    map.on('popupclose', () => { 
+      popupOpenRef.current = false;
+      setMapAnnouncement('Popup closed.'); 
+    });
 
     mapRef.current = map;
 

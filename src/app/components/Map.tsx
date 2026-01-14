@@ -474,6 +474,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     markerElementsRef.current.delete(key);
     markerFocusHandlersRef.current.delete(key);
     markerLabelRef.current.delete(key);
+    setFocusedMarkerKey(prevKey => (prevKey === key ? null : prevKey));
   }, []);
 
   const handleLocationActivate = useCallback((location: Location, day: JourneyDay) => {
@@ -603,17 +604,25 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       case '+':
       case '=': {
         event.preventDefault();
-        map.zoomIn();
-        const actualZoom = map.getZoom();
-        setMapAnnouncement(`Zoom level ${actualZoom}.`);
+        const currentZoom = map.getZoom();
+        const maxZoom = map.getMaxZoom();
+        const nextZoom = Math.min(currentZoom + 1, maxZoom);
+        if (nextZoom !== currentZoom) {
+          map.zoomIn();
+          setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        }
         break;
       }
       case '-':
       case '_': {
         event.preventDefault();
-        map.zoomOut();
-        const actualZoom = map.getZoom();
-        setMapAnnouncement(`Zoom level ${actualZoom}.`);
+        const currentZoom = map.getZoom();
+        const minZoom = map.getMinZoom();
+        const nextZoom = Math.max(currentZoom - 1, minZoom);
+        if (nextZoom !== currentZoom) {
+          map.zoomOut();
+          setMapAnnouncement(`Zoom level ${nextZoom}.`);
+        }
         break;
       }
       case 'Escape':
