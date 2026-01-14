@@ -13,7 +13,7 @@ run "cd <target_dir>" yourself or source start-worktree.sh in your shell.
 
 Examples:
   ./start-worktree.sh feature/new-map
-  ./start-worktree.sh feature/new-map ../worktrees/new-map main
+  ./start-worktree.sh feature/new-map ./.worktrees/new-map main
   source ./start-worktree.sh feature/new-map
 EOF
 }
@@ -30,7 +30,7 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(git -C "$script_dir" rev-parse --show-toplevel)"
 
 if [[ -z "$target_dir" ]]; then
-  target_dir="${repo_root}/../worktrees/${branch_name}"
+  target_dir="${repo_root}/.worktrees/${branch_name}"
 fi
 
 current_branch="$(git -C "$repo_root" symbolic-ref --quiet --short HEAD || true)"
