@@ -54,6 +54,8 @@ export default function MultiRouteLinkExample({
           travelItemName: string;
           travelItemType: 'location' | 'accommodation' | 'route';
           description?: string;
+          splitMode?: 'equal' | 'percentage' | 'fixed';
+          splitValue?: number;
         }>) => {
           // Filter links for this specific expense
           const expenseLinks = allLinks.filter(
@@ -66,7 +68,9 @@ export default function MultiRouteLinkExample({
             setMultiLinks(expenseLinks.map(link => ({
               id: link.travelItemId,
               type: link.travelItemType,
-              name: link.travelItemName
+              name: link.travelItemName,
+              splitMode: link.splitMode,
+              splitValue: link.splitValue
             })));
           } else if (expenseLinks.length === 1) {
             // Single link - use traditional mode
@@ -74,7 +78,9 @@ export default function MultiRouteLinkExample({
             setSingleLink({
               id: expenseLinks[0].travelItemId,
               type: expenseLinks[0].travelItemType,
-              name: expenseLinks[0].travelItemName
+              name: expenseLinks[0].travelItemName,
+              splitMode: expenseLinks[0].splitMode,
+              splitValue: expenseLinks[0].splitValue
             });
           }
         })

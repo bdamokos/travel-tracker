@@ -33,13 +33,15 @@ export default function MultiRouteLinkManager({
   const [links, setLinks] = useState<LinkWithConfig[]>([]);
   const [splitMode, setSplitMode] = useState<'equal' | 'percentage' | 'fixed'>('equal');
   const [showAddSelector, setShowAddSelector] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   // Initialize from props
   useEffect(() => {
     if (initialLinks.length > 0) {
-      const withTempIds = initialLinks.map((link, index) => ({
+      const withTempIds = initialLinks.map((link) => ({
         ...link,
-        tempId: `link-${index}-${Date.now()}`
+        // Use stable key based on type and id
+        tempId: `${link.type}-${link.id}`
       }));
       setLinks(withTempIds);
 
@@ -62,10 +64,10 @@ export default function MultiRouteLinkManager({
           calculatedSplitValue = 100 / links.length;
           break;
         case 'percentage':
-          calculatedSplitValue = link.splitValue || (100 / links.length);
+          calculatedSplitValue = link.splitValue ?? (100 / links.length);
           break;
         case 'fixed':
-          calculatedSplitValue = link.splitValue || (expenseAmount / links.length);
+          calculatedSplitValue = link.splitValue ?? (expenseAmount / links.length);
           break;
       }
 
@@ -124,16 +126,20 @@ export default function MultiRouteLinkManager({
   const handleAddLink = (newLink: TravelLinkInfo | undefined) => {
     if (!newLink) return;
 
+    // Clear any previous errors
+    setAddError(null);
+
     // Check if already added
     const exists = links.some(link => link.id === newLink.id && link.type === newLink.type);
     if (exists) {
-      alert('This route is already added to the list');
+      setAddError('This route is already added to the list');
       return;
     }
 
     const linkWithTempId: LinkWithConfig = {
       ...newLink,
-      tempId: `link-${Date.now()}-${Math.random()}`,
+      // Use stable key based on type and id
+      tempId: `${newLink.type}-${newLink.id}`,
       splitMode,
       splitValue: splitMode === 'equal' ? undefined : (splitMode === 'percentage' ? 0 : 0)
     };
@@ -156,6 +162,11 @@ export default function MultiRouteLinkManager({
 
   const handleSplitModeChange = (newMode: 'equal' | 'percentage' | 'fixed') => {
     setSplitMode(newMode);
+
+    // Guard against division by zero
+    if (links.length === 0) {
+      return;
+    }
 
     // Reset split values based on new mode
     const updatedLinks = links.map(link => {
@@ -180,6 +191,11 @@ export default function MultiRouteLinkManager({
   };
 
   const handleDistributeEqually = () => {
+    // Guard against division by zero
+    if (links.length === 0) {
+      return;
+    }
+
     if (splitMode === 'percentage') {
       const equalPercentage = 100 / links.length;
       setLinks(links.map(link => ({ ...link, splitValue: equalPercentage })));
@@ -317,6 +333,13 @@ export default function MultiRouteLinkManager({
           </button>
         ) : (
           <div className="p-3 border border-blue-300 dark:border-blue-700 rounded bg-blue-50 dark:bg-blue-900/20">
+            {addError && (
+              <div className="mb-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+                <div className="text-xs text-red-600 dark:text-red-400">
+                  ⚠️ {addError}
+                </div>
+              </div>
+            )}
             <TravelItemSelector
               expenseId={expenseId}
               tripId={tripId}
@@ -326,7 +349,10 @@ export default function MultiRouteLinkManager({
             />
             <button
               type="button"
-              onClick={() => setShowAddSelector(false)}
+              onClick={() => {
+                setShowAddSelector(false);
+                setAddError(null);
+              }}
               className="text-xs text-gray-600 dark:text-gray-400 hover:underline"
             >
               Cancel

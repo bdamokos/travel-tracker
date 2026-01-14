@@ -9,6 +9,8 @@ interface ExpenseLink {
   travelItemName: string;
   travelItemType: 'location' | 'accommodation' | 'route';
   description?: string;
+  splitMode?: 'equal' | 'percentage' | 'fixed';
+  splitValue?: number;
 }
 
 export async function GET(
@@ -53,7 +55,9 @@ export async function GET(
                 travelItemId: location.id,
                 travelItemName: location.name,
                 travelItemType: 'location',
-                description: link.description
+                description: link.description,
+                splitMode: link.splitMode,
+                splitValue: link.splitValue
               });
               processedExpenseIds.add(link.expenseId);
             }
@@ -74,7 +78,9 @@ export async function GET(
                 travelItemId: accommodation.id,
                 travelItemName: accommodation.name,
                 travelItemType: 'accommodation',
-                description: link.description
+                description: link.description,
+                splitMode: link.splitMode,
+                splitValue: link.splitValue
               });
               processedExpenseIds.add(link.expenseId);
             }
@@ -95,7 +101,9 @@ export async function GET(
                 travelItemId: route.id,
                 travelItemName: `${route.from} → ${route.to}`,
                 travelItemType: 'route',
-                description: link.description
+                description: link.description,
+                splitMode: link.splitMode,
+                splitValue: link.splitValue
               });
               processedExpenseIds.add(link.expenseId);
             }
@@ -111,7 +119,9 @@ export async function GET(
                   travelItemId: segment.id,
                   travelItemName: `${segment.from} → ${segment.to}`,
                   travelItemType: 'route',
-                  description: link.description
+                  description: link.description,
+                  splitMode: link.splitMode,
+                  splitValue: link.splitValue
                 });
                 processedExpenseIds.add(link.expenseId);
               }
