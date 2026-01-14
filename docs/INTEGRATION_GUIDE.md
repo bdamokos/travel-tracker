@@ -48,9 +48,15 @@ Replace the existing `useEffect` (lines 44-74) with:
 // Load existing travel link(s) when editing an expense
 useEffect(() => {
   if (editingExpenseIndex !== null && currentExpense.id && tripId) {
-    fetch(`/api/travel-data/${tripId}/expense-links`)
-      .then(response => {
-        if (!response.ok) throw new Error(`Failed to load expense links`);
+    const abortController = new AbortController();
+
+    fetch(`/api/travel-data/${tripId}/expense-links`, {
+      signal: abortController.signal
+    })
+      .then(async response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load expense links: ${response.statusText}`);
+        }
         return response.json();
       })
       .then((links: Array<{
@@ -86,8 +92,14 @@ useEffect(() => {
         }
       })
       .catch(error => {
-        console.error('Error loading existing travel link:', error);
+        // Ignore abort errors
+        if (error.name !== 'AbortError') {
+          console.error('Error loading existing travel link:', error);
+        }
       });
+
+    // Cleanup: abort fetch if component unmounts or dependencies change
+    return () => abortController.abort();
   } else {
     setUseMultiLink(false);
     setSelectedTravelLinkInfo(undefined);
@@ -231,38 +243,55 @@ After the existing state declarations:
 ```typescript
 // Load existing links when mounting
 useEffect(() => {
-  if (expense.id && tripId) {
-    fetch(`/api/travel-data/${tripId}/expense-links`)
-      .then(response => response.json())
-      .then((links: Array<{
-        expenseId: string;
-        travelItemId: string;
-        travelItemName: string;
-        travelItemType: 'location' | 'accommodation' | 'route';
-        splitMode?: 'equal' | 'percentage' | 'fixed';
-        splitValue?: number;
-      }>) => {
-        const expenseLinks = links.filter(link => link.expenseId === expense.id);
+  if (!expense.id || !tripId) return;
 
-        if (expenseLinks.length > 1) {
-          setUseMultiLink(true);
-          setMultiLinks(expenseLinks.map(link => ({
-            id: link.travelItemId,
-            name: link.travelItemName,
-            type: link.travelItemType as 'location' | 'accommodation' | 'route',
-            splitMode: link.splitMode,
-            splitValue: link.splitValue
-          })));
-        } else if (expenseLinks.length === 1) {
-          setSelectedTravelLinkInfo({
-            id: expenseLinks[0].travelItemId,
-            name: expenseLinks[0].travelItemName,
-            type: expenseLinks[0].travelItemType as 'location' | 'accommodation' | 'route'
-          });
-        }
-      })
-      .catch(console.error);
-  }
+  const abortController = new AbortController();
+
+  fetch(`/api/travel-data/${tripId}/expense-links`, {
+    signal: abortController.signal
+  })
+    .then(async response => {
+      if (!response.ok) {
+        throw new Error(`Failed to load expense links: ${response.statusText}`);
+      }
+      return response.json();
+    })
+    .then((links: Array<{
+      expenseId: string;
+      travelItemId: string;
+      travelItemName: string;
+      travelItemType: 'location' | 'accommodation' | 'route';
+      splitMode?: 'equal' | 'percentage' | 'fixed';
+      splitValue?: number;
+    }>) => {
+      const expenseLinks = links.filter(link => link.expenseId === expense.id);
+
+      if (expenseLinks.length > 1) {
+        setUseMultiLink(true);
+        setMultiLinks(expenseLinks.map(link => ({
+          id: link.travelItemId,
+          name: link.travelItemName,
+          type: link.travelItemType as 'location' | 'accommodation' | 'route',
+          splitMode: link.splitMode,
+          splitValue: link.splitValue
+        })));
+      } else if (expenseLinks.length === 1) {
+        setSelectedTravelLinkInfo({
+          id: expenseLinks[0].travelItemId,
+          name: expenseLinks[0].travelItemName,
+          type: expenseLinks[0].travelItemType as 'location' | 'accommodation' | 'route'
+        });
+      }
+    })
+    .catch(error => {
+      // Ignore abort errors
+      if (error.name !== 'AbortError') {
+        console.error('Error loading expense links:', error);
+      }
+    });
+
+  // Cleanup: abort fetch if component unmounts
+  return () => abortController.abort();
 }, [expense.id, tripId]);
 ```
 

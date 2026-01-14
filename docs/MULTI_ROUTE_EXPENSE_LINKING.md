@@ -133,8 +133,8 @@ The system fully supports linking expenses to individual route segments:
 
 **TravelItemSelector** now displays subRoutes with visual hierarchy:
 - Parent Route: `Paris → Barcelona`
-- Segment 1: `  ↳ Paris → Lyon` (displayed with indent)
-- Segment 2: `  ↳ Lyon → Barcelona`
+- Segment 1: `↳ Paris → Lyon` (displayed with indent)
+- Segment 2: `↳ Lyon → Barcelona`
 
 Users can link expenses to:
 - The entire parent route

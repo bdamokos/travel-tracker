@@ -41,12 +41,31 @@ export function useMultiRouteLinks(): UseMultiRouteLinksResult {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save expense links');
+        let errorMessage = 'Failed to save expense links';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If response is not JSON, try to get text
+          const errorText = await response.text().catch(() => '');
+          if (errorText) {
+            errorMessage = `${errorMessage}: ${errorText}`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
-      console.log('Expense links saved:', result.message);
+      let result;
+      try {
+        result = await response.json();
+      } catch {
+        // If response is not JSON, treat as success with no message
+        result = { message: 'Expense links saved successfully' };
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Expense links saved:', result.message);
+      }
       return true;
 
     } catch (err) {

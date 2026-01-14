@@ -41,53 +41,84 @@ export default function MultiRouteLinkExample({
   const { saving, error, saveLinks, clearError } = useMultiRouteLinks();
 
   /**
+   * Type guard to validate that partial expense has all required fields
+   */
+  const isValidExpense = (exp: Partial<Expense>): exp is Expense => {
+    return !!(
+      exp.id &&
+      exp.date &&
+      exp.amount !== undefined &&
+      exp.currency &&
+      exp.category &&
+      exp.country &&
+      exp.description &&
+      exp.expenseType
+    );
+  };
+
+  /**
    * Load existing links when editing an expense
    * Automatically detects single vs. multi-link mode
    */
   useEffect(() => {
-    if (expense.id && tripId) {
-      fetch(`/api/travel-data/${tripId}/expense-links`)
-        .then(response => response.json())
-        .then((allLinks: Array<{
-          expenseId: string;
-          travelItemId: string;
-          travelItemName: string;
-          travelItemType: 'location' | 'accommodation' | 'route';
-          description?: string;
-          splitMode?: 'equal' | 'percentage' | 'fixed';
-          splitValue?: number;
-        }>) => {
-          // Filter links for this specific expense
-          const expenseLinks = allLinks.filter(
-            link => link.expenseId === expense.id
-          );
+    if (!expense.id || !tripId) return;
 
-          if (expenseLinks.length > 1) {
-            // Multiple links found - enable multi-link mode
-            setUseMultiLink(true);
-            setMultiLinks(expenseLinks.map(link => ({
-              id: link.travelItemId,
-              type: link.travelItemType,
-              name: link.travelItemName,
-              splitMode: link.splitMode,
-              splitValue: link.splitValue
-            })));
-          } else if (expenseLinks.length === 1) {
-            // Single link - use traditional mode
-            setUseMultiLink(false);
-            setSingleLink({
-              id: expenseLinks[0].travelItemId,
-              type: expenseLinks[0].travelItemType,
-              name: expenseLinks[0].travelItemName,
-              splitMode: expenseLinks[0].splitMode,
-              splitValue: expenseLinks[0].splitValue
-            });
-          }
-        })
-        .catch(error => {
+    const abortController = new AbortController();
+
+    fetch(`/api/travel-data/${tripId}/expense-links`, {
+      signal: abortController.signal
+    })
+      .then(async response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load expense links: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then((allLinks: Array<{
+        expenseId: string;
+        travelItemId: string;
+        travelItemName: string;
+        travelItemType: 'location' | 'accommodation' | 'route';
+        description?: string;
+        splitMode?: 'equal' | 'percentage' | 'fixed';
+        splitValue?: number;
+      }>) => {
+        // Filter links for this specific expense
+        const expenseLinks = allLinks.filter(
+          link => link.expenseId === expense.id
+        );
+
+        if (expenseLinks.length > 1) {
+          // Multiple links found - enable multi-link mode
+          setUseMultiLink(true);
+          setMultiLinks(expenseLinks.map(link => ({
+            id: link.travelItemId,
+            type: link.travelItemType,
+            name: link.travelItemName,
+            splitMode: link.splitMode,
+            splitValue: link.splitValue
+          })));
+        } else if (expenseLinks.length === 1) {
+          // Single link - use traditional mode
+          setUseMultiLink(false);
+          setSingleLink({
+            id: expenseLinks[0].travelItemId,
+            type: expenseLinks[0].travelItemType,
+            name: expenseLinks[0].travelItemName,
+            splitMode: expenseLinks[0].splitMode,
+            splitValue: expenseLinks[0].splitValue
+          });
+        }
+      })
+      .catch(error => {
+        // Ignore abort errors
+        if (error.name !== 'AbortError') {
           console.error('Error loading expense links:', error);
-        });
-    }
+        }
+      });
+
+    // Cleanup: abort fetch if component unmounts
+    return () => abortController.abort();
   }, [expense.id, tripId]);
 
   /**
@@ -128,9 +159,14 @@ export default function MultiRouteLinkExample({
     }
 
     if (success) {
+      // Validate expense has all required fields before calling parent handler
+      if (!isValidExpense(expense)) {
+        console.error('Expense missing required fields');
+        return;
+      }
       // Call parent save handler
       onSave(
-        expense as Expense,
+        expense,
         useMultiLink ? multiLinks : (singleLink ? [singleLink] : undefined)
       );
     }
