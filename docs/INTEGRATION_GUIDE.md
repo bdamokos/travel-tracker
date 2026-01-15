@@ -279,7 +279,9 @@ useEffect(() => {
         setSelectedTravelLinkInfo({
           id: expenseLinks[0].travelItemId,
           name: expenseLinks[0].travelItemName,
-          type: expenseLinks[0].travelItemType as 'location' | 'accommodation' | 'route'
+          type: expenseLinks[0].travelItemType as 'location' | 'accommodation' | 'route',
+          splitMode: expenseLinks[0].splitMode,
+          splitValue: expenseLinks[0].splitValue
         });
       }
     })

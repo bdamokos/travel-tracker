@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import TravelItemSelector from './TravelItemSelector';
 import AriaSelect from './AriaSelect';
@@ -34,9 +34,31 @@ export default function MultiRouteLinkManager({
   const [splitMode, setSplitMode] = useState<'equal' | 'percentage' | 'fixed'>('equal');
   const [showAddSelector, setShowAddSelector] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  
+  // Refs to prevent infinite loops when syncing with parent
+  const isInternalUpdate = useRef(false);
+  const prevExpenseId = useRef<string | undefined>(expenseId);
 
-  // Initialize from props - always sync with initialLinks to prevent stale state
+  // Initialize from props - only when expense actually changes
   useEffect(() => {
+    // Only reset when working with a different expense
+    const expenseChanged = expenseId !== prevExpenseId.current;
+    
+    if (expenseChanged) {
+      prevExpenseId.current = expenseId;
+      // If switching expenses, we always want to load the new links,
+      // ignoring any pending internal update flags
+      isInternalUpdate.current = false;
+    } else if (isInternalUpdate.current) {
+      // Skip if this is an internal update for the *same* expense
+      isInternalUpdate.current = false;
+      return;
+    } else if (links.length > 0) {
+      // Same expense, not an internal update, but we have local state.
+      // Stick with local state to preserve edits (prevent loop).
+      return;
+    }
+    
     if (initialLinks.length > 0) {
       const withTempIds = initialLinks.map((link) => ({
         ...link,
@@ -54,7 +76,8 @@ export default function MultiRouteLinkManager({
       setLinks([]);
       setSplitMode('equal');
     }
-  }, [initialLinks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLinks, expenseId]);
 
   // Calculate split amounts based on current mode
   const linksWithSplitValues = useMemo(() => {
@@ -118,14 +141,18 @@ export default function MultiRouteLinkManager({
     return { valid: errors.length === 0, errors };
   }, [linksWithSplitValues, splitMode, expenseAmount, expenseCurrency]);
 
-  // Notify parent of changes
+  // Notify parent of changes - mark as internal update to prevent loop
   useEffect(() => {
+    // Mark that the next prop change is a result of this update
+    isInternalUpdate.current = true;
+    
     if (validation.valid && links.length > 0) {
       onLinksChange(linksWithSplitValues);
     } else if (links.length === 0) {
       onLinksChange([]);
     }
-  }, [linksWithSplitValues, validation.valid, links.length, onLinksChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linksWithSplitValues, validation.valid, links.length]);
 
   const handleAddLink = (newLink: TravelLinkInfo | undefined) => {
     if (!newLink) return;

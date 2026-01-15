@@ -226,14 +226,13 @@ export class ExpenseLinkingService {
       case 'accommodation':
         return tripData.accommodations?.find((item: Accommodation) => item.id === travelLinkInfo.id) || null;
       case 'route': {
-        // Search in parent routes
-        const parentRoute = tripData.travelData?.routes?.find((item: Transportation) => item.id === travelLinkInfo.id);
-        if (parentRoute) {
-          return parentRoute;
-        }
-
-        // Search in subRoutes
+        // Search parent routes and subRoutes in a single loop for performance
         for (const route of tripData.travelData?.routes || []) {
+          // Check parent route
+          if (route.id === travelLinkInfo.id) {
+            return route;
+          }
+          // Check sub-routes in the same iteration
           if (route.subRoutes) {
             const subRoute = route.subRoutes.find((sub) => sub.id === travelLinkInfo.id);
             if (subRoute) {
