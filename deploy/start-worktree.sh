@@ -26,11 +26,30 @@ fi
 branch_name="$1"
 target_dir="${2:-}"
 
-script_dir="$(cd "$(dirname "$0")" && pwd)"
+# Get the script directory, handling both direct execution and sourcing in bash/zsh
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+  script_path="${BASH_SOURCE[0]}"
+elif [[ -n "${ZSH_VERSION:-}" ]]; then
+  script_path="${(%):-%x}"
+else
+  script_path="$0"
+fi
+
+script_dir="$(cd "$(dirname "$script_path")" && pwd)"
+
+# repo_root is the root of the current worktree (or main repo) - used for context
 repo_root="$(git -C "$script_dir" rev-parse --show-toplevel)"
 
+# main_repo_root is the root of the main repository - used for paths
+git_common_dir="$(git -C "$script_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo ".git")"
+if [[ "$git_common_dir" == ".git" || ! "$git_common_dir" =~ ^/ ]]; then
+  main_repo_root="$repo_root"
+else
+  main_repo_root="$(dirname "$git_common_dir")"
+fi
+
 if [[ -z "$target_dir" ]]; then
-  target_dir="${repo_root}/.worktrees/${branch_name}"
+  target_dir="${main_repo_root}/.worktrees/${branch_name}"
 fi
 
 current_branch="$(git -C "$repo_root" symbolic-ref --quiet --short HEAD || true)"
@@ -42,7 +61,7 @@ else
   git -C "$repo_root" worktree add -b "$branch_name" "$target_dir" "$base_branch"
 fi
 
-source_env="${repo_root}/deploy/.env"
+source_env="${main_repo_root}/deploy/.env"
 dest_env="${target_dir}/deploy/.env"
 
 if [[ -f "$source_env" && ! -f "$dest_env" ]]; then
