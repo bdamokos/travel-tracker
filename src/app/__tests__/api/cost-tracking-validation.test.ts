@@ -40,12 +40,11 @@ describe('Cost Tracking API Validation', () => {
       locations: [{
         id: 'location-1',
         name: 'Test Location',
-        coordinates: { lat: 52.5, lng: 13.4 },
-        country: 'Germany',
+        coordinates: [52.5, 13.4],
+        date: new Date('2024-01-05'),
         costTrackingLinks: [{
           expenseId: hasValidLinks ? 'expense-1' : 'non-existent-expense',
-          linkType: 'manual',
-          notes: 'Test link'
+          description: 'Test link'
         }]
       }],
       routes: [],
@@ -116,12 +115,11 @@ describe('Cost Tracking API Validation', () => {
       tripData.travelData!.locations.push({
         id: 'location-2',
         name: 'Train Station',
-        coordinates: { lat: 52.6, lng: 13.5 },
-        country: 'Germany',
+        coordinates: [52.6, 13.5],
+        date: new Date('2024-01-06'),
         costTrackingLinks: [{
           expenseId: 'expense-2',
-          linkType: 'manual',
-          notes: 'Transport expense'
+          description: 'Transport expense'
         }]
       });
 
@@ -138,12 +136,11 @@ describe('Cost Tracking API Validation', () => {
       tripData.travelData!.locations.push({
         id: 'location-2',
         name: 'Invalid Location',
-        coordinates: { lat: 52.6, lng: 13.5 },
-        country: 'Germany',
+        coordinates: [52.6, 13.5],
+        date: new Date('2024-01-06'),
         costTrackingLinks: [{
           expenseId: 'non-existent-expense',
-          linkType: 'manual',
-          notes: 'Invalid link'
+          description: 'Invalid link'
         }]
       });
 
@@ -178,12 +175,10 @@ describe('Cost Tracking API Validation', () => {
         id: 'accommodation-1',
         name: 'Test Hotel',
         locationId: 'location-1',
-        checkIn: '2024-01-02',
-        checkOut: '2024-01-04',
+        createdAt: '2024-01-02T00:00:00.000Z',
         costTrackingLinks: [{
           expenseId: 'another-non-existent-expense',
-          linkType: 'manual',
-          notes: 'Invalid accommodation link'
+          description: 'Invalid accommodation link'
         }]
       }];
 
@@ -221,12 +216,11 @@ describe('Cost Tracking API Validation', () => {
         tripData.travelData!.locations.push({
           id: `location-${i}`,
           name: `Location ${i}`,
-          coordinates: { lat: 52.5 + i * 0.01, lng: 13.4 + i * 0.01 },
-          country: 'Germany',
+          coordinates: [52.5 + i * 0.01, 13.4 + i * 0.01],
+          date: new Date('2024-01-05'),
           costTrackingLinks: [{
             expenseId: `expense-${i}`,
-            linkType: 'manual',
-            notes: `Link ${i}`
+            description: `Link ${i}`
           }]
         });
       }

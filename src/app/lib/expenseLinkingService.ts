@@ -11,10 +11,12 @@ import { CostTrackingLink, Location, Transportation, Accommodation } from '@/app
 import { TravelLinkInfo } from './expenseTravelLookup';
 
 export interface ExpenseLinkOperation {
-  type: 'add' | 'remove' | 'update';
+  type: 'add' | 'remove' | 'update' | 'add_multiple';
   expenseId: string;
   travelLinkInfo?: TravelLinkInfo;
   description?: string;
+  // For multi-link operations
+  travelLinkInfos?: TravelLinkInfo[];
 }
 
 export class ExpenseLinkingService {
@@ -67,6 +69,17 @@ export class ExpenseLinkingService {
     }]);
   }
 
+  /**
+   * Create multiple expense-travel links with split configuration
+   */
+  async createMultipleLinks(expenseId: string, travelLinkInfos: TravelLinkInfo[]): Promise<void> {
+    await this.applyLinkOperations([{
+      type: 'add_multiple',
+      expenseId,
+      travelLinkInfos
+    }]);
+  }
+
   private ensureCostTrackingLinksExist(tripData: UnifiedTripData): void {
     // Ensure locations have costTrackingLinks
     if (tripData.travelData?.locations) {
@@ -77,11 +90,19 @@ export class ExpenseLinkingService {
       });
     }
 
-    // Ensure routes have costTrackingLinks
+    // Ensure routes and their subRoutes have costTrackingLinks
     if (tripData.travelData?.routes) {
       tripData.travelData.routes.forEach((route: Transportation) => {
         if (!route.costTrackingLinks) {
           route.costTrackingLinks = [];
+        }
+        // Also ensure subRoutes have costTrackingLinks
+        if (route.subRoutes) {
+          route.subRoutes.forEach((subRoute) => {
+            if (!subRoute.costTrackingLinks) {
+              subRoute.costTrackingLinks = [];
+            }
+          });
         }
       });
     }
@@ -97,13 +118,38 @@ export class ExpenseLinkingService {
   }
 
   private async applyOperation(tripData: UnifiedTripData, operation: ExpenseLinkOperation): Promise<void> {
-    const { type, expenseId, travelLinkInfo, description } = operation;
+    const { type, expenseId, travelLinkInfo, travelLinkInfos, description } = operation;
 
     // First, remove any existing links for this expense
     this.removeExistingLinks(tripData, expenseId);
 
-    // If adding or updating, create the new link
-    if (type === 'add' || type === 'update') {
+    // Handle add_multiple for multi-route linking
+    if (type === 'add_multiple') {
+      if (!travelLinkInfos || travelLinkInfos.length === 0) {
+        throw new Error('travelLinkInfos is required for add_multiple operations');
+      }
+
+      for (const linkInfo of travelLinkInfos) {
+        const travelItem = this.findTravelItem(tripData, linkInfo);
+        if (!travelItem) {
+          throw new Error(`Travel item ${linkInfo.id} not found`);
+        }
+
+        const newLink: CostTrackingLink = {
+          expenseId,
+          description: linkInfo.name,
+          splitMode: linkInfo.splitMode,
+          splitValue: linkInfo.splitValue
+        };
+
+        if (!travelItem.costTrackingLinks) {
+          travelItem.costTrackingLinks = [];
+        }
+        travelItem.costTrackingLinks.push(newLink);
+      }
+    }
+    // Handle single link add/update
+    else if (type === 'add' || type === 'update') {
       if (!travelLinkInfo) {
         throw new Error('travelLinkInfo is required for add/update operations');
       }
@@ -115,7 +161,9 @@ export class ExpenseLinkingService {
 
       const newLink: CostTrackingLink = {
         expenseId,
-        description: description || travelLinkInfo.name
+        description: description || travelLinkInfo.name,
+        splitMode: travelLinkInfo.splitMode,
+        splitValue: travelLinkInfo.splitValue
       };
 
       if (!travelItem.costTrackingLinks) {
@@ -137,13 +185,24 @@ export class ExpenseLinkingService {
       });
     }
 
-    // Remove from routes
+    // Remove from routes and their subRoutes
     if (tripData.travelData?.routes) {
       tripData.travelData.routes.forEach((route: Transportation) => {
         if (route.costTrackingLinks) {
           route.costTrackingLinks = route.costTrackingLinks.filter(
             (link: CostTrackingLink) => link.expenseId !== expenseId
           );
+        }
+
+        // Also check subRoutes
+        if (route.subRoutes) {
+          route.subRoutes.forEach((subRoute) => {
+            if (subRoute.costTrackingLinks) {
+              subRoute.costTrackingLinks = subRoute.costTrackingLinks.filter(
+                (link: CostTrackingLink) => link.expenseId !== expenseId
+              );
+            }
+          });
         }
       });
     }
@@ -166,8 +225,23 @@ export class ExpenseLinkingService {
         return tripData.travelData?.locations?.find((item: Location) => item.id === travelLinkInfo.id) || null;
       case 'accommodation':
         return tripData.accommodations?.find((item: Accommodation) => item.id === travelLinkInfo.id) || null;
-      case 'route':
-        return tripData.travelData?.routes?.find((item: Transportation) => item.id === travelLinkInfo.id) || null;
+      case 'route': {
+        // Search parent routes and subRoutes in a single loop for performance
+        for (const route of tripData.travelData?.routes || []) {
+          // Check parent route
+          if (route.id === travelLinkInfo.id) {
+            return route;
+          }
+          // Check sub-routes in the same iteration
+          if (route.subRoutes) {
+            const subRoute = route.subRoutes.find((sub) => sub.id === travelLinkInfo.id);
+            if (subRoute) {
+              return subRoute;
+            }
+          }
+        }
+        return null;
+      }
       default:
         return null;
     }
@@ -218,6 +292,14 @@ export async function syncLegacyTravelReferences(tripId: string): Promise<{
     tripData.travelData.routes.forEach(route => {
       if (!route.costTrackingLinks) {
         route.costTrackingLinks = [];
+      }
+      // Also ensure subRoutes have costTrackingLinks
+      if (route.subRoutes) {
+        route.subRoutes.forEach((subRoute) => {
+          if (!subRoute.costTrackingLinks) {
+            subRoute.costTrackingLinks = [];
+          }
+        });
       }
     });
   }

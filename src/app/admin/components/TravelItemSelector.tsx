@@ -12,10 +12,12 @@ interface TravelItem {
   type: 'location' | 'accommodation' | 'route';
   name: string;
   description: string;
-  date: string;
+  date?: string; // Optional since some items (like routes without departureTime) may not have a date
   tripTitle: string;
   locationName?: string; // For accommodations
   baseLocationId?: string;
+  parentRouteId?: string; // For route segments (subRoutes)
+  parentRouteName?: string; // For displaying hierarchy
 }
 
 const normalizeDateString = (dateValue?: string | Date | null) => {
@@ -55,6 +57,11 @@ const formatItemLabel = (item: TravelItem) => {
   if (item.type === 'accommodation') {
     const locationSuffix = item.locationName ? ` (in ${item.locationName})` : '';
     return `${item.name}${locationSuffix} - ${dateLabel}`;
+  }
+
+  if (item.type === 'route' && item.parentRouteName) {
+    // This is a sub-route segment
+    return `  ↳ ${item.name} - ${dateLabel}`;
   }
 
   return `${item.name} - ${dateLabel}`;
@@ -165,17 +172,41 @@ export default function TravelItemSelector({
           });
         }
         
-        // Add routes
+        // Add routes and their sub-routes
         if (tripData.routes) {
-          tripData.routes.forEach((route: { id: string; from: string; to: string; transportType: Transportation['type']; date: Date }) => {
+          tripData.routes.forEach((route: Transportation) => {
+            // Extract date from departureTime if available (Transportation doesn't have a date field)
+            const routeDate = route.departureTime ? route.departureTime.split('T')[0] : undefined;
+            const routeName = `${route.from} → ${route.to}`;
+
+            // Add parent route
             allItems.push({
               id: route.id,
               type: 'route',
-              name: `${route.from} → ${route.to}`,
-              description: `${route.transportType} transport`,
-              date: route.date instanceof Date ? route.date.toISOString().split('T')[0] : route.date,
+              name: routeName,
+              description: `${route.type} transport`,
+              date: routeDate,
               tripTitle: tripData.title
             });
+
+            // Add sub-routes if they exist
+            if (route.subRoutes && route.subRoutes.length > 0) {
+              route.subRoutes.forEach((subRoute) => {
+                // Extract date from subRoute's departureTime if available, otherwise use parent route's date
+                const subRouteDate = subRoute.departureTime ? subRoute.departureTime.split('T')[0] : routeDate;
+
+                allItems.push({
+                  id: subRoute.id,
+                  type: 'route',
+                  name: `${subRoute.from} → ${subRoute.to}`,
+                  description: `${subRoute.type} transport (segment)`,
+                  date: subRouteDate,
+                  tripTitle: tripData.title,
+                  parentRouteId: route.id,
+                  parentRouteName: routeName
+                });
+              });
+            }
           });
         }
         
@@ -196,8 +227,12 @@ export default function TravelItemSelector({
           });
         }
         
-        // Sort by date
-        allItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // Sort by date (items without dates go to the end)
+        allItems.sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : Number.MAX_SAFE_INTEGER;
+          const dateB = b.date ? new Date(b.date).getTime() : Number.MAX_SAFE_INTEGER;
+          return dateA - dateB;
+        });
         setTravelItems(allItems);
       } catch (error) {
         console.error('Error loading travel items:', error);

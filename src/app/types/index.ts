@@ -23,6 +23,10 @@ export type TripUpdate = {
 export type CostTrackingLink = {
   expenseId: string;
   description?: string;
+  // Multi-route expense distribution
+  splitMode?: 'equal' | 'percentage' | 'fixed';
+  splitValue?: number; // For 'percentage' (0-100) or 'fixed' (amount in expense currency)
+  // If splitMode is undefined, this link represents 100% of the expense (legacy single-link behavior)
 };
 
 // Independent accommodation entity

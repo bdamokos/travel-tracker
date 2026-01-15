@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
+import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 
 interface ExpenseLink {
   expenseId: string;
@@ -7,6 +9,42 @@ interface ExpenseLink {
   travelItemName: string;
   travelItemType: 'location' | 'accommodation' | 'route';
   description?: string;
+  splitMode?: 'equal' | 'percentage' | 'fixed';
+  splitValue?: number;
+}
+
+function validateSplitConfiguration(
+  links: TravelLinkInfo[],
+  expenseAmount: number
+): { valid: boolean; error?: string } {
+  const percentageLinks = links.filter(l => l.splitMode === 'percentage' && l.splitValue !== undefined);
+  const fixedLinks = links.filter(l => l.splitMode === 'fixed' && l.splitValue !== undefined);
+
+  // Validate percentage splits
+  if (percentageLinks.length > 0) {
+    const totalPercentage = percentageLinks.reduce((sum, link) => sum + (link.splitValue || 0), 0);
+    const tolerance = 0.5; // ±0.5% tolerance
+    if (Math.abs(totalPercentage - 100) > tolerance) {
+      return {
+        valid: false,
+        error: `Percentage split values must sum to 100% (±${tolerance}%), but got ${totalPercentage.toFixed(2)}%`
+      };
+    }
+  }
+
+  // Validate fixed splits
+  if (fixedLinks.length > 0) {
+    const totalFixed = fixedLinks.reduce((sum, link) => sum + (link.splitValue || 0), 0);
+    const tolerance = 0.01; // 1 cent tolerance
+    if (Math.abs(totalFixed - expenseAmount) > tolerance) {
+      return {
+        valid: false,
+        error: `Fixed split values must sum to expense amount ${expenseAmount.toFixed(2)}, but got ${totalFixed.toFixed(2)}`
+      };
+    }
+  }
+
+  return { valid: true };
 }
 
 export async function GET(
@@ -51,7 +89,9 @@ export async function GET(
                 travelItemId: location.id,
                 travelItemName: location.name,
                 travelItemType: 'location',
-                description: link.description
+                description: link.description,
+                splitMode: link.splitMode,
+                splitValue: link.splitValue
               });
               processedExpenseIds.add(link.expenseId);
             }
@@ -72,7 +112,9 @@ export async function GET(
                 travelItemId: accommodation.id,
                 travelItemName: accommodation.name,
                 travelItemType: 'accommodation',
-                description: link.description
+                description: link.description,
+                splitMode: link.splitMode,
+                splitValue: link.splitValue
               });
               processedExpenseIds.add(link.expenseId);
             }
@@ -93,7 +135,9 @@ export async function GET(
                 travelItemId: route.id,
                 travelItemName: `${route.from} → ${route.to}`,
                 travelItemType: 'route',
-                description: link.description
+                description: link.description,
+                splitMode: link.splitMode,
+                splitValue: link.splitValue
               });
               processedExpenseIds.add(link.expenseId);
             }
@@ -109,7 +153,9 @@ export async function GET(
                   travelItemId: segment.id,
                   travelItemName: `${segment.from} → ${segment.to}`,
                   travelItemType: 'route',
-                  description: link.description
+                  description: link.description,
+                  splitMode: link.splitMode,
+                  splitValue: link.splitValue
                 });
                 processedExpenseIds.add(link.expenseId);
               }
@@ -180,8 +226,147 @@ export async function GET(
 
   } catch (error) {
     console.error('Error fetching expense links:', error);
-    return NextResponse.json({ 
-      error: 'Internal server error' 
+    return NextResponse.json({
+      error: 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+/**
+ * POST - Create or update expense links (supports both single and multi-link)
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tripId: string }> }
+) {
+  try {
+    const { tripId } = await params;
+
+    if (!tripId) {
+      return NextResponse.json({
+        error: 'Trip ID is required'
+      }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { expenseId, links } = body as {
+      expenseId: string;
+      links: TravelLinkInfo[] | TravelLinkInfo | undefined
+    };
+
+    if (!expenseId) {
+      return NextResponse.json({
+        error: 'Expense ID is required'
+      }, { status: 400 });
+    }
+
+    const linkingService = createExpenseLinkingService(tripId);
+
+    // Handle remove operation (no links provided)
+    if (!links || (Array.isArray(links) && links.length === 0)) {
+      await linkingService.removeLink(expenseId);
+      return NextResponse.json({
+        success: true,
+        message: 'Expense link removed'
+      });
+    }
+
+    // Handle multi-link operation
+    if (Array.isArray(links)) {
+      if (links.length > 1) {
+        // Validate split configuration before persisting
+        const tripData = await loadUnifiedTripData(tripId);
+        if (!tripData) {
+          return NextResponse.json({
+            error: 'Trip data not found'
+          }, { status: 404 });
+        }
+
+        const expense = tripData.costData?.expenses?.find(exp => exp.id === expenseId);
+        const expenseAmount = expense?.amount || 0;
+
+        const validation = validateSplitConfiguration(links, expenseAmount);
+        if (!validation.valid) {
+          return NextResponse.json({
+            error: validation.error,
+            code: 'SPLIT_VALIDATION_FAILED'
+          }, { status: 400 });
+        }
+
+        // Multi-link with split configuration
+        await linkingService.createMultipleLinks(expenseId, links);
+        return NextResponse.json({
+          success: true,
+          message: `Expense linked to ${links.length} routes with split configuration`
+        });
+      } else if (links.length === 1) {
+        // Single link from array
+        await linkingService.createOrUpdateLink(expenseId, links[0]);
+        return NextResponse.json({
+          success: true,
+          message: 'Expense link created'
+        });
+      }
+    }
+
+    // Handle single-link operation (backward compatibility)
+    if (!Array.isArray(links)) {
+      await linkingService.createOrUpdateLink(expenseId, links);
+      return NextResponse.json({
+        success: true,
+        message: 'Expense link created'
+      });
+    }
+
+    return NextResponse.json({
+      error: 'Invalid request format'
+    }, { status: 400 });
+
+  } catch (error) {
+    console.error('Error saving expense links:', error);
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE - Remove expense links
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ tripId: string }> }
+) {
+  try {
+    const { tripId } = await params;
+
+    if (!tripId) {
+      return NextResponse.json({
+        error: 'Trip ID is required'
+      }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const expenseId = searchParams.get('expenseId');
+
+    if (!expenseId) {
+      return NextResponse.json({
+        error: 'Expense ID is required'
+      }, { status: 400 });
+    }
+
+    const linkingService = createExpenseLinkingService(tripId);
+    await linkingService.removeLink(expenseId);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Expense link removed'
+    });
+
+  } catch (error) {
+    console.error('Error deleting expense link:', error);
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }
