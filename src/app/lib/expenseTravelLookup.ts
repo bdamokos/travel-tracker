@@ -193,7 +193,9 @@ export class ExpenseTravelLookup {
       const linkInfo = this.resolveTravelLinkFromReference(expense);
 
       if (linkInfo) {
-        // For legacy travelReference, add as a single link (no multi-route support)
+        if (this.travelReferenceHydratedExpenseIds.has(expense.id)) {
+          this.expenseToTravelMap.delete(expense.id);
+        }
         this.addLinkToMap(expense.id, linkInfo);
         updatedHydratedIds.add(expense.id);
       } else if (this.travelReferenceHydratedExpenseIds.has(expense.id)) {
@@ -443,18 +445,12 @@ export function calculateExpenseTotalsByLocation({
         count: isFirstValidLink ? currentTotal.count + 1 : currentTotal.count
       };
 
-      // Calculate split amount for this link
-      const costTrackingLink: CostTrackingLink = {
-        expenseId: expense.id,
-        description: link.name,
-        splitMode: link.splitMode,
-        splitValue: link.splitValue
-      };
-
       let amountForThisLink = expenseAmount;
 
       // Apply split calculation only if there are multiple links
       if (links.length > 1) {
+        const linkIndex = links.indexOf(link);
+        const costTrackingLink = allCostTrackingLinks[linkIndex];
         amountForThisLink = calculateSplitAmount(expenseAmount, costTrackingLink, allCostTrackingLinks);
       }
 
@@ -462,7 +458,7 @@ export function calculateExpenseTotalsByLocation({
         const baseAmount = expense.cashTransaction.baseAmount;
         // Split the base amount too
         const splitBaseAmount = links.length > 1
-          ? calculateSplitAmount(baseAmount, costTrackingLink, allCostTrackingLinks)
+          ? calculateSplitAmount(baseAmount, allCostTrackingLinks[links.indexOf(link)], allCostTrackingLinks)
           : baseAmount;
         applyTrackedAmount(locationId, nextTotal, category, splitBaseAmount);
         return;

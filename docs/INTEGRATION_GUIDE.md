@@ -368,7 +368,7 @@ Find where `TravelItemSelector` is rendered and replace with:
 
 Both forms will need to handle the API calls. You can either:
 
-**Option A: Use the hook (recommended)**
+### Option A: Use the hook (recommended)
 ```typescript
 const { saveLinks } = useMultiRouteLinks();
 
@@ -380,7 +380,7 @@ await saveLinks({
 });
 ```
 
-**Option B: Direct API call**
+### Option B: Direct API call
 ```typescript
 await fetch(`/api/travel-data/${tripId}/expense-links`, {
   method: 'POST',

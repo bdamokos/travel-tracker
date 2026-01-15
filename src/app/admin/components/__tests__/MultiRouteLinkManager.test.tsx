@@ -201,6 +201,30 @@ describe('MultiRouteLinkManager', () => {
       // Should show success message (equal split is always valid)
       expect(screen.getByText(/Expense of 100\.00 EUR split across 2 routes/)).toBeInTheDocument();
     });
+
+    it('shows error when percentage split does not sum to 100%', async () => {
+      const user = userEvent.setup();
+      const initialLinks: TravelLinkInfo[] = [
+        { id: 'route-1', type: 'route', name: 'Route 1', splitMode: 'percentage', splitValue: 60 },
+        { id: 'route-2', type: 'route', name: 'Route 2', splitMode: 'percentage', splitValue: 30 },
+      ];
+      
+      render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
+      
+      expect(screen.getByText(/Percentages must sum to 100%/)).toBeInTheDocument();
+    });
+
+    it('shows error when fixed split does not sum to expense amount', async () => {
+      const user = userEvent.setup();
+      const initialLinks: TravelLinkInfo[] = [
+        { id: 'route-1', type: 'route', name: 'Route 1', splitMode: 'fixed', splitValue: 40 },
+        { id: 'route-2', type: 'route', name: 'Route 2', splitMode: 'fixed', splitValue: 40 },
+      ];
+      
+      render(<MultiRouteLinkManager {...defaultProps} expenseAmount={100} initialLinks={initialLinks} />);
+      
+      expect(screen.getByText(/Fixed amounts must sum to 100/)).toBeInTheDocument();
+    });
   });
 
   describe('state management (infinite loop prevention)', () => {
