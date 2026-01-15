@@ -446,10 +446,10 @@ export function calculateExpenseTotalsByLocation({
       };
 
       let amountForThisLink = expenseAmount;
+      const linkIndex = links.length > 1 ? links.indexOf(link) : -1;
 
       // Apply split calculation only if there are multiple links
-      if (links.length > 1) {
-        const linkIndex = links.indexOf(link);
+      if (linkIndex >= 0) {
         const costTrackingLink = allCostTrackingLinks[linkIndex];
         amountForThisLink = calculateSplitAmount(expenseAmount, costTrackingLink, allCostTrackingLinks);
       }
@@ -457,8 +457,8 @@ export function calculateExpenseTotalsByLocation({
       if (expense.cashTransaction?.kind === 'allocation') {
         const baseAmount = expense.cashTransaction.baseAmount;
         // Split the base amount too
-        const splitBaseAmount = links.length > 1
-          ? calculateSplitAmount(baseAmount, allCostTrackingLinks[links.indexOf(link)], allCostTrackingLinks)
+        const splitBaseAmount = linkIndex >= 0
+          ? calculateSplitAmount(baseAmount, allCostTrackingLinks[linkIndex], allCostTrackingLinks)
           : baseAmount;
         applyTrackedAmount(locationId, nextTotal, category, splitBaseAmount);
         return;

@@ -13,6 +13,40 @@ interface ExpenseLink {
   splitValue?: number;
 }
 
+function validateSplitConfiguration(
+  links: TravelLinkInfo[],
+  expenseAmount: number
+): { valid: boolean; error?: string } {
+  const percentageLinks = links.filter(l => l.splitMode === 'percentage' && l.splitValue !== undefined);
+  const fixedLinks = links.filter(l => l.splitMode === 'fixed' && l.splitValue !== undefined);
+
+  // Validate percentage splits
+  if (percentageLinks.length > 0) {
+    const totalPercentage = percentageLinks.reduce((sum, link) => sum + (link.splitValue || 0), 0);
+    const tolerance = 0.5; // ±0.5% tolerance
+    if (Math.abs(totalPercentage - 100) > tolerance) {
+      return {
+        valid: false,
+        error: `Percentage split values must sum to 100% (±${tolerance}%), but got ${totalPercentage.toFixed(2)}%`
+      };
+    }
+  }
+
+  // Validate fixed splits
+  if (fixedLinks.length > 0) {
+    const totalFixed = fixedLinks.reduce((sum, link) => sum + (link.splitValue || 0), 0);
+    const tolerance = 0.01; // 1 cent tolerance
+    if (Math.abs(totalFixed - expenseAmount) > tolerance) {
+      return {
+        valid: false,
+        error: `Fixed split values must sum to expense amount ${expenseAmount.toFixed(2)}, but got ${totalFixed.toFixed(2)}`
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ tripId: string }> }
@@ -240,6 +274,25 @@ export async function POST(
     // Handle multi-link operation
     if (Array.isArray(links)) {
       if (links.length > 1) {
+        // Validate split configuration before persisting
+        const tripData = await loadUnifiedTripData(tripId);
+        if (!tripData) {
+          return NextResponse.json({
+            error: 'Trip data not found'
+          }, { status: 404 });
+        }
+
+        const expense = tripData.costData?.expenses?.find(exp => exp.id === expenseId);
+        const expenseAmount = expense?.amount || 0;
+
+        const validation = validateSplitConfiguration(links, expenseAmount);
+        if (!validation.valid) {
+          return NextResponse.json({
+            error: validation.error,
+            code: 'SPLIT_VALIDATION_FAILED'
+          }, { status: 400 });
+        }
+
         // Multi-link with split configuration
         await linkingService.createMultipleLinks(expenseId, links);
         return NextResponse.json({

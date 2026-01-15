@@ -113,10 +113,11 @@ useEffect(() => {
 Add link saving logic after creating the expense (around line 106-108):
 
 ```typescript
-// Save expense
+// Save expense with backward-compatible single-link parameter
+// (undefined in multi-link mode; actual multi-links saved separately below)
 onExpenseAdded(expense, selectedTravelLinkInfo);
 
-// Save expense links if needed
+// Save multi-route links separately (if applicable)
 if (expense.id && tripId) {
   const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
 
@@ -205,13 +206,15 @@ Find the `TravelItemSelector` component (around line 289) and replace with:
 
 ## ExpenseInlineEditor Integration
 
-The integration is similar but simpler since ExpenseInlineEditor is a smaller component.
+**Note**: ExpenseInlineEditor is designed for editing existing expenses only (assumes `expense.id` exists). For new expense creation, use ExpenseForm instead.
+
+The integration is similar but simpler since ExpenseInlineEditor is a smaller component. Unlike ExpenseForm which saves links directly via the `useMultiRouteLinks` hook, ExpenseInlineEditor delegates link persistence to its parent component via the `onSave` callback. The parent should call `useMultiRouteLinks` or perform API saves with the links received from `onSave`.
 
 ### Step 1: Add Imports
 
 ```typescript
 import MultiRouteLinkManager from './MultiRouteLinkManager';
-import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
+// Note: useMultiRouteLinks is typically used in the parent component, not here
 ```
 
 ### Step 2: Update Props Interface
@@ -234,6 +237,8 @@ After line 34 (`const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = ...`
 // Multi-route linking state
 const [useMultiLink, setUseMultiLink] = useState(false);
 const [multiLinks, setMultiLinks] = useState<TravelLinkInfo[]>([]);
+
+// Note: Link saving is delegated to parent via onSave; parent uses useMultiRouteLinks
 ```
 
 ### Step 4: Add useEffect to Load Links
@@ -366,7 +371,11 @@ Find where `TravelItemSelector` is rendered and replace with:
 
 ## API Integration Notes
 
-Both forms will need to handle the API calls. You can either:
+**When to use this section**:
+- **ExpenseForm**: Link-saving is already shown in Step 4 using Option A (the hook)
+- **ExpenseInlineEditor**: The parent component receiving links via `onSave` should implement Option A or B below
+
+Choose an option for saving links to the API:
 
 ### Option A: Use the hook (recommended)
 ```typescript
@@ -403,6 +412,7 @@ After integrating, test the following scenarios:
 - [ ] Edit expense with existing single link
 - [ ] Remove link from expense
 - [ ] Switch from multi to single mode
+- [ ] Load expense with legacy travelReference (backward compatibility)
 
 ### Multi-Link Mode
 - [ ] Create expense with 2+ routes
@@ -414,7 +424,6 @@ After integrating, test the following scenarios:
 ### Edge Cases
 - [ ] Toggle between modes without saving
 - [ ] Load expense with no links
-- [ ] Load expense with legacy travelReference
 - [ ] Split configuration persists across edits
 - [ ] Error handling for API failures
 
