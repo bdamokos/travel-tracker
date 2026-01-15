@@ -8,6 +8,7 @@ import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLook
 import AriaSelect from './AriaSelect';
 import AccessibleDatePicker from './AccessibleDatePicker';
 import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
+import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
@@ -35,6 +36,7 @@ export default function ExpenseInlineEditor({
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
   const [useMultiLink, setUseMultiLink] = useState(false);
   const [multiLinks, setMultiLinks] = useState<TravelLinkInfo[]>([]);
+  const { error: linkError, saveLinks, clearError } = useMultiRouteLinks();
 
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
@@ -83,27 +85,62 @@ export default function ExpenseInlineEditor({
             splitMode: expenseLinks[0].splitMode,
             splitValue: expenseLinks[0].splitValue
           });
+        } else {
+          // No links found, clear state
+          setUseMultiLink(false);
+          setSelectedTravelLinkInfo(undefined);
+          setMultiLinks([]);
         }
       })
       .catch(error => {
         if (error.name !== 'AbortError') {
           console.error('Error loading expense links:', error);
+          // Reset state on error
+          setUseMultiLink(false);
+          setSelectedTravelLinkInfo(undefined);
+          setMultiLinks([]);
         }
       });
 
     return () => abortController.abort();
   }, [expense.id, tripId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     if (!formData.date || !formData.amount || formData.amount === 0 || !formData.category) {
       return;
     }
 
-    const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
-    onSave(formData, linksToSave);
+    try {
+      // Save expense links first if needed
+      if (formData.id && tripId) {
+        const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
+
+        if (linksToSave && (Array.isArray(linksToSave) ? linksToSave.length > 0 : true)) {
+          const linkSuccess = await saveLinks({
+            expenseId: formData.id,
+            tripId,
+            links: linksToSave
+          });
+          if (!linkSuccess) {
+            // Error is already set in linkError state, just return to show it
+            return;
+          }
+        }
+      }
+
+      // Clear any previous link errors
+      clearError();
+
+      // Then save the expense data
+      const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
+      onSave(formData, linksToSave);
+    } catch (error) {
+      console.error('Error saving expense:', error);
+      // Error will be displayed via linkError state
+    }
   };
 
   return (
@@ -293,7 +330,7 @@ export default function ExpenseInlineEditor({
               expenseId={formData.id}
               tripId={tripId}
               expenseAmount={formData.amount || 0}
-              expenseCurrency={formData.currency || 'EUR'}
+              expenseCurrency={formData.currency || currency}
               transactionDate={formData.date}
               initialLinks={multiLinks}
               onLinksChange={setMultiLinks}
@@ -320,6 +357,14 @@ export default function ExpenseInlineEditor({
                 }));
               }}
             />
+          )}
+
+          {linkError && (
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Error saving links: {linkError}
+              </p>
+            </div>
           )}
         </div>
 

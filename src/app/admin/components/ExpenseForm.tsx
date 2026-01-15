@@ -92,6 +92,7 @@ export default function ExpenseForm({
         } catch (error) {
           if (error instanceof Error && error.name !== 'AbortError') {
             console.error('Error loading existing travel link:', error);
+            setUseMultiLink(false);
             setSelectedTravelLinkInfo(undefined);
             setMultiLinks([]);
           }
@@ -155,7 +156,9 @@ export default function ExpenseForm({
             links: linksToSave
           });
           if (!linkSuccess) {
-            throw new Error(linkError || 'Failed to save expense links');
+            // linkError state is set by the hook and displayed below
+            // Don't reference it here as it may be stale due to async state updates
+            throw new Error('Failed to save expense links. Please check the error message below and try again.');
           }
         }
       }
