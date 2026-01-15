@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Expense, ExpenseType } from '@/app/types';
 import TravelItemSelector from './TravelItemSelector';
+import MultiRouteLinkManager from './MultiRouteLinkManager';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';
 import AccessibleDatePicker from './AccessibleDatePicker';
@@ -10,7 +11,7 @@ import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
-  onSave: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => void;
+  onSave: (expense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => void;
   onCancel: () => void;
   currency: string;
   categories: string[];
@@ -32,10 +33,66 @@ export default function ExpenseInlineEditor({
     ...expense
   });
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+  const [useMultiLink, setUseMultiLink] = useState(false);
+  const [multiLinks, setMultiLinks] = useState<TravelLinkInfo[]>([]);
 
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
   const disableFinancialFields = isCashSourceExpense || isCashAllocationExpense;
+
+  // Load existing links when mounting (ExpenseInlineEditor is for existing expenses only)
+  useEffect(() => {
+    if (!expense.id || !tripId) return;
+
+    const abortController = new AbortController();
+
+    fetch(`/api/travel-data/${tripId}/expense-links`, {
+      signal: abortController.signal
+    })
+      .then(async response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load expense links: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then((links: Array<{
+        expenseId: string;
+        travelItemId: string;
+        travelItemName: string;
+        travelItemType: 'location' | 'accommodation' | 'route';
+        splitMode?: 'equal' | 'percentage' | 'fixed';
+        splitValue?: number;
+      }>) => {
+        const expenseLinks = links.filter(link => link.expenseId === expense.id);
+
+        if (expenseLinks.length > 1) {
+          setUseMultiLink(true);
+          setMultiLinks(expenseLinks.map(link => ({
+            id: link.travelItemId,
+            type: link.travelItemType,
+            name: link.travelItemName,
+            splitMode: link.splitMode,
+            splitValue: link.splitValue
+          })));
+        } else if (expenseLinks.length === 1) {
+          setUseMultiLink(false);
+          setSelectedTravelLinkInfo({
+            id: expenseLinks[0].travelItemId,
+            type: expenseLinks[0].travelItemType,
+            name: expenseLinks[0].travelItemName,
+            splitMode: expenseLinks[0].splitMode,
+            splitValue: expenseLinks[0].splitValue
+          });
+        }
+      })
+      .catch(error => {
+        if (error.name !== 'AbortError') {
+          console.error('Error loading expense links:', error);
+        }
+      });
+
+    return () => abortController.abort();
+  }, [expense.id, tripId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +102,8 @@ export default function ExpenseInlineEditor({
       return;
     }
 
-    onSave(formData, selectedTravelLinkInfo);
+    const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
+    onSave(formData, linksToSave);
   };
 
   return (
@@ -210,25 +268,59 @@ export default function ExpenseInlineEditor({
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
             Link to Travel Item
           </label>
-          <TravelItemSelector
-            expenseId={formData.id}
-            tripId={tripId}
-            travelLookup={travelLookup}
-            transactionDate={formData.date}
-            onReferenceChange={(travelLinkInfo) => {
-              setSelectedTravelLinkInfo(travelLinkInfo);
-              setFormData(prev => ({
-                ...prev,
-                travelReference: travelLinkInfo ? {
-                  type: travelLinkInfo.type,
-                  locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
-                  accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
-                  routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
-                  description: travelLinkInfo.name,
-                } : undefined,
-              }));
-            }}
-          />
+
+          <label className="flex items-center mb-2">
+            <input
+              type="checkbox"
+              checked={useMultiLink}
+              onChange={(e) => {
+                setUseMultiLink(e.target.checked);
+                if (e.target.checked) {
+                  setSelectedTravelLinkInfo(undefined);
+                } else {
+                  setMultiLinks([]);
+                }
+              }}
+              className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-700 dark:text-gray-300">
+              Link to multiple routes (split cost)
+            </span>
+          </label>
+
+          {useMultiLink ? (
+            <MultiRouteLinkManager
+              expenseId={formData.id}
+              tripId={tripId}
+              expenseAmount={formData.amount || 0}
+              expenseCurrency={formData.currency || 'EUR'}
+              transactionDate={formData.date}
+              initialLinks={multiLinks}
+              onLinksChange={setMultiLinks}
+              className="mt-2"
+            />
+          ) : (
+            <TravelItemSelector
+              expenseId={formData.id}
+              tripId={tripId}
+              travelLookup={travelLookup}
+              transactionDate={formData.date}
+              initialValue={selectedTravelLinkInfo}
+              onReferenceChange={(travelLinkInfo) => {
+                setSelectedTravelLinkInfo(travelLinkInfo);
+                setFormData(prev => ({
+                  ...prev,
+                  travelReference: travelLinkInfo ? {
+                    type: travelLinkInfo.type,
+                    locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
+                    accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
+                    routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
+                    description: travelLinkInfo.name,
+                  } : undefined,
+                }));
+              }}
+            />
+          )}
         </div>
 
         {/* Action Buttons */}

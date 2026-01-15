@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import TravelItemSelector from './TravelItemSelector';
+import MultiRouteLinkManager from './MultiRouteLinkManager';
 import AriaSelect from './AriaSelect';
 import { Expense, ExpenseType } from '@/app/types';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
 import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
 import AccessibleDatePicker from './AccessibleDatePicker';
 
@@ -12,7 +14,7 @@ import AccessibleDatePicker from './AccessibleDatePicker';
 interface ExpenseFormProps {
   currentExpense: Partial<Expense>;
   setCurrentExpense: React.Dispatch<React.SetStateAction<Partial<Expense>>>;
-  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => void;
+  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => void;
   editingExpenseIndex: number | null;
   setEditingExpenseIndex: (index: number | null) => void;
   currency: string;
@@ -35,42 +37,79 @@ export default function ExpenseForm({
   tripId
 }: ExpenseFormProps) {
   const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+  const [useMultiLink, setUseMultiLink] = useState(false);
+  const [multiLinks, setMultiLinks] = useState<TravelLinkInfo[]>([]);
+  const { error: linkError, saveLinks } = useMultiRouteLinks();
   const selectableCategories = categories.includes(CASH_CATEGORY_NAME)
     ? ((editingExpenseIndex !== null && currentExpense.category === CASH_CATEGORY_NAME)
         ? categories
         : categories.filter(category => category !== CASH_CATEGORY_NAME))
     : categories;
 
-  // Load existing travel link when editing an expense
+  // Load existing travel link(s) when editing an expense
   useEffect(() => {
+    let abortController: AbortController | null = null;
+
     if (editingExpenseIndex !== null && currentExpense.id && tripId) {
-      // Fetch existing links for this expense
-      fetch(`/api/travel-data/${tripId}/expense-links`)
-        .then(response => {
+      abortController = new AbortController();
+
+      const loadLinks = async () => {
+        try {
+          const response = await fetch(`/api/travel-data/${tripId}/expense-links`, {
+            signal: abortController!.signal
+          });
+
           if (!response.ok) {
-            throw new Error(`Failed to load expense links (${response.status})`);
+            throw new Error(`Failed to load expense links: ${response.statusText}`);
           }
-          return response.json();
-        })
-        .then((links: Array<{expenseId: string, travelItemId: string, travelItemName: string, travelItemType: string}>) => {
-          const existingLink = links.find(link => link.expenseId === currentExpense.id);
-          if (existingLink) {
+
+          const links = await response.json();
+          const expenseLinks = links.filter((link: { expenseId: string }) => link.expenseId === currentExpense.id);
+
+          if (expenseLinks.length > 1) {
+            setUseMultiLink(true);
+            setMultiLinks(expenseLinks.map((link: { travelItemId: string; travelItemType: 'location' | 'accommodation' | 'route'; travelItemName: string; splitMode?: 'equal' | 'percentage' | 'fixed'; splitValue?: number }) => ({
+              id: link.travelItemId,
+              type: link.travelItemType,
+              name: link.travelItemName,
+              splitMode: link.splitMode,
+              splitValue: link.splitValue
+            })));
+          } else if (expenseLinks.length === 1) {
+            setUseMultiLink(false);
             setSelectedTravelLinkInfo({
-              id: existingLink.travelItemId,
-              name: existingLink.travelItemName,
-              type: existingLink.travelItemType as 'location' | 'accommodation' | 'route'
+              id: expenseLinks[0].travelItemId,
+              type: expenseLinks[0].travelItemType,
+              name: expenseLinks[0].travelItemName,
+              splitMode: expenseLinks[0].splitMode,
+              splitValue: expenseLinks[0].splitValue
             });
           } else {
+            setUseMultiLink(false);
             setSelectedTravelLinkInfo(undefined);
+            setMultiLinks([]);
           }
-        })
-        .catch(error => {
-          console.error('Error loading existing travel link:', error);
-          setSelectedTravelLinkInfo(undefined);
-        });
+        } catch (error) {
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.error('Error loading existing travel link:', error);
+            setSelectedTravelLinkInfo(undefined);
+            setMultiLinks([]);
+          }
+        }
+      };
+
+      loadLinks();
     } else {
+      setUseMultiLink(false);
       setSelectedTravelLinkInfo(undefined);
+      setMultiLinks([]);
     }
+
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
   }, [editingExpenseIndex, currentExpense.id, tripId]);
 
   // React 19 Action for adding/updating expenses
@@ -101,8 +140,25 @@ export default function ExpenseForm({
         throw new Error(`Please fill in the following required fields: ${missing.join(', ')}`);
       }
 
-      // Call the parent handler
+      // Save expense with backward-compatible single-link parameter
+      // (undefined in multi-link mode; actual multi-links saved separately below)
       onExpenseAdded(expense, selectedTravelLinkInfo);
+
+      // Save expense links if needed (multi-link mode)
+      if (expense.id && tripId) {
+        const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
+
+        if (linksToSave && (Array.isArray(linksToSave) ? linksToSave.length > 0 : true)) {
+          const linkSuccess = await saveLinks({
+            expenseId: expense.id,
+            tripId,
+            links: linksToSave
+          });
+          if (!linkSuccess) {
+            throw new Error(linkError || 'Failed to save expense links');
+          }
+        }
+      }
       
       // Reset form state first
       if (editingExpenseIndex !== null) {
@@ -110,6 +166,8 @@ export default function ExpenseForm({
       }
       
       // Reset form data
+      setUseMultiLink(false);
+      setMultiLinks([]);
       setCurrentExpense({
         date: new Date(),
         amount: 0,
@@ -120,7 +178,7 @@ export default function ExpenseForm({
         notes: '',
         isGeneralExpense: false,
         expenseType: 'actual',
-        travelReference: selectedTravelLinkInfo ? {
+        travelReference: selectedTravelLinkInfo && !useMultiLink ? {
           type: selectedTravelLinkInfo.type,
           locationId: selectedTravelLinkInfo.type === 'location' ? selectedTravelLinkInfo.id : undefined,
           accommodationId: selectedTravelLinkInfo.type === 'accommodation' ? selectedTravelLinkInfo.id : undefined,
@@ -287,26 +345,67 @@ export default function ExpenseForm({
         </div>
 
         <div className="md:col-span-2">
-          <TravelItemSelector
-            expenseId={currentExpense.id ?? 'new-expense'}
-            tripId={tripId}
-            travelLookup={travelLookup}
-            transactionDate={currentExpense.date}
-            initialValue={selectedTravelLinkInfo}
-            onReferenceChange={(travelLinkInfo) => {
-              setSelectedTravelLinkInfo(travelLinkInfo);
-              setCurrentExpense(prev => ({
-                ...prev,
-                travelReference: travelLinkInfo ? {
-                  type: travelLinkInfo.type,
-                  locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
-                  accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
-                  routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
-                  description: travelLinkInfo.name,
-                } : undefined,
-              }));
-            }}
-          />
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={useMultiLink}
+              onChange={(e) => {
+                setUseMultiLink(e.target.checked);
+                if (e.target.checked) {
+                  setSelectedTravelLinkInfo(undefined);
+                } else {
+                  setMultiLinks([]);
+                }
+              }}
+              className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Link to multiple routes (split cost)
+            </span>
+          </label>
+        </div>
+
+        <div className="md:col-span-2">
+          {useMultiLink ? (
+            <MultiRouteLinkManager
+              expenseId={currentExpense.id ?? 'new-expense'}
+              tripId={tripId}
+              expenseAmount={currentExpense.amount || 0}
+              expenseCurrency={currentExpense.currency || currency}
+              transactionDate={currentExpense.date}
+              initialLinks={multiLinks}
+              onLinksChange={setMultiLinks}
+            />
+          ) : (
+            <TravelItemSelector
+              expenseId={currentExpense.id ?? 'new-expense'}
+              tripId={tripId}
+              travelLookup={travelLookup}
+              transactionDate={currentExpense.date}
+              initialValue={selectedTravelLinkInfo}
+              onReferenceChange={(travelLinkInfo) => {
+                setSelectedTravelLinkInfo(travelLinkInfo);
+                setCurrentExpense(prev => ({
+                  ...prev,
+                  travelReference: travelLinkInfo ? {
+                    type: travelLinkInfo.type,
+                    locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
+                    accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
+                    routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
+                    description: travelLinkInfo.name,
+                  } : undefined,
+                }));
+              }}
+            />
+          )}
+
+          {linkError && (
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Error saving links: {linkError}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="md:col-span-2 flex gap-2">
