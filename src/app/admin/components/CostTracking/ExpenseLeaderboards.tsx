@@ -108,6 +108,62 @@ const buildLeaderboardEntries = (
   }));
 };
 
+const buildCategoryLeaderboardEntries = (
+  expenses: Expense[],
+  breakdownType: 'country' | 'payee'
+): LeaderboardEntry[] => {
+  const groups = new Map<
+    string,
+    {
+      label: string;
+      count: number;
+      total: number;
+      breakdowns: Map<string, LeaderboardBreakdownItem>;
+    }
+  >();
+
+  expenses.forEach(expense => {
+    const category = expense.category?.trim();
+    if (!category) return;
+    const key = normalizeLabel(category);
+
+    // Determine breakdown label based on type
+    const breakdownLabel = breakdownType === 'country'
+      ? expense.country?.trim() || 'General'
+      : expense.notes?.trim() || expense.description?.trim() || 'Unknown';
+
+    const existing = groups.get(key) ?? {
+      label: category,
+      count: 0,
+      total: 0,
+      breakdowns: new Map()
+    };
+
+    existing.count += 1;
+    existing.total += expense.amount;
+
+    const breakdownEntry = existing.breakdowns.get(breakdownLabel) ?? {
+      label: breakdownLabel,
+      count: 0,
+      total: 0
+    };
+
+    breakdownEntry.count += 1;
+    breakdownEntry.total += expense.amount;
+    existing.breakdowns.set(breakdownLabel, breakdownEntry);
+
+    groups.set(key, existing);
+  });
+
+  return Array.from(groups.entries()).map(([key, value]) => ({
+    key,
+    label: value.label,
+    count: value.count,
+    total: value.total,
+    breakdowns: Array.from(value.breakdowns.values()).sort((a, b) => b.total - a.total)
+  }));
+};
+
 const getLocationDays = (location: Location): number => {
   if (location.duration && location.duration > 0) {
     return location.duration;
@@ -314,6 +370,7 @@ export default function ExpenseLeaderboards({
   locations
 }: ExpenseLeaderboardsProps) {
   const [locationCostMode, setLocationCostMode] = useState<'total' | 'perDay'>('total');
+  const [categoryBreakdownMode, setCategoryBreakdownMode] = useState<'country' | 'payee'>('country');
 
   const descriptionEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.description),
@@ -322,6 +379,10 @@ export default function ExpenseLeaderboards({
   const payeeEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.notes || expense.source),
     [expenses]
+  );
+  const categoryEntries = useMemo(
+    () => buildCategoryLeaderboardEntries(expenses, categoryBreakdownMode),
+    [expenses, categoryBreakdownMode]
   );
   const locationEntries = useMemo(() => {
     if (!locationTotals || !locations) {
@@ -376,6 +437,52 @@ export default function ExpenseLeaderboards({
     </div>
   );
 
+  const categoryHeaderExtras = (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        Breakdown by
+      </span>
+      <div
+        role="group"
+        aria-label="Category breakdown mode"
+        className="relative inline-flex items-center gap-2 rounded-lg border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-1.5 shadow-md dark:border-amber-700/50 dark:from-amber-950/40 dark:to-orange-950/40"
+      >
+        <div
+          className={`absolute inset-y-1.5 w-[calc(50%-0.25rem)] rounded-md bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg transition-all duration-300 ease-out dark:from-amber-600 dark:to-orange-700 ${
+            categoryBreakdownMode === 'country' ? 'left-1.5' : 'left-[calc(50%+0.25rem)]'
+          }`}
+          aria-hidden="true"
+        />
+        <button
+          type="button"
+          onClick={() => setCategoryBreakdownMode('country')}
+          aria-pressed={categoryBreakdownMode === 'country'}
+          className={`relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-300 ${
+            categoryBreakdownMode === 'country'
+              ? 'text-white'
+              : 'text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100'
+          }`}
+        >
+          <span className="text-sm">🌍</span>
+          <span>Country</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCategoryBreakdownMode('payee')}
+          aria-pressed={categoryBreakdownMode === 'payee'}
+          className={`relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-300 ${
+            categoryBreakdownMode === 'payee'
+              ? 'text-white'
+              : 'text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100'
+          }`}
+        >
+          <span className="text-sm">💳</span>
+          <span>Payee</span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       <LeaderboardSection
@@ -391,6 +498,25 @@ export default function ExpenseLeaderboards({
         entries={payeeEntries}
         currency={currency}
         minimumMentions={minimumMentions}
+      />
+      <LeaderboardSection
+        title="Category Spending Analysis"
+        description="Discover where your budget actually goes by exploring spending patterns within each category."
+        entries={categoryEntries}
+        currency={currency}
+        minimumMentions={minimumMentions}
+        breakdownTitle={categoryBreakdownMode === 'country' ? 'Country Breakdown' : 'Payee Breakdown'}
+        emptyBreakdownMessage={
+          categoryBreakdownMode === 'country'
+            ? 'No country breakdown available for this category.'
+            : 'No payee breakdown available for this category.'
+        }
+        emptySelectionMessage={
+          categoryBreakdownMode === 'country'
+            ? 'Select a category to see spending by country.'
+            : 'Select a category to see which payees drive spending.'
+        }
+        headerExtras={categoryHeaderExtras}
       />
       {locationEntries.length > 0 && (
         <LeaderboardSection
