@@ -197,7 +197,7 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
                 </svg>
               </div>
               <div className="ml-3">
-                <h2 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                <h2 className="text-lg font-semibold text-blue-800 dark:text-blue-200">
                   Planning Mode Active
                 </h2>
                 <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
