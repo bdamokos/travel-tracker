@@ -130,20 +130,20 @@ export default function MultiRouteLinkExample({
       return;
     }
 
-    let success = false;
+    let result;
 
     // Save expense links based on mode
     if (useMultiLink) {
       // Multi-link mode: save array of links
       if (multiLinks.length > 0) {
-        success = await saveLinks({
+        result = await saveLinks({
           expenseId: expense.id,
           tripId,
           links: multiLinks
         });
       } else {
         // No links selected - remove any existing links
-        success = await saveLinks({
+        result = await saveLinks({
           expenseId: expense.id,
           tripId,
           links: undefined
@@ -151,14 +151,14 @@ export default function MultiRouteLinkExample({
       }
     } else {
       // Single-link mode: save single link
-      success = await saveLinks({
+      result = await saveLinks({
         expenseId: expense.id,
         tripId,
         links: singleLink
       });
     }
 
-    if (success) {
+    if (result.success) {
       // Validate expense has all required fields before calling parent handler
       if (!isValidExpense(expense)) {
         console.error('Expense missing required fields');

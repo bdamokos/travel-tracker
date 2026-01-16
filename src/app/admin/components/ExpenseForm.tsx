@@ -98,13 +98,13 @@ export default function ExpenseForm({
         onExpenseAdded(expense, undefined);
 
         // Then save multi-links via hook
-        const linkSuccess = await saveLinks({
+        const result = await saveLinks({
           expenseId: expense.id,
           tripId,
           links: multiLinks
         });
-        if (!linkSuccess) {
-          throw new Error('Failed to save expense links. Please check the error message below and try again.');
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to save expense links. Please try again.');
         }
       } else {
         // Single-link mode: let handleExpenseAdded save the link via API

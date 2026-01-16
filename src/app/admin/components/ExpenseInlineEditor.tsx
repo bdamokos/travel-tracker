@@ -77,13 +77,14 @@ export default function ExpenseInlineEditor({
         const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
 
         if (linksToSave && (Array.isArray(linksToSave) ? linksToSave.length > 0 : true)) {
-          const linkSuccess = await saveLinks({
+          const result = await saveLinks({
             expenseId: formData.id,
             tripId,
             links: linksToSave
           });
-          if (!linkSuccess) {
-            // Error is already set in linkError state, just return to show it
+          if (!result.success) {
+            // Show the specific error returned from the save operation
+            setFormError(result.error || 'Failed to save expense links');
             return;
           }
         }
