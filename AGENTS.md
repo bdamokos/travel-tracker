@@ -183,6 +183,7 @@ Use the same trip/location/route payloads as the integration test in `src/app/__
 
 Always run all relevant tests before finalising a PR/task.
 
+
 # GIT remotes and worktrees
 Always be aware of the remote you are working on (run git remote-v). Github is 'github', while forgejo is the 'origin' remote.
 
@@ -190,3 +191,9 @@ When working on a feature branch, use the start-worktree.sh script to create a n
 
 # Package managers
 Bun is the package manager for this project. Use bun install to install dependencies, run tests, run builds, etc.
+
+# Accessibility
+Make sure the resulting code passes accessibility tests, and meets the WCAG standard at least at AA level, ideally at AAA level.
+
+# No lazyness
+Be guided by the philosophy of Kennedy "We choose to go to the Moon in this decade and do the other things, not because they are easy, but because they are hard" - do not give up testing or accomplishing a task correctly just because it is difficult.
