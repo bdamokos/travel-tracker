@@ -5,8 +5,8 @@
  * integrity verification, and backup file operations.
  */
 
-import { readFile, writeFile, readdir, stat, access } from 'fs/promises';
-import { join } from 'path';
+import { readFile, writeFile, readdir, stat, access, unlink, mkdir } from 'fs/promises';
+import { join, resolve, sep } from 'path';
 import { createHash } from 'crypto';
 import { UnifiedTripData } from './dataMigration';
 import { getDataDir } from './dataDirectory';
@@ -90,7 +90,7 @@ export class BackupService {
       const metadata = JSON.parse(content) as BackupMetadataStore;
       this.metadataCache = metadata;
       return metadata;
-    } catch (error) {
+    } catch {
       // Create initial metadata store if it doesn't exist
       const initialMetadata: BackupMetadataStore = {
         version: '1.0.0',
@@ -122,6 +122,12 @@ export class BackupService {
    */
   private generateChecksum(content: string): string {
     return createHash('sha256').update(content).digest('hex');
+  }
+
+  private isPathWithinBackupDir(filePath: string): boolean {
+    const backupDir = resolve(getBackupDirPath());
+    const resolvedFile = resolve(filePath);
+    return resolvedFile.startsWith(backupDir + sep);
   }
 
   /**
@@ -334,6 +340,81 @@ export class BackupService {
   }
 
   /**
+   * Deletes a backup file and removes its metadata entry.
+   * If the file does not exist, metadata is still removed.
+   */
+  async deleteBackup(backupId: string): Promise<{ removedMetadata: boolean; removedFile: boolean }> {
+    const metadata = await this.loadMetadata();
+    const backup = metadata.backups.find(b => b.id === backupId);
+    if (!backup) {
+      return { removedMetadata: false, removedFile: false };
+    }
+
+    let removedFile = false;
+    try {
+      if (!this.isPathWithinBackupDir(backup.filePath)) {
+        throw new Error('Unsafe backup file path');
+      }
+      await unlink(backup.filePath);
+      removedFile = true;
+    } catch {
+      // File might already be missing; still remove metadata
+    }
+
+    await this.removeBackupMetadata(backupId);
+    return { removedMetadata: true, removedFile };
+  }
+
+  /**
+   * Garbage-collects old backups based on retention policy, keeping at least `keepLatest` most recent backups.
+   */
+  async garbageCollect(options?: {
+    retentionDays?: number;
+    keepLatest?: number;
+    dryRun?: boolean;
+  }): Promise<{ deleted: BackupMetadata[]; kept: BackupMetadata[]; errors: string[] }> {
+    const retentionDays = Math.max(0, options?.retentionDays ?? 30);
+    const keepLatest = Math.max(0, options?.keepLatest ?? 20);
+    const dryRun = options?.dryRun ?? false;
+
+    const metadata = await this.loadMetadata();
+    const backups = [...metadata.backups].sort((a, b) =>
+      new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
+    );
+
+    const keepIds = new Set(backups.slice(0, keepLatest).map(b => b.id));
+    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).getTime();
+
+    const deleted: BackupMetadata[] = [];
+    const kept: BackupMetadata[] = [];
+    const errors: string[] = [];
+
+    for (const backup of backups) {
+      const deletedAt = new Date(backup.deletedAt).getTime();
+      const shouldDelete = Number.isFinite(deletedAt) && deletedAt < cutoff && !keepIds.has(backup.id);
+      if (!shouldDelete) {
+        kept.push(backup);
+        continue;
+      }
+
+      if (dryRun) {
+        deleted.push(backup);
+        continue;
+      }
+
+      try {
+        await this.deleteBackup(backup.id);
+        deleted.push(backup);
+      } catch (error) {
+        errors.push(`Failed to delete ${backup.id}: ${error}`);
+        kept.push(backup);
+      }
+    }
+
+    return { deleted, kept, errors };
+  }
+
+  /**
    * Scans backup directory and synchronizes metadata with existing files
    */
   async synchronizeMetadata(): Promise<{ added: number; removed: number; errors: string[] }> {
@@ -344,7 +425,18 @@ export class BackupService {
       let removed = 0;
 
       // Get all backup files from directory
-      const files = await readdir(getBackupDirPath());
+      let files: string[] = [];
+      try {
+        files = await readdir(getBackupDirPath());
+      } catch (error) {
+        const code = typeof error === 'object' && error !== null && 'code' in error ? (error as { code?: string }).code : undefined;
+        if (code === 'ENOENT') {
+          await mkdir(getBackupDirPath(), { recursive: true });
+          files = [];
+        } else {
+          throw error;
+        }
+      }
       const backupFiles = files.filter(f => f.startsWith('deleted-') && f.endsWith('.json'));
 
       // Check for files not in metadata
@@ -356,11 +448,18 @@ export class BackupService {
           try {
             // Try to extract info from filename and file content
             const content = await readFile(filePath, 'utf-8');
-            const data = JSON.parse(content) as UnifiedTripData & { backupMetadata?: unknown };
+            const data = JSON.parse(content) as UnifiedTripData & {
+              backupMetadata?: { originalId?: string; backupType?: string; deletedAt?: string };
+            };
             
-            const originalId = data.id;
+            const originalId = data.backupMetadata?.originalId || data.id;
             const title = data.title || 'Unknown';
-            const type = data.costData ? 'cost' : 'trip'; // Simple heuristic
+            const type = (() => {
+              const backupType = data.backupMetadata?.backupType || '';
+              if (typeof backupType === 'string' && backupType.includes('trip')) return 'trip';
+              if (typeof backupType === 'string' && backupType.includes('cost')) return 'cost';
+              return data.costData ? 'cost' : 'trip';
+            })();
             
             await this.addBackupMetadata(originalId, type, title, filePath, 'synchronized');
             added++;
