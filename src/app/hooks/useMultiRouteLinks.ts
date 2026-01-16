@@ -7,10 +7,15 @@ export interface SaveLinksOptions {
   links: TravelLinkInfo[] | TravelLinkInfo | undefined;
 }
 
+export interface SaveLinksResult {
+  success: boolean;
+  error?: string;
+}
+
 export interface UseMultiRouteLinksResult {
   saving: boolean;
   error: string | null;
-  saveLinks: (options: SaveLinksOptions) => Promise<boolean>;
+  saveLinks: (options: SaveLinksOptions) => Promise<SaveLinksResult>;
   clearError: () => void;
 }
 
@@ -22,7 +27,7 @@ export function useMultiRouteLinks(): UseMultiRouteLinksResult {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const saveLinks = async (options: SaveLinksOptions): Promise<boolean> => {
+  const saveLinks = async (options: SaveLinksOptions): Promise<SaveLinksResult> => {
     const { expenseId, tripId, links } = options;
 
     setSaving(true);
@@ -66,13 +71,13 @@ export function useMultiRouteLinks(): UseMultiRouteLinksResult {
       if (process.env.NODE_ENV !== 'production') {
         console.log('Expense links saved:', result.message);
       }
-      return true;
+      return { success: true };
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save expense links';
       setError(errorMessage);
       console.error('Error saving expense links:', err);
-      return false;
+      return { success: false, error: errorMessage };
 
     } finally {
       setSaving(false);

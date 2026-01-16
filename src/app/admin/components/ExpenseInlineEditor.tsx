@@ -3,14 +3,17 @@
 import React, { useState } from 'react';
 import { Expense, ExpenseType } from '@/app/types';
 import TravelItemSelector from './TravelItemSelector';
+import MultiRouteLinkManager from './MultiRouteLinkManager';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';
 import AccessibleDatePicker from './AccessibleDatePicker';
 import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
+import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
+import { useLoadExpenseLinks } from '@/app/hooks/useLoadExpenseLinks';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
-  onSave: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => void;
+  onSave: (expense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => void;
   onCancel: () => void;
   currency: string;
   categories: string[];
@@ -23,6 +26,7 @@ export default function ExpenseInlineEditor({
   expense,
   onSave,
   onCancel,
+  currency,
   categories,
   countryOptions,
   travelLookup,
@@ -31,21 +35,71 @@ export default function ExpenseInlineEditor({
   const [formData, setFormData] = useState<Expense>({
     ...expense
   });
-  const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
+  const [formError, setFormError] = useState<string | null>(null);
+  const { error: linkError, saving: linkSaving, saveLinks, clearError } = useMultiRouteLinks();
+
+  // Load existing links for this expense
+  const {
+    isLoading: linksLoading,
+    error: linksLoadError,
+    singleLink: selectedTravelLinkInfo,
+    multiLinks,
+    isMultiLinkMode: useMultiLink,
+    setSingleLink: setSelectedTravelLinkInfo,
+    setMultiLinks,
+    setIsMultiLinkMode: setUseMultiLink
+  } = useLoadExpenseLinks(expense.id, tripId);
+
+  const isSubmitting = linkSaving || linksLoading;
 
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
   const disableFinancialFields = isCashSourceExpense || isCashAllocationExpense;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setFormError(null);
+
     // Validate required fields
     if (!formData.date || !formData.amount || formData.amount === 0 || !formData.category) {
+      const missing = [];
+      if (!formData.date) missing.push('Date');
+      if (!formData.amount || formData.amount === 0) missing.push('Amount');
+      if (!formData.category) missing.push('Category');
+      setFormError(`Please fill in required fields: ${missing.join(', ')}`);
       return;
     }
 
-    onSave(formData, selectedTravelLinkInfo);
+    try {
+      // Save expense links first if needed
+      // InPlaceEditor's onSave doesn't handle links, so we always save via hook
+      if (formData.id && tripId) {
+        const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
+
+        if (linksToSave && (Array.isArray(linksToSave) ? linksToSave.length > 0 : true)) {
+          const result = await saveLinks({
+            expenseId: formData.id,
+            tripId,
+            links: linksToSave
+          });
+          if (!result.success) {
+            // Show the specific error returned from the save operation
+            setFormError(result.error || 'Failed to save expense links');
+            return;
+          }
+        }
+      }
+
+      // Clear any previous errors
+      clearError();
+      setFormError(null);
+
+      // Save the expense data (links already saved above)
+      onSave(formData);
+    } catch (error) {
+      console.error('Error saving expense:', error);
+      setFormError(error instanceof Error ? error.message : 'Failed to save expense');
+    }
   };
 
   return (
@@ -210,34 +264,78 @@ export default function ExpenseInlineEditor({
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
             Link to Travel Item
           </label>
-          <TravelItemSelector
-            expenseId={formData.id}
-            tripId={tripId}
-            travelLookup={travelLookup}
-            transactionDate={formData.date}
-            onReferenceChange={(travelLinkInfo) => {
-              setSelectedTravelLinkInfo(travelLinkInfo);
-              setFormData(prev => ({
-                ...prev,
-                travelReference: travelLinkInfo ? {
-                  type: travelLinkInfo.type,
-                  locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
-                  accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
-                  routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
-                  description: travelLinkInfo.name,
-                } : undefined,
-              }));
-            }}
-          />
+
+          <label className="flex items-center mb-2">
+            <input
+              type="checkbox"
+              checked={useMultiLink}
+              onChange={(e) => {
+                setUseMultiLink(e.target.checked);
+                if (e.target.checked) {
+                  setSelectedTravelLinkInfo(undefined);
+                } else {
+                  setMultiLinks([]);
+                }
+              }}
+              className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-700 dark:text-gray-300">
+              Link to multiple routes (split cost)
+            </span>
+          </label>
+
+          {useMultiLink ? (
+            <MultiRouteLinkManager
+              expenseId={formData.id}
+              tripId={tripId}
+              expenseAmount={formData.amount || 0}
+              expenseCurrency={formData.currency || currency}
+              transactionDate={formData.date}
+              initialLinks={multiLinks}
+              onLinksChange={setMultiLinks}
+              className="mt-2"
+            />
+          ) : (
+            <TravelItemSelector
+              expenseId={formData.id}
+              tripId={tripId}
+              travelLookup={travelLookup}
+              transactionDate={formData.date}
+              initialValue={selectedTravelLinkInfo}
+              onReferenceChange={(travelLinkInfo) => {
+                setSelectedTravelLinkInfo(travelLinkInfo);
+                setFormData(prev => ({
+                  ...prev,
+                  travelReference: travelLinkInfo ? {
+                    type: travelLinkInfo.type,
+                    locationId: travelLinkInfo.type === 'location' ? travelLinkInfo.id : undefined,
+                    accommodationId: travelLinkInfo.type === 'accommodation' ? travelLinkInfo.id : undefined,
+                    routeId: travelLinkInfo.type === 'route' ? travelLinkInfo.id : undefined,
+                    description: travelLinkInfo.name,
+                  } : undefined,
+                }));
+              }}
+            />
+          )}
+
+          {(linkError || formError || linksLoadError) && (
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {linksLoadError ? `Error loading links: ${linksLoadError}` :
+                 linkError ? `Error saving links: ${linkError}` : formError}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-2">
           <button
             type="submit"
-            className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 focus:outline-none focus:ring-1 focus:ring-green-500"
+            disabled={isSubmitting}
+            className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save
+            {linkSaving ? 'Saving...' : 'Save'}
           </button>
           <button
             type="button"
