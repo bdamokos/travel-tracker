@@ -10,6 +10,7 @@ import { generateRoutePointsSync, getRouteStyle } from '@/app/lib/routeUtils';
 import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
 import { LocationPopupModal } from '@/app/components/LocationPopup';
 import { useLocationPopup } from '@/app/hooks/useLocationPopup';
+import MapStatusAnnouncer from '@/app/components/MapStatusAnnouncer';
 import {
   buildLocationAriaLabel,
   buildLocationLabelKey,
@@ -298,6 +299,11 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
   const markerIconCacheRef = useRef<globalThis.Map<string, L.DivIcon>>(new globalThis.Map());
 
+  const handlePopupClose = useCallback(() => {
+    closePopup();
+    setMapAnnouncement('Popup closed.');
+  }, [closePopup]);
+
   // Fix Leaflet icons
   useEffect(() => {
     fixLeafletIcons();
@@ -488,8 +494,10 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       transportation: day.transportation,
     };
     openPopup(location, journeyDay, journey?.id || 'unknown');
+    const { label } = getLocationLabelData(location, day);
+    setMapAnnouncement(`Opened popup for ${label}.`);
     if (onLocationClick) onLocationClick(location);
-  }, [openPopup, onLocationClick, journey?.id]);
+  }, [getLocationLabelData, openPopup, onLocationClick, journey?.id]);
 
   const groups = useMemo<Group[]>(() => {
     // reference tick so lint understands it intentionally triggers recompute
@@ -630,14 +638,13 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       case 'Escape':
         if (isOpen) {
           event.preventDefault();
-          closePopup();
-          setMapAnnouncement('Popup closed.');
+          handlePopupClose();
         }
         break;
       default:
         break;
     }
-  }, [closePopup, focusMarkerByIndex, focusOrder, focusedMarkerKey, isOpen]);
+  }, [focusMarkerByIndex, focusOrder, focusedMarkerKey, handlePopupClose, isOpen]);
 
   useEffect(() => {
     setExpandedGroups(prev => filterExpandableKeys(prev, groups));
@@ -688,9 +695,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         When a group is focused, activating it expands to show individual locations.
         When expanded, a collapse marker is available to return to group view.
       </div>
-      <div id={mapStatusId} className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {mapAnnouncement}
-      </div>
+      <MapStatusAnnouncer id={mapStatusId} announcement={mapAnnouncement} />
       <div
         ref={mapContainerRef}
         className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
@@ -916,7 +921,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       {/* Location Popup Modal */}
       <LocationPopupModal
         isOpen={isOpen}
-        onClose={closePopup}
+        onClose={handlePopupClose}
         data={data}
       />
     </>

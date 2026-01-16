@@ -3,7 +3,7 @@
 import { CalendarCell, CalendarDay, muteColor } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
 import WeatherIcon from '@/app/components/Weather/WeatherIcon';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
 interface CalendarDayCellProps {
@@ -16,21 +16,62 @@ interface CalendarDayCellProps {
     options?: { isSideTrip?: boolean; baseLocation?: Location }
   ) => void;
   locationColors: Map<string, string>;
+  gridPosition: { row: number; col: number };
+  registerCell: (row: number, col: number, element: HTMLElement | null) => void;
+  onNavigate: (row: number, col: number, key: string) => void;
+  onAnnounce: (message: string) => void;
 }
 
 const isShadowLocationName = (location?: Location | null) =>
   !!location?.name.startsWith(SHADOW_LOCATION_PREFIX);
+
+const formatDateForScreenReader = (date: Date) =>
+  new Intl.DateTimeFormat('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(date);
+
+const buildDaySummary = (day: CalendarDay) => {
+  const parts: string[] = [];
+  parts.push(formatDateForScreenReader(day.date));
+
+  if (day.isOutsideTrip) {
+    parts.push('Outside trip dates.');
+    return parts.join(' ');
+  }
+
+  if (day.primaryLocation && day.secondaryLocation) {
+    parts.push(`Transition day from ${day.primaryLocation.name} to ${day.secondaryLocation.name}.`);
+  } else if (day.primaryLocation) {
+    parts.push(day.primaryLocation.name + '.');
+  } else {
+    parts.push('No location.');
+  }
+
+  if (day.sideTrips && day.sideTrips.length > 0) {
+    parts.push(`Side trips: ${day.sideTrips.map(loc => loc.name).filter(Boolean).join(', ')}.`);
+  }
+
+  const isShadow = isShadowLocationName(day.primaryLocation) || isShadowLocationName(day.secondaryLocation);
+  if (isShadow) {
+    parts.push('Planning location.');
+  }
+
+  return parts.join(' ');
+};
 
 export default function CalendarDayCell({
   cell,
   isSelected,
   isToday,
   onSelectLocation,
-  locationColors
+  locationColors,
+  gridPosition,
+  registerCell,
+  onNavigate,
+  onAnnounce,
 }: CalendarDayCellProps) {
   const { day, backgroundColor, textColor, diagonalSplit, mergeInfo } = cell;
   const hasSideTrips = !!day.sideTrips && day.sideTrips.length > 0;
   const baseLocation = day.baseLocation ?? day.primaryLocation ?? null;
+  const cellRef = useRef<HTMLDivElement | null>(null);
 
   const handlePrimaryClick = () => {
     if (!day.primaryLocation || day.isOutsideTrip || day.isOutsideMonth) return;
@@ -45,6 +86,13 @@ export default function CalendarDayCell({
     return { icon: '⛅', label: 'Weather available in popup' };
   }, [day]);
   
+  useEffect(() => {
+    registerCell(gridPosition.row, gridPosition.col, cellRef.current);
+    return () => {
+      registerCell(gridPosition.row, gridPosition.col, null);
+    };
+  }, [gridPosition.col, gridPosition.row, registerCell]);
+
   // Don't render if this is a middle cell in a merge group
   if (mergeInfo && mergeInfo.colspan === 0) {
     return null;
@@ -89,6 +137,8 @@ export default function CalendarDayCell({
     return (
       <div
         className="h-20 min-h-20"
+        role="gridcell"
+        aria-disabled="true"
         aria-hidden="true"
         style={{
           gridColumn: cellStyle.gridColumn,
@@ -97,11 +147,43 @@ export default function CalendarDayCell({
     );
   }
 
+  const ariaLabel = buildDaySummary(day);
+  const ariaSelected = isSelected ? true : undefined;
+  const ariaDisabled = day.isOutsideTrip || !day.primaryLocation ? true : undefined;
+
   return (
     <div
+      ref={cellRef}
       className={baseClasses}
       style={cellStyle}
       onClick={handlePrimaryClick}
+      role="gridcell"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      aria-selected={ariaSelected}
+      aria-disabled={ariaDisabled}
+      aria-colspan={mergeInfo?.colspan && mergeInfo.colspan > 1 ? mergeInfo.colspan : undefined}
+      onFocus={() => {
+        onAnnounce(`Focused day. ${ariaLabel}`);
+      }}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handlePrimaryClick();
+          return;
+        }
+        if (
+          event.key === 'ArrowUp' ||
+          event.key === 'ArrowDown' ||
+          event.key === 'ArrowLeft' ||
+          event.key === 'ArrowRight' ||
+          event.key === 'Home' ||
+          event.key === 'End'
+        ) {
+          event.preventDefault();
+          onNavigate(gridPosition.row, gridPosition.col, event.key);
+        }
+      }}
     >
       {/* Diagonal background for transition cells */}
       {diagonalSplit && (
@@ -176,6 +258,10 @@ export default function CalendarDayCell({
                     baseLocation: baseLocation ?? undefined
                   });
                 }}
+                onFocus={() => {
+                  onAnnounce(`Side trip ${sideTrip.name}. ${formatDateForScreenReader(day.date)}.`);
+                }}
+                aria-label={`${sideTrip.name} side trip on ${formatDateForScreenReader(day.date)}. Open details.`}
                 className="px-2 py-0.5 rounded-full border text-xs font-semibold shadow-sm transition hover:shadow"
                 style={{
                   backgroundColor: background,
