@@ -185,7 +185,7 @@ export default function TripCalendar({
       <div className={`${styles.tripCalendar} ${className}`}>
         <div className="trip-calendar-header mb-4">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-            {trip.title} - Calendar View
+            {trip.title}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-300">Loading calendar...</p>
         </div>
@@ -198,7 +198,7 @@ export default function TripCalendar({
     <div className={`${styles.tripCalendar} ${planningMode ? styles.planningMode : ''} ${className}`}>
       <div className="trip-calendar-header mb-4">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-          {trip.title} - Calendar View
+          {trip.title}
         </h2>
         <p className="text-sm text-gray-600">
           {formatUtcDate(trip.startDate, undefined, { day: 'numeric', month: 'numeric', year: 'numeric' })}
