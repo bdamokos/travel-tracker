@@ -182,6 +182,11 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
 
     return (
       <div className="container mx-auto px-4 py-8">
+        {/* Page Title */}
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
+          {displayTrip.title}
+        </h1>
+
         {/* Planning Mode Banner */}
         {isAdmin && (
           <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -192,9 +197,9 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                <h2 className="text-sm font-medium text-blue-800 dark:text-blue-200">
                   Planning Mode Active
-                </h3>
+                </h2>
                 <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
                   <p>
                     You are viewing this calendar with shadow planning data. Shadow items are marked with {SHADOW_LOCATION_PREFIX}.
