@@ -183,8 +183,10 @@ Use the same trip/location/route payloads as the integration test in `src/app/__
 
 Always run all relevant tests before finalising a PR/task.
 
-# GIT remotes
+# GIT remotes and worktrees
 Always be aware of the remote you are working on (run git remote-v). Github is 'github', while forgejo is the 'origin' remote.
+
+When working on a feature branch, use the start-worktree.sh script to create a new worktree. This will create a new directory in the .worktrees folder. You need to manually switch to the worktree directory (cd <worktree-directory>).
 
 # Package managers
 Bun is the package manager for this project. Use bun install to install dependencies, run tests, run builds, etc.
