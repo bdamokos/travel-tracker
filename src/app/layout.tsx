@@ -31,9 +31,11 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <IframeAccessibilityFixer />
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
+        <main>
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </main>
       </body>
     </html>
   );
