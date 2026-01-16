@@ -51,12 +51,17 @@ const LOCATION_COST_OPTIONS = [
   { key: 'total' as const, label: 'Total' },
   { key: 'perDay' as const, label: 'Per day' }
 ];
+const CATEGORY_BREAKDOWN_OPTIONS = [
+  { key: 'country' as const, label: 'Country', icon: '🌍' },
+  { key: 'payee' as const, label: 'Payee', icon: '💳' }
+];
 
 const normalizeLabel = (value: string): string => value.trim().toLowerCase();
 
-const buildLeaderboardEntries = (
+const buildGenericLeaderboardEntries = (
   expenses: Expense[],
-  getLabel: (expense: Expense) => string | undefined
+  getLabel: (expense: Expense) => string | undefined,
+  getBreakdownLabel: (expense: Expense) => string
 ): LeaderboardEntry[] => {
   const groups = new Map<
     string,
@@ -74,66 +79,10 @@ const buildLeaderboardEntries = (
     const trimmed = rawLabel.trim();
     if (!trimmed) return;
     const key = normalizeLabel(trimmed);
-    const country = expense.country?.trim() || 'General';
+    const breakdownLabel = getBreakdownLabel(expense);
 
     const existing = groups.get(key) ?? {
       label: trimmed,
-      count: 0,
-      total: 0,
-      breakdowns: new Map()
-    };
-
-    existing.count += 1;
-    existing.total += expense.amount;
-
-    const breakdownEntry = existing.breakdowns.get(country) ?? {
-      label: country,
-      count: 0,
-      total: 0
-    };
-
-    breakdownEntry.count += 1;
-    breakdownEntry.total += expense.amount;
-    existing.breakdowns.set(country, breakdownEntry);
-
-    groups.set(key, existing);
-  });
-
-  return Array.from(groups.entries()).map(([key, value]) => ({
-    key,
-    label: value.label,
-    count: value.count,
-    total: value.total,
-    breakdowns: Array.from(value.breakdowns.values()).sort((a, b) => b.total - a.total)
-  }));
-};
-
-const buildCategoryLeaderboardEntries = (
-  expenses: Expense[],
-  breakdownType: 'country' | 'payee'
-): LeaderboardEntry[] => {
-  const groups = new Map<
-    string,
-    {
-      label: string;
-      count: number;
-      total: number;
-      breakdowns: Map<string, LeaderboardBreakdownItem>;
-    }
-  >();
-
-  expenses.forEach(expense => {
-    const category = expense.category?.trim();
-    if (!category) return;
-    const key = normalizeLabel(category);
-
-    // Determine breakdown label based on type
-    const breakdownLabel = breakdownType === 'country'
-      ? expense.country?.trim() || 'General'
-      : expense.notes?.trim() || expense.description?.trim() || 'Unknown';
-
-    const existing = groups.get(key) ?? {
-      label: category,
       count: 0,
       total: 0,
       breakdowns: new Map()
@@ -163,6 +112,29 @@ const buildCategoryLeaderboardEntries = (
     breakdowns: Array.from(value.breakdowns.values()).sort((a, b) => b.total - a.total)
   }));
 };
+
+const buildLeaderboardEntries = (
+  expenses: Expense[],
+  getLabel: (expense: Expense) => string | undefined
+): LeaderboardEntry[] =>
+  buildGenericLeaderboardEntries(
+    expenses,
+    getLabel,
+    expense => expense.country?.trim() || 'General'
+  );
+
+const buildCategoryLeaderboardEntries = (
+  expenses: Expense[],
+  breakdownType: 'country' | 'payee'
+): LeaderboardEntry[] =>
+  buildGenericLeaderboardEntries(
+    expenses,
+    expense => expense.category,
+    expense =>
+      breakdownType === 'country'
+        ? expense.country?.trim() || 'General'
+        : expense.notes?.trim() || expense.source?.trim() || 'Unknown'
+  );
 
 const getLocationDays = (location: Location): number => {
   if (location.duration && location.duration > 0) {
@@ -453,32 +425,22 @@ export default function ExpenseLeaderboards({
           }`}
           aria-hidden="true"
         />
-        <button
-          type="button"
-          onClick={() => setCategoryBreakdownMode('country')}
-          aria-pressed={categoryBreakdownMode === 'country'}
-          className={`relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-300 ${
-            categoryBreakdownMode === 'country'
-              ? 'text-white'
-              : 'text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100'
-          }`}
-        >
-          <span className="text-sm">🌍</span>
-          <span>Country</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryBreakdownMode('payee')}
-          aria-pressed={categoryBreakdownMode === 'payee'}
-          className={`relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-300 ${
-            categoryBreakdownMode === 'payee'
-              ? 'text-white'
-              : 'text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100'
-          }`}
-        >
-          <span className="text-sm">💳</span>
-          <span>Payee</span>
-        </button>
+        {CATEGORY_BREAKDOWN_OPTIONS.map(option => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setCategoryBreakdownMode(option.key)}
+            aria-pressed={categoryBreakdownMode === option.key}
+            className={`relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-300 ${
+              categoryBreakdownMode === option.key
+                ? 'text-white'
+                : 'text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100'
+            }`}
+          >
+            <span className="text-sm">{option.icon}</span>
+            <span>{option.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
