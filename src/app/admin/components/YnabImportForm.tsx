@@ -7,12 +7,15 @@ import {
   CostTrackingData,
   YnabCategory,
   Expense,
-  YnabDuplicateMatch
+  YnabDuplicateMatch,
+  TravelReference
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import { getTransactionImportKey } from '@/app/lib/ynabUtils';
+import type { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';
 import AccessibleModal from './AccessibleModal';
+import TravelItemSelector from './TravelItemSelector';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -35,6 +38,7 @@ interface TransactionSelection {
   transactionHash: string;
   transactionSourceIndex?: number;
   expenseCategory: string;
+  travelLinkInfo?: TravelLinkInfo;
 }
 
 /**
@@ -193,6 +197,27 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
   const normalizeString = (value?: string | null) => value ? value.trim().toLowerCase() : '';
 
+  const buildTravelReference = (linkInfo?: TravelLinkInfo): TravelReference | undefined => {
+    if (!linkInfo) {
+      return undefined;
+    }
+
+    const reference: TravelReference = {
+      type: linkInfo.type,
+      description: linkInfo.name
+    };
+
+    if (linkInfo.type === 'location') {
+      reference.locationId = linkInfo.id;
+    } else if (linkInfo.type === 'accommodation') {
+      reference.accommodationId = linkInfo.id;
+    } else if (linkInfo.type === 'route') {
+      reference.routeId = linkInfo.id;
+    }
+
+    return reference;
+  };
+
   const findPotentialDuplicates = useCallback((transaction: ProcessedYnabTransaction): YnabDuplicateMatch[] => {
     if (!transaction) {
       return [];
@@ -330,7 +355,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       transactionId: getTransactionId(txn, index),
       transactionHash: txn.hash,
       transactionSourceIndex: txn.sourceIndex ?? index,
-      expenseCategory: getDefaultCategoryForTransaction(txn)
+      expenseCategory: getDefaultCategoryForTransaction(txn),
+      travelLinkInfo: undefined
     }));
   }, [getDefaultCategoryForTransaction, getTransactionId]);
 
@@ -667,17 +693,18 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         return prev;
       }
 
-      return [
-        ...prev,
-        {
-          transactionId,
-          transactionHash: transaction.hash,
-          transactionSourceIndex: transaction.sourceIndex,
-          expenseCategory: getDefaultCategoryForTransaction(transaction)
-        }
-      ];
-    });
-  };
+        return [
+          ...prev,
+          {
+            transactionId,
+            transactionHash: transaction.hash,
+            transactionSourceIndex: transaction.sourceIndex,
+            expenseCategory: getDefaultCategoryForTransaction(transaction),
+            travelLinkInfo: undefined
+          }
+        ];
+      });
+    };
 
   const handleCategoryChange = (transactionId: string, category: string) => {
     setSelectedTransactions(prev => 
@@ -698,6 +725,16 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
     }
   };
 
+  const handleTravelLinkChange = (transactionId: string, travelLinkInfo?: TravelLinkInfo) => {
+    setSelectedTransactions(prev =>
+      prev.map(selection =>
+        selection.transactionId === transactionId
+          ? { ...selection, travelLinkInfo }
+          : selection
+      )
+    );
+  };
+
   const handleFinalImport = async () => {
     setIsLoading(true);
     setError(null);
@@ -713,6 +750,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           const transaction = transactionsById.get(selection.transactionId);
           if (!transaction) throw new Error(`Transaction not found: ${selection.transactionId}`);
 
+          const travelReference = buildTravelReference(selection.travelLinkInfo);
           const normalizedPayee = transaction.description?.trim();
           if (normalizedPayee) {
             updatedPayeeCategoryDefaults[normalizedPayee] = selection.expenseCategory;
@@ -732,7 +770,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             source: 'ynab-api',
             hash: transaction.hash,
             ynabTransactionId: transaction.ynabTransactionId,
-            ynabImportId: transaction.importId
+            ynabImportId: transaction.importId,
+            ...(travelReference ? { travelReference } : {})
           };
         });
 
@@ -769,7 +808,48 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
         setPayeeCategoryDefaults(updatedPayeeCategoryDefaults);
 
-        alert(`Successfully imported ${expensesToAdd.length} transactions!`);
+        const linkRequests = expensesToAdd
+          .map((expense, index) => {
+            const travelLinkInfo = selectedTransactions[index]?.travelLinkInfo;
+            if (!travelLinkInfo) {
+              return null;
+            }
+            return {
+              expenseId: expense.id,
+              travelLinkInfo
+            };
+          })
+          .filter((request): request is { expenseId: string; travelLinkInfo: TravelLinkInfo } => request !== null);
+
+        if (linkRequests.length > 0) {
+          const linkResults = await Promise.all(
+            linkRequests.map(async requestInfo => {
+              const linkResponse = await fetch('/api/travel-data/expense-links', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  tripId: costData.tripId,
+                  expenseId: requestInfo.expenseId,
+                  travelItemId: requestInfo.travelLinkInfo.id,
+                  travelItemType: requestInfo.travelLinkInfo.type,
+                  description: requestInfo.travelLinkInfo.name
+                })
+              });
+              return { ok: linkResponse.ok };
+            })
+          );
+
+          const linkFailures = linkResults.filter(result => !result.ok).length;
+          if (linkFailures > 0) {
+            alert(`Imported ${expensesToAdd.length} transactions, but failed to link ${linkFailures} expense${linkFailures === 1 ? '' : 's'} to travel items.`);
+          } else {
+            alert(`Successfully imported ${expensesToAdd.length} transactions!`);
+          }
+        } else {
+          alert(`Successfully imported ${expensesToAdd.length} transactions!`);
+        }
         onImportComplete();
         onClose();
 
@@ -1341,14 +1421,24 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                         </div>
 
                         {isSelected && (
-                          <AriaSelect
-                            id={`expense-category-${transactionId}`}
-                            value={selection?.expenseCategory || availableCategories[0]}
-                            onChange={(value) => handleCategoryChange(transactionId, value)}
-                            className="px-3 py-1 text-sm"
-                            options={availableCategories.map(category => ({ value: category, label: category }))}
-                            placeholder="Select Category"
-                          />
+                          <div className="flex flex-col gap-3">
+                            <AriaSelect
+                              id={`expense-category-${transactionId}`}
+                              value={selection?.expenseCategory || availableCategories[0]}
+                              onChange={(value) => handleCategoryChange(transactionId, value)}
+                              className="px-3 py-1 text-sm"
+                              options={availableCategories.map(category => ({ value: category, label: category }))}
+                              placeholder="Select Category"
+                            />
+                            <TravelItemSelector
+                              expenseId={transactionId}
+                              tripId={costData.tripId}
+                              onReferenceChange={(link) => handleTravelLinkChange(transactionId, link)}
+                              initialValue={selection?.travelLinkInfo}
+                              transactionDate={txn.date}
+                              className="w-72"
+                            />
+                          </div>
                         )}
                       </div>
                     </div>

@@ -7,15 +7,18 @@ import {
   Expense,
   BudgetItem,
   ExpenseType,
-  YnabTransactionFilterResult
+  YnabTransactionFilterResult,
+  TravelReference
 } from '@/app/types';
 import { createTransactionHash, filterNewTransactions, getTransactionImportKey, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
 import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
+import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
 import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 import { getTempYnabFilePath } from '@/app/lib/dataFilePaths';
+import type { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 
 // Type guard for customCategories
 function hasCustomCategories(obj: unknown): obj is { customCategories: string[] } {
@@ -34,6 +37,27 @@ function isValidTempFileId(tempFileId: unknown): tempFileId is string {
     tempFileId.length > 0 &&
     /^[A-Za-z0-9_-]+$/.test(tempFileId)
   );
+}
+
+function buildTravelReference(linkInfo?: TravelLinkInfo): TravelReference | undefined {
+  if (!linkInfo) {
+    return undefined;
+  }
+
+  const reference: TravelReference = {
+    type: linkInfo.type,
+    description: linkInfo.name
+  };
+
+  if (linkInfo.type === 'location') {
+    reference.locationId = linkInfo.id;
+  } else if (linkInfo.type === 'accommodation') {
+    reference.accommodationId = linkInfo.id;
+  } else if (linkInfo.type === 'route') {
+    reference.routeId = linkInfo.id;
+  }
+
+  return reference;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -260,7 +284,13 @@ async function handleImportTransactions(
   id: string, 
   tempFileId: string, 
   mappings: YnabCategoryMapping[], 
-  selectedTransactions: Array<{ transactionHash: string; transactionId?: string; transactionSourceIndex?: number; expenseCategory: string }>
+  selectedTransactions: Array<{
+    transactionHash: string;
+    transactionId?: string;
+    transactionSourceIndex?: number;
+    expenseCategory: string;
+    travelLinkInfo?: TravelLinkInfo;
+  }>
 ): Promise<NextResponse> {
   if (!tempFileId || !mappings || !selectedTransactions) {
     return NextResponse.json({ 
@@ -313,9 +343,10 @@ async function handleImportTransactions(
   );
   const newKeySet = new Set<string>();
   const newBaseHashSet = new Set<string>();
+  const linkOperations: Array<{ expenseId: string; travelLinkInfo: TravelLinkInfo }> = [];
 
   for (const selectedTxn of selectedTransactions) {
-    const { transactionHash, transactionId, transactionSourceIndex, expenseCategory } = selectedTxn;
+    const { transactionHash, transactionId, transactionSourceIndex, expenseCategory, travelLinkInfo } = selectedTxn;
     const targetIndex = typeof transactionSourceIndex === 'number' ? transactionSourceIndex : undefined;
 
     if (
@@ -396,6 +427,7 @@ async function handleImportTransactions(
     };
 
     // Convert to our expense format
+    const travelReference = buildTravelReference(travelLinkInfo);
     const expense: Expense = {
       id: `ynab-${importKey}`,
       date: new Date(convertYnabDateToISO(originalTxn.Date)),
@@ -408,7 +440,8 @@ async function handleImportTransactions(
       isGeneralExpense: mapping.mappingType === 'general',
       expenseType: 'actual' as ExpenseType, // YNAB imports are always actual expenses
       source: 'ynab-file',
-      hash: transactionHash
+      hash: transactionHash,
+      ...(travelReference ? { travelReference } : {})
     };
 
     const normalizedPayee = originalTxn.Payee?.trim();
@@ -437,6 +470,9 @@ async function handleImportTransactions(
     importedTransactions.push(processedTxn);
     newKeySet.add(importKey);
     newBaseHashSet.add(transactionHash);
+    if (travelLinkInfo) {
+      linkOperations.push({ expenseId: expense.id, travelLinkInfo });
+    }
     if (sourceIndex !== undefined) {
       usedIndexes.add(sourceIndex);
     }
@@ -484,6 +520,21 @@ async function handleImportTransactions(
   if (!validation.isValid) {
     console.warn(`Trip boundary violations detected after YNAB import in trip ${id}:`, validation.errors);
     // Log warnings but don't fail the import - this is for monitoring
+  }
+
+  if (linkOperations.length > 0) {
+    try {
+      const linkingService = createExpenseLinkingService(id.replace(/^cost-/, ''));
+      await linkingService.applyLinkOperations(
+        linkOperations.map(operation => ({
+          type: 'add' as const,
+          expenseId: operation.expenseId,
+          travelLinkInfo: operation.travelLinkInfo
+        }))
+      );
+    } catch (error) {
+      console.error('Failed to link imported expenses to travel items:', error);
+    }
   }
 
   // Clean up temporary file

@@ -75,7 +75,8 @@ describe('ExpenseForm', () => {
     expect(screen.getByLabelText(/amount/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/notes/i)).toBeInTheDocument();
-    expect(screen.getByRole('checkbox')).toBeInTheDocument();
+    expect(screen.getByLabelText(/general expense/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/link to multiple routes/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add expense/i })).toBeInTheDocument();
   });
 
@@ -145,7 +146,10 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...editingProps} />);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/travel-data/test-trip-1/expense-links');
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/travel-data/test-trip-1/expense-links',
+        expect.objectContaining({ signal: expect.anything() })
+      );
       expect(mockTravelItemSelector).toHaveBeenCalledWith(
         expect.objectContaining({
           initialValue: {
