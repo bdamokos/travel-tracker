@@ -51,9 +51,11 @@ const LOCATION_COST_OPTIONS = [
   { key: 'total' as const, label: 'Total' },
   { key: 'perDay' as const, label: 'Per day' }
 ];
-const CATEGORY_BREAKDOWN_OPTIONS = [
-  { key: 'country' as const, label: 'Country', icon: '🌍' },
-  { key: 'payee' as const, label: 'Payee', icon: '💳' }
+type CategoryBreakdownMode = 'country' | 'payee';
+
+const CATEGORY_BREAKDOWN_OPTIONS: { key: CategoryBreakdownMode; label: string }[] = [
+  { key: 'country', label: 'Country' },
+  { key: 'payee', label: 'Payee' }
 ];
 
 const normalizeLabel = (value: string): string => value.trim().toLowerCase();
@@ -125,7 +127,7 @@ const buildLeaderboardEntries = (
 
 const buildCategoryLeaderboardEntries = (
   expenses: Expense[],
-  breakdownType: 'country' | 'payee'
+  breakdownType: CategoryBreakdownMode
 ): LeaderboardEntry[] =>
   buildGenericLeaderboardEntries(
     expenses,
@@ -342,7 +344,7 @@ export default function ExpenseLeaderboards({
   locations
 }: ExpenseLeaderboardsProps) {
   const [locationCostMode, setLocationCostMode] = useState<'total' | 'perDay'>('total');
-  const [categoryBreakdownMode, setCategoryBreakdownMode] = useState<'country' | 'payee'>('country');
+  const [categoryBreakdownMode, setCategoryBreakdownMode] = useState<CategoryBreakdownMode>('country');
 
   const descriptionEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.description),
@@ -410,35 +412,26 @@ export default function ExpenseLeaderboards({
   );
 
   const categoryHeaderExtras = (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Breakdown by
-      </span>
+    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+      <span className="font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Breakdown by</span>
       <div
         role="group"
         aria-label="Category breakdown mode"
-        className="relative inline-flex items-center gap-2 rounded-lg border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-1.5 shadow-md dark:border-amber-700/50 dark:from-amber-950/40 dark:to-orange-950/40"
+        className="inline-flex rounded-full border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-800"
       >
-        <div
-          className={`absolute inset-y-1.5 w-[calc(50%-0.25rem)] rounded-md bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg transition-all duration-300 ease-out dark:from-amber-600 dark:to-orange-700 ${
-            categoryBreakdownMode === 'country' ? 'left-1.5' : 'left-[calc(50%+0.25rem)]'
-          }`}
-          aria-hidden="true"
-        />
         {CATEGORY_BREAKDOWN_OPTIONS.map(option => (
           <button
             key={option.key}
             type="button"
             onClick={() => setCategoryBreakdownMode(option.key)}
             aria-pressed={categoryBreakdownMode === option.key}
-            className={`relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-all duration-300 ${
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
               categoryBreakdownMode === option.key
-                ? 'text-white'
-                : 'text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
             }`}
           >
-            <span className="text-sm">{option.icon}</span>
-            <span>{option.label}</span>
+            {option.label}
           </button>
         ))}
       </div>
