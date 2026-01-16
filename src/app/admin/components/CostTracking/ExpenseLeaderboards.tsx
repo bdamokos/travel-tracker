@@ -51,12 +51,29 @@ const LOCATION_COST_OPTIONS = [
   { key: 'total' as const, label: 'Total' },
   { key: 'perDay' as const, label: 'Per day' }
 ];
+type CategoryBreakdownMode = 'country' | 'payee';
 
+const CATEGORY_BREAKDOWN_OPTIONS: { key: CategoryBreakdownMode; label: string }[] = [
+  { key: 'country', label: 'Country' },
+  { key: 'payee', label: 'Payee' }
+];
+
+/**
+ * Normalizes a label string for consistent grouping by trimming whitespace and converting to lowercase.
+ */
 const normalizeLabel = (value: string): string => value.trim().toLowerCase();
 
-const buildLeaderboardEntries = (
+/**
+ * Groups expenses into leaderboard entries with nested breakdowns.
+ * @param expenses - Array of expenses to group
+ * @param getLabel - Function to extract the primary grouping label from an expense
+ * @param getBreakdownLabel - Function to extract the breakdown label for sub-grouping
+ * @returns Array of leaderboard entries sorted by total amount within breakdowns
+ */
+const buildGenericLeaderboardEntries = (
   expenses: Expense[],
-  getLabel: (expense: Expense) => string | undefined
+  getLabel: (expense: Expense) => string | undefined,
+  getBreakdownLabel: (expense: Expense) => string
 ): LeaderboardEntry[] => {
   const groups = new Map<
     string,
@@ -74,7 +91,7 @@ const buildLeaderboardEntries = (
     const trimmed = rawLabel.trim();
     if (!trimmed) return;
     const key = normalizeLabel(trimmed);
-    const country = expense.country?.trim() || 'General';
+    const breakdownLabel = getBreakdownLabel(expense);
 
     const existing = groups.get(key) ?? {
       label: trimmed,
@@ -86,15 +103,15 @@ const buildLeaderboardEntries = (
     existing.count += 1;
     existing.total += expense.amount;
 
-    const breakdownEntry = existing.breakdowns.get(country) ?? {
-      label: country,
+    const breakdownEntry = existing.breakdowns.get(breakdownLabel) ?? {
+      label: breakdownLabel,
       count: 0,
       total: 0
     };
 
     breakdownEntry.count += 1;
     breakdownEntry.total += expense.amount;
-    existing.breakdowns.set(country, breakdownEntry);
+    existing.breakdowns.set(breakdownLabel, breakdownEntry);
 
     groups.set(key, existing);
   });
@@ -108,6 +125,45 @@ const buildLeaderboardEntries = (
   }));
 };
 
+/**
+ * Builds leaderboard entries grouped by a custom label with country-based breakdowns.
+ * @param expenses - Array of expenses to group
+ * @param getLabel - Function to extract the grouping label (e.g., description or payee)
+ * @returns Array of leaderboard entries with country breakdowns
+ */
+const buildLeaderboardEntries = (
+  expenses: Expense[],
+  getLabel: (expense: Expense) => string | undefined
+): LeaderboardEntry[] =>
+  buildGenericLeaderboardEntries(
+    expenses,
+    getLabel,
+    expense => expense.country?.trim() || 'General'
+  );
+
+/**
+ * Builds leaderboard entries grouped by expense category with toggleable breakdowns.
+ * @param expenses - Array of expenses to group by category
+ * @param breakdownType - Whether to break down by 'country' or 'payee'
+ * @returns Array of category leaderboard entries with the selected breakdown type
+ */
+const buildCategoryLeaderboardEntries = (
+  expenses: Expense[],
+  breakdownType: CategoryBreakdownMode
+): LeaderboardEntry[] =>
+  buildGenericLeaderboardEntries(
+    expenses,
+    expense => expense.category,
+    expense =>
+      breakdownType === 'country'
+        ? expense.country?.trim() || 'General'
+        : expense.notes?.trim() || expense.source?.trim() || 'Unknown'
+  );
+
+/**
+ * Calculates the number of days spent at a location.
+ * Uses explicit duration if available, otherwise calculates from date range, defaulting to 1.
+ */
 const getLocationDays = (location: Location): number => {
   if (location.duration && location.duration > 0) {
     return location.duration;
@@ -120,6 +176,10 @@ const getLocationDays = (location: Location): number => {
   return 1;
 };
 
+/**
+ * Builds leaderboard entries for locations with expense totals and category breakdowns.
+ * Includes per-day calculations for cost comparison across locations with different durations.
+ */
 const buildLocationEntries = (
   locationTotals: Record<string, LocationExpenseTotal>,
   locations: Location[]
@@ -150,6 +210,9 @@ const buildLocationEntries = (
       };
     });
 
+/**
+ * Sorts leaderboard entries by expense count (descending), then by total value, then alphabetically.
+ */
 const sortByCount = (
   entries: LeaderboardEntry[],
   getTotalValue: (entry: LeaderboardEntry) => number = entry => entry.total
@@ -158,6 +221,9 @@ const sortByCount = (
     (a, b) => b.count - a.count || getTotalValue(b) - getTotalValue(a) || a.label.localeCompare(b.label)
   );
 
+/**
+ * Sorts leaderboard entries by total value (descending), then by count, then alphabetically.
+ */
 const sortByTotal = (
   entries: LeaderboardEntry[],
   getTotalValue: (entry: LeaderboardEntry) => number = entry => entry.total
@@ -166,6 +232,10 @@ const sortByTotal = (
     (a, b) => getTotalValue(b) - getTotalValue(a) || b.count - a.count || a.label.localeCompare(b.label)
   );
 
+/**
+ * Displays a selectable list of leaderboard entries with expense counts and totals.
+ * Used to show "Most Expenses" and "Highest Cost" rankings within a leaderboard section.
+ */
 const LeaderboardList = ({
   title,
   entries,
@@ -214,6 +284,10 @@ const LeaderboardList = ({
   </div>
 );
 
+/**
+ * A complete leaderboard section with dual-sorted lists and a breakdown detail panel.
+ * Displays entries sorted by both count and total value, with an interactive breakdown view.
+ */
 const LeaderboardSection = ({
   title,
   description,
@@ -306,6 +380,11 @@ const LeaderboardSection = ({
   );
 };
 
+/**
+ * Displays expense analytics through multiple leaderboard views.
+ * Includes sections for repeated descriptions, payees, category analysis, and location-based spending.
+ * Category analysis supports toggling between country and payee breakdowns.
+ */
 export default function ExpenseLeaderboards({
   expenses,
   currency,
@@ -314,6 +393,7 @@ export default function ExpenseLeaderboards({
   locations
 }: ExpenseLeaderboardsProps) {
   const [locationCostMode, setLocationCostMode] = useState<'total' | 'perDay'>('total');
+  const [categoryBreakdownMode, setCategoryBreakdownMode] = useState<CategoryBreakdownMode>('country');
 
   const descriptionEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.description),
@@ -322,6 +402,10 @@ export default function ExpenseLeaderboards({
   const payeeEntries = useMemo(
     () => buildLeaderboardEntries(expenses, expense => expense.notes || expense.source),
     [expenses]
+  );
+  const categoryEntries = useMemo(
+    () => buildCategoryLeaderboardEntries(expenses, categoryBreakdownMode),
+    [expenses, categoryBreakdownMode]
   );
   const locationEntries = useMemo(() => {
     if (!locationTotals || !locations) {
@@ -376,6 +460,33 @@ export default function ExpenseLeaderboards({
     </div>
   );
 
+  const categoryHeaderExtras = (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+      <span className="font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Breakdown by</span>
+      <div
+        role="group"
+        aria-label="Category breakdown mode"
+        className="inline-flex rounded-full border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-800"
+      >
+        {CATEGORY_BREAKDOWN_OPTIONS.map(option => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setCategoryBreakdownMode(option.key)}
+            aria-pressed={categoryBreakdownMode === option.key}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+              categoryBreakdownMode === option.key
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       <LeaderboardSection
@@ -391,6 +502,25 @@ export default function ExpenseLeaderboards({
         entries={payeeEntries}
         currency={currency}
         minimumMentions={minimumMentions}
+      />
+      <LeaderboardSection
+        title="Category Spending Analysis"
+        description="Discover where your budget actually goes by exploring spending patterns within each category."
+        entries={categoryEntries}
+        currency={currency}
+        minimumMentions={minimumMentions}
+        breakdownTitle={categoryBreakdownMode === 'country' ? 'Country Breakdown' : 'Payee Breakdown'}
+        emptyBreakdownMessage={
+          categoryBreakdownMode === 'country'
+            ? 'No country breakdown available for this category.'
+            : 'No payee breakdown available for this category.'
+        }
+        emptySelectionMessage={
+          categoryBreakdownMode === 'country'
+            ? 'Select a category to see spending by country.'
+            : 'Select a category to see which payees drive spending.'
+        }
+        headerExtras={categoryHeaderExtras}
       />
       {locationEntries.length > 0 && (
         <LeaderboardSection
