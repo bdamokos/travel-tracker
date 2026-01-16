@@ -7,12 +7,12 @@ import {
   CostTrackingData,
   YnabCategory,
   Expense,
-  YnabDuplicateMatch,
-  TravelReference
+  YnabDuplicateMatch
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import { getTransactionImportKey } from '@/app/lib/ynabUtils';
 import type { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+import { buildTravelReference } from '@/app/lib/travelLinkUtils';
 import AriaSelect from './AriaSelect';
 import AccessibleModal from './AccessibleModal';
 import TravelItemSelector from './TravelItemSelector';
@@ -196,27 +196,6 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   }, [costData.currency]);
 
   const normalizeString = (value?: string | null) => value ? value.trim().toLowerCase() : '';
-
-  const buildTravelReference = (linkInfo?: TravelLinkInfo): TravelReference | undefined => {
-    if (!linkInfo) {
-      return undefined;
-    }
-
-    const reference: TravelReference = {
-      type: linkInfo.type,
-      description: linkInfo.name
-    };
-
-    if (linkInfo.type === 'location') {
-      reference.locationId = linkInfo.id;
-    } else if (linkInfo.type === 'accommodation') {
-      reference.accommodationId = linkInfo.id;
-    } else if (linkInfo.type === 'route') {
-      reference.routeId = linkInfo.id;
-    }
-
-    return reference;
-  };
 
   const findPotentialDuplicates = useCallback((transaction: ProcessedYnabTransaction): YnabDuplicateMatch[] => {
     if (!transaction) {
@@ -746,6 +725,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
         // API-based import: send transactions directly to cost tracking API
         const updatedPayeeCategoryDefaults = { ...payeeCategoryDefaults };
         const existingExpenses = (costData.expenses || []).filter(expense => !expense.isPendingYnabImport);
+        const expenseBySelectionId = new Map<string, Expense>();
         const expensesToAdd = selectedTransactions.map(selection => {
           const transaction = transactionsById.get(selection.transactionId);
           if (!transaction) throw new Error(`Transaction not found: ${selection.transactionId}`);
@@ -756,7 +736,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             updatedPayeeCategoryDefaults[normalizedPayee] = selection.expenseCategory;
           }
 
-          return {
+          const expense: Expense = {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2),
             date: new Date(transaction.date),
             amount: transaction.amount,
@@ -773,6 +753,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
             ynabImportId: transaction.importId,
             ...(travelReference ? { travelReference } : {})
           };
+          expenseBySelectionId.set(selection.transactionId, expense);
+          return expense;
         });
 
         const newTransactionHashes = selectedTransactions.map(s => s.transactionId || s.transactionHash);
@@ -808,45 +790,41 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
         setPayeeCategoryDefaults(updatedPayeeCategoryDefaults);
 
-        const linkRequests = expensesToAdd
-          .map((expense, index) => {
-            const travelLinkInfo = selectedTransactions[index]?.travelLinkInfo;
-            if (!travelLinkInfo) {
+        const linkRequests = selectedTransactions
+          .map(selection => {
+            const expense = expenseBySelectionId.get(selection.transactionId);
+            if (!expense || !selection.travelLinkInfo) {
               return null;
             }
             return {
               expenseId: expense.id,
-              travelLinkInfo
+              travelLinkInfo: selection.travelLinkInfo
             };
           })
           .filter((request): request is { expenseId: string; travelLinkInfo: TravelLinkInfo } => request !== null);
 
+        let linkFailures = 0;
         if (linkRequests.length > 0) {
           const linkResults = await Promise.all(
             linkRequests.map(async requestInfo => {
-              const linkResponse = await fetch('/api/travel-data/expense-links', {
+              const linkResponse = await fetch(`/api/travel-data/${costData.tripId}/expense-links`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  tripId: costData.tripId,
                   expenseId: requestInfo.expenseId,
-                  travelItemId: requestInfo.travelLinkInfo.id,
-                  travelItemType: requestInfo.travelLinkInfo.type,
-                  description: requestInfo.travelLinkInfo.name
+                  links: requestInfo.travelLinkInfo
                 })
               });
               return { ok: linkResponse.ok };
             })
           );
+          linkFailures = linkResults.filter(result => !result.ok).length;
+        }
 
-          const linkFailures = linkResults.filter(result => !result.ok).length;
-          if (linkFailures > 0) {
-            alert(`Imported ${expensesToAdd.length} transactions, but failed to link ${linkFailures} expense${linkFailures === 1 ? '' : 's'} to travel items.`);
-          } else {
-            alert(`Successfully imported ${expensesToAdd.length} transactions!`);
-          }
+        if (linkFailures > 0) {
+          alert(`Imported ${expensesToAdd.length} transactions, but failed to link ${linkFailures} expense${linkFailures === 1 ? '' : 's'} to travel items.`);
         } else {
           alert(`Successfully imported ${expensesToAdd.length} transactions!`);
         }

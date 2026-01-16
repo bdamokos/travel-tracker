@@ -7,8 +7,7 @@ import {
   Expense,
   BudgetItem,
   ExpenseType,
-  YnabTransactionFilterResult,
-  TravelReference
+  YnabTransactionFilterResult
 } from '@/app/types';
 import { createTransactionHash, filterNewTransactions, getTransactionImportKey, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
 import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
@@ -18,6 +17,7 @@ import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
 import { loadUnifiedTripData, updateCostData } from '@/app/lib/unifiedDataService';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 import { getTempYnabFilePath } from '@/app/lib/dataFilePaths';
+import { buildTravelReference } from '@/app/lib/travelLinkUtils';
 import type { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 
 // Type guard for customCategories
@@ -37,27 +37,6 @@ function isValidTempFileId(tempFileId: unknown): tempFileId is string {
     tempFileId.length > 0 &&
     /^[A-Za-z0-9_-]+$/.test(tempFileId)
   );
-}
-
-function buildTravelReference(linkInfo?: TravelLinkInfo): TravelReference | undefined {
-  if (!linkInfo) {
-    return undefined;
-  }
-
-  const reference: TravelReference = {
-    type: linkInfo.type,
-    description: linkInfo.name
-  };
-
-  if (linkInfo.type === 'location') {
-    reference.locationId = linkInfo.id;
-  } else if (linkInfo.type === 'accommodation') {
-    reference.accommodationId = linkInfo.id;
-  } else if (linkInfo.type === 'route') {
-    reference.routeId = linkInfo.id;
-  }
-
-  return reference;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
