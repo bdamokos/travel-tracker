@@ -182,3 +182,9 @@ Use the same trip/location/route payloads as the integration test in `src/app/__
 # Tests
 
 Always run all relevant tests before finalising a PR/task.
+
+# GIT remotes
+Always be aware of the remote you are working on (run git remote-v). Github is 'github', while forgejo is the 'origin' remote.
+
+# Package managers
+Bun is the package manager for this project. Use bun install to install dependencies, run tests, run builds, etc.
