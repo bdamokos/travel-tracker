@@ -58,8 +58,18 @@ const CATEGORY_BREAKDOWN_OPTIONS: { key: CategoryBreakdownMode; label: string }[
   { key: 'payee', label: 'Payee' }
 ];
 
+/**
+ * Normalizes a label string for consistent grouping by trimming whitespace and converting to lowercase.
+ */
 const normalizeLabel = (value: string): string => value.trim().toLowerCase();
 
+/**
+ * Groups expenses into leaderboard entries with nested breakdowns.
+ * @param expenses - Array of expenses to group
+ * @param getLabel - Function to extract the primary grouping label from an expense
+ * @param getBreakdownLabel - Function to extract the breakdown label for sub-grouping
+ * @returns Array of leaderboard entries sorted by total amount within breakdowns
+ */
 const buildGenericLeaderboardEntries = (
   expenses: Expense[],
   getLabel: (expense: Expense) => string | undefined,
@@ -115,6 +125,12 @@ const buildGenericLeaderboardEntries = (
   }));
 };
 
+/**
+ * Builds leaderboard entries grouped by a custom label with country-based breakdowns.
+ * @param expenses - Array of expenses to group
+ * @param getLabel - Function to extract the grouping label (e.g., description or payee)
+ * @returns Array of leaderboard entries with country breakdowns
+ */
 const buildLeaderboardEntries = (
   expenses: Expense[],
   getLabel: (expense: Expense) => string | undefined
@@ -125,6 +141,12 @@ const buildLeaderboardEntries = (
     expense => expense.country?.trim() || 'General'
   );
 
+/**
+ * Builds leaderboard entries grouped by expense category with toggleable breakdowns.
+ * @param expenses - Array of expenses to group by category
+ * @param breakdownType - Whether to break down by 'country' or 'payee'
+ * @returns Array of category leaderboard entries with the selected breakdown type
+ */
 const buildCategoryLeaderboardEntries = (
   expenses: Expense[],
   breakdownType: CategoryBreakdownMode
@@ -138,6 +160,10 @@ const buildCategoryLeaderboardEntries = (
         : expense.notes?.trim() || expense.source?.trim() || 'Unknown'
   );
 
+/**
+ * Calculates the number of days spent at a location.
+ * Uses explicit duration if available, otherwise calculates from date range, defaulting to 1.
+ */
 const getLocationDays = (location: Location): number => {
   if (location.duration && location.duration > 0) {
     return location.duration;
@@ -150,6 +176,10 @@ const getLocationDays = (location: Location): number => {
   return 1;
 };
 
+/**
+ * Builds leaderboard entries for locations with expense totals and category breakdowns.
+ * Includes per-day calculations for cost comparison across locations with different durations.
+ */
 const buildLocationEntries = (
   locationTotals: Record<string, LocationExpenseTotal>,
   locations: Location[]
@@ -180,6 +210,9 @@ const buildLocationEntries = (
       };
     });
 
+/**
+ * Sorts leaderboard entries by expense count (descending), then by total value, then alphabetically.
+ */
 const sortByCount = (
   entries: LeaderboardEntry[],
   getTotalValue: (entry: LeaderboardEntry) => number = entry => entry.total
@@ -188,6 +221,9 @@ const sortByCount = (
     (a, b) => b.count - a.count || getTotalValue(b) - getTotalValue(a) || a.label.localeCompare(b.label)
   );
 
+/**
+ * Sorts leaderboard entries by total value (descending), then by count, then alphabetically.
+ */
 const sortByTotal = (
   entries: LeaderboardEntry[],
   getTotalValue: (entry: LeaderboardEntry) => number = entry => entry.total
@@ -196,6 +232,10 @@ const sortByTotal = (
     (a, b) => getTotalValue(b) - getTotalValue(a) || b.count - a.count || a.label.localeCompare(b.label)
   );
 
+/**
+ * Displays a selectable list of leaderboard entries with expense counts and totals.
+ * Used to show "Most Expenses" and "Highest Cost" rankings within a leaderboard section.
+ */
 const LeaderboardList = ({
   title,
   entries,
@@ -244,6 +284,10 @@ const LeaderboardList = ({
   </div>
 );
 
+/**
+ * A complete leaderboard section with dual-sorted lists and a breakdown detail panel.
+ * Displays entries sorted by both count and total value, with an interactive breakdown view.
+ */
 const LeaderboardSection = ({
   title,
   description,
@@ -336,6 +380,11 @@ const LeaderboardSection = ({
   );
 };
 
+/**
+ * Displays expense analytics through multiple leaderboard views.
+ * Includes sections for repeated descriptions, payees, category analysis, and location-based spending.
+ * Category analysis supports toggling between country and payee breakdowns.
+ */
 export default function ExpenseLeaderboards({
   expenses,
   currency,
