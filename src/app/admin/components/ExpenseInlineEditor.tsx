@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Expense, ExpenseType } from '@/app/types';
 import TravelItemSelector from './TravelItemSelector';
 import MultiRouteLinkManager from './MultiRouteLinkManager';
@@ -9,6 +9,7 @@ import AriaSelect from './AriaSelect';
 import AccessibleDatePicker from './AccessibleDatePicker';
 import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
+import { useLoadExpenseLinks } from '@/app/hooks/useLoadExpenseLinks';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
@@ -25,6 +26,7 @@ export default function ExpenseInlineEditor({
   expense,
   onSave,
   onCancel,
+  currency,
   categories,
   countryOptions,
   travelLookup,
@@ -33,88 +35,44 @@ export default function ExpenseInlineEditor({
   const [formData, setFormData] = useState<Expense>({
     ...expense
   });
-  const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
-  const [useMultiLink, setUseMultiLink] = useState(false);
-  const [multiLinks, setMultiLinks] = useState<TravelLinkInfo[]>([]);
-  const { error: linkError, saveLinks, clearError } = useMultiRouteLinks();
+  const [formError, setFormError] = useState<string | null>(null);
+  const { error: linkError, saving: linkSaving, saveLinks, clearError } = useMultiRouteLinks();
+
+  // Load existing links for this expense
+  const {
+    isLoading: linksLoading,
+    error: linksLoadError,
+    singleLink: selectedTravelLinkInfo,
+    multiLinks,
+    isMultiLinkMode: useMultiLink,
+    setSingleLink: setSelectedTravelLinkInfo,
+    setMultiLinks,
+    setIsMultiLinkMode: setUseMultiLink
+  } = useLoadExpenseLinks(expense.id, tripId);
+
+  const isSubmitting = linkSaving || linksLoading;
 
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
   const disableFinancialFields = isCashSourceExpense || isCashAllocationExpense;
 
-  // Load existing links when mounting (ExpenseInlineEditor is for existing expenses only)
-  useEffect(() => {
-    if (!expense.id || !tripId) return;
-
-    const abortController = new AbortController();
-
-    fetch(`/api/travel-data/${tripId}/expense-links`, {
-      signal: abortController.signal
-    })
-      .then(async response => {
-        if (!response.ok) {
-          throw new Error(`Failed to load expense links: ${response.statusText}`);
-        }
-        return response.json();
-      })
-      .then((links: Array<{
-        expenseId: string;
-        travelItemId: string;
-        travelItemName: string;
-        travelItemType: 'location' | 'accommodation' | 'route';
-        splitMode?: 'equal' | 'percentage' | 'fixed';
-        splitValue?: number;
-      }>) => {
-        const expenseLinks = links.filter(link => link.expenseId === expense.id);
-
-        if (expenseLinks.length > 1) {
-          setUseMultiLink(true);
-          setMultiLinks(expenseLinks.map(link => ({
-            id: link.travelItemId,
-            type: link.travelItemType,
-            name: link.travelItemName,
-            splitMode: link.splitMode,
-            splitValue: link.splitValue
-          })));
-        } else if (expenseLinks.length === 1) {
-          setUseMultiLink(false);
-          setSelectedTravelLinkInfo({
-            id: expenseLinks[0].travelItemId,
-            type: expenseLinks[0].travelItemType,
-            name: expenseLinks[0].travelItemName,
-            splitMode: expenseLinks[0].splitMode,
-            splitValue: expenseLinks[0].splitValue
-          });
-        } else {
-          // No links found, clear state
-          setUseMultiLink(false);
-          setSelectedTravelLinkInfo(undefined);
-          setMultiLinks([]);
-        }
-      })
-      .catch(error => {
-        if (error.name !== 'AbortError') {
-          console.error('Error loading expense links:', error);
-          // Reset state on error
-          setUseMultiLink(false);
-          setSelectedTravelLinkInfo(undefined);
-          setMultiLinks([]);
-        }
-      });
-
-    return () => abortController.abort();
-  }, [expense.id, tripId]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
     // Validate required fields
     if (!formData.date || !formData.amount || formData.amount === 0 || !formData.category) {
+      const missing = [];
+      if (!formData.date) missing.push('Date');
+      if (!formData.amount || formData.amount === 0) missing.push('Amount');
+      if (!formData.category) missing.push('Category');
+      setFormError(`Please fill in required fields: ${missing.join(', ')}`);
       return;
     }
 
     try {
       // Save expense links first if needed
+      // InPlaceEditor's onSave doesn't handle links, so we always save via hook
       if (formData.id && tripId) {
         const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
 
@@ -131,15 +89,15 @@ export default function ExpenseInlineEditor({
         }
       }
 
-      // Clear any previous link errors
+      // Clear any previous errors
       clearError();
+      setFormError(null);
 
-      // Then save the expense data
-      const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
-      onSave(formData, linksToSave);
+      // Save the expense data (links already saved above)
+      onSave(formData);
     } catch (error) {
       console.error('Error saving expense:', error);
-      // Error will be displayed via linkError state
+      setFormError(error instanceof Error ? error.message : 'Failed to save expense');
     }
   };
 
@@ -359,10 +317,11 @@ export default function ExpenseInlineEditor({
             />
           )}
 
-          {linkError && (
+          {(linkError || formError || linksLoadError) && (
             <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
               <p className="text-sm text-red-600 dark:text-red-400">
-                Error saving links: {linkError}
+                {linksLoadError ? `Error loading links: ${linksLoadError}` :
+                 linkError ? `Error saving links: ${linkError}` : formError}
               </p>
             </div>
           )}
@@ -372,9 +331,10 @@ export default function ExpenseInlineEditor({
         <div className="flex gap-2 pt-2">
           <button
             type="submit"
-            className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 focus:outline-none focus:ring-1 focus:ring-green-500"
+            disabled={isSubmitting}
+            className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save
+            {linkSaving ? 'Saving...' : 'Save'}
           </button>
           <button
             type="button"

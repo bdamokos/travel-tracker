@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import TravelItemSelector from './TravelItemSelector';
 import MultiRouteLinkManager from './MultiRouteLinkManager';
 import AriaSelect from './AriaSelect';
 import { Expense, ExpenseType } from '@/app/types';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
+import { useLoadExpenseLinks } from '@/app/hooks/useLoadExpenseLinks';
 import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
 import AccessibleDatePicker from './AccessibleDatePicker';
 
@@ -36,82 +36,32 @@ export default function ExpenseForm({
   travelLookup,
   tripId
 }: ExpenseFormProps) {
-  const [selectedTravelLinkInfo, setSelectedTravelLinkInfo] = useState<TravelLinkInfo | undefined>(undefined);
-  const [useMultiLink, setUseMultiLink] = useState(false);
-  const [multiLinks, setMultiLinks] = useState<TravelLinkInfo[]>([]);
-  const { error: linkError, saveLinks } = useMultiRouteLinks();
+  const { error: linkError, saving: linkSaving, saveLinks } = useMultiRouteLinks();
+
+  // Load existing links when editing an expense
+  const {
+    isLoading: linksLoading,
+    error: linksLoadError,
+    singleLink: selectedTravelLinkInfo,
+    multiLinks,
+    isMultiLinkMode: useMultiLink,
+    setSingleLink: setSelectedTravelLinkInfo,
+    setMultiLinks,
+    setIsMultiLinkMode: setUseMultiLink,
+    reset: resetLinks
+  } = useLoadExpenseLinks(
+    currentExpense.id,
+    tripId,
+    editingExpenseIndex !== null
+  );
+
+  const isSubmitting = linkSaving || linksLoading;
+
   const selectableCategories = categories.includes(CASH_CATEGORY_NAME)
     ? ((editingExpenseIndex !== null && currentExpense.category === CASH_CATEGORY_NAME)
         ? categories
         : categories.filter(category => category !== CASH_CATEGORY_NAME))
     : categories;
-
-  // Load existing travel link(s) when editing an expense
-  useEffect(() => {
-    let abortController: AbortController | null = null;
-
-    if (editingExpenseIndex !== null && currentExpense.id && tripId) {
-      abortController = new AbortController();
-
-      const loadLinks = async () => {
-        try {
-          const response = await fetch(`/api/travel-data/${tripId}/expense-links`, {
-            signal: abortController!.signal
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to load expense links: ${response.statusText}`);
-          }
-
-          const links = await response.json();
-          const expenseLinks = links.filter((link: { expenseId: string }) => link.expenseId === currentExpense.id);
-
-          if (expenseLinks.length > 1) {
-            setUseMultiLink(true);
-            setMultiLinks(expenseLinks.map((link: { travelItemId: string; travelItemType: 'location' | 'accommodation' | 'route'; travelItemName: string; splitMode?: 'equal' | 'percentage' | 'fixed'; splitValue?: number }) => ({
-              id: link.travelItemId,
-              type: link.travelItemType,
-              name: link.travelItemName,
-              splitMode: link.splitMode,
-              splitValue: link.splitValue
-            })));
-          } else if (expenseLinks.length === 1) {
-            setUseMultiLink(false);
-            setSelectedTravelLinkInfo({
-              id: expenseLinks[0].travelItemId,
-              type: expenseLinks[0].travelItemType,
-              name: expenseLinks[0].travelItemName,
-              splitMode: expenseLinks[0].splitMode,
-              splitValue: expenseLinks[0].splitValue
-            });
-          } else {
-            setUseMultiLink(false);
-            setSelectedTravelLinkInfo(undefined);
-            setMultiLinks([]);
-          }
-        } catch (error) {
-          if (error instanceof Error && error.name !== 'AbortError') {
-            console.error('Error loading existing travel link:', error);
-            setUseMultiLink(false);
-            setSelectedTravelLinkInfo(undefined);
-            setMultiLinks([]);
-          }
-        }
-      };
-
-      loadLinks();
-    } else {
-      setUseMultiLink(false);
-      setSelectedTravelLinkInfo(undefined);
-      setMultiLinks([]);
-    }
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-  }, [editingExpenseIndex, currentExpense.id, tripId]);
 
   // React 19 Action for adding/updating expenses
   async function submitExpenseAction(formData: FormData) {
@@ -141,36 +91,33 @@ export default function ExpenseForm({
         throw new Error(`Please fill in the following required fields: ${missing.join(', ')}`);
       }
 
-      // Save expense with backward-compatible single-link parameter
-      // (undefined in multi-link mode; actual multi-links saved separately below)
-      onExpenseAdded(expense, selectedTravelLinkInfo);
+      // In multi-link mode, save links via hook first, then save expense without link param
+      // In single-link mode, pass link to onExpenseAdded which handles it via handleExpenseAdded
+      if (useMultiLink && expense.id && tripId && multiLinks.length > 0) {
+        // Save expense first (without link param - links handled separately)
+        onExpenseAdded(expense, undefined);
 
-      // Save expense links if needed (multi-link mode)
-      if (expense.id && tripId) {
-        const linksToSave = useMultiLink ? multiLinks : selectedTravelLinkInfo;
-
-        if (linksToSave && (Array.isArray(linksToSave) ? linksToSave.length > 0 : true)) {
-          const linkSuccess = await saveLinks({
-            expenseId: expense.id,
-            tripId,
-            links: linksToSave
-          });
-          if (!linkSuccess) {
-            // linkError state is set by the hook and displayed below
-            // Don't reference it here as it may be stale due to async state updates
-            throw new Error('Failed to save expense links. Please check the error message below and try again.');
-          }
+        // Then save multi-links via hook
+        const linkSuccess = await saveLinks({
+          expenseId: expense.id,
+          tripId,
+          links: multiLinks
+        });
+        if (!linkSuccess) {
+          throw new Error('Failed to save expense links. Please check the error message below and try again.');
         }
+      } else {
+        // Single-link mode: let handleExpenseAdded save the link via API
+        onExpenseAdded(expense, selectedTravelLinkInfo);
       }
       
       // Reset form state first
       if (editingExpenseIndex !== null) {
         setEditingExpenseIndex(null);
       }
-      
-      // Reset form data
-      setUseMultiLink(false);
-      setMultiLinks([]);
+
+      // Reset form data and link state
+      resetLinks();
       setCurrentExpense({
         date: new Date(),
         amount: 0,
@@ -402,10 +349,11 @@ export default function ExpenseForm({
             />
           )}
 
-          {linkError && (
+          {(linkError || linksLoadError) && (
             <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
               <p className="text-sm text-red-600 dark:text-red-400">
-                Error saving links: {linkError}
+                {linksLoadError ? `Error loading links: ${linksLoadError}` :
+                 `Error saving links: ${linkError}`}
               </p>
             </div>
           )}
@@ -414,9 +362,10 @@ export default function ExpenseForm({
         <div className="md:col-span-2 flex gap-2">
           <button
             type="submit"
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingExpenseIndex !== null ? 'Update Expense' : 'Add Expense'}
+            {linkSaving ? 'Saving...' : editingExpenseIndex !== null ? 'Update Expense' : 'Add Expense'}
           </button>
           
           {editingExpenseIndex !== null && (

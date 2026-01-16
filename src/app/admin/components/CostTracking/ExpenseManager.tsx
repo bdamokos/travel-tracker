@@ -33,7 +33,7 @@ interface ExpenseManagerProps {
   getCategories: () => string[];
   getExistingCountries: () => string[];
   travelLookup: ExpenseTravelLookup | null;
-  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => Promise<void>;
+  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => Promise<void>;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   tripId: string;
 }

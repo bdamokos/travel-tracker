@@ -24,7 +24,7 @@ interface CashTransactionManagerProps {
   categories: string[];
   countryOptions: string[];
   tripId: string;
-  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo) => Promise<void>;
+  onExpenseAdded: (expense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => Promise<void>;
 }
 
 type CashSourceFormState = {

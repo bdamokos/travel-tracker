@@ -225,7 +225,7 @@ export default function CostTrackerEditor({
     });
   }, [costData.currency, costData.expenses, travelLookup, tripAccommodations, tripLocations]);
 
-  const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo) => {
+  const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => {
     let expense: Expense = { ...incomingExpense };
 
     if (isCashSource(expense) && expense.cashTransaction.cashTransactionId !== expense.id) {
@@ -324,7 +324,8 @@ export default function CostTrackerEditor({
     // Mark as having unsaved changes to trigger auto-save
     setHasUnsavedChanges(true);
 
-    if (travelLinkInfo) {
+    // Only handle single links here - multi-links are saved directly by the useMultiRouteLinks hook
+    if (travelLinkInfo && !Array.isArray(travelLinkInfo)) {
       try {
         // First, save the expense data to ensure it exists on the server before creating the link
         const saveResponse = await fetch(`/api/cost-tracking?id=${costData.id}`, {
