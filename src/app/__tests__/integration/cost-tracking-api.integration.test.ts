@@ -3,7 +3,7 @@
  * Tests expense management, YNAB import, and cost calculations
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, afterAll } from '@jest/globals';
 
 const BASE_URL = (() => {
   const fromEnv = process.env.TEST_API_BASE_URL;
@@ -182,6 +182,79 @@ describe('Cost Tracking API Endpoints', () => {
       expect(ourCostData).toBeDefined();
       expect(ourCostData.tripTitle).toBe(TEST_COST_DATA.tripTitle);
     });
+  });
+
+  describe('DELETE /api/cost-tracking (Partial deletion)', () => {
+    it('should delete only cost data and preserve travel data', async () => {
+      const travelPayload = {
+        title: 'Trip With Costs',
+        description: 'Trip used to verify cost-only deletion',
+        startDate: '2024-01-01T00:00:00.000Z',
+        endDate: '2024-01-31T00:00:00.000Z',
+        locations: [
+          {
+            id: 'sample-loc-1',
+            name: 'London',
+            coordinates: [51.5074, -0.1278],
+            date: '2024-01-01T00:00:00.000Z',
+            notes: 'Starting point'
+          }
+        ],
+        routes: []
+      };
+
+      const createTripResponse = await apiCall('/api/travel-data', {
+        method: 'POST',
+        body: JSON.stringify(travelPayload)
+      });
+      const createdTrip = await createTripResponse.json();
+      const tripId = createdTrip.id as string;
+
+      expect(typeof tripId).toBe('string');
+
+      // Attach cost data to the existing trip
+      const costPayloadForTrip = {
+        tripId,
+        tripTitle: travelPayload.title,
+        tripStartDate: travelPayload.startDate,
+        tripEndDate: travelPayload.endDate,
+        overallBudget: 1234,
+        reservedBudget: 0,
+        currency: 'EUR',
+        countryBudgets: [],
+        expenses: []
+      };
+
+      const putCostResponse = await apiCall(`/api/cost-tracking?id=${tripId}`, {
+        method: 'PUT',
+        body: JSON.stringify(costPayloadForTrip)
+      });
+      const putResult = await putCostResponse.json();
+      expect(putResult.success).toBe(true);
+
+      // Confirm cost data exists
+      const costGetBeforeDelete = await apiCall(`/api/cost-tracking?id=${tripId}`);
+      expect(costGetBeforeDelete.ok).toBe(true);
+
+      // Delete cost data via the same ID format used by the admin UI
+      const deleteResponse = await apiCall(`/api/cost-tracking?id=cost-${tripId}`, {
+        method: 'DELETE'
+      });
+      const deleteResult = await deleteResponse.json();
+      expect(deleteResult.success).toBe(true);
+
+      // Cost data is gone...
+      const costGetAfterDelete = await fetch(`${BASE_URL}/api/cost-tracking?id=${tripId}`);
+      expect(costGetAfterDelete.status).toBe(404);
+
+      // ...but travel data remains
+      const travelGetAfterDelete = await apiCall(`/api/travel-data?id=${tripId}`);
+      const travelData = await travelGetAfterDelete.json();
+      expect(travelData.title).toBe(travelPayload.title);
+      expect(Array.isArray(travelData.locations)).toBe(true);
+      expect(travelData.locations).toHaveLength(1);
+      expect(travelData.locations[0].name).toBe('London');
+    }, 15000);
   });
 
   describe('YNAB Import Workflow', () => {
