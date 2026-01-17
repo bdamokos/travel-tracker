@@ -94,7 +94,7 @@ export default function CalendarGrid({
     setActiveCell({ row, col });
     element.focus();
     return true;
-  }, [setActiveCell]);
+  }, []);
 
   const focusFirstInRow = useCallback((row: number) => {
     for (let col = 0; col < 7; col += 1) {
