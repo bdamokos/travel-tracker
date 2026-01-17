@@ -16,6 +16,7 @@ import {
 import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import CostPieCharts from '@/app/admin/components/CostPieCharts';
+import { filterExpensesByExcludedCountries } from '@/app/lib/countryInclusions';
 import BudgetSetup from '@/app/admin/components/CostTracking/BudgetSetup';
 import CountryBudgetManager from '@/app/admin/components/CostTracking/CountryBudgetManager';
 import CategoryManager from '@/app/admin/components/CostTracking/CategoryManager';
@@ -74,6 +75,7 @@ export default function CostTrackerEditor({
   setHasUnsavedChanges,
   onRefreshData,
 }: CostTrackerEditorProps) {
+  const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
   const [currentBudget, setCurrentBudget] = useState<Partial<BudgetItem>>({
     country: '',
     // amount omitted initially - no amount set
@@ -212,18 +214,23 @@ export default function CostTrackerEditor({
     }
   }, [costData.expenses, travelLookup]);
 
+  const leaderboardExpenses = useMemo(
+    () => filterExpensesByExcludedCountries(costData.expenses || [], excludedCountries),
+    [costData.expenses, excludedCountries]
+  );
+
   const locationTotals = useMemo(() => {
     if (!travelLookup || tripLocations.length === 0) {
       return null;
     }
 
     return calculateExpenseTotalsByLocation({
-      expenses: costData.expenses || [],
+      expenses: leaderboardExpenses,
       travelLookup,
       accommodations: tripAccommodations,
       trackingCurrency: costData.currency || 'USD'
     });
-  }, [costData.currency, costData.expenses, travelLookup, tripAccommodations, tripLocations]);
+  }, [costData.currency, leaderboardExpenses, travelLookup, tripAccommodations, tripLocations]);
 
   const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => {
     let expense: Expense = { ...incomingExpense };
@@ -608,7 +615,12 @@ export default function CostTrackerEditor({
         )}
 
         {costSummary && costSummary.countryBreakdown.some(c => c.spentAmount > 0) && (
-            <CostPieCharts costSummary={costSummary} currency={costData.currency} />
+            <CostPieCharts
+              costSummary={costSummary}
+              currency={costData.currency}
+              excludedCountries={excludedCountries}
+              setExcludedCountries={setExcludedCountries}
+            />
         )}
 
         {costSummary && costSummary.countryBreakdown.length > 0 && (
@@ -617,7 +629,7 @@ export default function CostTrackerEditor({
 
         {costData.expenses.length > 0 && (
           <ExpenseLeaderboards
-            expenses={costData.expenses}
+            expenses={leaderboardExpenses}
             currency={costData.currency}
             locationTotals={locationTotals}
             locations={tripLocations}
