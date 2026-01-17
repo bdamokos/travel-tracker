@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Trip, Location } from '@/app/types';
 import { 
   applyPlanningModeColors,
@@ -14,6 +14,7 @@ import styles from './Calendar.module.css';
 import { LocationPopupModal } from '@/app/components/LocationPopup';
 import { useLocationPopup } from '@/app/hooks/useLocationPopup';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
+import StatusAnnouncer from '@/app/components/a11y/StatusAnnouncer';
 
 /**
  * Helper function to sort legend items by earliest date.
@@ -86,9 +87,17 @@ export default function TripCalendar({
 }: TripCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [calendarAnnouncement, setCalendarAnnouncement] = useState('');
+  const instructionsId = useId();
+  const statusId = useId();
+  const monthHeaderBaseId = useId();
   
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
+  const handlePopupClose = useCallback(() => {
+    closePopup();
+    setCalendarAnnouncement('Popup closed.');
+  }, [closePopup]);
 
   useEffect(() => {
     setMounted(true);
@@ -171,6 +180,8 @@ export default function TripCalendar({
     };
 
     openPopup(location, journeyDay, trip.id);
+    const formattedDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(calendarDay.date);
+    setCalendarAnnouncement(`Opened popup for ${location.name} on ${formattedDate}.`);
   };
 
   // Memoize the sorted legend items to prevent re-sorting on every render
@@ -195,7 +206,18 @@ export default function TripCalendar({
   }
 
   return (
-    <div className={`${styles.tripCalendar} ${planningMode ? styles.planningMode : ''} ${className}`}>
+    <div
+      className={`${styles.tripCalendar} ${planningMode ? styles.planningMode : ''} ${className}`}
+      role="region"
+      aria-label={`Trip calendar for ${trip.title}`}
+      aria-describedby={`${instructionsId} ${statusId}`}
+    >
+      <div id={instructionsId} className="sr-only">
+        Trip calendar for {trip.title}. Use Tab to move into a month grid. Use arrow keys to move between days.
+        Use Home or End to jump to the start or end of a week row. Press Enter or Space on a day to open the
+        location popup. Press Escape to close the popup.
+      </div>
+      <StatusAnnouncer id={statusId} announcement={calendarAnnouncement} ariaLive="polite" role="status" atomic />
       <div className="trip-calendar-header mb-4">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
           {trip.title}
@@ -231,7 +253,10 @@ export default function TripCalendar({
         {calendarData.monthCalendars.map((monthCalendar, index) => (
           <div key={index} className="month-calendar">
             {/* Month Header */}
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 text-center">
+            <h3
+              id={`${monthHeaderBaseId}-month-${index}`}
+              className="text-xl font-bold text-gray-800 dark:text-white mb-4 text-center"
+            >
               {formatUtcDate(monthCalendar.month, 'en-US', {
                 month: 'long',
                 year: 'numeric'
@@ -244,6 +269,8 @@ export default function TripCalendar({
               selectedDate={selectedDate}
               onLocationSelect={handleLocationSelect}
               locationColors={calendarData.locationColors}
+              monthHeaderId={`${monthHeaderBaseId}-month-${index}`}
+              onAnnounce={setCalendarAnnouncement}
             />
           </div>
         ))}
@@ -273,7 +300,7 @@ export default function TripCalendar({
       {/* Location Popup Modal */}
       <LocationPopupModal
         isOpen={isOpen}
-        onClose={closePopup}
+        onClose={handlePopupClose}
         data={data}
       />
     </div>

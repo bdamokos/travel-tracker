@@ -355,7 +355,7 @@ export default async function MapPage({ params }: {
                               href={post.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 text-sm font-medium underline block"
+                              className="text-green-700 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200 text-sm font-medium underline block"
                               title={post.title}
                             >
                               📝 {post.title}

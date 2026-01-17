@@ -66,6 +66,14 @@ See the [deploy](./deploy) directory for example instructions on how to deploy t
 
 Travel Tracker stores all journey data on the server using API endpoints, ensuring your travel data is safely stored and accessible across devices.
 
+## Backups
+
+- Deleting a trip (admin) creates a JSON backup under `data/backups/` and records it in `data/backup-metadata.json`.
+- You can manage/restore backups from the Admin UI (Backups tab).
+- Retention/GC defaults: delete backups older than 30 days while keeping at least the newest 20 backups.
+  - Configure via env vars: `BACKUP_RETENTION_DAYS`, `BACKUP_GC_KEEP_LATEST`
+  - Optional automation token for calling the GC endpoint: `BACKUP_GC_TOKEN`
+
 ## Usage
 
 ### Journey Management
@@ -94,7 +102,6 @@ Potential expected issues:
 ---
 
 **Note:** This project uses [Bun](https://bun.sh/) for dependency management and scripts. Bun is much faster than npm/yarn and fully compatible with Next.js projects. Npm should still work.
-
 
 
 

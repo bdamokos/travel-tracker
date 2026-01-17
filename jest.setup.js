@@ -3,6 +3,15 @@ import '@testing-library/jest-dom'
 // Some UI tests can be slow on busy CI machines.
 jest.setTimeout(30_000)
 
+// `pick-distinct-colors` ships ESM that Jest doesn't transpile by default; unit tests don't need real colors.
+if (!process.env.JEST_INTEGRATION_TESTS) {
+  jest.mock('pick-distinct-colors', () => ({
+    pickDistinctColors: jest.fn(async ({ count }) => ({
+      colors: Array.from({ length: count ?? 1 }, () => [0, 0, 0]),
+    })),
+  }))
+}
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter() {

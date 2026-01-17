@@ -167,11 +167,11 @@ body {
   .flex-col-mobile {
     flex-direction: column;
   }
-  
+
   .w-full-mobile {
     width: 100%;
   }
-  
+
   .h-half-mobile {
     height: 50vh;
   }
@@ -202,7 +202,7 @@ body {
   body {
     overscroll-behavior-y: none;
   }
-  
+
   /* Add padding to account for iOS home indicator */
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
@@ -227,18 +227,18 @@ body {
     padding: 0 !important;
     margin: 0 !important;
   }
-  
+
   .leaflet-popup-content {
     margin: 0 !important;
     padding: 0 !important;
     line-height: 1.4 !important;
   }
-  
+
   .leaflet-popup-tip {
     background: #374151 !important;
     border: 1px solid #4b5563 !important;
   }
-  
+
   .leaflet-container a {
     color: #60a5fa !important;
   }
@@ -253,6 +253,66 @@ body {
   margin: 0 !important;
   padding: 0 !important;
   line-height: 1.4 !important;
+}
+
+/* Layer control legend styling */
+.leaflet-control-layers {
+  background: white !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  padding: 8px 12px !important;
+  max-width: 280px !important;
+}
+
+.leaflet-control-layers-list {
+  padding: 4px 0 !important;
+}
+
+.leaflet-control-layers-overlays {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.leaflet-control-layers-overlays label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 0 !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+}
+
+.leaflet-control-layers-overlays label span {
+  display: flex;
+  align-items: center;
+}
+
+.leaflet-control-layers-separator {
+  margin: 6px 0 !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+/* Dark mode layer control */
+@media (prefers-color-scheme: dark) {
+  .leaflet-control-layers {
+    background: #374151 !important;
+    color: #f9fafb !important;
+    border: 1px solid #4b5563 !important;
+  }
+
+  .leaflet-control-layers-separator {
+    border-top-color: #4b5563 !important;
+  }
+
+  .leaflet-control-layers-overlays label {
+    color: #f9fafb !important;
+  }
+}
+
+/* Start/End marker styling */
+.start-end-marker {
+  z-index: 600 !important;
 }
 
 /* ================================

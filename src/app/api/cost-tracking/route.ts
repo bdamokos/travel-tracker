@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateCostData, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { updateCostData, loadUnifiedTripData, deleteCostTrackingWithBackup } from '@/app/lib/unifiedDataService';
 import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
@@ -176,3 +176,36 @@ export async function PUT(request: NextRequest) {
     );
   }
 } 
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'ID parameter is required' }, { status: 400 });
+    }
+
+    const cleanId = id.replace(/^(cost-)+/, '');
+    const trip = await loadUnifiedTripData(cleanId);
+    if (!trip) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    }
+    if (!trip.costData) {
+      return NextResponse.json({ error: 'Cost tracking data not found' }, { status: 404 });
+    }
+
+    await deleteCostTrackingWithBackup(cleanId);
+    return NextResponse.json({
+      success: true,
+      message: `Cost tracking data for "${trip.title}" has been deleted and backed up`
+    });
+  } catch (error) {
+    console.error('Error deleting cost tracking data:', error);
+    return NextResponse.json({ error: 'Failed to delete cost tracking data' }, { status: 500 });
+  }
+}
