@@ -287,6 +287,7 @@ body {
   .travel-marker-interactive:focus-visible {
     outline: 4px solid #000;
     outline-offset: 3px;
+    box-shadow: none;
   }
 
   .temporal-symbol circle,
