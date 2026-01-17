@@ -42,6 +42,10 @@ export default function LocationPopupModal({
   const weatherArrivalTabId = useId();
   const wikiDepartureTabId = useId();
   const wikiArrivalTabId = useId();
+  const weatherDepartureTabRef = useRef<HTMLButtonElement | null>(null);
+  const weatherArrivalTabRef = useRef<HTMLButtonElement | null>(null);
+  const wikiDepartureTabRef = useRef<HTMLButtonElement | null>(null);
+  const wikiArrivalTabRef = useRef<HTMLButtonElement | null>(null);
   const prevFlagsRef = useRef({
     departureWeatherLoaded: false,
     arrivalWeatherLoaded: false,
@@ -164,6 +168,53 @@ export default function LocationPopupModal({
     isOpen,
   ]);
 
+  const moveTabFocus = useCallback((next: 'departure' | 'arrival', target: 'weather' | 'wiki') => {
+    setActiveTab(next);
+    const ref = target === 'weather'
+      ? (next === 'departure' ? weatherDepartureTabRef : weatherArrivalTabRef)
+      : (next === 'departure' ? wikiDepartureTabRef : wikiArrivalTabRef);
+
+    queueMicrotask(() => {
+      ref.current?.focus();
+    });
+  }, []);
+
+  const handleWeatherTabKeyDown = useCallback((event: React.KeyboardEvent, current: 'departure' | 'arrival') => {
+    const key = event.key;
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      event.preventDefault();
+      moveTabFocus(current === 'departure' ? 'arrival' : 'departure', 'weather');
+      return;
+    }
+    if (key === 'Home') {
+      event.preventDefault();
+      moveTabFocus('departure', 'weather');
+      return;
+    }
+    if (key === 'End') {
+      event.preventDefault();
+      moveTabFocus('arrival', 'weather');
+    }
+  }, [moveTabFocus]);
+
+  const handleWikiTabKeyDown = useCallback((event: React.KeyboardEvent, current: 'departure' | 'arrival') => {
+    const key = event.key;
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      event.preventDefault();
+      moveTabFocus(current === 'departure' ? 'arrival' : 'departure', 'wiki');
+      return;
+    }
+    if (key === 'Home') {
+      event.preventDefault();
+      moveTabFocus('departure', 'wiki');
+      return;
+    }
+    if (key === 'End') {
+      event.preventDefault();
+      moveTabFocus('arrival', 'wiki');
+    }
+  }, [moveTabFocus]);
+
   if (!data) return null;
 
   const { location, day, tripId } = data;
@@ -193,10 +244,13 @@ export default function LocationPopupModal({
               <div className="flex space-x-1 mb-3 bg-gray-100 dark:bg-gray-800 rounded-lg p-1" role="tablist" aria-label="Weather location tabs">
                 <button
                   onClick={() => setActiveTab('departure')}
+                  onKeyDown={event => handleWeatherTabKeyDown(event, 'departure')}
                   id={weatherDepartureTabId}
                   role="tab"
                   aria-selected={activeTab === 'departure'}
                   aria-controls={weatherPanelId}
+                  tabIndex={activeTab === 'departure' ? 0 : -1}
+                  ref={weatherDepartureTabRef}
                   className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     activeTab === 'departure'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
@@ -207,10 +261,13 @@ export default function LocationPopupModal({
                 </button>
                 <button
                   onClick={() => setActiveTab('arrival')}
+                  onKeyDown={event => handleWeatherTabKeyDown(event, 'arrival')}
                   id={weatherArrivalTabId}
                   role="tab"
                   aria-selected={activeTab === 'arrival'}
                   aria-controls={weatherPanelId}
+                  tabIndex={activeTab === 'arrival' ? 0 : -1}
+                  ref={weatherArrivalTabRef}
                   className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     activeTab === 'arrival'
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
@@ -259,10 +316,13 @@ export default function LocationPopupModal({
             <div className="flex space-x-1 mb-4 bg-gray-100 dark:bg-gray-800 rounded-lg p-1" role="tablist" aria-label="Wikipedia tabs">
               <button
                 onClick={() => setActiveTab('departure')}
+                onKeyDown={event => handleWikiTabKeyDown(event, 'departure')}
                 id={wikiDepartureTabId}
                 role="tab"
                 aria-selected={activeTab === 'departure'}
                 aria-controls={wikiPanelId}
+                tabIndex={activeTab === 'departure' ? 0 : -1}
+                ref={wikiDepartureTabRef}
                 className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeTab === 'departure'
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
@@ -273,10 +333,13 @@ export default function LocationPopupModal({
               </button>
               <button
                 onClick={() => setActiveTab('arrival')}
+                onKeyDown={event => handleWikiTabKeyDown(event, 'arrival')}
                 id={wikiArrivalTabId}
                 role="tab"
                 aria-selected={activeTab === 'arrival'}
                 aria-controls={wikiPanelId}
+                tabIndex={activeTab === 'arrival' ? 0 : -1}
+                ref={wikiArrivalTabRef}
                 className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                   activeTab === 'arrival'
                     ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'

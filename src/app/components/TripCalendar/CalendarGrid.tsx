@@ -31,7 +31,7 @@ export default function CalendarGrid({
   monthHeaderId,
   onAnnounce,
 }: CalendarGridProps) {
-  const cellRefs = useRef(new globalThis.Map<string, HTMLElement>());
+  const cellRefs = useRef(new Map<string, HTMLElement>());
 
   // Filter out weeks that consist entirely of outside-month days
   const weeks = useMemo(

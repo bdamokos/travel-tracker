@@ -169,7 +169,6 @@ export default function CalendarDayCell({
       aria-colspan={mergeInfo?.colspan && mergeInfo.colspan > 1 ? mergeInfo.colspan : undefined}
       onFocus={() => {
         onFocusCell(gridPosition.row, gridPosition.col);
-        onAnnounce(`Focused day. ${ariaLabel}`);
       }}
       onKeyDown={event => {
         if (event.key === 'Enter' || event.key === ' ') {
