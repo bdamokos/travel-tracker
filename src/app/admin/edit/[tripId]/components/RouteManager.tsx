@@ -8,6 +8,7 @@ import InPlaceEditor from '@/app/admin/components/InPlaceEditor';
 import RouteDisplay from '@/app/admin/components/RouteDisplay';
 import RouteInlineEditor from '@/app/admin/components/RouteInlineEditor';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
+import DistanceSummary from './DistanceSummary';
 
 // Component to conditionally show LinkedExpensesDisplay using SWR hook
 function RouteExpensesDisplay({ tripId, routeId, routeName }: { tripId: string; routeId: string; routeName: string }) {
@@ -79,6 +80,13 @@ export default function RouteManager({
     <>
       <div>
         <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Routes</h3>
+
+        {/* Distance Summary */}
+        {travelData.routes.length > 0 && (
+          <div className="mb-6">
+            <DistanceSummary routes={travelData.routes} />
+          </div>
+        )}
 
         {/* Add Route Form Section */}
         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 mb-6">
