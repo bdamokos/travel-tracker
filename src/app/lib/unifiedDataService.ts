@@ -13,15 +13,18 @@ import {
   migrateToLatestSchema,
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
-import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '@/app/types';
+import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation, CostTrackingLink } from '@/app/types';
 import { backupService } from './backupService';
 import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
 import { getDataDir } from './dataDirectory';
 import { dateReviver } from './jsonDateReviver';
 import { buildTripUpdates } from './tripUpdates';
+import { ConflictError, NotFoundError, ValidationError } from './errors';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');
+
+type DeletionBackupKind = 'trip' | 'cost';
 
 async function ensureBackupDir() {
   try {
@@ -31,7 +34,184 @@ async function ensureBackupDir() {
   }
 }
 
-export async function createTripBackup(id: string, deletionReason?: string): Promise<void> {
+function clearCostLinksFromTransportation(transportation?: Transportation): Transportation | undefined {
+  if (!transportation) return undefined;
+  const { subRoutes, ...rest } = transportation;
+  return {
+    ...(rest as Transportation),
+    costTrackingLinks: [],
+    subRoutes: Array.isArray(subRoutes)
+      ? subRoutes.map((segment) => ({
+          ...segment,
+          costTrackingLinks: []
+        }))
+      : subRoutes
+  };
+}
+
+function clearCostTrackingLinks(tripData: UnifiedTripData): UnifiedTripData {
+  const travelData = tripData.travelData;
+  const accommodations = Array.isArray(tripData.accommodations)
+    ? tripData.accommodations.map((accommodation) => ({
+        ...accommodation,
+        costTrackingLinks: []
+      }))
+    : tripData.accommodations;
+
+  if (!travelData) {
+    return { ...tripData, accommodations };
+  }
+
+  const locations = Array.isArray(travelData.locations)
+    ? travelData.locations.map((location) => ({
+        ...location,
+        costTrackingLinks: []
+      }))
+    : travelData.locations;
+
+  const routes = Array.isArray(travelData.routes)
+    ? travelData.routes.map((route) => clearCostLinksFromTransportation(route) as Transportation)
+    : travelData.routes;
+
+  const days = Array.isArray(travelData.days)
+    ? travelData.days.map((period) => ({
+        ...period,
+        locations: Array.isArray(period.locations)
+          ? period.locations.map((location) => ({
+              ...location,
+              costTrackingLinks: []
+            }))
+          : period.locations,
+        transportation: clearCostLinksFromTransportation(period.transportation)
+      }))
+    : travelData.days;
+
+  return {
+    ...tripData,
+    travelData: {
+      ...travelData,
+      locations,
+      routes,
+      days
+    },
+    accommodations
+  };
+}
+
+function mergeCostTrackingLinks(
+  existingLinks: CostTrackingLink[] | undefined,
+  restoredLinks: CostTrackingLink[] | undefined
+): CostTrackingLink[] {
+  const existing = Array.isArray(existingLinks) ? existingLinks : [];
+  const restored = Array.isArray(restoredLinks) ? restoredLinks : [];
+  if (existing.length === 0) return restored;
+  if (restored.length === 0) return existing;
+
+  const existingKeys = new Set(existing.map(link => link.expenseId).filter(Boolean));
+  const merged = [...existing];
+  for (const link of restored) {
+    if (link.expenseId && !existingKeys.has(link.expenseId)) {
+      merged.push(link);
+      existingKeys.add(link.expenseId);
+    }
+  }
+  return merged;
+}
+
+function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedTripData): UnifiedTripData {
+  const mergeLocations = (currentLocations?: Location[], restoredLocations?: Location[]) => {
+    if (!Array.isArray(currentLocations) || !Array.isArray(restoredLocations)) return currentLocations;
+    return currentLocations.map((location) => {
+      const restoredLocation = restoredLocations.find((candidate) => candidate.id === location.id);
+      if (!restoredLocation) return location;
+      return {
+        ...location,
+        costTrackingLinks: mergeCostTrackingLinks(location.costTrackingLinks, restoredLocation.costTrackingLinks)
+      };
+    });
+  };
+
+  const mergeTransportation = (currentRoute?: Transportation, restoredRoute?: Transportation): Transportation | undefined => {
+    if (!currentRoute) return undefined;
+    if (!restoredRoute) return currentRoute;
+    const currentSubRoutes = Array.isArray(currentRoute.subRoutes) ? currentRoute.subRoutes : [];
+    const restoredSubRoutes = Array.isArray(restoredRoute.subRoutes) ? restoredRoute.subRoutes : [];
+
+    return {
+      ...currentRoute,
+      costTrackingLinks: mergeCostTrackingLinks(currentRoute.costTrackingLinks, restoredRoute.costTrackingLinks),
+      subRoutes: currentSubRoutes.length
+        ? currentSubRoutes.map((segment) => {
+            const restoredSegment = restoredSubRoutes.find((candidate) => candidate.id === segment.id);
+            if (!restoredSegment) return segment;
+            return {
+              ...segment,
+              costTrackingLinks: mergeCostTrackingLinks(segment.costTrackingLinks, restoredSegment.costTrackingLinks)
+            };
+          })
+        : currentRoute.subRoutes
+    };
+  };
+
+  const mergeRoutes = (currentRoutes?: Transportation[], restoredRoutes?: Transportation[]) => {
+    if (!Array.isArray(currentRoutes) || !Array.isArray(restoredRoutes)) return currentRoutes;
+    return currentRoutes.map((route) => {
+      const restoredRoute = restoredRoutes.find((candidate) => candidate.id === route.id);
+      return mergeTransportation(route, restoredRoute) as Transportation;
+    });
+  };
+
+  const mergeDays = (currentDays?: JourneyPeriod[], restoredDays?: JourneyPeriod[]) => {
+    if (!Array.isArray(currentDays) || !Array.isArray(restoredDays)) return currentDays;
+    return currentDays.map((period) => {
+      const restoredPeriod = restoredDays.find((candidate) => candidate.id === period.id);
+      if (!restoredPeriod) return period;
+      return {
+        ...period,
+        locations: mergeLocations(period.locations, restoredPeriod.locations) as JourneyPeriod['locations'],
+        transportation: mergeTransportation(period.transportation, restoredPeriod.transportation)
+      };
+    });
+  };
+
+  const mergeAccommodations = (currentAcc?: Accommodation[], restoredAcc?: Accommodation[]) => {
+    if (!Array.isArray(currentAcc) || !Array.isArray(restoredAcc)) return currentAcc;
+    return currentAcc.map((accommodation) => {
+      const restoredAccommodation = restoredAcc.find((candidate) => candidate.id === accommodation.id);
+      if (!restoredAccommodation) return accommodation;
+      return {
+        ...accommodation,
+        costTrackingLinks: mergeCostTrackingLinks(accommodation.costTrackingLinks, restoredAccommodation.costTrackingLinks)
+      };
+    });
+  };
+
+  const mergedAccommodations = mergeAccommodations(current.accommodations, restored.accommodations);
+
+  if (!current.travelData || !restored.travelData) {
+    return {
+      ...current,
+      accommodations: mergedAccommodations
+    };
+  }
+
+  return {
+    ...current,
+    travelData: {
+      ...current.travelData,
+      locations: mergeLocations(current.travelData.locations, restored.travelData.locations),
+      routes: mergeRoutes(current.travelData.routes, restored.travelData.routes),
+      days: mergeDays(current.travelData.days as JourneyPeriod[] | undefined, restored.travelData.days as JourneyPeriod[] | undefined)
+    },
+    accommodations: mergedAccommodations
+  };
+}
+
+async function createDeletionBackup(
+  id: string,
+  kind: DeletionBackupKind,
+  deletionReason: string
+): Promise<void> {
   try {
     await ensureBackupDir();
 
@@ -40,17 +220,20 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
       throw new Error(`Trip ${id} not found for backup`);
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-');
     const backupData = {
       ...tripData,
       backupMetadata: {
-        deletedAt: new Date().toISOString(),
+        deletedAt: now.toISOString(),
         originalId: id,
-        backupType: 'trip_deletion'
+        backupType: deletionReason
       }
     };
 
-    const backupFilename = `deleted-trip-${id}-${timestamp}.json`;
+    const backupFilename = kind === 'trip'
+      ? `deleted-trip-${id}-${timestamp}.json`
+      : `deleted-cost-${id}-${timestamp}.json`;
     const backupPath = getBackupFilePath(backupFilename);
 
     await writeFile(backupPath, JSON.stringify(backupData, null, 2));
@@ -58,13 +241,12 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
 
     // Add metadata entry using the new backup service
     try {
-      const backupType = tripData.costData ? 'cost' : 'trip';
       await backupService.addBackupMetadata(
         id,
-        backupType,
+        kind,
         tripData.title,
         backupPath,
-        deletionReason || 'trip_deletion'
+        deletionReason
       );
       console.log('Added backup metadata for trip %s', id);
     } catch (metadataError) {
@@ -77,10 +259,18 @@ export async function createTripBackup(id: string, deletionReason?: string): Pro
   }
 }
 
+export async function createTripBackup(id: string, deletionReason = 'trip_deletion'): Promise<void> {
+  await createDeletionBackup(id, 'trip', deletionReason);
+}
+
+export async function createCostBackup(id: string, deletionReason = 'cost_tracker_deletion'): Promise<void> {
+  await createDeletionBackup(id, 'cost', deletionReason);
+}
+
 export async function deleteTripWithBackup(id: string): Promise<void> {
   try {
     // Create backup first
-    await createTripBackup(id);
+    await createTripBackup(id, 'trip_deletion');
 
     // Remove unified trip file
     const unifiedPath = getUnifiedTripFilePath(id);
@@ -92,6 +282,95 @@ export async function deleteTripWithBackup(id: string): Promise<void> {
     console.error('Failed to delete trip %s:', id, error);
     throw error;
   }
+}
+
+export async function deleteCostTrackingWithBackup(tripId: string): Promise<UnifiedTripData> {
+  const existing = await loadUnifiedTripData(tripId);
+  if (!existing) {
+    throw new Error(`Trip ${tripId} not found`);
+  }
+  if (!existing.costData) {
+    throw new Error(`Trip ${tripId} has no cost tracking data to delete`);
+  }
+
+  await createCostBackup(tripId, 'cost_tracker_deletion');
+
+  const updated: UnifiedTripData = clearCostTrackingLinks({
+    ...existing,
+    costData: undefined,
+    updatedAt: new Date().toISOString()
+  });
+
+  await saveUnifiedTripData(updated);
+  return updated;
+}
+
+export async function restoreTripFromBackup(backupId: string, targetTripId?: string, overwrite = false): Promise<UnifiedTripData> {
+  const backup = await backupService.getBackupById(backupId);
+  if (!backup) {
+    throw new NotFoundError(`Backup ${backupId} not found`);
+  }
+
+  const content = await readFile(backup.filePath, 'utf-8');
+  const parsed = JSON.parse(content, dateReviver) as UnifiedTripData & { backupMetadata?: unknown };
+  const migrated = migrateToLatestSchema(parsed as UnifiedTripData);
+
+  const restoredTripId = targetTripId || backup.originalId;
+  const existing = await loadUnifiedTripData(restoredTripId);
+  if (existing && !overwrite) {
+    throw new ConflictError(`Trip ${restoredTripId} already exists`);
+  }
+
+  const withoutMetadata = { ...(migrated as UnifiedTripData), id: restoredTripId } as UnifiedTripData & { backupMetadata?: unknown };
+  delete withoutMetadata.backupMetadata;
+
+  const now = new Date().toISOString();
+  const restored: UnifiedTripData = {
+    ...withoutMetadata,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    updatedAt: now
+  };
+
+  await saveUnifiedTripData(restored);
+  return restored;
+}
+
+export async function restoreCostTrackingFromBackup(
+  backupId: string,
+  tripId?: string,
+  overwrite = false
+): Promise<UnifiedTripData> {
+  const backup = await backupService.getBackupById(backupId);
+  if (!backup) {
+    throw new NotFoundError(`Backup ${backupId} not found`);
+  }
+
+  const resolvedTripId = tripId || backup.originalId;
+  const current = await loadUnifiedTripData(resolvedTripId);
+  if (!current) {
+    throw new NotFoundError(`Trip ${resolvedTripId} not found`);
+  }
+  if (current.costData && !overwrite) {
+    throw new ConflictError(`Trip ${resolvedTripId} already has cost tracking data`);
+  }
+
+  const content = await readFile(backup.filePath, 'utf-8');
+  const parsed = JSON.parse(content, dateReviver) as UnifiedTripData & { backupMetadata?: unknown };
+  const migrated = migrateToLatestSchema(parsed as UnifiedTripData);
+
+  if (!migrated.costData) {
+    throw new ValidationError(`Backup ${backupId} has no cost tracking data`);
+  }
+
+  const withRestoredCost: UnifiedTripData = {
+    ...current,
+    costData: migrated.costData,
+    updatedAt: new Date().toISOString()
+  };
+
+  const mergedLinks = mergeRestoredLinksIntoTrip(withRestoredCost, migrated);
+  await saveUnifiedTripData(mergedLinks);
+  return mergedLinks;
 }
 
 /**

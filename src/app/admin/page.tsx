@@ -4,11 +4,12 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TripList from './components/TripList';
 import CostTrackerList from './components/CostTracking/CostTrackerList';
+import BackupsManager from './components/Backups/BackupsManager';
 import { ExistingCostEntry } from '@/app/types';
 
 function AdminPageContent() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'travel' | 'cost'>('travel');
+  const [activeTab, setActiveTab] = useState<'travel' | 'cost' | 'backups'>('travel');
   const [tripDeleteDialog, setTripDeleteDialog] = useState<{
     isOpen: boolean;
     tripId: string;
@@ -26,6 +27,8 @@ function AdminPageContent() {
     const tab = searchParams?.get?.('tab') || null;
     if (tab === 'cost') {
       setActiveTab('cost');
+    } else if (tab === 'backups') {
+      setActiveTab('backups');
     } else {
       setActiveTab('travel');
     }
@@ -135,6 +138,19 @@ function AdminPageContent() {
                 >
                   Cost Tracking
                 </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('backups');
+                    router.push('/admin?tab=backups');
+                  }}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'backups'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  Backups
+                </button>
               </nav>
             </div>
           </div>
@@ -149,6 +165,7 @@ function AdminPageContent() {
                 onRefresh={loadExistingCostEntries}
               />
             )}
+            {activeTab === 'backups' && <BackupsManager />}
           </div>
         </div>
       </div>
