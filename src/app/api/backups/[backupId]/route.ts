@@ -13,14 +13,14 @@ function normalizeTripId(id: unknown): string | null {
   return trimmed;
 }
 
-export async function GET(_request: NextRequest, context: { params: { backupId: string } }) {
+export async function GET(_request: NextRequest, context: { params: Promise<{ backupId: string }> }) {
   try {
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { backupId } = context.params;
+    const { backupId } = await context.params;
     const backup = await backupService.getBackupById(backupId);
     if (!backup) {
       return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
@@ -34,14 +34,14 @@ export async function GET(_request: NextRequest, context: { params: { backupId: 
   }
 }
 
-export async function POST(request: NextRequest, context: { params: { backupId: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ backupId: string }> }) {
   const isAdmin = await isAdminDomain();
   if (!isAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
   try {
-    const { backupId } = context.params;
+    const { backupId } = await context.params;
     const body = (await request.json().catch(() => ({}))) as {
       restoreType?: 'trip' | 'cost';
       targetTripId?: string;
@@ -83,14 +83,14 @@ export async function POST(request: NextRequest, context: { params: { backupId: 
   }
 }
 
-export async function DELETE(_request: NextRequest, context: { params: { backupId: string } }) {
+export async function DELETE(_request: NextRequest, context: { params: Promise<{ backupId: string }> }) {
   try {
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { backupId } = context.params;
+    const { backupId } = await context.params;
     const result = await backupService.deleteBackup(backupId);
 
     if (!result.removedMetadata) {
