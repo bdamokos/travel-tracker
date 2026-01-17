@@ -10,6 +10,7 @@ import { existsSync, readFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { getDataDir } from '@/app/lib/dataDirectory'
 import { isExternalApiAvailable, getMockRoutePoints, setupRouteMocking } from '@/app/__tests__/utils/mockRouteUtils'
+import { TransportationType } from '@/app/types'
 
 // Expected coordinates that OSRM actually returns for our test route
 const EXPECTED_OSRM_START = [51.507478, -0.127965];
@@ -342,7 +343,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       // Generate RoutePoints for the test route (simulating handleRouteAdded)
       const transportation = {
         id: TEST_ROUTE.id,
-        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        type: TEST_ROUTE.transportType as TransportationType,
         from: TEST_ROUTE.from,
         to: TEST_ROUTE.to,
         fromCoordinates: TEST_ROUTE.fromCoords,
@@ -445,7 +446,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       
       const transportation = {
         id: TEST_ROUTE.id,
-        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        type: TEST_ROUTE.transportType as TransportationType,
         from: TEST_ROUTE.from,
         to: TEST_ROUTE.to,
         fromCoordinates: TEST_ROUTE.fromCoords,
@@ -519,7 +520,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       // Add route with RoutePoints
       const routeData = {
         id: TEST_ROUTE.id,
-        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        type: TEST_ROUTE.transportType as TransportationType,
         from: TEST_ROUTE.from,
         to: TEST_ROUTE.to,
         fromCoordinates: TEST_ROUTE.fromCoords,

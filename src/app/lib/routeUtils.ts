@@ -34,6 +34,12 @@ export const transportationConfig: Record<Transportation['type'], {
     opacity: 0.8,
     description: 'Bus'
   },
+  shuttle: {
+    color: '#3B82F6',     // Blue (slightly different from bus)
+    weight: 4,
+    opacity: 0.8,
+    description: 'Shuttle (shared)'
+  },
   train: {
     color: '#F44336',     // Red
     weight: 5,
@@ -252,6 +258,7 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
       return 'foot';
     case 'car':
     case 'bus':
+    case 'shuttle':
     case 'train':
     case 'metro':
     case 'other':
@@ -362,6 +369,7 @@ export const generateRoutePoints = async (
     case 'train':
     case 'metro':
     case 'bus':
+    case 'shuttle':
     case 'car':
     case 'walk':
     case 'bike':
@@ -422,6 +430,7 @@ export const generateRoutePointsSync = (
     case 'train':
     case 'metro':
     case 'bus':
+    case 'shuttle':
     case 'car':
     case 'walk':
     case 'bike':

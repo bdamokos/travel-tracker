@@ -34,6 +34,7 @@ export default function RouteDisplay({
       car: '🚗',
       train: '🚂',
       bus: '🚌',
+      shuttle: '🚐',
       ferry: '⛴️',
       boat: '🚢',
       bike: '🚴',

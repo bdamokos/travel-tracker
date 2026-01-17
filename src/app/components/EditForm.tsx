@@ -937,6 +937,7 @@ const EditForm: React.FC<EditFormProps> = ({ day, onSave, onCancel }) => {
                     { value: 'bike', label: 'Biking' },
                     { value: 'car', label: 'Car' },
                     { value: 'bus', label: 'Bus' },
+                    { value: 'shuttle', label: 'Shuttle (shared)' },
                     { value: 'train', label: 'Train' },
                     { value: 'plane', label: 'Plane' },
                     { value: 'ferry', label: 'Ferry' },

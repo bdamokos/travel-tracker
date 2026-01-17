@@ -320,6 +320,8 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
         return '🚶';
       case 'bus':
         return '🚌';
+      case 'shuttle':
+        return '🚐';
       case 'train':
         return '🚆';
       case 'plane':
@@ -330,6 +332,10 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
         return '⛴️';
       case 'bike':
         return '🚲';
+      case 'metro':
+        return '🚇';
+      case 'boat':
+        return '🚢';
       case 'other':
       default:
         return '🚀';
