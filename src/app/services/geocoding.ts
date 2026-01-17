@@ -107,7 +107,7 @@ export function calculateDistance(
 /**
  * Estimate travel time based on the distance and transportation type
  * @param distance Distance in kilometers
- * @param transportType Transportation type (walk, bike, car, bus, train, plane, ferry, other)
+ * @param transportType Transportation type (walk, bike, car, bus, shuttle, train, metro, plane, ferry, boat, other)
  * @returns Estimated travel time in minutes
  */
 export function estimateTravelTime(
@@ -115,11 +115,12 @@ export function estimateTravelTime(
   transportType: Transportation['type']
 ): number {
   // Define average speeds for different transportation types (km/h)
-  const speeds: Record<string, number> = {
+  const speeds: Record<Transportation['type'], number> = {
     walk: 5,
     bike: 15,
     car: 80,
     bus: 60,
+    shuttle: 60,
     train: 100,
     metro: 35,  // Metro/subway average speed
     plane: 800,
@@ -142,6 +143,7 @@ export function estimateTravelTime(
       break;
     case 'train':
     case 'bus':
+    case 'shuttle':
       additionalTime = 20; // 20 min for waiting, boarding
       break;
     case 'ferry':
@@ -196,17 +198,20 @@ export function getRoutePath(
  */
 export function calculateCO2Emissions(
   distance: number,
-  transportType: 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other'
+  transportType: Transportation['type']
 ): number {
   // CO2 emissions in kg per passenger-kilometer
-  const emissionsFactors: Record<string, number> = {
+  const emissionsFactors: Record<Transportation['type'], number> = {
     walk: 0,
     bike: 0,
     car: 0.12, // Average car
     bus: 0.05,
+    shuttle: 0.05,
     train: 0.04,
+    metro: 0.04,
     plane: 0.25,
     ferry: 0.19,
+    boat: 0.19,
     other: 0.10
   };
   

@@ -342,7 +342,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       // Generate RoutePoints for the test route (simulating handleRouteAdded)
       const transportation = {
         id: TEST_ROUTE.id,
-        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'shuttle' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
         from: TEST_ROUTE.from,
         to: TEST_ROUTE.to,
         fromCoordinates: TEST_ROUTE.fromCoords,
@@ -445,7 +445,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       
       const transportation = {
         id: TEST_ROUTE.id,
-        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'shuttle' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
         from: TEST_ROUTE.from,
         to: TEST_ROUTE.to,
         fromCoordinates: TEST_ROUTE.fromCoords,
@@ -519,7 +519,7 @@ describe('Map Functionality Integration Tests (Pyramid)', () => {
       // Add route with RoutePoints
       const routeData = {
         id: TEST_ROUTE.id,
-        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
+        type: TEST_ROUTE.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'shuttle' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other',
         from: TEST_ROUTE.from,
         to: TEST_ROUTE.to,
         fromCoordinates: TEST_ROUTE.fromCoords,
