@@ -26,8 +26,8 @@ const waitForMeaningfulContent = async (page, url) => {
 };
 
 /**
- * @param {import('axe-core').Result[]} violations
- * @returns {Array<{id: string, impact: string, help: string, nodes: Array<{target: string[], html: string}>}>}
+ * @param {import('axe-core').AxeResults['violations']} violations
+ * @returns {Array<{id: string, impact: string | undefined, help: string, nodes: Array<{target: string[], html: string}>}>}
  */
 const formatViolations = (violations) =>
   violations.map((violation) => ({
@@ -43,24 +43,28 @@ const formatViolations = (violations) =>
 const run = async () => {
   const browser = await chromium.launch();
   const context = await browser.newContext();
-  const page = await context.newPage();
 
   try {
     const allViolations = [];
 
     for (const url of targetUrls) {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-      await waitForMeaningfulContent(page, url);
-      await page.waitForLoadState('networkidle');
+      const page = await context.newPage();
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await waitForMeaningfulContent(page, url);
+        await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
 
-      const results = await new AxeBuilder({ page })
-        .withRules(['color-contrast'])
-        .analyze();
+        const results = await new AxeBuilder({ page })
+          .withRules(['color-contrast'])
+          .analyze();
 
-      allViolations.push({
-        url,
-        violations: formatViolations(results.violations)
-      });
+        allViolations.push({
+          url,
+          violations: formatViolations(results.violations)
+        });
+      } finally {
+        await page.close();
+      }
     }
 
     const total = allViolations.reduce((sum, entry) => sum + entry.violations.length, 0);
@@ -68,7 +72,6 @@ const run = async () => {
 
     process.exitCode = total === 0 ? 0 : 2;
   } finally {
-    await page.close();
     await context.close();
     await browser.close();
   }
@@ -78,4 +81,3 @@ run().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
-
