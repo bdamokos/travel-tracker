@@ -85,41 +85,41 @@ export async function generateLocationColors(locations: Location[]): Promise<Map
   return locationColors;
 }
 
-export function getContrastColor(hexColor: string): string {
-  const normalizeHex = (value: string) => {
-    const raw = value.trim().replace('#', '');
-    if (raw.length === 3) {
-      return raw
-        .split('')
-        .map(ch => `${ch}${ch}`)
-        .join('')
-        .toLowerCase();
-    }
-    return raw.slice(0, 6).toLowerCase();
-  };
+function normalizeHex(value: string): string {
+  const raw = value.trim().replace('#', '');
+  if (raw.length === 3) {
+    return raw
+      .split('')
+      .map(ch => `${ch}${ch}`)
+      .join('')
+      .toLowerCase();
+  }
+  return raw.slice(0, 6).toLowerCase();
+}
 
+function srgbToLinear(channel: number): number {
+  const c = channel / 255;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function relativeLuminance(red: number, green: number, blue: number): number {
+  const R = srgbToLinear(red);
+  const G = srgbToLinear(green);
+  const B = srgbToLinear(blue);
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+function contrastRatio(l1: number, l2: number): number {
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+export function getContrastColor(hexColor: string): string {
   const hex = normalizeHex(hexColor);
   const r = parseInt(hex.slice(0, 2), 16);
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
-
-  const srgbToLinear = (channel: number) => {
-    const c = channel / 255;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  };
-
-  const relativeLuminance = (red: number, green: number, blue: number) => {
-    const R = srgbToLinear(red);
-    const G = srgbToLinear(green);
-    const B = srgbToLinear(blue);
-    return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-  };
-
-  const contrastRatio = (l1: number, l2: number) => {
-    const lighter = Math.max(l1, l2);
-    const darker = Math.min(l1, l2);
-    return (lighter + 0.05) / (darker + 0.05);
-  };
 
   const bgL = relativeLuminance(r, g, b);
   const blackContrast = contrastRatio(bgL, 0); // #000000

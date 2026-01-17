@@ -9,6 +9,10 @@ const DEFAULT_URLS = [
 const urls = process.argv.slice(2);
 const targetUrls = urls.length > 0 ? urls : DEFAULT_URLS;
 
+/**
+ * @param {import('playwright').Page} page
+ * @param {string} url
+ */
 const waitForMeaningfulContent = async (page, url) => {
   if (url.includes('/calendars/')) {
     await page.waitForSelector('div[class*="calendarGrid"]', { timeout: 60_000 });
@@ -21,6 +25,10 @@ const waitForMeaningfulContent = async (page, url) => {
   }
 };
 
+/**
+ * @param {import('axe-core').Result[]} violations
+ * @returns {Array<{id: string, impact: string, help: string, nodes: Array<{target: string[], html: string}>}>}
+ */
 const formatViolations = (violations) =>
   violations.map((violation) => ({
     id: violation.id,
@@ -43,7 +51,7 @@ const run = async () => {
     for (const url of targetUrls) {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
       await waitForMeaningfulContent(page, url);
-      await page.waitForTimeout(2_000);
+      await page.waitForLoadState('networkidle');
 
       const results = await new AxeBuilder({ page })
         .withRules(['color-contrast'])
