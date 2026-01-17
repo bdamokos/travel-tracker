@@ -448,9 +448,13 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
 
     markerLabelRef.current.set(key, label);
 
+    const previousElement = markerElementsRef.current.get(key);
     const keyHandlers = markerKeyHandlersRef.current.get(key);
-    if (keyHandlers) {
+    if (keyHandlers && previousElement !== element) {
       // Attach keydown handlers even when Leaflet lifecycle events are unavailable (e.g. tests/mocks).
+      if (previousElement) {
+        keyHandlers.remove({ target: { getElement: () => previousElement } } as unknown as L.LeafletEvent);
+      }
       keyHandlers.add({ target: { getElement: () => element } } as unknown as L.LeafletEvent);
     }
 
@@ -466,7 +470,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       markerFocusHandlersRef.current.set(key, focusHandler);
     }
 
-    const previousElement = markerElementsRef.current.get(key);
     if (previousElement && previousElement !== element) {
       previousElement.removeEventListener('focus', focusHandler);
     }
@@ -551,6 +554,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   >(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       const scheduled = scheduledFocusMoveRef.current;
