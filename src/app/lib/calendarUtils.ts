@@ -86,19 +86,46 @@ export async function generateLocationColors(locations: Location[]): Promise<Map
 }
 
 export function getContrastColor(hexColor: string): string {
-  // Remove # if present
-  const color = hexColor.replace('#', '');
-  
-  // Convert to RGB
-  const r = parseInt(color.slice(0, 2), 16);
-  const g = parseInt(color.slice(2, 4), 16);
-  const b = parseInt(color.slice(4, 6), 16);
-  
-  // Calculate luminance
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
-  // Return black or white based on luminance
-  return luminance > 0.5 ? '#000000' : '#FFFFFF';
+  const normalizeHex = (value: string) => {
+    const raw = value.trim().replace('#', '');
+    if (raw.length === 3) {
+      return raw
+        .split('')
+        .map(ch => `${ch}${ch}`)
+        .join('')
+        .toLowerCase();
+    }
+    return raw.slice(0, 6).toLowerCase();
+  };
+
+  const hex = normalizeHex(hexColor);
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+
+  const srgbToLinear = (channel: number) => {
+    const c = channel / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+
+  const relativeLuminance = (red: number, green: number, blue: number) => {
+    const R = srgbToLinear(red);
+    const G = srgbToLinear(green);
+    const B = srgbToLinear(blue);
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  };
+
+  const contrastRatio = (l1: number, l2: number) => {
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  };
+
+  const bgL = relativeLuminance(r, g, b);
+  const blackContrast = contrastRatio(bgL, 0); // #000000
+  const whiteContrast = contrastRatio(bgL, 1); // #FFFFFF
+
+  return blackContrast >= whiteContrast ? '#000000' : '#FFFFFF';
 }
 
 export function muteColor(hexColor: string, opacity: number = 0.6): string {
@@ -350,7 +377,7 @@ function createSingleCell(day: CalendarDay, locationColors: Map<string, string>)
     return {
       day,
       backgroundColor: '#f3f4f6',
-      textColor: '#9ca3af'
+      textColor: '#4b5563'
     };
   }
   
