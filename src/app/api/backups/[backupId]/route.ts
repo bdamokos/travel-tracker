@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { backupService } from '@/app/lib/backupService';
 import { restoreCostTrackingFromBackup, restoreTripFromBackup } from '@/app/lib/unifiedDataService';
 import { isAdminDomain } from '@/app/lib/server-domains';
+import { ConflictError, NotFoundError, ValidationError } from '@/app/lib/errors';
 
 const TRIP_ID_PATTERN = /^[A-Za-z0-9]+$/;
 
@@ -12,14 +13,14 @@ function normalizeTripId(id: unknown): string | null {
   return trimmed;
 }
 
-export async function GET(_request: NextRequest, context: { params: Promise<{ backupId: string }> }) {
+export async function GET(_request: NextRequest, context: { params: { backupId: string } }) {
   try {
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { backupId } = await context.params;
+    const { backupId } = context.params;
     const backup = await backupService.getBackupById(backupId);
     if (!backup) {
       return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
@@ -33,14 +34,14 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ba
   }
 }
 
-export async function POST(request: NextRequest, context: { params: Promise<{ backupId: string }> }) {
-  try {
-    const isAdmin = await isAdminDomain();
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
+export async function POST(request: NextRequest, context: { params: { backupId: string } }) {
+  const isAdmin = await isAdminDomain();
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
 
-    const { backupId } = await context.params;
+  try {
+    const { backupId } = context.params;
     const body = (await request.json().catch(() => ({}))) as {
       restoreType?: 'trip' | 'cost';
       targetTripId?: string;
@@ -56,55 +57,40 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ba
     }
 
     if (restoreType === 'trip') {
-      try {
-        const restored = await restoreTripFromBackup(backupId, targetTripId || undefined, overwrite);
-        return NextResponse.json({ success: true, restoredTripId: restored.id });
-      } catch (error) {
-        const message = String(error);
-        if (message.includes('already exists')) {
-          return NextResponse.json({ error: 'Trip already exists', conflict: true }, { status: 409 });
-        }
-        if (message.includes('not found')) {
-          return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
-        }
-        throw error;
-      }
+      const restored = await restoreTripFromBackup(backupId, targetTripId || undefined, overwrite);
+      return NextResponse.json({ success: true, restoredTripId: restored.id });
     }
 
     if (restoreType === 'cost') {
-      try {
-        const restored = await restoreCostTrackingFromBackup(backupId, targetTripId || undefined, overwrite);
-        return NextResponse.json({ success: true, restoredTripId: restored.id });
-      } catch (error) {
-        const message = String(error);
-        if (message.includes('already has cost tracking')) {
-          return NextResponse.json({ error: 'Trip already has cost tracking data', conflict: true }, { status: 409 });
-        }
-        if (message.includes('Trip') && message.includes('not found')) {
-          return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
-        }
-        if (message.includes('Backup') && message.includes('not found')) {
-          return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
-        }
-        throw error;
-      }
+      const restored = await restoreCostTrackingFromBackup(backupId, targetTripId || undefined, overwrite);
+      return NextResponse.json({ success: true, restoredTripId: restored.id });
     }
 
     return NextResponse.json({ error: 'Invalid restoreType' }, { status: 400 });
   } catch (error) {
+    if (error instanceof ConflictError) {
+      return NextResponse.json({ error: error.message, conflict: true }, { status: 409 });
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     console.error('Error restoring from backup:', error);
     return NextResponse.json({ error: 'Failed to restore from backup' }, { status: 500 });
   }
 }
 
-export async function DELETE(_request: NextRequest, context: { params: Promise<{ backupId: string }> }) {
+export async function DELETE(_request: NextRequest, context: { params: { backupId: string } }) {
   try {
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { backupId } = await context.params;
+    const { backupId } = context.params;
     const result = await backupService.deleteBackup(backupId);
 
     if (!result.removedMetadata) {
@@ -117,4 +103,3 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
     return NextResponse.json({ error: 'Failed to delete backup' }, { status: 500 });
   }
 }
-

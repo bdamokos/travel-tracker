@@ -13,12 +13,13 @@ import {
   migrateToLatestSchema,
   CURRENT_SCHEMA_VERSION
 } from './dataMigration';
-import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation } from '@/app/types';
+import { Location, Transportation, BudgetItem, Expense, YnabImportData, YnabConfig, JourneyPeriod, Accommodation, CostTrackingLink } from '@/app/types';
 import { backupService } from './backupService';
 import { getUnifiedTripFilePath, getBackupFilePath } from './dataFilePaths';
 import { getDataDir } from './dataDirectory';
 import { dateReviver } from './jsonDateReviver';
 import { buildTripUpdates } from './tripUpdates';
+import { ConflictError, NotFoundError, ValidationError } from './errors';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');
@@ -96,24 +97,21 @@ function clearCostTrackingLinks(tripData: UnifiedTripData): UnifiedTripData {
 }
 
 function mergeCostTrackingLinks(
-  existingLinks: unknown,
-  restoredLinks: unknown
-): unknown {
+  existingLinks: CostTrackingLink[] | undefined,
+  restoredLinks: CostTrackingLink[] | undefined
+): CostTrackingLink[] {
   const existing = Array.isArray(existingLinks) ? existingLinks : [];
   const restored = Array.isArray(restoredLinks) ? restoredLinks : [];
   if (existing.length === 0) return restored;
   if (restored.length === 0) return existing;
 
-  const key = (link: unknown) =>
-    typeof link === 'object' && link !== null && 'expenseId' in link ? String((link as { expenseId: unknown }).expenseId) : '';
-
-  const existingKeys = new Set(existing.map(key).filter(Boolean));
+  const existingKeys = new Set(existing.map(link => link.expenseId).filter(Boolean));
   const merged = [...existing];
   for (const link of restored) {
-    const k = key(link);
-    if (!k || existingKeys.has(k)) continue;
-    merged.push(link);
-    existingKeys.add(k);
+    if (link.expenseId && !existingKeys.has(link.expenseId)) {
+      merged.push(link);
+      existingKeys.add(link.expenseId);
+    }
   }
   return merged;
 }
@@ -128,7 +126,7 @@ function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedT
       if (!restoredLocation) return location;
       return {
         ...location,
-        costTrackingLinks: mergeCostTrackingLinks(location.costTrackingLinks, restoredLocation.costTrackingLinks) as Location['costTrackingLinks']
+        costTrackingLinks: mergeCostTrackingLinks(location.costTrackingLinks, restoredLocation.costTrackingLinks)
       };
     });
   };
@@ -141,14 +139,14 @@ function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedT
 
     return {
       ...currentRoute,
-      costTrackingLinks: mergeCostTrackingLinks(currentRoute.costTrackingLinks, restoredRoute.costTrackingLinks) as Transportation['costTrackingLinks'],
+      costTrackingLinks: mergeCostTrackingLinks(currentRoute.costTrackingLinks, restoredRoute.costTrackingLinks),
       subRoutes: currentSubRoutes.length
         ? currentSubRoutes.map((segment) => {
             const restoredSegment = restoredSubRoutes.find((candidate) => candidate.id === segment.id);
             if (!restoredSegment) return segment;
             return {
               ...segment,
-              costTrackingLinks: mergeCostTrackingLinks(segment.costTrackingLinks, restoredSegment.costTrackingLinks) as Transportation['costTrackingLinks']
+              costTrackingLinks: mergeCostTrackingLinks(segment.costTrackingLinks, restoredSegment.costTrackingLinks)
             };
           })
         : currentRoute.subRoutes
@@ -183,7 +181,7 @@ function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedT
       if (!restoredAccommodation) return accommodation;
       return {
         ...accommodation,
-        costTrackingLinks: mergeCostTrackingLinks(accommodation.costTrackingLinks, restoredAccommodation.costTrackingLinks) as Accommodation['costTrackingLinks']
+        costTrackingLinks: mergeCostTrackingLinks(accommodation.costTrackingLinks, restoredAccommodation.costTrackingLinks)
       };
     });
   };
@@ -301,7 +299,7 @@ export async function deleteCostTrackingWithBackup(tripId: string): Promise<Unif
 export async function restoreTripFromBackup(backupId: string, targetTripId?: string, overwrite = false): Promise<UnifiedTripData> {
   const backup = await backupService.getBackupById(backupId);
   if (!backup) {
-    throw new Error(`Backup ${backupId} not found`);
+    throw new NotFoundError(`Backup ${backupId} not found`);
   }
 
   const content = await readFile(backup.filePath, 'utf-8');
@@ -311,7 +309,7 @@ export async function restoreTripFromBackup(backupId: string, targetTripId?: str
   const restoredTripId = targetTripId || backup.originalId;
   const existing = await loadUnifiedTripData(restoredTripId);
   if (existing && !overwrite) {
-    throw new Error(`Trip ${restoredTripId} already exists`);
+    throw new ConflictError(`Trip ${restoredTripId} already exists`);
   }
 
   const withoutMetadata = { ...(migrated as UnifiedTripData), id: restoredTripId } as UnifiedTripData & { backupMetadata?: unknown };
@@ -335,16 +333,16 @@ export async function restoreCostTrackingFromBackup(
 ): Promise<UnifiedTripData> {
   const backup = await backupService.getBackupById(backupId);
   if (!backup) {
-    throw new Error(`Backup ${backupId} not found`);
+    throw new NotFoundError(`Backup ${backupId} not found`);
   }
 
   const resolvedTripId = tripId || backup.originalId;
   const current = await loadUnifiedTripData(resolvedTripId);
   if (!current) {
-    throw new Error(`Trip ${resolvedTripId} not found`);
+    throw new NotFoundError(`Trip ${resolvedTripId} not found`);
   }
   if (current.costData && !overwrite) {
-    throw new Error(`Trip ${resolvedTripId} already has cost tracking data`);
+    throw new ConflictError(`Trip ${resolvedTripId} already has cost tracking data`);
   }
 
   const content = await readFile(backup.filePath, 'utf-8');
@@ -352,7 +350,7 @@ export async function restoreCostTrackingFromBackup(
   const migrated = migrateToLatestSchema(parsed as UnifiedTripData);
 
   if (!migrated.costData) {
-    throw new Error(`Backup ${backupId} has no cost tracking data`);
+    throw new ValidationError(`Backup ${backupId} has no cost tracking data`);
   }
 
   const withRestoredCost: UnifiedTripData = {

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExistingCostEntry } from '@/app/types';
 import { formatCurrency, formatDate } from '@/app/lib/costUtils';
 
@@ -35,6 +35,8 @@ export default function CostTrackerList({
   loading,
   onRefresh,
 }: CostTrackerListProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     costId: string;
@@ -42,6 +44,56 @@ export default function CostTrackerList({
     isDeleting: boolean;
     error?: string | null;
   } | null>(null);
+
+  useEffect(() => {
+    if (!deleteDialog?.isOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    cancelButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!deleteDialog?.isOpen) return;
+
+      if (event.key === 'Escape' && !deleteDialog.isDeleting) {
+        event.preventDefault();
+        setDeleteDialog(null);
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+      const container = dialogRef.current;
+      if (!container) return;
+
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(el => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true');
+
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (!active || active === first || !container.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [deleteDialog?.isOpen, deleteDialog?.isDeleting]);
 
   const requestDelete = (costId: string, title: string) => {
     setDeleteDialog({ isOpen: true, costId, title, isDeleting: false, error: null });
@@ -77,7 +129,14 @@ export default function CostTrackerList({
       {/* Delete Confirmation Dialog */}
       {deleteDialog?.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-cost-dialog-title"
+            aria-describedby="delete-cost-dialog-description"
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4"
+          >
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,10 +144,10 @@ export default function CostTrackerList({
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 id="delete-cost-dialog-title" className="text-lg font-semibold text-gray-900 dark:text-white">
                   Delete cost tracking data?
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p id="delete-cost-dialog-description" className="text-sm text-gray-600 dark:text-gray-400">
                   Travel data will be preserved.
                 </p>
               </div>
@@ -127,6 +186,7 @@ export default function CostTrackerList({
               <button
                 onClick={() => setDeleteDialog(null)}
                 disabled={deleteDialog.isDeleting}
+                ref={cancelButtonRef}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel

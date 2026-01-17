@@ -39,7 +39,7 @@ function formatBytes(bytes: number): string {
 }
 
 function generateSafeTripId(): string {
-  return `restored${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
+  return `restored${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
 }
 
 export default function BackupsManager() {
@@ -372,4 +372,3 @@ export default function BackupsManager() {
     </div>
   );
 }
-
