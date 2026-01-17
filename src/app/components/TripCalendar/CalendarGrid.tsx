@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { MonthCalendar, CalendarDay } from '@/app/lib/calendarUtils';
 import { Location } from '@/app/types';
 import CalendarDayCell from './CalendarDayCell';
@@ -21,8 +21,6 @@ interface CalendarGridProps {
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type GridPosition = { row: number; col: number };
-
 export default function CalendarGrid({
   monthCalendar,
   selectedDate,
@@ -41,44 +39,6 @@ export default function CalendarGrid({
     [monthCalendar.weeks]
   );
 
-  const initialActiveCell = useMemo<GridPosition>(() => {
-    const isRenderableCell = (row: number, col: number) => {
-      const cell = weeks[row]?.[col];
-      if (!cell) return false;
-      if (cell.day.isOutsideMonth) return false;
-      if (cell.mergeInfo && cell.mergeInfo.colspan === 0) return false;
-      return true;
-    };
-
-    if (selectedDate) {
-      const selectedTime = selectedDate.getTime();
-      for (let row = 0; row < weeks.length; row += 1) {
-        for (let col = 0; col < 7; col += 1) {
-          const cell = weeks[row]?.[col];
-          if (!cell) continue;
-          if (!isRenderableCell(row, col)) continue;
-          if (cell.day.date.getTime() === selectedTime) {
-            return { row, col };
-          }
-        }
-      }
-    }
-
-    for (let row = 0; row < weeks.length; row += 1) {
-      for (let col = 0; col < 7; col += 1) {
-        if (isRenderableCell(row, col)) return { row, col };
-      }
-    }
-
-    return { row: 0, col: 0 };
-  }, [selectedDate, weeks]);
-
-  const [activeCell, setActiveCell] = useState<GridPosition>(initialActiveCell);
-
-  useEffect(() => {
-    setActiveCell(initialActiveCell);
-  }, [initialActiveCell]);
-
   const registerCell = useCallback((row: number, col: number, element: HTMLElement | null) => {
     const key = `${row}:${col}`;
     if (!element) {
@@ -91,7 +51,6 @@ export default function CalendarGrid({
   const focusCell = useCallback((row: number, col: number) => {
     const element = cellRefs.current.get(`${row}:${col}`);
     if (!element) return false;
-    setActiveCell({ row, col });
     element.focus();
     return true;
   }, []);
@@ -167,10 +126,9 @@ export default function CalendarGrid({
               <CalendarDayCell
                 key={`${weekIndex}-${dayIndex}`}
                 cell={cell}
-                isSelected={selectedDate ? 
+                isSelected={selectedDate ?
                   cell.day.date.getTime() === selectedDate.getTime() : false}
                 isToday={false} // Disabled to prevent hydration mismatch
-                isFocusable={activeCell.row === weekIndex && activeCell.col === dayIndex}
                 onSelectLocation={(day, location, options) =>
                   onLocationSelect(day, location, options)
                 }
@@ -179,7 +137,6 @@ export default function CalendarGrid({
                 registerCell={registerCell}
                 onNavigate={handleNavigate}
                 onAnnounce={onAnnounce}
-                onFocusCell={(row, col) => setActiveCell({ row, col })}
               />
             ))}
           </div>
