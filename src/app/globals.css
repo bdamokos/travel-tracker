@@ -40,6 +40,8 @@
   --travel-marker-highlight-saturation: 1.25;
   --travel-marker-highlight-brightness: 1.08;
   --travel-marker-debug-buckets: 0;
+  --travel-marker-focus-ring-color: #2563eb;
+  --travel-marker-focus-ring-secondary: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -49,6 +51,8 @@
     --background-end-rgb: 0, 0, 0;
     --foreground: 255, 255, 255;
     --background: 0, 0, 0;
+    --travel-marker-focus-ring-color: #60a5fa;
+    --travel-marker-focus-ring-secondary: #1f2937;
   }
 }
 
@@ -99,9 +103,11 @@ body {
 }
 
 .travel-marker-interactive:focus-visible {
-  outline: 3px solid #2563eb;
+  outline: 3px solid var(--travel-marker-focus-ring-color);
   outline-offset: 2px;
   border-radius: 9999px;
+  box-shadow: 0 0 0 5px var(--travel-marker-focus-ring-secondary),
+              0 0 0 8px var(--travel-marker-focus-ring-color);
 }
 
 .travel-marker-interactive:focus-visible .travel-marker-visual {
@@ -247,4 +253,80 @@ body {
   margin: 0 !important;
   padding: 0 !important;
   line-height: 1.4 !important;
-} 
+}
+
+/* ================================
+   Accessibility: Reduced Motion Support
+   ================================ */
+@media (prefers-reduced-motion: reduce) {
+  .custom-highlighted-marker div,
+  .pulse-animation {
+    animation: none !important;
+  }
+
+  .travel-marker-interactive:focus-visible .travel-marker-visual {
+    transform: none;
+  }
+}
+
+/* ================================
+   Accessibility: High Contrast Support
+   ================================ */
+@media (prefers-contrast: more) {
+  :root {
+    --travel-marker-color-past: #1a3a6c;
+    --travel-marker-color-present: #0d6b5c;
+    --travel-marker-color-future: #c45a1a;
+  }
+
+  .travel-marker-icon path {
+    stroke: #000 !important;
+    stroke-width: 3 !important;
+  }
+
+  .travel-marker-interactive:focus-visible {
+    outline: 4px solid #000;
+    outline-offset: 3px;
+  }
+
+  .temporal-symbol circle,
+  .temporal-symbol path {
+    stroke-width: 1.2 !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+  :root {
+    --travel-marker-color-past: #7ba3d8;
+    --travel-marker-color-present: #5fd8c4;
+    --travel-marker-color-future: #ffa86a;
+  }
+
+  .travel-marker-icon path {
+    stroke: #fff !important;
+  }
+
+  .travel-marker-interactive:focus-visible {
+    outline-color: #fff;
+  }
+}
+
+/* ================================
+   Accessibility: Touch Target Enhancement (44x44px minimum)
+   ================================ */
+@media (pointer: coarse) {
+  .travel-marker-interactive {
+    position: relative;
+  }
+
+  .travel-marker-interactive::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    background: transparent;
+  }
+}
