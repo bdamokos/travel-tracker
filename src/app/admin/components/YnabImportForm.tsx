@@ -922,7 +922,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 	              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 	                {/* File Upload Method */}
 	                <div 
-	                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all duration-200 ${
+	                  className={`border-2 rounded-lg p-6 transition-all duration-200 ${
 	                    importMethod === 'file' 
 	                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
 	                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700'
@@ -954,7 +954,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 	
 	                {/* API Method */}
 	                <div 
-	                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all duration-200 ${
+	                  className={`border-2 rounded-lg p-6 transition-all duration-200 ${
 	                    importMethod === 'api' 
 	                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950' 
 	                      : costData.ynabConfig?.apiKey
