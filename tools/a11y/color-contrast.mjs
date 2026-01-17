@@ -15,7 +15,8 @@ const targetUrls = urls.length > 0 ? urls : DEFAULT_URLS;
  */
 const waitForMeaningfulContent = async (page, url) => {
   if (url.includes('/calendars/')) {
-    await page.waitForSelector('div[class*="calendarGrid"]', { timeout: 60_000 });
+    // Tailwind grid used for day-of-week header and day cells (more stable than CSS module names).
+    await page.waitForSelector('.grid.grid-cols-7', { timeout: 60_000 });
     return;
   }
 
