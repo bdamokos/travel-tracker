@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { axe, toHaveNoViolations } from 'jest-axe';
-import Map from '@/app/components/Map';
+import MapView from '@/app/components/Map';
 import type { Journey, Location } from '@/app/types';
 
 expect.extend(toHaveNoViolations);
@@ -75,7 +75,7 @@ describe('Map accessibility', () => {
       makeLocation({ id: 'loc-paris', name: 'Paris', coordinates: [48.8566, 2.3522], date: new Date('2024-01-02T00:00:00.000Z') }),
     ]);
 
-    const { container } = render(<Map journey={journey} />);
+    const { container } = render(<MapView journey={journey} />);
 
     expect(
       screen.getByRole('application', { name: /interactive travel map for accessibility test trip/i })
@@ -94,7 +94,7 @@ describe('Map accessibility', () => {
       makeLocation({ id: 'loc-paris', name: 'Paris', coordinates: [48.8566, 2.3522], date: new Date('2024-01-02T00:00:00.000Z') }),
     ]);
 
-    render(<Map journey={journey} />);
+    render(<MapView journey={journey} />);
 
     const map = screen.getByRole('application', { name: /interactive travel map for accessibility test trip/i });
 
@@ -145,7 +145,7 @@ describe('Map accessibility', () => {
       makeLocation({ id: 'loc-london', name: 'London', coordinates: [51.5074, -0.1278] }),
     ]);
 
-    render(<Map journey={journey} />);
+    render(<MapView journey={journey} />);
 
     const marker = screen.getByRole('button', { name: /london/i });
 
@@ -181,7 +181,7 @@ describe('Map accessibility', () => {
       makeLocation({ id: 'loc-b', name: 'Paris', coordinates: sharedCoords, date: new Date('2024-01-02T00:00:00.000Z') }),
     ]);
 
-    render(<Map journey={journey} />);
+    render(<MapView journey={journey} />);
 
     const collapse = await screen.findByRole('button', { name: /collapse group of 2 locations/i });
 

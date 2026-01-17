@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
-import AxeRuntime from './components/a11y/AxeRuntime';
 import IframeAccessibilityFixer from './components/IframeAccessibilityFixer';
 import { ensureMapDataPreloaderRunning } from '@/app/lib/mapDataPreloader';
 
@@ -31,7 +30,6 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
       <body className={inter.className}>
-        <AxeRuntime />
         <IframeAccessibilityFixer />
         <main>
           <ErrorBoundary>

@@ -543,6 +543,27 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return order;
   }, [groups, expandedGroups]);
 
+  const isMountedRef = useRef(true);
+  const scheduledFocusMoveRef = useRef<
+    | { type: 'raf'; id: number }
+    | { type: 'timeout'; id: ReturnType<typeof setTimeout> }
+    | null
+  >(null);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      const scheduled = scheduledFocusMoveRef.current;
+      if (!scheduled) return;
+      if (scheduled.type === 'raf') {
+        if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(scheduled.id);
+      } else {
+        clearTimeout(scheduled.id);
+      }
+      scheduledFocusMoveRef.current = null;
+    };
+  }, []);
+
   const syncMarkerElementsFromDom = useCallback(() => {
     const container = mapContainerRef.current;
     if (!container) return;
@@ -590,6 +611,30 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     }
   }, [focusOrder, syncMarkerElementsFromDom]);
 
+  const scheduleFocusMove = useCallback((nextIndex: number) => {
+    const existing = scheduledFocusMoveRef.current;
+    if (existing) {
+      if (existing.type === 'raf') {
+        if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(existing.id);
+      } else {
+        clearTimeout(existing.id);
+      }
+      scheduledFocusMoveRef.current = null;
+    }
+
+    const run = () => {
+      if (!isMountedRef.current) return;
+      focusMarkerByIndex(nextIndex);
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      scheduledFocusMoveRef.current = { type: 'raf', id: requestAnimationFrame(run) };
+      return;
+    }
+
+    scheduledFocusMoveRef.current = { type: 'timeout', id: setTimeout(run, 0) };
+  }, [focusMarkerByIndex]);
+
   const handleMapFocus = useCallback(() => {
     if (focusOrder.length === 0) return;
     if (!focusedMarkerKey) {
@@ -622,8 +667,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       const nextIndex = currentIndex === -1
         ? (direction === 1 ? 0 : focusCount - 1)
         : (currentIndex + direction + focusCount) % focusCount;
-      // Defer focus to avoid re-entrancy issues with Tab key handling (notably in tests/mocks).
-      queueMicrotask(() => focusMarkerByIndex(nextIndex));
+      scheduleFocusMove(nextIndex);
       return;
     }
 
@@ -691,7 +735,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       default:
         break;
     }
-  }, [focusMarkerByIndex, focusOrder, focusedMarkerKey, handlePopupClose, isOpen]);
+  }, [focusMarkerByIndex, focusOrder, focusedMarkerKey, handlePopupClose, isOpen, scheduleFocusMove]);
 
   useEffect(() => {
     setExpandedGroups(prev => filterExpandableKeys(prev, groups));
