@@ -5,6 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import type { Transportation } from '@/app/types';
 import { Journey, JourneyDay, Location } from '@/app/types';
 import { generateRoutePointsSync, getRouteStyle } from '@/app/lib/routeUtils';
 import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
@@ -901,19 +902,26 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         })()}
 
         {/* Render transportation routes */}
-        {days.map(day => {
-          if (!day.transportation) return null;
+        {days.flatMap(day => {
+          const transportation = day.transportation;
+          if (!transportation) return null;
 
-          const routePoints = generateRoutePointsSync(day.transportation);
-          const routeStyle = getRouteStyle(day.transportation.type);
+          const segments = transportation.subRoutes?.length
+            ? transportation.subRoutes
+            : [transportation];
 
-          return (
-            <Polyline
-              key={day.transportation.id}
-              positions={routePoints}
-              pathOptions={routeStyle}
-            />
-          );
+          return segments.map((segment) => {
+            const routePoints = generateRoutePointsSync(segment as Transportation);
+            const routeStyle = getRouteStyle(segment.type);
+
+            return (
+              <Polyline
+                key={`${transportation.id}:${segment.id}`}
+                positions={routePoints}
+                pathOptions={routeStyle}
+              />
+            );
+          });
         })}
       </MapContainer>
       </div>

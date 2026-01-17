@@ -7,7 +7,8 @@ import type { Marker } from 'leaflet';
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
-import { buildCompositeRoutePoints, getRouteStyle, transportationConfig } from '@/app/lib/routeUtils';
+import { getRouteStyle, transportationConfig } from '@/app/lib/routeUtils';
+import { getLeafMapRouteSegments, resolveMapRouteSegmentPoints } from '@/app/lib/mapRouteDisplay';
 import type { MapRouteSegment } from '@/app/types';
 import {
   attachMarkerKeyHandlers,
@@ -529,7 +530,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const locationMarkersLayer = L.layerGroup().addTo(map);
     // Start/end markers are available via the layer control, but off by default.
     const startEndLayer = L.layerGroup();
-    const routeLayersByType = new globalThis.Map<string, L.LayerGroup>();
+    const routeLayersByType = new globalThis.Map<keyof typeof transportationConfig, L.LayerGroup>();
     const spiderfyLegsLayer = L.layerGroup().addTo(map);
 
     const markerIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
@@ -979,33 +980,21 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     map.on('zoomend', onViewChange);
 
-    const resolveRoutePoints = (route: MapRouteSegment) => {
-      if (route.subRoutes?.length) {
-        return buildCompositeRoutePoints(route.subRoutes);
-      }
-
-      if (route.routePoints && route.routePoints.length > 0) {
-        // Use pre-generated points for better performance and accuracy
-        console.log(`[EmbeddableMap] Using pre-generated route points for ${route.id}: ${route.routePoints.length} points`);
-        return route.routePoints;
-      }
-
-      // Fallback to straight lines if no pre-generated points available
-      console.log(`[EmbeddableMap] No pre-generated points for ${route.id}, using straight line fallback`);
-      return [route.fromCoords, route.toCoords];
-    };
-
     // Add routes grouped by transport type
     const usedTransportTypes = new Set<keyof typeof transportationConfig>();
     travelData.routes.forEach((route) => {
-      const routePoints = resolveRoutePoints(route);
-      // Normalize transport type to a valid key, fallback to 'other' if unknown
-      const transportKey = (route.transportType in transportationConfig
-        ? route.transportType
-        : 'other') as keyof typeof transportationConfig;
-      const routeStyle = getRouteStyle(transportKey);
+      const segments = getLeafMapRouteSegments(route);
 
-      if (routePoints.length > 0) {
+      segments.forEach((segment) => {
+        const routePoints = resolveMapRouteSegmentPoints(segment);
+        // Normalize transport type to a valid key, fallback to 'other' if unknown
+        const transportKey = (segment.transportType in transportationConfig
+          ? segment.transportType
+          : 'other') as keyof typeof transportationConfig;
+        const routeStyle = getRouteStyle(transportKey);
+
+        if (routePoints.length === 0) return;
+
         // Get or create layer group for this transport type
         let layerGroup = routeLayersByType.get(transportKey);
         if (!layerGroup) {
@@ -1020,7 +1009,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           opacity: routeStyle.opacity,
           dashArray: routeStyle.dashArray
         }).addTo(layerGroup);
-      }
+      });
     });
 
     // Add start and end point markers
@@ -1151,9 +1140,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     if (travelData.locations.length > 0) {
       const allCoords = travelData.locations.map(loc => loc.coordinates);
 
-      // Add route coordinates
+      // Add route coordinates (including intermediate sub-route endpoints)
       travelData.routes.forEach(route => {
-        allCoords.push(route.fromCoords, route.toCoords);
+        getLeafMapRouteSegments(route).forEach(segment => {
+          allCoords.push(segment.fromCoords, segment.toCoords);
+        });
       });
 
       if (allCoords.length > 1) {
