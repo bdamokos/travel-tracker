@@ -81,7 +81,10 @@ export default function CostTrackerList({
           last.focus();
         }
       } else {
-        if (active === last) {
+        if (!active || !container.contains(active)) {
+          event.preventDefault();
+          first.focus();
+        } else if (active === last) {
           event.preventDefault();
           first.focus();
         }

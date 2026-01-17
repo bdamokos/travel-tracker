@@ -253,8 +253,9 @@ export default function BackupsManager() {
       <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 space-y-4">
         <div className="flex flex-col md:flex-row gap-3 md:items-end">
           <div className="flex-1">
-            <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Search</label>
+            <label htmlFor="backup-search" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Search</label>
             <input
+              id="backup-search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
@@ -262,8 +263,9 @@ export default function BackupsManager() {
             />
           </div>
           <div className="w-full md:w-56">
-            <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Type</label>
+            <label htmlFor="backup-type" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Type</label>
             <select
+              id="backup-type"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as 'all' | BackupType)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
@@ -278,8 +280,9 @@ export default function BackupsManager() {
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
           <div className="flex flex-col md:flex-row gap-3 md:items-end">
             <div className="w-full md:w-48">
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Retention (days)</label>
+              <label htmlFor="backup-retention-days" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Retention (days)</label>
               <input
+                id="backup-retention-days"
                 type="number"
                 min={0}
                 value={gcRetentionDays}
@@ -288,8 +291,9 @@ export default function BackupsManager() {
               />
             </div>
             <div className="w-full md:w-48">
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Keep latest</label>
+              <label htmlFor="backup-keep-latest" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Keep latest</label>
               <input
+                id="backup-keep-latest"
                 type="number"
                 min={0}
                 value={gcKeepLatest}

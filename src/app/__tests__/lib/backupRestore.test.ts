@@ -194,6 +194,89 @@ describe('backup restore + retention', () => {
     expect(after?.accommodations?.[0].costTrackingLinks).toEqual([]);
   });
 
+  it('restores accommodation costTrackingLinks even when travelData is missing', async () => {
+    const { saveUnifiedTripData, loadUnifiedTripData, restoreCostTrackingFromBackup } = await import('../../lib/unifiedDataService');
+    const { CURRENT_SCHEMA_VERSION } = await import('../../lib/dataMigration');
+    const { backupService } = await import('../../lib/backupService');
+    const { writeFile } = await import('fs/promises');
+    const { join } = await import('path');
+
+    const tripId = 'restoreNoTravelData';
+    const now = new Date('2024-04-01T00:00:00.000Z').toISOString();
+
+    await saveUnifiedTripData({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      id: tripId,
+      title: 'No travel data trip',
+      description: '',
+      startDate: now,
+      endDate: now,
+      createdAt: now,
+      updatedAt: now,
+      accommodations: [
+        {
+          id: 'acc-1',
+          name: 'Hotel',
+          locationId: 'loc-1',
+          createdAt: now,
+          costTrackingLinks: []
+        }
+      ]
+    });
+
+    const backupPath = join(process.env.TEST_DATA_DIR!, 'backups', 'deleted-cost-restoreNoTravelData.json');
+    await writeFile(
+      backupPath,
+      JSON.stringify(
+        {
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          id: tripId,
+          title: 'No travel data trip',
+          description: '',
+          startDate: now,
+          endDate: now,
+          createdAt: now,
+          updatedAt: now,
+          accommodations: [
+            {
+              id: 'acc-1',
+              name: 'Hotel',
+              locationId: 'loc-1',
+              createdAt: now,
+              costTrackingLinks: [{ expenseId: 'exp-1', description: 'Hotel night' }]
+            }
+          ],
+          costData: {
+            overallBudget: 100,
+            currency: 'EUR',
+            countryBudgets: [],
+            expenses: [
+              {
+                id: 'exp-1',
+                date: now,
+                amount: 10,
+                currency: 'EUR',
+                category: 'Accommodation',
+                country: 'X',
+                description: 'Hotel night',
+                expenseType: 'actual'
+              }
+            ]
+          }
+        },
+        null,
+        2
+      )
+    );
+
+    backupService.clearCache();
+    const metadata = await backupService.addBackupMetadata(tripId, 'cost', 'No travel data trip', backupPath, 'test');
+
+    await restoreCostTrackingFromBackup(metadata.id, tripId, true);
+    const restored = await loadUnifiedTripData(tripId);
+    expect(restored?.accommodations?.[0].costTrackingLinks?.some(link => link.expenseId === 'exp-1')).toBe(true);
+  });
+
   it('garbage-collects backups older than retention window', async () => {
     const { backupService } = await import('../../lib/backupService');
 

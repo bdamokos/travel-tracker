@@ -119,8 +119,6 @@ function mergeCostTrackingLinks(
 }
 
 function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedTripData): UnifiedTripData {
-  if (!current.travelData || !restored.travelData) return current;
-
   const mergeLocations = (currentLocations?: Location[], restoredLocations?: Location[]) => {
     if (!Array.isArray(currentLocations) || !Array.isArray(restoredLocations)) return currentLocations;
     return currentLocations.map((location) => {
@@ -188,6 +186,15 @@ function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedT
     });
   };
 
+  const mergedAccommodations = mergeAccommodations(current.accommodations, restored.accommodations);
+
+  if (!current.travelData || !restored.travelData) {
+    return {
+      ...current,
+      accommodations: mergedAccommodations
+    };
+  }
+
   return {
     ...current,
     travelData: {
@@ -196,7 +203,7 @@ function mergeRestoredLinksIntoTrip(current: UnifiedTripData, restored: UnifiedT
       routes: mergeRoutes(current.travelData.routes, restored.travelData.routes),
       days: mergeDays(current.travelData.days as JourneyPeriod[] | undefined, restored.travelData.days as JourneyPeriod[] | undefined)
     },
-    accommodations: mergeAccommodations(current.accommodations, restored.accommodations)
+    accommodations: mergedAccommodations
   };
 }
 
