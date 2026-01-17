@@ -56,7 +56,7 @@ describe('Trip calendar accessibility', () => {
     const cells = screen.getAllByRole('gridcell');
     expect(cells.length).toBeGreaterThan(0);
     const focusableCells = cells.filter(cell => cell.getAttribute('tabindex') === '0');
-    expect(focusableCells).toHaveLength(1);
+    expect(focusableCells).toHaveLength(cells.length);
     const selectedCell = screen.getByRole('gridcell', { name: /january 3, 2024/i });
     expect(selectedCell).toHaveAttribute('tabindex', '0');
     expect(selectedCell).toHaveAttribute('aria-label');
@@ -83,8 +83,7 @@ describe('Trip calendar accessibility', () => {
     );
 
     const cells = screen.getAllByRole('gridcell');
-    expect(cells[0]).toHaveAttribute('tabindex', '0');
-    expect(cells.slice(1).every(cell => cell.getAttribute('tabindex') === '-1')).toBe(true);
+    expect(cells.every(cell => cell.getAttribute('tabindex') === '0')).toBe(true);
     act(() => {
       cells[0].focus();
     });
