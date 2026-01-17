@@ -18,6 +18,7 @@ import {
   createHighlightedMarkerIcon,
   createMarkerIcon,
   escapeAttribute,
+  getMarkerLegendSvgMarkup,
   getDominantMarkerTone,
   getMarkerDistanceBucket,
 } from '@/app/lib/mapIconUtils';
@@ -258,19 +259,32 @@ const generateRouteLegendLabel = (
   `;
 };
 
-// Generate legend HTML for marker layers
-const generateMarkerLegendLabel = (label: string, iconColor: string): string => {
+const generateLocationsLegendLabel = (): string => {
+  const baseIcon = getMarkerLegendSvgMarkup('present', { width: 16, height: 24 });
+  const pastIcon = getMarkerLegendSvgMarkup('past', { width: 12, height: 18 });
+  const presentIcon = getMarkerLegendSvgMarkup('present', { width: 12, height: 18 });
+  const futureIcon = getMarkerLegendSvgMarkup('future', { width: 12, height: 18 });
+
   return `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <svg width="16" height="20" viewBox="0 0 25 41" style="flex-shrink: 0;">
-        <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z"
-          fill="${iconColor}"
-          stroke="#fff"
-          stroke-width="1"
-        />
-        <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
-      </svg>
-      <span>${label}</span>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        ${baseIcon}
+        <span>Locations</span>
+      </div>
+      <div style="
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding-left: 24px;
+        font-size: 11px;
+        line-height: 1.2;
+        opacity: 0.9;
+      ">
+        <span style="display: flex; align-items: center; gap: 4px;">${pastIcon}<span>Past</span></span>
+        <span style="display: flex; align-items: center; gap: 4px;">${presentIcon}<span>Current</span></span>
+        <span style="display: flex; align-items: center; gap: 4px;">${futureIcon}<span>Future</span></span>
+      </div>
     </div>
   `;
 };
@@ -1100,7 +1114,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     });
 
     // Add location markers layer
-    overlays[generateMarkerLegendLabel('Locations', '#3b82f6')] = locationMarkersLayer;
+    overlays[generateLocationsLegendLabel()] = locationMarkersLayer;
 
     // Add start/end layer
     overlays[`
