@@ -45,6 +45,7 @@ type MarkerAccessibility = {
   role?: string;
   tabIndex?: number;
   className?: string;
+  dataKey?: string;
 };
 
 export const escapeAttribute = (value: string) =>
@@ -153,8 +154,20 @@ const wrapMarkerHtml = (content: string, accessibility?: MarkerAccessibility) =>
   const role = accessibility.role ?? 'button';
   const tabIndex = accessibility.tabIndex ?? 0;
   const className = accessibility.className ? ` ${accessibility.className}` : '';
+  const dataKey = accessibility.dataKey ? ` data-travel-marker-key="${escapeAttribute(accessibility.dataKey)}"` : '';
+
+  if (role === 'button') {
+    return `
+      <button type="button" class="travel-marker-interactive${className}" tabindex="${tabIndex}"${dataKey} aria-label="${escapeAttribute(
+        accessibility.label
+      )}">
+        ${content}
+      </button>
+    `;
+  }
+
   return `
-    <div class="travel-marker-interactive${className}" role="${role}" tabindex="${tabIndex}" aria-label="${escapeAttribute(
+    <div class="travel-marker-interactive${className}" role="${role}" tabindex="${tabIndex}"${dataKey} aria-label="${escapeAttribute(
       accessibility.label
     )}">
       ${content}

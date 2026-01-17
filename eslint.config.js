@@ -10,7 +10,7 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...compat.extends("next/core-web-vitals", "next/typescript", "plugin:jsx-a11y/recommended"),
   {
     rules: {
       // Downgrade some rules from errors to warnings to prevent build failures
@@ -18,6 +18,14 @@ const eslintConfig = [
       // "@typescript-eslint/no-explicit-any": "warn",
       "react/no-unescaped-entities": "warn",
       "prefer-const": "warn",
+      // Keep a11y checks visible without blocking CI until legacy violations are resolved.
+      "jsx-a11y/click-events-have-key-events": "warn",
+      "jsx-a11y/html-has-lang": "warn",
+      "jsx-a11y/label-has-associated-control": "warn",
+      "jsx-a11y/no-autofocus": "warn",
+      "jsx-a11y/no-noninteractive-element-interactions": "warn",
+      "jsx-a11y/no-noninteractive-tabindex": "warn",
+      "jsx-a11y/no-static-element-interactions": "warn",
     },
   },
 ];
