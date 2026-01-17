@@ -10,7 +10,6 @@ interface CalendarDayCellProps {
   cell: CalendarCell;
   isSelected: boolean;
   isToday: boolean;
-  isFocusable: boolean;
   onSelectLocation: (
     day: CalendarDay,
     location: Location,
@@ -21,7 +20,6 @@ interface CalendarDayCellProps {
   registerCell: (row: number, col: number, element: HTMLElement | null) => void;
   onNavigate: (row: number, col: number, key: string) => void;
   onAnnounce: (message: string) => void;
-  onFocusCell: (row: number, col: number) => void;
 }
 
 const isShadowLocationName = (location?: Location | null) =>
@@ -63,14 +61,12 @@ export default function CalendarDayCell({
   cell,
   isSelected,
   isToday,
-  isFocusable,
   onSelectLocation,
   locationColors,
   gridPosition,
   registerCell,
   onNavigate,
   onAnnounce,
-  onFocusCell,
 }: CalendarDayCellProps) {
   const { day, backgroundColor, textColor, diagonalSplit, mergeInfo } = cell;
   const hasSideTrips = !!day.sideTrips && day.sideTrips.length > 0;
@@ -104,6 +100,10 @@ export default function CalendarDayCell({
 
   // Check if this is a shadow location
   const isShadowLocation = isShadowLocationName(day.primaryLocation) || isShadowLocationName(day.secondaryLocation);
+
+  const isLocationDay = !day.isOutsideTrip && !day.isOutsideMonth && (
+    Boolean(day.primaryLocation) || Boolean(day.secondaryLocation) || Boolean(day.sideTrips && day.sideTrips.length > 0)
+  );
 
   const baseClasses = `
     h-20 min-h-20 border border-gray-200 cursor-pointer relative overflow-hidden
@@ -162,14 +162,11 @@ export default function CalendarDayCell({
       style={cellStyle}
       onClick={handlePrimaryClick}
       role="gridcell"
-      tabIndex={isFocusable ? 0 : -1}
+      tabIndex={isLocationDay ? 0 : -1}
       aria-label={ariaLabel}
       aria-selected={ariaSelected}
       aria-disabled={ariaDisabled}
       aria-colspan={mergeInfo?.colspan && mergeInfo.colspan > 1 ? mergeInfo.colspan : undefined}
-      onFocus={() => {
-        onFocusCell(gridPosition.row, gridPosition.col);
-      }}
       onKeyDown={event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
