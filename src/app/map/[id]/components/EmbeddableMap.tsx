@@ -995,20 +995,23 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     };
 
     // Add routes grouped by transport type
-    const usedTransportTypes = new Set<string>();
+    const usedTransportTypes = new Set<keyof typeof transportationConfig>();
     travelData.routes.forEach((route) => {
       const routePoints = resolveRoutePoints(route);
-      const transportType = route.transportType as keyof typeof transportationConfig;
-      const routeStyle = getRouteStyle(transportType);
+      // Normalize transport type to a valid key, fallback to 'other' if unknown
+      const transportKey = (route.transportType in transportationConfig
+        ? route.transportType
+        : 'other') as keyof typeof transportationConfig;
+      const routeStyle = getRouteStyle(transportKey);
 
       if (routePoints.length > 0) {
         // Get or create layer group for this transport type
-        let layerGroup = routeLayersByType.get(transportType);
+        let layerGroup = routeLayersByType.get(transportKey);
         if (!layerGroup) {
           layerGroup = L.layerGroup().addTo(map);
-          routeLayersByType.set(transportType, layerGroup);
+          routeLayersByType.set(transportKey, layerGroup);
         }
-        usedTransportTypes.add(transportType);
+        usedTransportTypes.add(transportKey);
 
         L.polyline(routePoints, {
           color: routeStyle.color,
@@ -1096,7 +1099,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     usedTransportTypes.forEach(transportType => {
       const layerGroup = routeLayersByType.get(transportType);
       if (layerGroup) {
-        const config = transportationConfig[transportType as keyof typeof transportationConfig];
+        const config = transportationConfig[transportType];
         const legendLabel = generateRouteLegendLabel(
           config.description,
           config.color,
@@ -1125,6 +1128,23 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       collapsed: false,
       position: 'topright'
     }).addTo(map);
+
+    // Handle overlay visibility changes for keyboard navigation (WCAG compliance)
+    map.on('overlayadd', (event: L.LayersControlEvent) => {
+      if (event.layer === locationMarkersLayer) {
+        // Restore focus order when locations layer is re-enabled
+        updateFocusOrder();
+      }
+    });
+
+    map.on('overlayremove', (event: L.LayersControlEvent) => {
+      if (event.layer === locationMarkersLayer) {
+        // Clear focus order when locations layer is disabled to prevent Tab trapping
+        focusOrderRef.current = [];
+        focusedMarkerKeyRef.current = null;
+        setFocusCount(0);
+      }
+    });
 
     // Fit map to show all locations
     if (travelData.locations.length > 0) {
