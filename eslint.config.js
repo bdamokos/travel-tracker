@@ -19,6 +19,7 @@ const eslintConfig = [
       "react/no-unescaped-entities": "warn",
       "prefer-const": "warn",
       // Keep a11y checks visible without blocking CI until legacy violations are resolved.
+      // Tracking: https://github.com/bdamokos/travel-tracker/issues/219 (target: 2026-03-31)
       "jsx-a11y/click-events-have-key-events": "warn",
       "jsx-a11y/html-has-lang": "warn",
       "jsx-a11y/label-has-associated-control": "warn",
