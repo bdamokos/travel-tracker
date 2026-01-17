@@ -527,7 +527,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     // Create layer groups for different map elements
     const locationMarkersLayer = L.layerGroup().addTo(map);
-    const startEndLayer = L.layerGroup().addTo(map);
+    // Start/end markers are available via the layer control, but off by default.
+    const startEndLayer = L.layerGroup();
     const routeLayersByType = new globalThis.Map<string, L.LayerGroup>();
     const spiderfyLegsLayer = L.layerGroup().addTo(map);
 
