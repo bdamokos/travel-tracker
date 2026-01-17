@@ -37,10 +37,10 @@ function getRouteDistance(route: TravelRoute): number {
 }
 
 function formatDistance(distance: number): string {
-  if (distance >= 1000) {
-    return `${(distance / 1000).toFixed(1)}k km`;
+  if (distance >= 100) {
+    return Math.round(distance).toLocaleString() + ' km';
   }
-  return `${Math.round(distance)} km`;
+  return distance.toFixed(1) + ' km';
 }
 
 export default function DistanceSummary({ routes }: DistanceSummaryProps) {
@@ -48,14 +48,29 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
     const byType = new Map<TransportationType, { distance: number; count: number }>();
 
     routes.forEach(route => {
-      const distance = getRouteDistance(route);
-      const type = route.transportType;
-
-      const existing = byType.get(type) || { distance: 0, count: 0 };
-      byType.set(type, {
-        distance: existing.distance + distance,
-        count: existing.count + 1,
-      });
+      // If route has subRoutes, attribute distance to each subRoute's transport type
+      if (route.subRoutes && route.subRoutes.length > 0) {
+        route.subRoutes.forEach(subRoute => {
+          if (subRoute.fromCoords && subRoute.toCoords) {
+            const distance = calculateDistance(subRoute.fromCoords, subRoute.toCoords);
+            const type = subRoute.transportType;
+            const existing = byType.get(type) || { distance: 0, count: 0 };
+            byType.set(type, {
+              distance: existing.distance + distance,
+              count: existing.count + 1,
+            });
+          }
+        });
+      } else {
+        // For simple routes, use the route's transport type
+        const distance = getRouteDistance(route);
+        const type = route.transportType;
+        const existing = byType.get(type) || { distance: 0, count: 0 };
+        byType.set(type, {
+          distance: existing.distance + distance,
+          count: existing.count + 1,
+        });
+      }
     });
 
     const distanceByType: DistanceByType[] = Array.from(byType.entries())
