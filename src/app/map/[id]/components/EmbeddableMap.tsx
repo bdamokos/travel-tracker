@@ -7,7 +7,7 @@ import type { Marker } from 'leaflet';
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
-import { buildCompositeRoutePoints, getRouteStyle } from '@/app/lib/routeUtils';
+import { buildCompositeRoutePoints, getRouteStyle, transportationConfig } from '@/app/lib/routeUtils';
 import type { MapRouteSegment } from '@/app/types';
 import {
   attachMarkerKeyHandlers,
@@ -233,6 +233,46 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
 const MAP_PAN_STEP_PIXELS = 80;
+
+// Generate legend HTML for a route layer with transport styling
+const generateRouteLegendLabel = (
+  transportType: string,
+  color: string,
+  dashArray?: string
+): string => {
+  // Create SVG line pattern for the legend
+  const strokeDasharray = dashArray || 'none';
+  return `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="24" height="12" style="flex-shrink: 0;">
+        <line x1="0" y1="6" x2="24" y2="6"
+          stroke="${color}"
+          stroke-width="3"
+          stroke-dasharray="${strokeDasharray === 'none' ? '' : strokeDasharray}"
+          stroke-linecap="round"
+        />
+      </svg>
+      <span>${transportType}</span>
+    </div>
+  `;
+};
+
+// Generate legend HTML for marker layers
+const generateMarkerLegendLabel = (label: string, iconColor: string): string => {
+  return `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="16" height="20" viewBox="0 0 25 41" style="flex-shrink: 0;">
+        <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z"
+          fill="${iconColor}"
+          stroke="#fff"
+          stroke-width="1"
+        />
+        <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
+      </svg>
+      <span>${label}</span>
+    </div>
+  `;
+};
 
 const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   const mapRef = useRef<L.Map | null>(null);
@@ -478,12 +518,18 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     }).addTo(map);
 
     map.on('popupopen', () => { popupOpenRef.current = true; });
-    map.on('popupclose', () => { 
+    map.on('popupclose', () => {
       popupOpenRef.current = false;
-      setMapAnnouncement('Popup closed.'); 
+      setMapAnnouncement('Popup closed.');
     });
 
     mapRef.current = map;
+
+    // Create layer groups for different map elements
+    const locationMarkersLayer = L.layerGroup().addTo(map);
+    const startEndLayer = L.layerGroup().addTo(map);
+    const routeLayersByType = new globalThis.Map<string, L.LayerGroup>();
+    const spiderfyLegsLayer = L.layerGroup().addTo(map);
 
     const markerIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
     const highlightedIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
@@ -781,7 +827,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         state.collapseMarker.remove();
         state.collapseMarker = undefined;
       }
-      state.groupMarker.addTo(map);
+      state.groupMarker.addTo(locationMarkersLayer);
       expanded.delete(groupKey);
       collapsedByUser.add(groupKey);
       updateFocusOrder();
@@ -807,7 +853,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
       state.group.items.forEach((location, index) => {
         const distributed = distributeAroundPointPixels(map, state.group.center, index, state.group.items.length, SPIDER_PIXEL_RADIUS);
-        const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 3, opacity: 0.8, dashArray: '2 4' }).addTo(map);
+        const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 3, opacity: 0.8, dashArray: '2 4' }).addTo(spiderfyLegsLayer);
         state.legs.push(leg);
         const isHighlighted = closestLocation?.id === location.id;
         const { label, labelKey } = getLocationLabelData(location);
@@ -816,7 +862,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         if (icon) {
           markerOptions.icon = icon;
         }
-        const child = L.marker(distributed, markerOptions).addTo(map);
+        const child = L.marker(distributed, markerOptions).addTo(locationMarkersLayer);
         attachPopupAndEnrich(child, location);
         attachMarkerKeyHandlers(child, () => child.openPopup());
         registerMarkerElement(location.id, label, child);
@@ -836,7 +882,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           className: 'travel-marker-collapse',
         }),
         keyboard: false,
-      }).addTo(map);
+      }).addTo(locationMarkersLayer);
       collapseMarker.on('click', collapseHandler);
       attachMarkerKeyHandlers(collapseMarker, collapseHandler);
       registerMarkerElement(`collapse-${groupKey}`, collapseLabel, collapseMarker);
@@ -885,7 +931,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           if (icon) {
             markerOptions.icon = icon;
           }
-          const marker = L.marker(location.coordinates, markerOptions).addTo(map);
+          const marker = L.marker(location.coordinates, markerOptions).addTo(locationMarkersLayer);
           attachPopupAndEnrich(marker, location);
           attachMarkerKeyHandlers(marker, () => marker.openPopup());
           registerMarkerElement(location.id, label, marker);
@@ -902,7 +948,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const groupMarker = L.marker(group.center, {
           icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label }),
           keyboard: false,
-        }).addTo(map);
+        }).addTo(locationMarkersLayer);
         registerMarkerElement(group.key, label, groupMarker);
         const state: GroupLayerState = { group, groupMarker, childMarkers: [], legs: [] };
         groupLayers.set(group.key, state);
@@ -948,18 +994,155 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       return [route.fromCoords, route.toCoords];
     };
 
-    // Add routes if any
+    // Add routes grouped by transport type
+    const usedTransportTypes = new Set<keyof typeof transportationConfig>();
     travelData.routes.forEach((route) => {
       const routePoints = resolveRoutePoints(route);
-      const routeStyle = getRouteStyle(route.transportType as 'walk' | 'bike' | 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'other');
+      // Normalize transport type to a valid key, fallback to 'other' if unknown
+      const transportKey = (route.transportType in transportationConfig
+        ? route.transportType
+        : 'other') as keyof typeof transportationConfig;
+      const routeStyle = getRouteStyle(transportKey);
 
       if (routePoints.length > 0) {
+        // Get or create layer group for this transport type
+        let layerGroup = routeLayersByType.get(transportKey);
+        if (!layerGroup) {
+          layerGroup = L.layerGroup().addTo(map);
+          routeLayersByType.set(transportKey, layerGroup);
+        }
+        usedTransportTypes.add(transportKey);
+
         L.polyline(routePoints, {
           color: routeStyle.color,
           weight: routeStyle.weight,
           opacity: routeStyle.opacity,
           dashArray: routeStyle.dashArray
-        }).addTo(map);
+        }).addTo(layerGroup);
+      }
+    });
+
+    // Add start and end point markers
+    if (travelData.locations.length > 0) {
+      // Sort locations by date to find start and end
+      const sortedLocations = [...travelData.locations].sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateA - dateB;
+      });
+
+      const startLocation = sortedLocations[0];
+      const endLocation = sortedLocations[sortedLocations.length - 1];
+
+      // Create start marker (green)
+      const startIcon = L.divIcon({
+        className: 'start-end-marker',
+        html: `
+          <div style="
+            width: 28px;
+            height: 28px;
+            background-color: #22c55e;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+          ">S</div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+
+      // Create end marker (red)
+      const endIcon = L.divIcon({
+        className: 'start-end-marker',
+        html: `
+          <div style="
+            width: 28px;
+            height: 28px;
+            background-color: #ef4444;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+          ">E</div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+
+      L.marker(startLocation.coordinates, { icon: startIcon })
+        .bindPopup(`<strong>Start:</strong> ${escapeHTML(startLocation.name)}`)
+        .addTo(startEndLayer);
+
+      // Only add end marker if it's different from start
+      if (startLocation.id !== endLocation.id) {
+        L.marker(endLocation.coordinates, { icon: endIcon })
+          .bindPopup(`<strong>End:</strong> ${escapeHTML(endLocation.name)}`)
+          .addTo(startEndLayer);
+      }
+    }
+
+    // Build layer control overlays
+    const overlays: Record<string, L.LayerGroup> = {};
+
+    // Add route layers with legend labels
+    usedTransportTypes.forEach(transportType => {
+      const layerGroup = routeLayersByType.get(transportType);
+      if (layerGroup) {
+        const config = transportationConfig[transportType];
+        const legendLabel = generateRouteLegendLabel(
+          config.description,
+          config.color,
+          config.dashArray
+        );
+        overlays[legendLabel] = layerGroup;
+      }
+    });
+
+    // Add location markers layer
+    overlays[generateMarkerLegendLabel('Locations', '#3b82f6')] = locationMarkersLayer;
+
+    // Add start/end layer
+    overlays[`
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; gap: 4px;">
+          <div style="width: 16px; height: 16px; background-color: #22c55e; border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">S</div>
+          <div style="width: 16px; height: 16px; background-color: #ef4444; border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">E</div>
+        </div>
+        <span>Start / End</span>
+      </div>
+    `] = startEndLayer;
+
+    // Add layer control to map
+    L.control.layers(undefined, overlays, {
+      collapsed: false,
+      position: 'topright'
+    }).addTo(map);
+
+    // Handle overlay visibility changes for keyboard navigation (WCAG compliance)
+    map.on('overlayadd', (event: L.LayersControlEvent) => {
+      if (event.layer === locationMarkersLayer) {
+        // Restore focus order when locations layer is re-enabled
+        updateFocusOrder();
+      }
+    });
+
+    map.on('overlayremove', (event: L.LayersControlEvent) => {
+      if (event.layer === locationMarkersLayer) {
+        // Clear focus order when locations layer is disabled to prevent Tab trapping
+        focusOrderRef.current = [];
+        focusedMarkerKeyRef.current = null;
+        setFocusCount(0);
       }
     });
 
