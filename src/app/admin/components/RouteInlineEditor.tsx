@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
@@ -37,6 +37,7 @@ export default function RouteInlineEditor({
   onGeocode,
   tripId
 }: RouteInlineEditorProps) {
+  const idPrefix = `route-inline-${useId().replace(/:/g, '')}`;
   const [formData, setFormData] = useState<TravelRoute>({
     ...route
   });
@@ -47,6 +48,16 @@ export default function RouteInlineEditor({
   const [validationError, setValidationError] = useState<string>('');
   const [segmentRefreshStatus, setSegmentRefreshStatus] = useState<Record<string, string>>({});
   const refreshTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const transportSelectId = `${idPrefix}-transport-type`;
+  const dateLabelId = `${idPrefix}-date-label`;
+  const datePickerId = `${idPrefix}-date`;
+  const fromInputId = `${idPrefix}-from`;
+  const toInputId = `${idPrefix}-to`;
+  const durationInputId = `${idPrefix}-duration`;
+  const returnCheckboxId = `${idPrefix}-is-return`;
+  const publicNotesId = `${idPrefix}-notes`;
+  const privateNotesId = `${idPrefix}-private-notes`;
 
   useEffect(() => {
     return () => {
@@ -483,11 +494,11 @@ export default function RouteInlineEditor({
         {/* Transport Type and Date */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={transportSelectId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Transportation *
             </label>
             <AriaSelect
-              id="transport-type-select"
+              id={transportSelectId}
               value={formData.transportType}
               onChange={(value) => setFormData(prev => ({ ...prev, transportType: value as Transportation['type'] }))}
               className="w-full px-2 py-1 text-sm"
@@ -497,14 +508,15 @@ export default function RouteInlineEditor({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <span id={dateLabelId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date *
-            </label>
+            </span>
             <AccessibleDatePicker
-              id="route-inline-date"
+              id={datePickerId}
               value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
               onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
+              aria-labelledby={dateLabelId}
               className="text-sm"
             />
           </div>
@@ -513,11 +525,12 @@ export default function RouteInlineEditor({
         {/* From and To Locations */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={fromInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               From *
             </label>
             {hasSubRoutes ? (
               <input
+                id={fromInputId}
                 type="text"
                 value={formData.from}
                 disabled
@@ -525,7 +538,7 @@ export default function RouteInlineEditor({
               />
             ) : (
               <AriaComboBox
-                id="from-locations-inline"
+                id={fromInputId}
                 value={formData.from}
                 onChange={(value) => setFormData(prev => ({ ...prev, from: value }))}
                 className="w-full px-2 py-1 text-sm"
@@ -537,11 +550,12 @@ export default function RouteInlineEditor({
             )}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={toInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               To *
             </label>
             {hasSubRoutes ? (
               <input
+                id={toInputId}
                 type="text"
                 value={formData.to}
                 disabled
@@ -549,7 +563,7 @@ export default function RouteInlineEditor({
               />
             ) : (
               <AriaComboBox
-                id="to-locations-inline"
+                id={toInputId}
                 value={formData.to}
                 onChange={(value) => setFormData(prev => ({ ...prev, to: value }))}
                 className="w-full px-2 py-1 text-sm"
@@ -617,42 +631,43 @@ export default function RouteInlineEditor({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Transportation *
-                      </label>
-                      <AriaSelect
-                        id={`sub-route-type-${segment.id}`}
-                        value={segment.transportType}
+	                  <div className="grid grid-cols-2 gap-2 mt-2">
+	                    <div>
+	                      <label htmlFor={`sub-route-type-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                        Transportation *
+	                      </label>
+	                      <AriaSelect
+	                        id={`sub-route-type-${segment.id}`}
+	                        value={segment.transportType}
                         onChange={(value) => updateSubRoute(index, { transportType: value as Transportation['type'] })}
                         className="w-full px-2 py-1 text-sm"
                         required
                         options={transportOptions}
                         placeholder="Select Transportation"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Date *
-                      </label>
-                      <AccessibleDatePicker
-                        id={`sub-route-date-${segment.id}`}
-                        value={segment.date instanceof Date ? segment.date : (segment.date ? new Date(segment.date) : null)}
-                        onChange={(d) => d && updateSubRoute(index, { date: d })}
-                        required
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
+	                      />
+	                    </div>
+	                    <div>
+	                      <span id={`sub-route-date-label-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                        Date *
+	                      </span>
+	                      <AccessibleDatePicker
+	                        id={`sub-route-date-${segment.id}`}
+	                        value={segment.date instanceof Date ? segment.date : (segment.date ? new Date(segment.date) : null)}
+	                        onChange={(d) => d && updateSubRoute(index, { date: d })}
+	                        required
+                          aria-labelledby={`sub-route-date-label-${segment.id}`}
+	                        className="text-sm"
+	                      />
+	                    </div>
+	                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        From *
-                      </label>
-                      <AriaComboBox
-                        id={`sub-route-from-${segment.id}`}
+	                  <div className="grid grid-cols-2 gap-2 mt-2">
+	                    <div>
+	                      <label htmlFor={`sub-route-from-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                        From *
+	                      </label>
+	                      <AriaComboBox
+	                        id={`sub-route-from-${segment.id}`}
                         value={segment.from}
                         onChange={(value) => updateSubRoute(index, { from: value })}
                         className="w-full px-2 py-1 text-sm"
@@ -660,14 +675,14 @@ export default function RouteInlineEditor({
                         placeholder="Paris"
                         required
                         allowsCustomValue={true}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        To *
-                      </label>
-                      <AriaComboBox
-                        id={`sub-route-to-${segment.id}`}
+	                      />
+	                    </div>
+	                    <div>
+	                      <label htmlFor={`sub-route-to-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                        To *
+	                      </label>
+	                      <AriaComboBox
+	                        id={`sub-route-to-${segment.id}`}
                         value={segment.to}
                         onChange={(value) => updateSubRoute(index, { to: value })}
                         className="w-full px-2 py-1 text-sm"
@@ -679,16 +694,16 @@ export default function RouteInlineEditor({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                          From Coordinates
-                        </label>
-                        <div className="flex items-center gap-1">
-                          {segmentRefreshStatus[`${segment.id}-fromCoords`] && (
-                            <span className={`text-[10px] ${
-                              segmentRefreshStatus[`${segment.id}-fromCoords`] === 'Updated' ? 'text-green-600 dark:text-green-400' :
+	                  <div className="grid grid-cols-2 gap-2 mt-2">
+	                    <div>
+	                      <div className="flex items-center justify-between mb-1">
+	                        <div className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+	                          From Coordinates
+	                        </div>
+	                        <div className="flex items-center gap-1">
+	                          {segmentRefreshStatus[`${segment.id}-fromCoords`] && (
+	                            <span className={`text-[10px] ${
+	                              segmentRefreshStatus[`${segment.id}-fromCoords`] === 'Updated' ? 'text-green-600 dark:text-green-400' :
                               segmentRefreshStatus[`${segment.id}-fromCoords`] === 'Refreshing...' ? 'text-blue-600 dark:text-blue-400' :
                               'text-amber-600 dark:text-amber-400'
                             }`}>
@@ -705,35 +720,37 @@ export default function RouteInlineEditor({
                             Refresh
                           </button>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={segment.fromCoords?.[0] ?? 0}
-                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 0, e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                          placeholder="Lat"
-                        />
-                        <input
-                          type="number"
-                          step="any"
-                          value={segment.fromCoords?.[1] ?? 0}
-                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 1, e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                          placeholder="Lng"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                          To Coordinates
-                        </label>
-                        <div className="flex items-center gap-1">
-                          {segmentRefreshStatus[`${segment.id}-toCoords`] && (
-                            <span className={`text-[10px] ${
-                              segmentRefreshStatus[`${segment.id}-toCoords`] === 'Updated' ? 'text-green-600 dark:text-green-400' :
+	                      </div>
+	                      <div className="grid grid-cols-2 gap-2">
+	                        <input
+	                          type="number"
+	                          step="any"
+                            aria-label="From latitude"
+	                          value={segment.fromCoords?.[0] ?? 0}
+	                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 0, e.target.value)}
+	                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                          placeholder="Lat"
+	                        />
+	                        <input
+	                          type="number"
+	                          step="any"
+                            aria-label="From longitude"
+	                          value={segment.fromCoords?.[1] ?? 0}
+	                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 1, e.target.value)}
+	                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                          placeholder="Lng"
+	                        />
+	                      </div>
+	                    </div>
+	                    <div>
+	                      <div className="flex items-center justify-between mb-1">
+	                        <div className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+	                          To Coordinates
+	                        </div>
+	                        <div className="flex items-center gap-1">
+	                          {segmentRefreshStatus[`${segment.id}-toCoords`] && (
+	                            <span className={`text-[10px] ${
+	                              segmentRefreshStatus[`${segment.id}-toCoords`] === 'Updated' ? 'text-green-600 dark:text-green-400' :
                               segmentRefreshStatus[`${segment.id}-toCoords`] === 'Refreshing...' ? 'text-blue-600 dark:text-blue-400' :
                               'text-amber-600 dark:text-amber-400'
                             }`}>
@@ -751,36 +768,39 @@ export default function RouteInlineEditor({
                           </button>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={segment.toCoords?.[0] ?? 0}
-                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 0, e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                          placeholder="Lat"
-                        />
-                        <input
-                          type="number"
-                          step="any"
-                          value={segment.toCoords?.[1] ?? 0}
-                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 1, e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                          placeholder="Lng"
-                        />
-                      </div>
-                    </div>
-                  </div>
+	                      <div className="grid grid-cols-2 gap-2">
+	                        <input
+	                          type="number"
+	                          step="any"
+                            aria-label="To latitude"
+	                          value={segment.toCoords?.[0] ?? 0}
+	                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 0, e.target.value)}
+	                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                          placeholder="Lat"
+	                        />
+	                        <input
+	                          type="number"
+	                          step="any"
+                            aria-label="To longitude"
+	                          value={segment.toCoords?.[1] ?? 0}
+	                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 1, e.target.value)}
+	                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                          placeholder="Lng"
+	                        />
+	                      </div>
+	                    </div>
+	                  </div>
 
-                  <div className="mt-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Duration
-                    </label>
-                    <input
-                      type="text"
-                      value={segment.duration || ''}
-                      onChange={(e) => updateSubRoute(index, { duration: e.target.value })}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                  <div className="mt-2">
+	                    <label htmlFor={`sub-route-duration-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                      Duration
+	                    </label>
+	                    <input
+	                      id={`sub-route-duration-${segment.id}`}
+	                      type="text"
+	                      value={segment.duration || ''}
+	                      onChange={(e) => updateSubRoute(index, { duration: e.target.value })}
+	                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="e.g., 2h 30m, 1 day"
                     />
                   </div>
@@ -796,30 +816,32 @@ export default function RouteInlineEditor({
                     <label htmlFor={`sub-route-return-${segment.id}`} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
                       Return Route (shown as ⇆)
                     </label>
-                  </div>
+	                  </div>
 
-                  <div className="mt-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Public Notes
-                    </label>
-                    <textarea
-                      value={segment.notes || ''}
-                      onChange={(e) => updateSubRoute(index, { notes: e.target.value })}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      rows={2}
+	                  <div className="mt-2">
+	                    <label htmlFor={`sub-route-notes-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                      Public Notes
+	                    </label>
+	                    <textarea
+	                      id={`sub-route-notes-${segment.id}`}
+	                      value={segment.notes || ''}
+	                      onChange={(e) => updateSubRoute(index, { notes: e.target.value })}
+	                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                      rows={2}
                       placeholder="Segment details..."
                     />
-                  </div>
+	                  </div>
 
-                  <div className="mt-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Private Notes <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">Private</span>
-                    </label>
-                    <textarea
-                      value={segment.privateNotes || ''}
-                      onChange={(e) => updateSubRoute(index, { privateNotes: e.target.value })}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      rows={2}
+	                  <div className="mt-2">
+	                    <label htmlFor={`sub-route-private-notes-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	                      Private Notes <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">Private</span>
+	                    </label>
+	                    <textarea
+	                      id={`sub-route-private-notes-${segment.id}`}
+	                      value={segment.privateNotes || ''}
+	                      onChange={(e) => updateSubRoute(index, { privateNotes: e.target.value })}
+	                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	                      rows={2}
                       placeholder="Segment private details..."
                     />
                   </div>
@@ -878,16 +900,16 @@ export default function RouteInlineEditor({
                         Tip: first feature with LineString is used; coordinates should be [lng, lat].
                       </div>
                     )}
-                  </div>
+	                  </div>
 
-                  <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Cost Tracking Links
-                    </label>
-                    {tripId ? (
-                      <CostTrackingLinksManager
-                        tripId={tripId}
-                        travelItemId={segment.id}
+	                  <div className="mt-3">
+	                    <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+	                      Cost Tracking Links
+	                    </div>
+	                    {tripId ? (
+	                      <CostTrackingLinksManager
+	                        tripId={tripId}
+	                        travelItemId={segment.id}
                         travelItemType="route"
                       />
                     ) : (
@@ -907,69 +929,72 @@ export default function RouteInlineEditor({
         </div>
 
         {/* Duration */}
-        {hasSubRoutes ? (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Duration
-            </label>
-            <div className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-              {formData.subRoutes?.map(s => s.duration?.trim()).filter(Boolean).join(' + ') || 'Set duration on each segment'}
-            </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Duration is derived from segments.</p>
-          </div>
-        ) : (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Duration
-            </label>
-            <input
-              type="text"
-              value={formData.duration || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	        {hasSubRoutes ? (
+	          <div>
+	            <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	              Duration
+	            </div>
+	            <div className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+	              {formData.subRoutes?.map(s => s.duration?.trim()).filter(Boolean).join(' + ') || 'Set duration on each segment'}
+	            </div>
+	            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Duration is derived from segments.</p>
+	          </div>
+	        ) : (
+	          <div>
+	            <label htmlFor={durationInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	              Duration
+	            </label>
+	            <input
+	              id={durationInputId}
+	              type="text"
+	              value={formData.duration || ''}
+	              onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+	              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="e.g., 2h 30m, 1 day"
             />
           </div>
         )}
 
-        {/* Return Route Checkbox */}
-        <div className="flex items-center">
-          <input
-            id="route-inline-is-return"
-            type="checkbox"
-            checked={formData.isReturn || false}
-            onChange={(e) => setFormData(prev => ({ ...prev, isReturn: e.target.checked }))}
-            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-          <label htmlFor="route-inline-is-return" className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
-            Return Route (shown as ⇆)
-          </label>
-        </div>
+	        {/* Return Route Checkbox */}
+	        <div className="flex items-center">
+	          <input
+	            id={returnCheckboxId}
+	            type="checkbox"
+	            checked={formData.isReturn || false}
+	            onChange={(e) => setFormData(prev => ({ ...prev, isReturn: e.target.checked }))}
+	            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+	          />
+	          <label htmlFor={returnCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
+	            Return Route (shown as ⇆)
+	          </label>
+	        </div>
 
-        {/* Public Notes */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Public Notes
-          </label>
-          <textarea
-            value={formData.notes || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            rows={2}
+	        {/* Public Notes */}
+	        <div>
+	          <label htmlFor={publicNotesId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	            Public Notes
+	          </label>
+	          <textarea
+	            id={publicNotesId}
+	            value={formData.notes || ''}
+	            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+	            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	            rows={2}
             placeholder="Flight number, booking details..."
           />
         </div>
 
-        {/* Private Notes */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Private Notes <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">Private</span>
-          </label>
-          <textarea
-            value={formData.privateNotes || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, privateNotes: e.target.value }))}
-            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            rows={2}
+	        {/* Private Notes */}
+	        <div>
+	          <label htmlFor={privateNotesId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+	            Private Notes <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">Private</span>
+	          </label>
+	          <textarea
+	            id={privateNotesId}
+	            value={formData.privateNotes || ''}
+	            onChange={(e) => setFormData(prev => ({ ...prev, privateNotes: e.target.value }))}
+	            className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+	            rows={2}
             placeholder="Personal reminders, private details..."
           />
         </div>
@@ -1033,15 +1058,15 @@ export default function RouteInlineEditor({
           </div>
         )}
 
-        {/* Cost Tracking Links */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Cost Tracking Links
-          </label>
-          {tripId ? (
-            <CostTrackingLinksManager
-              tripId={tripId}
-              travelItemId={formData.id}
+	        {/* Cost Tracking Links */}
+	        <div>
+	          <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+	            Cost Tracking Links
+	          </div>
+	          {tripId ? (
+	            <CostTrackingLinksManager
+	              tripId={tripId}
+	              travelItemId={formData.id}
               travelItemType="route"
             />
           ) : (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 import CostTrackingLinksManager from '@/app/admin/components/CostTrackingLinksManager';
 import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
@@ -27,9 +27,20 @@ export default function LocationInlineEditor({
   travelLookup,
   costData
 }: LocationInlineEditorProps) {
+  const idPrefix = `location-inline-${useId().replace(/:/g, '')}`;
   const [formData, setFormData] = useState<Location>({
     ...location
   });
+
+  const nameInputId = `${idPrefix}-name`;
+  const arrivalDateLabelId = `${idPrefix}-arrival-date-label`;
+  const arrivalDateInputId = `${idPrefix}-arrival-date`;
+  const departureDateLabelId = `${idPrefix}-departure-date-label`;
+  const departureDateInputId = `${idPrefix}-departure-date`;
+  const latitudeInputId = `${idPrefix}-latitude`;
+  const longitudeInputId = `${idPrefix}-longitude`;
+  const notesInputId = `${idPrefix}-notes`;
+  const wikipediaRefInputId = `${idPrefix}-wikipedia-ref`;
 
   const handleCancel = () => {
     // Accommodations are managed independently of the location "Save" flow (add/delete persists immediately).
@@ -93,10 +104,11 @@ export default function LocationInlineEditor({
         {/* Location Name */}
         <div className="flex gap-2">
           <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={nameInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Location Name *
             </label>
             <input
+              id={nameInputId}
               type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -117,25 +129,27 @@ export default function LocationInlineEditor({
         {/* Dates */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <span id={arrivalDateLabelId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Arrival Date *
-            </label>
+            </span>
             <AccessibleDatePicker
-              id="location-inline-date"
+              id={arrivalDateInputId}
               value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
               onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
+              aria-labelledby={arrivalDateLabelId}
               className="text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <span id={departureDateLabelId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Departure Date
-            </label>
+            </span>
             <AccessibleDatePicker
-              id="location-inline-end-date"
+              id={departureDateInputId}
               value={formData.endDate instanceof Date ? formData.endDate : (formData.endDate ? new Date(formData.endDate) : null)}
               onChange={(endDate) => handleEndDateChange(endDate ? endDate.toISOString().split('T')[0] : '')}
+              aria-labelledby={departureDateLabelId}
               className="text-sm"
             />
           </div>
@@ -151,10 +165,11 @@ export default function LocationInlineEditor({
         {/* Coordinates */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={latitudeInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Latitude
             </label>
             <input
+              id={latitudeInputId}
               type="number"
               step="any"
               value={formData.coordinates[0] || ''}
@@ -167,10 +182,11 @@ export default function LocationInlineEditor({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={longitudeInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Longitude
             </label>
             <input
+              id={longitudeInputId}
               type="number"
               step="any"
               value={formData.coordinates[1] || ''}
@@ -186,10 +202,11 @@ export default function LocationInlineEditor({
 
         {/* Notes */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={notesInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Notes
           </label>
           <textarea
+            id={notesInputId}
             value={formData.notes || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
             className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -199,11 +216,11 @@ export default function LocationInlineEditor({
         </div>
 
          <div>
-          <label htmlFor="location-inline-wikipedia-ref" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={wikipediaRefInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Wikipedia override
           </label>
           <input
-            id="location-inline-wikipedia-ref"
+            id={wikipediaRefInputId}
             type="text"
             value={formData.wikipediaRef || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, wikipediaRef: e.target.value }))}
@@ -214,9 +231,9 @@ export default function LocationInlineEditor({
 
         {/* Cost Tracking Links */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
             Cost Tracking Links
-          </label>
+          </div>
           <CostTrackingLinksManager
             tripId={tripId}
             travelItemId={formData.id}
@@ -226,9 +243,9 @@ export default function LocationInlineEditor({
 
         {/* Location Accommodations */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
             Accommodations
-          </label>
+          </div>
           <LocationAccommodationsManager
             tripId={tripId}
             locationId={formData.id}

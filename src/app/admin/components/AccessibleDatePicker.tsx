@@ -29,6 +29,7 @@ interface AccessibleDatePickerProps {
   maxValue?: Date;
   isDisabled?: boolean;
   'aria-label'?: string;
+  'aria-labelledby'?: string;
   'aria-describedby'?: string;
 }
 
@@ -64,6 +65,7 @@ export default function AccessibleDatePicker({
   maxValue,
   isDisabled = false,
   'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
   'aria-describedby': ariaDescribedBy
 }: AccessibleDatePickerProps) {
   useLocale();
@@ -84,7 +86,8 @@ export default function AccessibleDatePicker({
   const { groupProps, fieldProps, buttonProps, dialogProps, calendarProps } = useDatePicker(
     {
       id,
-      'aria-label': ariaLabel || placeholder,
+      'aria-label': ariaLabelledBy ? undefined : (ariaLabel || placeholder),
+      'aria-labelledby': ariaLabelledBy,
       'aria-describedby': ariaDescribedBy,
       isRequired: required,
       isDisabled
