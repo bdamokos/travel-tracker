@@ -51,7 +51,16 @@ function clearCostLinksFromTransportation(transportation?: Transportation): Tran
 
 function clearCostTrackingLinks(tripData: UnifiedTripData): UnifiedTripData {
   const travelData = tripData.travelData;
-  if (!travelData) return tripData;
+  const accommodations = Array.isArray(tripData.accommodations)
+    ? tripData.accommodations.map((accommodation) => ({
+        ...accommodation,
+        costTrackingLinks: []
+      }))
+    : tripData.accommodations;
+
+  if (!travelData) {
+    return { ...tripData, accommodations };
+  }
 
   const locations = Array.isArray(travelData.locations)
     ? travelData.locations.map((location) => ({
@@ -76,13 +85,6 @@ function clearCostTrackingLinks(tripData: UnifiedTripData): UnifiedTripData {
         transportation: clearCostLinksFromTransportation(period.transportation)
       }))
     : travelData.days;
-
-  const accommodations = Array.isArray(tripData.accommodations)
-    ? tripData.accommodations.map((accommodation) => ({
-        ...accommodation,
-        costTrackingLinks: []
-      }))
-    : tripData.accommodations;
 
   return {
     ...tripData,

@@ -145,6 +145,55 @@ describe('backup restore + retention', () => {
     expect(restored?.accommodations?.[0].costTrackingLinks?.some(l => l.expenseId === 'exp-2')).toBe(true);
   });
 
+  it('scrubs accommodation costTrackingLinks even when travelData is missing', async () => {
+    const { saveUnifiedTripData, loadUnifiedTripData, deleteCostTrackingWithBackup } = await import('../../lib/unifiedDataService');
+    const { CURRENT_SCHEMA_VERSION } = await import('../../lib/dataMigration');
+
+    const tripId = 'backupTripNoTravelData';
+
+    await saveUnifiedTripData({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      id: tripId,
+      title: 'Cost-only trip',
+      description: '',
+      startDate: new Date('2024-03-01T00:00:00.000Z').toISOString(),
+      endDate: new Date('2024-03-02T00:00:00.000Z').toISOString(),
+      createdAt: new Date('2024-03-01T00:00:00.000Z').toISOString(),
+      updatedAt: new Date('2024-03-01T00:00:00.000Z').toISOString(),
+      accommodations: [
+        {
+          id: 'acc-1',
+          name: 'Hotel',
+          locationId: 'loc-1',
+          createdAt: new Date('2024-03-01T00:00:00.000Z').toISOString(),
+          costTrackingLinks: [{ expenseId: 'exp-1' }]
+        }
+      ],
+      costData: {
+        overallBudget: 100,
+        currency: 'EUR',
+        countryBudgets: [],
+        expenses: [
+          {
+            id: 'exp-1',
+            date: new Date('2024-03-01T00:00:00.000Z').toISOString(),
+            amount: 10,
+            currency: 'EUR',
+            category: 'Accommodation',
+            country: 'X',
+            description: 'Hotel',
+            expenseType: 'actual'
+          }
+        ]
+      }
+    });
+
+    await deleteCostTrackingWithBackup(tripId);
+    const after = await loadUnifiedTripData(tripId);
+    expect(after?.costData).toBeUndefined();
+    expect(after?.accommodations?.[0].costTrackingLinks).toEqual([]);
+  });
+
   it('garbage-collects backups older than retention window', async () => {
     const { backupService } = await import('../../lib/backupService');
 
@@ -171,4 +220,3 @@ describe('backup restore + retention', () => {
     expect(remaining.length).toBe(0);
   });
 });
-
