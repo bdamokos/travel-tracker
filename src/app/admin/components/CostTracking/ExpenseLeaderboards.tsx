@@ -5,6 +5,7 @@ import { Expense, Location } from '@/app/types';
 import { formatCurrency } from '@/app/lib/costUtils';
 import { calculateDurationInDays } from '@/app/lib/durationUtils';
 import { LocationExpenseTotal } from '@/app/lib/expenseTravelLookup';
+import { getExpenseCountryLabel } from '@/app/lib/countryInclusions';
 
 type LeaderboardBreakdownItem = {
   label: string;
@@ -138,7 +139,7 @@ const buildLeaderboardEntries = (
   buildGenericLeaderboardEntries(
     expenses,
     getLabel,
-    expense => expense.country?.trim() || 'General'
+    expense => getExpenseCountryLabel(expense)
   );
 
 /**
@@ -156,7 +157,7 @@ const buildCategoryLeaderboardEntries = (
     expense => expense.category,
     expense =>
       breakdownType === 'country'
-        ? expense.country?.trim() || 'General'
+        ? getExpenseCountryLabel(expense)
         : expense.notes?.trim() || expense.source?.trim() || 'Unknown'
   );
 

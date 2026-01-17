@@ -7,11 +7,14 @@ import type { TooltipProps } from 'recharts';
 import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
 import { CostSummary, CountryBreakdown } from '@/app/types';
 import { formatCurrency, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { deriveExcludedCountries } from '@/app/lib/countryInclusions';
 import AriaSelect from './AriaSelect';
 
 interface CostPieChartsProps {
   costSummary: CostSummary;
   currency: string;
+  excludedCountries: string[];
+  setExcludedCountries: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 interface ChartData {
@@ -89,18 +92,18 @@ const useAccessiblePieStyles = () => {
   };
 };
 
-const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) => {
+const CostPieCharts: React.FC<CostPieChartsProps> = ({
+  costSummary,
+  currency,
+  excludedCountries,
+  setExcludedCountries
+}) => {
   const [countryBasis, setCountryBasis] = useState<'total' | 'daily'>('total');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
-  const derivedExcludedCountries = useMemo(() => {
-    const set = new Set(excludedCountries);
-    // If General is excluded, also exclude unassigned/no-country expenses by default.
-    if (excludedCountries.includes('General')) {
-      set.add('Unassigned');
-    }
-    return set;
-  }, [excludedCountries]);
+  const derivedExcludedCountries = useMemo(
+    () => deriveExcludedCountries(excludedCountries),
+    [excludedCountries]
+  );
   const derivedExcludedList = useMemo(
     () => Array.from(derivedExcludedCountries),
     [derivedExcludedCountries]
@@ -353,7 +356,7 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({ costSummary, currency }) 
         ? prev.filter(c => c !== country)
         : [...prev, country]
     ));
-  }, []);
+  }, [setExcludedCountries]);
 
   const availableCountryOptions = useMemo(
     () => costSummary.countryBreakdown
