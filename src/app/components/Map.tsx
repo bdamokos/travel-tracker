@@ -413,14 +413,14 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     const bucket = getMarkerDistanceBucket(days);
 
     if (isHighlighted) {
-      return createHighlightedMarkerIcon(L, status, bucket, { label });
+      return createHighlightedMarkerIcon(L, status, bucket, { label, dataKey: location.id });
     }
 
     const cacheKey = `${status}:${bucket}:${labelKey}`;
     const cached = markerIconCacheRef.current.get(cacheKey);
     if (cached) return cached;
 
-    const icon = createMarkerIcon(L, status, bucket, { label });
+    const icon = createMarkerIcon(L, status, bucket, { label, dataKey: location.id });
     markerIconCacheRef.current.set(cacheKey, icon);
     return icon;
   }, [getTemporalDistanceForLocation]);
@@ -444,14 +444,20 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return created;
   }, []);
 
-  const registerMarkerElement = useCallback((key: string, label: string, event: L.LeafletEvent) => {
-    const wrapper = (event.target as L.Marker).getElement?.();
-    if (!wrapper) return;
-
-    // Find the inner focusable element (.travel-marker-interactive has tabindex)
-    const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
+  const registerMarkerDomElement = useCallback((key: string, label: string, element: HTMLElement) => {
+    if (!element) return;
 
     markerLabelRef.current.set(key, label);
+
+    const previousElement = markerElementsRef.current.get(key);
+    const keyHandlers = markerKeyHandlersRef.current.get(key);
+    if (keyHandlers && previousElement !== element) {
+      // Attach keydown handlers even when Leaflet lifecycle events are unavailable (e.g. tests/mocks).
+      if (previousElement) {
+        keyHandlers.remove({ target: { getElement: () => previousElement } } as unknown as L.LeafletEvent);
+      }
+      keyHandlers.add({ target: { getElement: () => element } } as unknown as L.LeafletEvent);
+    }
 
     let focusHandler = markerFocusHandlersRef.current.get(key);
     if (!focusHandler) {
@@ -465,7 +471,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       markerFocusHandlersRef.current.set(key, focusHandler);
     }
 
-    const previousElement = markerElementsRef.current.get(key);
     if (previousElement && previousElement !== element) {
       previousElement.removeEventListener('focus', focusHandler);
     }
@@ -474,11 +479,24 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     markerElementsRef.current.set(key, element);
   }, []);
 
+  const registerMarkerElement = useCallback((key: string, label: string, event: L.LeafletEvent) => {
+    const wrapper = (event.target as L.Marker).getElement?.();
+    if (!wrapper) return;
+
+    // Find the inner focusable element (.travel-marker-interactive has tabindex)
+    const element = wrapper.querySelector<HTMLElement>('.travel-marker-interactive') ?? wrapper;
+    registerMarkerDomElement(key, label, element);
+  }, [registerMarkerDomElement]);
+
   const unregisterMarkerElement = useCallback((key: string) => {
     const element = markerElementsRef.current.get(key);
     const focusHandler = markerFocusHandlersRef.current.get(key);
     if (element && focusHandler) {
       element.removeEventListener('focus', focusHandler);
+    }
+    const keyHandlers = markerKeyHandlersRef.current.get(key);
+    if (element && keyHandlers) {
+      keyHandlers.remove({ target: { getElement: () => element } } as unknown as L.LeafletEvent);
     }
     markerElementsRef.current.delete(key);
     markerFocusHandlersRef.current.delete(key);
@@ -529,13 +547,66 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     return order;
   }, [groups, expandedGroups]);
 
+  const isMountedRef = useRef(true);
+  const scheduledFocusMoveRef = useRef<
+    | { type: 'raf'; id: number }
+    | { type: 'timeout'; id: ReturnType<typeof setTimeout> }
+    | null
+  >(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      const scheduled = scheduledFocusMoveRef.current;
+      if (!scheduled) return;
+      if (scheduled.type === 'raf') {
+        if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(scheduled.id);
+      } else {
+        clearTimeout(scheduled.id);
+      }
+      scheduledFocusMoveRef.current = null;
+    };
+  }, []);
+
+  const syncMarkerElementsFromDom = useCallback(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
+
+    const elements = container.querySelectorAll<HTMLElement>('[data-travel-marker-key]');
+    const presentKeys = new Set<string>();
+
+    elements.forEach(element => {
+      const key = element.getAttribute('data-travel-marker-key');
+      if (!key) return;
+      presentKeys.add(key);
+      const label = element.getAttribute('aria-label') ?? key;
+      registerMarkerDomElement(key, label, element);
+    });
+
+    const registeredKeys = Array.from(markerElementsRef.current.keys());
+    registeredKeys.forEach(key => {
+      if (!presentKeys.has(key)) {
+        unregisterMarkerElement(key);
+      }
+    });
+  }, [registerMarkerDomElement, unregisterMarkerElement]);
+
+  useEffect(() => {
+    syncMarkerElementsFromDom();
+  }, [groups, expandedGroups, collapsedGroups, viewChangeTick, syncMarkerElementsFromDom]);
+
   // Note: Marker cleanup is handled automatically via Marker component 'remove' event handlers.
   // The focusedMarkerKey is reset when the focused marker is removed from the DOM.
 
   const focusMarkerByIndex = useCallback((index: number) => {
     if (index < 0 || index >= focusOrder.length) return;
     const key = focusOrder[index];
-    const element = markerElementsRef.current.get(key);
+    let element = markerElementsRef.current.get(key);
+    if (!element) {
+      syncMarkerElementsFromDom();
+      element = markerElementsRef.current.get(key);
+    }
     if (!element) return;
     element.focus();
     setFocusedMarkerKey(key);
@@ -543,7 +614,31 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     if (label) {
       setMapAnnouncement(`Focused on ${label}.`);
     }
-  }, [focusOrder]);
+  }, [focusOrder, syncMarkerElementsFromDom]);
+
+  const scheduleFocusMove = useCallback((nextIndex: number) => {
+    const existing = scheduledFocusMoveRef.current;
+    if (existing) {
+      if (existing.type === 'raf') {
+        if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(existing.id);
+      } else {
+        clearTimeout(existing.id);
+      }
+      scheduledFocusMoveRef.current = null;
+    }
+
+    const run = () => {
+      if (!isMountedRef.current) return;
+      focusMarkerByIndex(nextIndex);
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      scheduledFocusMoveRef.current = { type: 'raf', id: requestAnimationFrame(run) };
+      return;
+    }
+
+    scheduledFocusMoveRef.current = { type: 'timeout', id: setTimeout(run, 0) };
+  }, [focusMarkerByIndex]);
 
   const handleMapFocus = useCallback(() => {
     if (focusOrder.length === 0) return;
@@ -577,7 +672,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       const nextIndex = currentIndex === -1
         ? (direction === 1 ? 0 : focusCount - 1)
         : (currentIndex + direction + focusCount) % focusCount;
-      focusMarkerByIndex(nextIndex);
+      scheduleFocusMove(nextIndex);
       return;
     }
 
@@ -645,7 +740,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       default:
         break;
     }
-  }, [focusMarkerByIndex, focusOrder, focusedMarkerKey, handlePopupClose, isOpen]);
+  }, [focusMarkerByIndex, focusOrder, focusedMarkerKey, handlePopupClose, isOpen, scheduleFocusMove]);
 
   useEffect(() => {
     setExpandedGroups(prev => filterExpandableKeys(prev, groups));
@@ -791,7 +886,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 <Marker
                   key={`group-${group.key}`}
                   position={group.center}
-                  icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label })}
+                  icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label, dataKey: group.key })}
                   keyboard={false}
                   eventHandlers={{
                     click: onActivate,
@@ -872,6 +967,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
               const collapseLabel = `Collapse group of ${group.items.length} locations.`;
               const collapseIcon = createCountMarkerIcon(L, group.items.length, collapseTone, collapseDistanceBucket, {
                 label: collapseLabel,
+                dataKey: `collapse-${group.key}`,
                 className: 'travel-marker-collapse',
               });
               const collapseKeyHandlers = getMarkerKeyHandlers(`collapse-${group.key}`, collapseHandler);
