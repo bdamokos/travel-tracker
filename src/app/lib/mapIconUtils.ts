@@ -14,6 +14,32 @@ const markerColorVariables: Record<MarkerTone, string> = {
   future: '--travel-marker-color-future',
 };
 
+const getTemporalSymbol = (tone: MarkerTone): string => {
+  const symbolColor = `var(${markerColorVariables[tone]})`;
+
+  switch (tone) {
+    case 'past':
+      // Clock symbol (history)
+      return `
+        <g class="temporal-symbol temporal-symbol-past" aria-hidden="true">
+          <circle cx="12.5" cy="12.5" r="3" fill="none" stroke="${symbolColor}" stroke-width="0.8"/>
+          <path d="M12.5 10.5 V12.5 H14" fill="none" stroke="${symbolColor}" stroke-width="0.8" stroke-linecap="round"/>
+        </g>`;
+    case 'present':
+      // Solid dot (current location)
+      return `
+        <g class="temporal-symbol temporal-symbol-present" aria-hidden="true">
+          <circle cx="12.5" cy="12.5" r="3" fill="${symbolColor}"/>
+        </g>`;
+    case 'future':
+      // Forward chevron (upcoming)
+      return `
+        <g class="temporal-symbol temporal-symbol-future" aria-hidden="true">
+          <path d="M11 10 L14 12.5 L11 15" fill="none" stroke="${symbolColor}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>`;
+  }
+};
+
 type MarkerAccessibility = {
   label: string;
   role?: string;
@@ -161,6 +187,7 @@ const getMarkerSvgMarkup = (tone: MarkerTone) => `
       r="5"
       style="fill: rgba(255, 255, 255, 0.9);"
     />
+    ${getTemporalSymbol(tone)}
   </svg>
 `;
 
