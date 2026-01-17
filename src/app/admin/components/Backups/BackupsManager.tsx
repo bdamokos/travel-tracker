@@ -301,8 +301,9 @@ export default function BackupsManager() {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               />
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+            <label htmlFor="backup-gc-dry-run" className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
               <input
+                id="backup-gc-dry-run"
                 type="checkbox"
                 checked={gcDryRun}
                 onChange={(e) => setGcDryRun(e.target.checked)}
