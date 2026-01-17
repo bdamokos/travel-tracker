@@ -5,6 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import type { Transportation } from '@/app/types';
 import { Journey, JourneyDay, Location } from '@/app/types';
 import { generateRoutePointsSync, getRouteStyle } from '@/app/lib/routeUtils';
 import { findClosestLocationToCurrentDate, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
@@ -910,7 +911,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
             : [transportation];
 
           return segments.map((segment) => {
-            const routePoints = generateRoutePointsSync(segment);
+            const routePoints = generateRoutePointsSync(segment as Transportation);
             const routeStyle = getRouteStyle(segment.type);
 
             return (
