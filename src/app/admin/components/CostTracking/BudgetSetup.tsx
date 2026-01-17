@@ -105,8 +105,9 @@ export default function BudgetSetup({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trip</label>
+              <label htmlFor="trip-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trip</label>
               <input
+                id="trip-title"
                 type="text"
                 value={costData.tripTitle}
                 disabled
