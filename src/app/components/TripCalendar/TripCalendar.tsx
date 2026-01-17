@@ -213,8 +213,9 @@ export default function TripCalendar({
       aria-describedby={`${instructionsId} ${statusId}`}
     >
       <div id={instructionsId} className="sr-only">
-        Trip calendar for {trip.title}. Use Tab to move between days. Use arrow keys to move within a month grid.
-        Press Enter or Space on a day to open the location popup. Press Escape to close the popup.
+        Trip calendar for {trip.title}. Use Tab to move into a month grid. Use arrow keys to move between days.
+        Use Home or End to jump to the start or end of a week row. Press Enter or Space on a day to open the
+        location popup. Press Escape to close the popup.
       </div>
       <StatusAnnouncer id={statusId} announcement={calendarAnnouncement} ariaLive="polite" role="status" atomic />
       <div className="trip-calendar-header mb-4">

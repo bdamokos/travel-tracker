@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Location, JourneyDay } from '@/app/types';
 import { useWikipediaData } from '@/app/hooks/useWikipediaData';
 import TripContextSection from '@/app/components/LocationPopup/TripContextSection';
@@ -50,6 +50,21 @@ export default function LocationPopupModal({
     departureWikiErrored: false,
     arrivalWikiErrored: false,
   });
+
+  const announceOnce = useCallback(
+    (
+      condition: unknown,
+      flag: keyof typeof prevFlagsRef.current,
+      locationName: string | undefined,
+      messageForLocation: (name: string) => string
+    ) => {
+      if (!condition) return;
+      if (prevFlagsRef.current[flag]) return;
+      prevFlagsRef.current[flag] = true;
+      if (locationName) setAnnouncement(messageForLocation(locationName));
+    },
+    []
+  );
   
   // For transition days, fetch Wikipedia data for both locations
   const departureLocation = data?.location || null;
@@ -107,36 +122,39 @@ export default function LocationPopupModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    if (departureWeather && !prevFlagsRef.current.departureWeatherLoaded) {
-      prevFlagsRef.current.departureWeatherLoaded = true;
-      if (departureLocation?.name) setAnnouncement(`Weather loaded for ${departureLocation.name}.`);
-    }
-    if (arrivalWeather && !prevFlagsRef.current.arrivalWeatherLoaded) {
-      prevFlagsRef.current.arrivalWeatherLoaded = true;
-      if (arrivalLocation?.name) setAnnouncement(`Weather loaded for ${arrivalLocation.name}.`);
-    }
-  }, [arrivalLocation?.name, arrivalWeather, departureLocation?.name, departureWeather, isOpen]);
+    announceOnce(departureWeather, 'departureWeatherLoaded', departureLocation?.name, name => `Weather loaded for ${name}.`);
+    announceOnce(arrivalWeather, 'arrivalWeatherLoaded', arrivalLocation?.name, name => `Weather loaded for ${name}.`);
+  }, [announceOnce, arrivalLocation?.name, arrivalWeather, departureLocation?.name, departureWeather, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    if (departureWikipediaData && !prevFlagsRef.current.departureWikiLoaded) {
-      prevFlagsRef.current.departureWikiLoaded = true;
-      if (departureLocation?.name) setAnnouncement(`Wikipedia content loaded for ${departureLocation.name}.`);
-    }
-    if (arrivalWikipediaData && !prevFlagsRef.current.arrivalWikiLoaded) {
-      prevFlagsRef.current.arrivalWikiLoaded = true;
-      if (arrivalLocation?.name) setAnnouncement(`Wikipedia content loaded for ${arrivalLocation.name}.`);
-    }
-    if (departureWikipediaError && !prevFlagsRef.current.departureWikiErrored) {
-      prevFlagsRef.current.departureWikiErrored = true;
-      if (departureLocation?.name) setAnnouncement(`Wikipedia failed to load for ${departureLocation.name}.`);
-    }
-    if (arrivalWikipediaError && !prevFlagsRef.current.arrivalWikiErrored) {
-      prevFlagsRef.current.arrivalWikiErrored = true;
-      if (arrivalLocation?.name) setAnnouncement(`Wikipedia failed to load for ${arrivalLocation.name}.`);
-    }
+    announceOnce(
+      departureWikipediaData,
+      'departureWikiLoaded',
+      departureLocation?.name,
+      name => `Wikipedia content loaded for ${name}.`
+    );
+    announceOnce(
+      arrivalWikipediaData,
+      'arrivalWikiLoaded',
+      arrivalLocation?.name,
+      name => `Wikipedia content loaded for ${name}.`
+    );
+    announceOnce(
+      departureWikipediaError,
+      'departureWikiErrored',
+      departureLocation?.name,
+      name => `Wikipedia failed to load for ${name}.`
+    );
+    announceOnce(
+      arrivalWikipediaError,
+      'arrivalWikiErrored',
+      arrivalLocation?.name,
+      name => `Wikipedia failed to load for ${name}.`
+    );
   }, [
+    announceOnce,
     arrivalLocation?.name,
     arrivalWikipediaData,
     arrivalWikipediaError,

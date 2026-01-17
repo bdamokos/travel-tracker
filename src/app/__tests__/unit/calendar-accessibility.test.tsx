@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import CalendarGrid from '@/app/components/TripCalendar/CalendarGrid';
 import type { MonthCalendar, CalendarCell } from '@/app/lib/calendarUtils';
 
@@ -55,8 +55,11 @@ describe('Trip calendar accessibility', () => {
     expect(screen.getByRole('grid', { name: 'January 2024' })).toBeInTheDocument();
     const cells = screen.getAllByRole('gridcell');
     expect(cells.length).toBeGreaterThan(0);
-    expect(cells[0]).toHaveAttribute('tabindex', '0');
-    expect(cells[0]).toHaveAttribute('aria-label');
+    const focusableCells = cells.filter(cell => cell.getAttribute('tabindex') === '0');
+    expect(focusableCells).toHaveLength(1);
+    const selectedCell = screen.getByRole('gridcell', { name: /january 3, 2024/i });
+    expect(selectedCell).toHaveAttribute('tabindex', '0');
+    expect(selectedCell).toHaveAttribute('aria-label');
   });
 
   it('supports arrow key navigation between gridcells', () => {
@@ -80,7 +83,11 @@ describe('Trip calendar accessibility', () => {
     );
 
     const cells = screen.getAllByRole('gridcell');
-    cells[0].focus();
+    expect(cells[0]).toHaveAttribute('tabindex', '0');
+    expect(cells.slice(1).every(cell => cell.getAttribute('tabindex') === '-1')).toBe(true);
+    act(() => {
+      cells[0].focus();
+    });
     expect(document.activeElement).toBe(cells[0]);
 
     fireEvent.keyDown(cells[0], { key: 'ArrowRight' });

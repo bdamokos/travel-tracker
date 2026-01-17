@@ -10,6 +10,7 @@ interface CalendarDayCellProps {
   cell: CalendarCell;
   isSelected: boolean;
   isToday: boolean;
+  isFocusable: boolean;
   onSelectLocation: (
     day: CalendarDay,
     location: Location,
@@ -20,6 +21,7 @@ interface CalendarDayCellProps {
   registerCell: (row: number, col: number, element: HTMLElement | null) => void;
   onNavigate: (row: number, col: number, key: string) => void;
   onAnnounce: (message: string) => void;
+  onFocusCell: (row: number, col: number) => void;
 }
 
 const isShadowLocationName = (location?: Location | null) =>
@@ -61,12 +63,14 @@ export default function CalendarDayCell({
   cell,
   isSelected,
   isToday,
+  isFocusable,
   onSelectLocation,
   locationColors,
   gridPosition,
   registerCell,
   onNavigate,
   onAnnounce,
+  onFocusCell,
 }: CalendarDayCellProps) {
   const { day, backgroundColor, textColor, diagonalSplit, mergeInfo } = cell;
   const hasSideTrips = !!day.sideTrips && day.sideTrips.length > 0;
@@ -85,7 +89,7 @@ export default function CalendarDayCell({
     if (today.toDateString() !== day.date.toDateString()) return null;
     return { icon: '⛅', label: 'Weather available in popup' };
   }, [day]);
-  
+
   useEffect(() => {
     registerCell(gridPosition.row, gridPosition.col, cellRef.current);
     return () => {
@@ -158,12 +162,13 @@ export default function CalendarDayCell({
       style={cellStyle}
       onClick={handlePrimaryClick}
       role="gridcell"
-      tabIndex={0}
+      tabIndex={isFocusable ? 0 : -1}
       aria-label={ariaLabel}
       aria-selected={ariaSelected}
       aria-disabled={ariaDisabled}
       aria-colspan={mergeInfo?.colspan && mergeInfo.colspan > 1 ? mergeInfo.colspan : undefined}
       onFocus={() => {
+        onFocusCell(gridPosition.row, gridPosition.col);
         onAnnounce(`Focused day. ${ariaLabel}`);
       }}
       onKeyDown={event => {
