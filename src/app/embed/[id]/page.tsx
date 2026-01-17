@@ -82,7 +82,7 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
   }
   
   return (
-    <html>
+    <html lang="en">
       <head>
         <title>{`${travelData.title} - Travel Map`}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
