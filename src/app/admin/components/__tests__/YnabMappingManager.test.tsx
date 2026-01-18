@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import YnabMappingManager from '@/app/admin/components/YnabMappingManager';
@@ -48,6 +48,7 @@ jest.mock('../AriaSelect', () => {
   }) {
     return (
       <select
+        id={id}
         data-testid={id}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
@@ -183,10 +184,10 @@ describe('YnabMappingManager', () => {
     );
 
     // Fill in new mapping form
-    const categoryInput = screen.getByPlaceholderText('e.g., Travel - Transport');
+    const categoryInput = screen.getByLabelText('YNAB Category');
     await user.type(categoryInput, 'Travel - Food');
 
-    const mappingTypeSelect = screen.getByTestId('mapping-type-select');
+    const mappingTypeSelect = screen.getByLabelText('Mapping Type');
     await user.selectOptions(mappingTypeSelect, 'general');
 
     const addButton = screen.getByText('Add Mapping');
