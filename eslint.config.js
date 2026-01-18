@@ -23,7 +23,10 @@ const eslintConfig = [
       "jsx-a11y/click-events-have-key-events": "warn",
       "jsx-a11y/html-has-lang": "warn",
       "jsx-a11y/label-has-associated-control": "warn",
-      "jsx-a11y/no-autofocus": "warn",
+      // React Aria uses non-DOM `autoFocus` props (e.g. <FocusScope autoFocus>) for accessible
+      // focus management in dialogs; keep the rule for DOM elements but ignore non-DOM props.
+      // Tracking: https://github.com/bdamokos/travel-tracker/issues/224
+      "jsx-a11y/no-autofocus": ["warn", { ignoreNonDOM: true }],
       "jsx-a11y/no-noninteractive-element-interactions": "warn",
       "jsx-a11y/no-noninteractive-tabindex": "warn",
       "jsx-a11y/no-static-element-interactions": "warn",
