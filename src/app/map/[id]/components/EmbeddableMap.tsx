@@ -1191,6 +1191,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       <div id={mapStatusId} className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {mapAnnouncement}
       </div>
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- This div is an interactive application widget with role="application" for custom keyboard map navigation */}
       <div
         ref={containerRef}
         className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"

@@ -24,8 +24,17 @@ const eslintConfig = [
       "jsx-a11y/html-has-lang": "warn",
       "jsx-a11y/label-has-associated-control": "warn",
       "jsx-a11y/no-autofocus": "warn",
+      // Note: jsx-a11y/no-noninteractive-element-interactions is disabled with inline comments
+      // where role="application" is used (e.g., interactive map widgets)
       "jsx-a11y/no-noninteractive-element-interactions": "warn",
-      "jsx-a11y/no-noninteractive-tabindex": "warn",
+      "jsx-a11y/no-noninteractive-tabindex": [
+        "warn",
+        {
+          // Allow tabIndex on elements with role="application" (e.g., interactive map widgets)
+          roles: ["application"],
+          tags: [],
+        },
+      ],
       "jsx-a11y/no-static-element-interactions": "warn",
     },
   },
