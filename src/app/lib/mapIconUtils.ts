@@ -175,12 +175,17 @@ const wrapMarkerHtml = (content: string, accessibility?: MarkerAccessibility) =>
   `;
 };
 
-const getMarkerSvgMarkup = (tone: MarkerTone) => `
+type MarkerSvgSize = {
+  width: number;
+  height: number;
+};
+
+const getMarkerSvgMarkupWithSize = (tone: MarkerTone, size: MarkerSvgSize) => `
   <svg
     class="travel-marker-icon"
     xmlns="http://www.w3.org/2000/svg"
-    width="${MARKER_WIDTH}"
-    height="${MARKER_HEIGHT}"
+    width="${size.width}"
+    height="${size.height}"
     viewBox="0 0 25 41"
     style="display:block"
     aria-hidden="true"
@@ -203,6 +208,21 @@ const getMarkerSvgMarkup = (tone: MarkerTone) => `
     ${getTemporalSymbol(tone)}
   </svg>
 `;
+
+const getMarkerSvgMarkup = (tone: MarkerTone) =>
+  getMarkerSvgMarkupWithSize(tone, { width: MARKER_WIDTH, height: MARKER_HEIGHT });
+
+export const getMarkerLegendSvgMarkup = (
+  tone: MarkerTone,
+  size: Partial<MarkerSvgSize> = {}
+) => {
+  const DEFAULT_LEGEND_WIDTH = 14;
+  const DEFAULT_LEGEND_HEIGHT = 22;
+  return getMarkerSvgMarkupWithSize(tone, {
+    width: size.width ?? DEFAULT_LEGEND_WIDTH,
+    height: size.height ?? DEFAULT_LEGEND_HEIGHT,
+  });
+};
 
 const markerShadows: Record<MarkerTone, string> = {
   future: 'drop-shadow(0 6px 12px rgba(242, 140, 82, 0.3))',

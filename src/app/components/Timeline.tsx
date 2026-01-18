@@ -85,6 +85,8 @@ interface DayCardProps {
 
 const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick, isAdminView, travelLookup, costData }) => {
   const formattedDate = format(new Date(day.date), 'MMM d, yyyy');
+  const headerId = `timeline-day-${day.id}-header`;
+  const panelId = `timeline-day-${day.id}-panel`;
   
   return (
     <div 
@@ -92,14 +94,17 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
         isSelected ? 'border-blue-500 shadow-md' : 'border-gray-200 dark:border-gray-700'
       }`}
     >
-      <div 
-        className={`p-4 cursor-pointer flex justify-between items-center ${
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={panelId}
+        onClick={onClick}
+        className={`w-full text-left p-4 cursor-pointer flex justify-between items-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset ${
           isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
         }`}
-        onClick={onClick}
       >
         <div>
-          <h3 className="font-bold text-gray-900 dark:text-white">{day.title}</h3>
+          <h3 id={headerId} className="font-bold text-gray-900 dark:text-white">{day.title}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">{formattedDate}</p>
         </div>
         <div className="text-gray-400 dark:text-gray-500">
@@ -113,10 +118,15 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
             </svg>
           )}
         </div>
-      </div>
+      </button>
       
       {isExpanded && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={headerId}
+          className="p-4 border-t border-gray-200 dark:border-gray-700"
+        >
           {/* Locations */}
           {day.locations.length > 0 && (
             <div className="mb-3">

@@ -912,20 +912,21 @@ export default function CashTransactionManager({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Spending date *
+                      <span className="block mb-1">Spending date *</span>
+                      <AccessibleDatePicker
+                        id={`cash-allocation-date-${group.currency}`}
+                        value={allocationForm.date}
+                        onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
+                        required
+                      />
                     </label>
-                    <AccessibleDatePicker
-                      id={`cash-allocation-date-${group.currency}`}
-                      value={allocationForm.date}
-                      onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
-                      required
-                    />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor={`cash-allocation-local-amount-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Local amount ({group.currency}) *
                     </label>
                     <input
+                      id={`cash-allocation-local-amount-${group.currency}`}
                       type="number"
                       min="0"
                       step="0.01"
@@ -942,7 +943,7 @@ export default function CashTransactionManager({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
+                    <label htmlFor={`cash-allocation-category-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
                     <AriaSelect
                       id={`cash-allocation-category-${group.currency}`}
                       value={allocationForm.category}
@@ -954,7 +955,7 @@ export default function CashTransactionManager({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor={`cash-allocation-country-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Country
                     </label>
                     <AriaSelect
@@ -968,8 +969,9 @@ export default function CashTransactionManager({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <label htmlFor={`cash-allocation-description-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                     <input
+                      id={`cash-allocation-description-${group.currency}`}
                       type="text"
                       value={allocationForm.description}
                       onChange={e => handleAllocationChange(group.currency, { description: e.target.value })}
@@ -979,8 +981,9 @@ export default function CashTransactionManager({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                    <label htmlFor={`cash-allocation-notes-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                     <input
+                      id={`cash-allocation-notes-${group.currency}`}
                       type="text"
                       value={allocationForm.notes}
                       onChange={e => handleAllocationChange(group.currency, { notes: e.target.value })}
@@ -1084,21 +1087,22 @@ export default function CashTransactionManager({
           <div id="cash-sources-form" className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Exchange date *
+                <span className="block mb-1">Exchange date *</span>
+                <AccessibleDatePicker
+                  id="cash-source-date"
+                  value={sourceForm.date}
+                  onChange={date => setSourceForm(prev => ({ ...prev, date: date ?? null }))}
+                  required
+                />
               </label>
-              <AccessibleDatePicker
-                id="cash-source-date"
-                value={sourceForm.date}
-                onChange={date => setSourceForm(prev => ({ ...prev, date: date ?? null }))}
-                required
-              />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-source-base-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Amount in {currency} *
               </label>
               <input
+                id="cash-source-base-amount"
                 type="number"
                 min="0"
                 step="0.01"
@@ -1110,10 +1114,11 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-source-local-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Local amount *
               </label>
               <input
+                id="cash-source-local-amount"
                 type="number"
                 min="0"
                 step="0.01"
@@ -1125,10 +1130,11 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-source-local-currency" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Local currency code *
               </label>
               <input
+                id="cash-source-local-currency"
                 type="text"
                 value={sourceForm.localCurrency}
                 onChange={e => setSourceForm(prev => ({ ...prev, localCurrency: e.target.value }))}
@@ -1138,7 +1144,7 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-source-country" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Country
               </label>
               <AriaSelect
@@ -1152,10 +1158,11 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-source-description" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
               </label>
               <input
+                id="cash-source-description"
                 type="text"
                 value={sourceForm.description}
                 onChange={e => setSourceForm(prev => ({ ...prev, description: e.target.value }))}
@@ -1165,10 +1172,11 @@ export default function CashTransactionManager({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-source-notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Notes
               </label>
               <input
+                id="cash-source-notes"
                 type="text"
                 value={sourceForm.notes}
                 onChange={e => setSourceForm(prev => ({ ...prev, notes: e.target.value }))}
@@ -1216,21 +1224,22 @@ export default function CashTransactionManager({
           <div id="cash-refunds-form" className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Refund date *
+                <span className="block mb-1">Refund date *</span>
+                <AccessibleDatePicker
+                  id="cash-refund-date"
+                  value={refundForm.date}
+                  onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
+                  required
+                />
               </label>
-              <AccessibleDatePicker
-                id="cash-refund-date"
-                value={refundForm.date}
-                onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
-                required
-              />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-refund-local-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Refunded local amount *
               </label>
               <input
+                id="cash-refund-local-amount"
                 type="number"
                 min="0"
                 step="0.01"
@@ -1242,10 +1251,11 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-refund-local-currency" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Local currency code *
               </label>
               <input
+                id="cash-refund-local-currency"
                 type="text"
                 value={refundForm.localCurrency}
                 onChange={handleRefundCurrencyChange}
@@ -1255,10 +1265,11 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-refund-exchange-rate" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Exchange rate (1 {currency} = X {refundForm.localCurrency || 'local'}) *
               </label>
               <input
+                id="cash-refund-exchange-rate"
                 type="number"
                 min="0"
                 step="0.0001"
@@ -1280,7 +1291,7 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-refund-country" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Country
               </label>
               <AriaSelect
@@ -1294,10 +1305,11 @@ export default function CashTransactionManager({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-refund-description" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
               </label>
               <input
+                id="cash-refund-description"
                 type="text"
                 value={refundForm.description}
                 onChange={e => setRefundForm(prev => ({ ...prev, description: e.target.value }))}
@@ -1307,10 +1319,11 @@ export default function CashTransactionManager({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="cash-refund-notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Notes
               </label>
               <input
+                id="cash-refund-notes"
                 type="text"
                 value={refundForm.notes}
                 onChange={e => setRefundForm(prev => ({ ...prev, notes: e.target.value }))}
@@ -1364,18 +1377,18 @@ export default function CashTransactionManager({
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Conversion date *
+                    <span className="block mb-1">Conversion date *</span>
+                    <AccessibleDatePicker
+                      id="cash-conversion-date"
+                      value={conversionForm.date}
+                      onChange={date => setConversionForm(prev => ({ ...prev, date: date ?? null }))}
+                      required
+                    />
                   </label>
-                  <AccessibleDatePicker
-                    id="cash-conversion-date"
-                    value={conversionForm.date}
-                    onChange={date => setConversionForm(prev => ({ ...prev, date: date ?? null }))}
-                    required
-                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-source-currency" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Source currency *
                   </label>
                   <AriaSelect
@@ -1392,10 +1405,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-source-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Source amount ({conversionForm.sourceCurrency || 'local'}) *
                   </label>
                   <input
+                    id="cash-conversion-source-amount"
                     type="number"
                     min="0"
                     step="0.01"
@@ -1412,10 +1426,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-target-currency" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Target currency code *
                   </label>
                   <input
+                    id="cash-conversion-target-currency"
                     type="text"
                     value={conversionForm.targetCurrency}
                     onChange={e => setConversionForm(prev => ({ ...prev, targetCurrency: e.target.value.toUpperCase() }))}
@@ -1425,10 +1440,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-target-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Target amount ({conversionForm.targetCurrency || 'target currency'}) *
                   </label>
                   <input
+                    id="cash-conversion-target-amount"
                     type="number"
                     min="0"
                     step="0.01"
@@ -1440,7 +1456,7 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-country" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Country
                   </label>
                   <AriaSelect
@@ -1454,10 +1470,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-description" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Description
                   </label>
                   <input
+                    id="cash-conversion-description"
                     type="text"
                     value={conversionForm.description}
                     onChange={e => setConversionForm(prev => ({ ...prev, description: e.target.value }))}
@@ -1467,10 +1484,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-conversion-notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Notes
                   </label>
                   <input
+                    id="cash-conversion-notes"
                     type="text"
                     value={conversionForm.notes}
                     onChange={e => setConversionForm(prev => ({ ...prev, notes: e.target.value }))}
@@ -1526,18 +1544,18 @@ export default function CashTransactionManager({
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Refund date *
+                    <span className="block mb-1">Refund date *</span>
+                    <AccessibleDatePicker
+                      id="cash-refund-to-base-date"
+                      value={refundToBaseForm.date}
+                      onChange={date => setRefundToBaseForm(prev => ({ ...prev, date: date ?? null }))}
+                      required
+                    />
                   </label>
-                  <AccessibleDatePicker
-                    id="cash-refund-to-base-date"
-                    value={refundToBaseForm.date}
-                    onChange={date => setRefundToBaseForm(prev => ({ ...prev, date: date ?? null }))}
-                    required
-                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-currency" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Refund from currency *
                   </label>
                   <AriaSelect
@@ -1554,10 +1572,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-local-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Refunded local amount *
                   </label>
                   <input
+                    id="cash-refund-to-base-local-amount"
                     type="number"
                     min="0"
                     step="0.01"
@@ -1569,10 +1588,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-exchange-rate" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Exchange rate (1 {refundToBaseForm.sourceCurrency || 'local'} = X {currency}) *
                   </label>
                   <input
+                    id="cash-refund-to-base-exchange-rate"
                     type="number"
                     min="0"
                     step="0.0001"
@@ -1591,7 +1611,7 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-fee-category" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Exchange fee category
                   </label>
                   <AriaSelect
@@ -1608,7 +1628,7 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-country" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Country
                   </label>
                   <AriaSelect
@@ -1622,10 +1642,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-description" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Description
                   </label>
                   <input
+                    id="cash-refund-to-base-description"
                     type="text"
                     value={refundToBaseForm.description}
                     onChange={e => setRefundToBaseForm(prev => ({ ...prev, description: e.target.value }))}
@@ -1635,10 +1656,11 @@ export default function CashTransactionManager({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="cash-refund-to-base-notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Notes
                   </label>
                   <input
+                    id="cash-refund-to-base-notes"
                     type="text"
                     value={refundToBaseForm.notes}
                     onChange={e => setRefundToBaseForm(prev => ({ ...prev, notes: e.target.value }))}

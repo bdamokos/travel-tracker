@@ -913,120 +913,128 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           )}
 
           {/* Step 0: Method Selection */}
-          {currentStep === 0 && (
-            <div className="space-y-6">
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Choose how you'd like to import transactions from YNAB. You can either upload a file export or load transactions directly from your YNAB account via the API.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* File Upload Method */}
-                <div 
-                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all duration-200 ${
-                    importMethod === 'file' 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
-                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700'
-                  }`}
-                  onClick={() => setImportMethod('file')}
-                >
-                  <div className="flex items-center mb-4">
-                    <input
-                      type="radio"
-                      name="import-method"
-                      value="file"
-                      checked={importMethod === 'file'}
-                      onChange={() => setImportMethod('file')}
-                      className="mr-3"
-                    />
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Upload YNAB Export File</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                    Upload a .tsv or .zip export file from YNAB. This method works offline and gives you full control over which transactions to import.
-                  </p>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    ✓ Works without API setup<br />
-                    ✓ Process historical data<br />
-                    ✓ Full transaction control
-                  </div>
-                </div>
-
-                {/* API Method */}
-                <div 
-                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all duration-200 ${
-                    importMethod === 'api' 
-                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950' 
-                      : costData.ynabConfig?.apiKey
-                        ? 'border-gray-300 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700'
-                        : 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
-                  }`}
-                  onClick={() => costData.ynabConfig?.apiKey && setImportMethod('api')}
-                >
-                  <div className="flex items-center mb-4">
-                    <input
-                      type="radio"
-                      name="import-method"
-                      value="api"
-                      checked={importMethod === 'api'}
-                      onChange={() => setImportMethod('api')}
-                      disabled={!costData.ynabConfig?.apiKey}
-                      className="mr-3"
-                    />
-                    <h3 className={`text-lg font-semibold ${
-                      costData.ynabConfig?.apiKey 
-                        ? 'text-gray-800 dark:text-gray-100' 
-                        : 'text-gray-400 dark:text-gray-500'
-                    }`}>
-                      Load from YNAB API
-                    </h3>
-                  </div>
-                  {costData.ynabConfig?.apiKey ? (
-                    <>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                        Load transactions directly from your connected YNAB budget: <strong>{costData.ynabConfig.selectedBudgetName}</strong>
-                      </p>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        ✓ Real-time data sync<br />
-                        ✓ Automatic categorization<br />
-                        ✓ Delta sync support
-                      </div>
-                      {importMethod === 'api' && (
-                        <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-700">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Sync Mode
-                          </label>
-                          <AriaSelect
-                            id="sync-mode-select"
-                            value={syncMode}
-                            onChange={(value) => setSyncMode(value as 'last-sync' | 'last-import' | 'all')}
-                            options={[
-                              { value: 'last-sync', label: 'Since Last Sync (Recommended)' },
-                              { value: 'last-import', label: 'Since Last Import (Error Recovery)' },
-                              { value: 'all', label: 'All Transactions (Full Sync)' }
-                            ]}
-                            placeholder="Select sync mode"
-                            className="text-sm"
-                          />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {syncMode === 'last-sync' && 'Load only new transactions since the last API sync'}
-                            {syncMode === 'last-import' && 'Load transactions since the last successful import (for error recovery)'}
-                            {syncMode === 'all' && 'Load all transactions (may include previously imported items)'}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">
-                        API access not configured. Please set up your YNAB API connection first.
-                      </p>
-                      <div className="text-sm text-gray-400 dark:text-gray-500">
-                        ⚠ Requires YNAB API setup<br />
-                        ⚠ Configure in cost tracker settings
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+	          {currentStep === 0 && (
+	            <div className="space-y-6">
+	              <p className="text-gray-600 dark:text-gray-300 mb-6">
+	                Choose how you'd like to import transactions from YNAB. You can either upload a file export or load transactions directly from your YNAB account via the API.
+	              </p>
+	
+	              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+	                {/* File Upload Method */}
+	                <div 
+	                  className={`border-2 rounded-lg p-6 transition-all duration-200 ${
+	                    importMethod === 'file' 
+	                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
+	                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-700'
+	                  }`}
+	                >
+	                  <label htmlFor="import-method-file" className="block cursor-pointer">
+	                    <div className="flex items-center mb-4">
+	                      <input
+	                        id="import-method-file"
+	                        type="radio"
+	                        name="import-method"
+	                        value="file"
+	                        checked={importMethod === 'file'}
+	                        onChange={() => setImportMethod('file')}
+	                        className="mr-3"
+	                      />
+	                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Upload YNAB Export File</h3>
+	                    </div>
+	                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+	                      Upload a .tsv or .zip export file from YNAB. This method works offline and gives you full control over which transactions to import.
+	                    </p>
+	                    <div className="text-sm text-gray-500 dark:text-gray-400">
+	                      ✓ Works without API setup<br />
+	                      ✓ Process historical data<br />
+	                      ✓ Full transaction control
+	                    </div>
+	                  </label>
+	                </div>
+	
+	                {/* API Method */}
+	                <div 
+	                  className={`border-2 rounded-lg p-6 transition-all duration-200 ${
+	                    importMethod === 'api' 
+	                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950' 
+	                      : costData.ynabConfig?.apiKey
+	                        ? 'border-gray-300 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700'
+	                        : 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
+	                  }`}
+	                >
+	                  <label
+	                    htmlFor="import-method-api"
+	                    aria-disabled={!costData.ynabConfig?.apiKey}
+	                    className={`block ${costData.ynabConfig?.apiKey ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+	                  >
+	                    <div className="flex items-center mb-4">
+	                      <input
+	                        id="import-method-api"
+	                        type="radio"
+	                        name="import-method"
+	                        value="api"
+	                        checked={importMethod === 'api'}
+	                        onChange={() => setImportMethod('api')}
+	                        disabled={!costData.ynabConfig?.apiKey}
+	                        className="mr-3"
+	                      />
+	                      <h3 className={`text-lg font-semibold ${
+	                        costData.ynabConfig?.apiKey 
+	                          ? 'text-gray-800 dark:text-gray-100' 
+	                          : 'text-gray-400 dark:text-gray-500'
+	                      }`}>
+	                        Load from YNAB API
+	                      </h3>
+	                    </div>
+	                    {costData.ynabConfig?.apiKey ? (
+	                      <>
+	                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+	                          Load transactions directly from your connected YNAB budget: <strong>{costData.ynabConfig.selectedBudgetName}</strong>
+	                        </p>
+	                        <div className="text-sm text-gray-500 dark:text-gray-400">
+	                          ✓ Real-time data sync<br />
+	                          ✓ Automatic categorization<br />
+	                          ✓ Delta sync support
+	                        </div>
+	                      </>
+	                    ) : (
+	                      <>
+	                        <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">
+	                          API access not configured. Please set up your YNAB API connection first.
+	                        </p>
+	                        <div className="text-sm text-gray-400 dark:text-gray-500">
+	                          ⚠ Requires YNAB API setup<br />
+	                          ⚠ Configure in cost tracker settings
+	                        </div>
+	                      </>
+	                    )}
+	                  </label>
+	                  {costData.ynabConfig?.apiKey && importMethod === 'api' && (
+	                    <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-700">
+	                      <label htmlFor="sync-mode-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+	                        Sync Mode
+	                      </label>
+	                      <AriaSelect
+	                        id="sync-mode-select"
+	                        value={syncMode}
+	                        onChange={(value) => setSyncMode(value as 'last-sync' | 'last-import' | 'all')}
+	                        options={[
+	                          { value: 'last-sync', label: 'Since Last Sync (Recommended)' },
+	                          { value: 'last-import', label: 'Since Last Import (Error Recovery)' },
+	                          { value: 'all', label: 'All Transactions (Full Sync)' }
+	                        ]}
+	                        placeholder="Select sync mode"
+	                        className="text-sm"
+	                      />
+	                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+	                        {syncMode === 'last-sync' && 'Load only new transactions since the last API sync'}
+	                        {syncMode === 'last-import' && 'Load transactions since the last successful import (for error recovery)'}
+	                        {syncMode === 'all' && 'Load all transactions (may include previously imported items)'}
+	                      </p>
+	                    </div>
+	                  )}
+	                </div>
+	              </div>
 
               <div className="flex justify-end pt-4">
                 <button
