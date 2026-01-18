@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useId, useMemo, useRef } from 'react';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import TravelItemSelector from './TravelItemSelector';
 import AriaSelect from './AriaSelect';
@@ -34,6 +34,7 @@ export default function MultiRouteLinkManager({
   const [splitMode, setSplitMode] = useState<'equal' | 'percentage' | 'fixed'>('equal');
   const [showAddSelector, setShowAddSelector] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const id = useId();
   
   // Refs to prevent infinite loops when syncing with parent
   const isInternalUpdate = useRef(false);
@@ -239,20 +240,20 @@ export default function MultiRouteLinkManager({
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <h4 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Multi-Route Expense Linking
-        </label>
+        </h4>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           Link this expense to multiple routes or segments with automatic cost distribution
         </p>
 
         {/* Split Mode Selection */}
         <div className="mb-3">
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          <label htmlFor={`${id}-split-mode`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
             Distribution Mode
           </label>
           <AriaSelect
-            id="split-mode-select"
+            id={`${id}-split-mode`}
             value={splitMode}
             onChange={(value) => handleSplitModeChange(value as 'equal' | 'percentage' | 'fixed')}
             options={[
