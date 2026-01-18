@@ -18,30 +18,28 @@ const eslintConfig = [
       // "@typescript-eslint/no-explicit-any": "warn",
       "react/no-unescaped-entities": "warn",
       "prefer-const": "warn",
-      // Keep a11y checks visible without blocking CI until legacy violations are resolved.
-      // Tracking: https://github.com/bdamokos/travel-tracker/issues/219 (target: 2026-03-31)
-      "jsx-a11y/click-events-have-key-events": "warn",
-      "jsx-a11y/html-has-lang": "warn",
-      "jsx-a11y/label-has-associated-control": ["warn", {
+      // Keep jsx-a11y enabled as errors (see: https://github.com/bdamokos/travel-tracker/issues/227)
+      "jsx-a11y/click-events-have-key-events": "error",
+      "jsx-a11y/html-has-lang": "error",
+      "jsx-a11y/label-has-associated-control": ["error", {
         controlComponents: ["AccessibleDatePicker", "AriaSelect"],
         depth: 3
       }],
       // React Aria uses non-DOM `autoFocus` props (e.g. <FocusScope autoFocus>) for accessible
       // focus management in dialogs; keep the rule for DOM elements but ignore non-DOM props.
-      // Tracking: https://github.com/bdamokos/travel-tracker/issues/224
-      "jsx-a11y/no-autofocus": ["warn", { ignoreNonDOM: true }],
+      "jsx-a11y/no-autofocus": ["error", { ignoreNonDOM: true }],
       // Note: jsx-a11y/no-noninteractive-element-interactions is disabled with inline comments
       // where role="application" is used (e.g., interactive map widgets)
-      "jsx-a11y/no-noninteractive-element-interactions": "warn",
+      "jsx-a11y/no-noninteractive-element-interactions": "error",
       "jsx-a11y/no-noninteractive-tabindex": [
-        "warn",
+        "error",
         {
           // Allow tabIndex on elements with role="application" (e.g., interactive map widgets)
           roles: ["application"],
           tags: [],
         },
       ],
-      "jsx-a11y/no-static-element-interactions": "warn",
+      "jsx-a11y/no-static-element-interactions": "error",
     },
   },
 ];
