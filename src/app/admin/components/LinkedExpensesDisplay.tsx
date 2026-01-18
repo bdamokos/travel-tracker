@@ -42,25 +42,17 @@ export default function LinkedExpensesDisplay({
     targetItems.some(item => item.itemId === link.travelItemId && item.itemType === link.travelItemType)
   );
 
-  const allLinksByExpenseId = new Map<string, typeof relevantLinks>();
-  (expenseLinks || []).forEach(link => {
-    const existing = allLinksByExpenseId.get(link.expenseId);
-    if (existing) {
-      existing.push(link);
-    } else {
-      allLinksByExpenseId.set(link.expenseId, [link]);
-    }
-  });
+  const groupLinksByExpenseId = (links: typeof relevantLinks): Map<string, typeof relevantLinks> => {
+    return links.reduce((acc, link) => {
+      const group = acc.get(link.expenseId) ?? [];
+      group.push(link);
+      acc.set(link.expenseId, group);
+      return acc;
+    }, new Map<string, typeof relevantLinks>());
+  };
 
-  const relevantLinksByExpenseId = new Map<string, typeof relevantLinks>();
-  relevantLinks.forEach(link => {
-    const existing = relevantLinksByExpenseId.get(link.expenseId);
-    if (existing) {
-      existing.push(link);
-    } else {
-      relevantLinksByExpenseId.set(link.expenseId, [link]);
-    }
-  });
+  const allLinksByExpenseId = groupLinksByExpenseId(expenseLinks || []);
+  const relevantLinksByExpenseId = groupLinksByExpenseId(relevantLinks);
 
   // Get the linked expenses
   const linkedExpenses = (expenses || [])
@@ -89,22 +81,10 @@ export default function LinkedExpensesDisplay({
           const allLinksForExpense = allLinksByExpenseId.get(expense.id) || [];
           const relevantForExpense = relevantLinksByExpenseId.get(expense.id) || [];
 
-          const allCostLinks = allLinksForExpense.map(link => ({
-            expenseId: link.expenseId,
-            description: link.description ?? link.travelItemName,
-            splitMode: link.splitMode,
-            splitValue: link.splitValue
-          }));
-
-          const allocatedAmount = relevantForExpense.reduce((sum, link) => {
-            const linkAsCost = {
-              expenseId: link.expenseId,
-              description: link.description ?? link.travelItemName,
-              splitMode: link.splitMode,
-              splitValue: link.splitValue
-            };
-            return sum + calculateSplitAmount(expense.amount, linkAsCost, allCostLinks);
-          }, 0);
+          const allocatedAmount = relevantForExpense.reduce(
+            (sum, link) => sum + calculateSplitAmount(expense.amount, link, allLinksForExpense),
+            0
+          );
 
           const isSplit = allLinksForExpense.length > 1;
           const showTotalHint = isSplit && Math.abs(allocatedAmount - expense.amount) > 0.0001;

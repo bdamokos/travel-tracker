@@ -357,11 +357,16 @@ export function calculateSplitAmount(
   const equalShare = equalCount > 0 ? remainder / equalCount : 0;
 
   const mode = link.splitMode ?? 'equal';
-  if (mode === 'fixed') return link.splitValue || 0;
-  if (mode === 'percentage') return (expenseAmount * (link.splitValue || 0)) / 100;
-  if (mode === 'equal') return equalShare;
-
-  return expenseAmount;
+  switch (mode) {
+    case 'fixed':
+      return link.splitValue || 0;
+    case 'percentage':
+      return (expenseAmount * (link.splitValue || 0)) / 100;
+    case 'equal':
+      return equalShare;
+    default:
+      return expenseAmount;
+  }
 }
 
 export function calculateExpenseTotalsByLocation({
