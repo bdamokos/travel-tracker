@@ -1,199 +1,137 @@
 # Travel Tracker – Agents Guide
 
 ## Project Snapshot
-- Next.js + TypeScript web app that visualizes trips on OpenStreetMap, pairs timelines with notes/Instagram/blog posts, and includes a private cost tracker with YNAB import and backup management.
-- Primary UI modes: admin experience for editing journeys/costs and public map views.
-- License: MIT (2025-2026, Bence Damokos).
+- Next.js 15 + React 19 + TypeScript + Tailwind CSS 4
+- Maps via Leaflet/react-leaflet; data fetching with SWR; charts via Recharts
+- Private cost tracker with YNAB import, backup management
+- Primary UI modes: admin (editing) and public map views
+- License: MIT (2025-2026, Bence Damokos)
 
 ## Stack
-- Next.js 15 + React 19, TypeScript, Tailwind CSS 4.
-- Mapping via Leaflet/react-leaflet; data fetching with SWR; charts via Recharts.
-- Bun is the package manager/runtime (`bun.lock`, Docker uses `oven/bun`).
-- Jest for unit/integration tests (`@/` alias points to `src/`), ESLint + TypeScript config in repo.
+- Package manager: Bun (bun.lock, Docker uses oven/bun)
+- Tests: Jest (unit: jsdom, integration: node)
+- Linting: ESLint + TypeScript strict mode
+- Path alias: `@/` points to `src/`
 
-## Before finalising a PR
-- Ensure the app builds with `bun run build`
+## Commands
 
-## Runbook (local)
-- Install: `bun install`.
-- Dev: `bun run dev` (defaults to port 3000; set `NEXT_PUBLIC_APP_MODE=admin` or `embed` for role-specific UIs).
-- Quality: `bun run lint`, `bun run test:unit`, `JEST_INTEGRATION_TESTS=true bun run test:integration` (or `./run-integration-tests.sh` when a dev server is up on port 3002).
-- Build/serve: `bun run build` then `bun run start`.
+### Development
+- Install: `bun install`
+- Dev server: `bun run dev` (port 3000; set NEXT_PUBLIC_APP_MODE=admin or embed for role-specific UIs)
+- Build: `bun run build`
+- Start production: `bun run start`
 
-## Data & Storage
-- App persists JSON data/backups under `data/`; Docker and compose mount this directory (`travel-data` volume) to keep journeys/costs across runs. Treat contents as real user data.
-- Public assets/screenshots live in `public/`; Next image config allows OSM tiles.
+### Quality Checks
+- Lint: `bun run lint`
+- Run all tests: `bun run test`
+- Unit tests: `bun run test:unit`
+- Integration tests: `JEST_INTEGRATION_TESTS=true bun run test:integration`
+- Run tests in watch mode: `bun run test:watch`
+- Coverage: `bun run test:coverage`
+- Accessibility tests: `bun run test:accessibility`
 
-## Deployment Notes
-- Multi-stage Dockerfile installs/builds with Bun and runs the Next standalone output on port 3000 via `bun server.js`.
-- `docker-compose.yml` defines two services: admin UI on host port 3001 and embeddable/public maps on 3002 (both mount the shared `travel-data` volume and set `NEXT_PUBLIC_APP_MODE`).
-- For production setup references, see the `deploy/` directory.
-- Use `deploy/start-worktree.sh` to create a new worktree; it copies `deploy/.env` into the worktree if available.
+### Running Single Tests
+- Unit: `bun run test:unit -- path/to/test.test.ts`
+- Integration: `JEST_INTEGRATION_TESTS=true bun run test:integration -- path/to/test.integration.test.ts`
+- By test name: `bun run test:unit -- --testNamePattern="test name"`
 
-# Sample map data for a freshly set up server
-Use the same trip/location/route payloads as the integration test in `src/app/__tests__/integration/map-functionality.test.ts` to seed a server with realistic map data. The workflow mirrors the test pyramid (create trip → add locations → add route points).
+## Test Data Setup
+For seeding a fresh server with sample map data (trips, locations, routes, cost tracking), see `TEST-DATA-SETUP.md`.
 
-1. Start the app (admin or embed is fine) and export the variables used below:
-   - Local dev: `http://localhost:3000`
-   - Docker embed service: `http://localhost:3002`
-   ```bash
-   export BASE_URL="http://localhost:3000"
-   export TRIP_ID=""
-   export COST_ID=""
-   ```
-   - Update `BASE_URL` if you are using the docker embed service.
-2. Create a trip:
-   ```bash
-   curl -X POST "$BASE_URL/api/travel-data" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Sample Map Trip",
-       "description": "Seeded from integration test data",
-       "startDate": "2024-01-01T00:00:00.000Z",
-       "endDate": "2024-01-31T00:00:00.000Z",
-       "locations": [],
-       "routes": []
-     }'
-   ```
-   - Capture the `id` from the response and export it for subsequent calls:
-     ```bash
-     export TRIP_ID="...response id..."
-     ```
-3. Add two locations (London + Paris) using the same coordinates as the integration test:
-   ```bash
-   curl -X PUT "$BASE_URL/api/travel-data?id=$TRIP_ID" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Sample Map Trip",
-       "description": "Seeded from integration test data",
-       "startDate": "2024-01-01T00:00:00.000Z",
-       "endDate": "2024-01-31T00:00:00.000Z",
-       "locations": [
-         {
-           "id": "sample-loc-1",
-           "name": "London",
-           "coordinates": [51.5074, -0.1278],
-           "date": "2024-01-01T00:00:00.000Z",
-           "notes": "Starting point"
-         },
-         {
-           "id": "sample-loc-2",
-           "name": "Paris",
-           "coordinates": [48.8566, 2.3522],
-           "date": "2024-01-15T00:00:00.000Z",
-           "notes": "Midpoint destination"
-         }
-       ],
-       "routes": []
-     }'
-   ```
-4. Add a route with route points. If you don’t want to call the external routing API, reuse the mocked route points from the integration tests (a straight line with an intermediate point is enough to render):
-   ```bash
-   curl -X PUT "$BASE_URL/api/travel-data?id=$TRIP_ID" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Sample Map Trip",
-       "description": "Seeded from integration test data",
-       "startDate": "2024-01-01T00:00:00.000Z",
-       "endDate": "2024-01-31T00:00:00.000Z",
-       "locations": [
-         {
-           "id": "sample-loc-1",
-           "name": "London",
-           "coordinates": [51.5074, -0.1278],
-           "date": "2024-01-01T00:00:00.000Z",
-           "notes": "Starting point"
-         },
-         {
-           "id": "sample-loc-2",
-           "name": "Paris",
-           "coordinates": [48.8566, 2.3522],
-           "date": "2024-01-15T00:00:00.000Z",
-           "notes": "Midpoint destination"
-         }
-       ],
-       "routes": [
-         {
-           "id": "sample-route-1",
-           "from": "London",
-           "to": "Paris",
-           "fromCoords": [51.5074, -0.1278],
-           "toCoords": [48.8566, 2.3522],
-           "transportType": "train",
-           "date": "2024-01-15T00:00:00.000Z",
-           "duration": "2h 30min",
-           "notes": "Eurostar connection",
-           "routePoints": [
-             [51.5074, -0.1278],
-             [50.0, -1.0],
-             [48.8566, 2.3522]
-           ]
-         }
-       ]
-     }'
-   ```
-5. Confirm the data rendered by loading the map view for the trip, or fetch it via:
-   ```bash
-   curl "$BASE_URL/api/travel-data?id=$TRIP_ID"
-   ```
-6. Initialize cost tracking data (based on `src/app/__tests__/integration/cost-tracking-api.integration.test.ts`):
-   ```bash
-   curl -X POST "$BASE_URL/api/cost-tracking" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "tripId": "'"$TRIP_ID"'",
-       "tripTitle": "Sample Map Trip Costs",
-       "tripStartDate": "2024-07-01T00:00:00.000Z",
-       "tripEndDate": "2024-07-15T00:00:00.000Z",
-       "overallBudget": 2500,
-       "currency": "EUR",
-       "countryBudgets": [
-         {
-           "id": "budget-france",
-           "country": "France",
-           "amount": 1200,
-           "currency": "EUR",
-           "notes": "France portion of trip"
-         }
-       ],
-       "expenses": [
-         {
-           "id": "expense-test-1",
-           "date": "2024-07-02T00:00:00.000Z",
-           "amount": 150,
-           "currency": "EUR",
-           "category": "Accommodation",
-           "country": "France",
-           "description": "Hotel night 1",
-           "expenseType": "actual"
-         }
-       ]
-     }'
-   ```
-   - Capture the `id` from the response and export it:
-     ```bash
-     export COST_ID="...response id..."
-     ```
-7. Generate additional data by analogy to the integration tests:
-   - Accommodations and linked travel items: see `src/app/__tests__/integration/travel-data-update-links-validation.integration.test.ts` for the payload shape and the `accommodations` array.
-   - Social content fields (Instagram/blog posts): see `src/app/__tests__/integration/debug-frontend-flow.integration.test.ts` for `instagramPosts`, `blogPosts`, and `accommodationData` examples in the travel data payload.
-   - The same API endpoints (`/api/travel-data` and `/api/cost-tracking`) accept expanded payloads, so you can extend the JSON bodies above with those fields as needed.
+## Code Style Guidelines
 
-# Tests
+### Imports
+- Use `@/` alias for src imports: `import { Component } from '@/app/components/Component'`
+- Group imports: React/external libraries first, then internal, then types
+- Client components: `'use client'` directive at file top
 
-Always run all relevant tests before finalising a PR/task.
+### Types
+- Strict TypeScript enabled (noImplicitAny, noImplicitReturns, strictNullChecks)
+- Define types in `src/app/types/index.ts` (all core data models)
+- Use `type` for object shapes, `interface` for extensible contracts
+- Explicit return types on exported functions
+- Avoid `any` - use `unknown` with type guards when necessary
 
+### Naming Conventions
+- Components: PascalCase (e.g., `LocationManager`, `RouteForm`)
+- Functions/variables: camelCase (e.g., `getLocationById`, `tripData`)
+- Constants: SCREAMING_SNAKE_CASE for true constants, lowercase for config
+- Test files: `*.test.ts` or `*.test.tsx` (unit), `*.integration.test.ts` (integration)
+- Interfaces: PascalCase with `I` prefix discouraged (use bare interface names)
 
-# GIT remotes and worktrees
-Always be aware of the remote you are working on (run git remote-v). Github is 'github', while forgejo is the 'origin' remote.
+### Formatting
+- Use functional components with hooks (useState, useEffect, etc.)
+- Destructure props in function signature
+- Keep comments minimal; prefer self-documenting code
+- Use template literals for string interpolation
+- Arrow functions for callbacks, regular functions for methods
 
-When working on a feature branch, use the start-worktree.sh script to create a new worktree. This will create a new directory in the .worktrees folder. You need to manually switch to the worktree directory (cd <worktree-directory>).
+### Error Handling
+- API routes: try/catch blocks with NextResponse.json({ error }, { status })
+- Use proper HTTP status codes (400 for bad input, 500 for server errors)
+- Log errors with context (avoid logging sensitive data)
+- Provide user-friendly error messages in UI, technical details in console
 
-# Package managers
-Bun is the package manager for this project. Use bun install to install dependencies, run tests, run builds, etc.
+### React Patterns
+- Props interfaces defined above component
+- Use React.Dispatch<React.SetStateAction<T>> for setState types
+- Prefer controlled components for forms
+- Use `const [value, setValue] = useState<T>(defaultValue)` for typed state
 
-# Accessibility
-Make sure the resulting code passes accessibility tests, and meets the WCAG standard at least at AA level, ideally at AAA level.
+### Testing
+- Unit tests: test pure functions, components with jest-axe for a11y
+- Integration tests: test API endpoints, data flow, full user journeys
+- Use test pyramids: integration tests build on each other (create → update → verify)
+- Mock external APIs (routing, YNAB) in tests
+- Set environment variable TEST_DATA_DIR to avoid writing to real data during tests
 
-# No lazyness
-Be guided by the philosophy of Kennedy "We choose to go to the Moon in this decade and do the other things, not because they are easy, but because they are hard" - do not give up testing or accomplishing a task correctly just because it is difficult.
+### Data Handling
+- Use src/app/lib/dataDirectory.ts for data directory resolution
+- Data stored in `data/` directory (JSON files and backups)
+- Treat data directory contents as real user data
+- Use getDataDir() for data paths to support test environment overrides
+
+### Accessibility (Critical)
+- All components must meet WCAG AA level (AAA ideal)
+- Use React Aria (@react-aria/*) for accessible component primitives
+- Include aria-label, aria-labelledby, aria-describedby appropriately
+- Test with jest-axe in unit tests
+- Keyboard navigation must work for all interactive elements
+- No color-only indicators for information
+
+## Before Finalizing
+- Ensure build passes: `bun run build`
+- Run linter: `bun run lint`
+- Run relevant tests: unit + integration for affected features
+- Verify accessibility: `bun run test:accessibility` or manual testing
+
+## Git Workflow
+- Remote awareness: github is push target, origin is forgejo
+- Feature branches: use `deploy/start-worktree.sh` to create worktrees
+- Worktrees created in `.worktrees/` folder - manually cd into them
+- Commit only after tests pass and linting is clean
+
+## Deployment
+- Multi-stage Dockerfile with Bun runtime
+- Standalone Next.js output served on port 3000
+- docker-compose.yml: admin UI on 3001, embed maps on 3002
+- Both services mount shared `travel-data` volume
+- Production configs in `deploy/` directory
+
+## Code Organization
+- Pages: `src/app/` with Next.js App Router
+- Components: `src/app/components/` and `src/app/admin/components/`
+- Utilities: `src/app/lib/` for shared functions
+- Tests: `src/app/__tests__/` with `unit/`, `integration/`, and `accessibility/` subdirectories
+- Types: All core types in `src/app/types/index.ts`
+- API Routes: `src/app/api/` following Next.js route conventions
+
+## Important Patterns
+- Data isolation: Tests use `TEST_DATA_DIR` env var to avoid modifying real data
+- Mock external services: Routing and YNAB APIs are mocked in integration tests
+- Test pyramids: Integration tests build incrementally (create → read → update → delete)
+- Accessibility-first: Use React Aria primitives instead of raw HTML elements
+- Type safety: All functions have explicit return types, no implicit any
+
+## Philosophy
+"Go to the Moon not because it is easy, but because it is hard" - do not compromise on testing or correctness even when difficult. Test thoroughly, write maintainable code, prioritize accessibility.
