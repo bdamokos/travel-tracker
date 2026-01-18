@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { YnabBudget, YnabConfig } from '@/app/types';
 import AccessibleModal from './AccessibleModal';
 import AriaSelect from './AriaSelect';
@@ -16,6 +16,7 @@ interface YnabSetupProps {
 
 
 export default function YnabSetup({ isOpen, onClose, onConfigSaved, costTrackerId, existingConfig }: YnabSetupProps) {
+  const id = useId();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,11 +226,11 @@ export default function YnabSetup({ isOpen, onClose, onConfigSaved, costTrackerI
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor={`${id}-budget-select`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Budget
             </label>
             <AriaSelect
-              id="budget-select"
+              id={`${id}-budget-select`}
               options={budgetOptions}
               value={selectedBudgetId}
               onChange={(value) => {

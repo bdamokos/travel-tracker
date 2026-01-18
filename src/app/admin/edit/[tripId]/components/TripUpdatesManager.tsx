@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { TripUpdate } from '@/app/types';
 
 type TripUpdatesManagerProps = {
@@ -40,6 +40,7 @@ function UpdateRow({ update, onSave, onDelete }: UpdateRowProps) {
   const [createdAt, setCreatedAt] = useState(toDateTimeLocalValue(update.createdAt));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const rowId = useId();
 
   const baselineCreatedAt = useMemo(() => toDateTimeLocalValue(update.createdAt), [update.createdAt]);
   const isDirty = message !== update.message || createdAt !== baselineCreatedAt;
@@ -93,10 +94,11 @@ function UpdateRow({ update, onSave, onDelete }: UpdateRowProps) {
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+            <label htmlFor={`${rowId}-created-at`} className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
               Created at
             </label>
             <input
+              id={`${rowId}-created-at`}
               type="datetime-local"
               value={createdAt}
               onChange={(e) => setCreatedAt(e.target.value)}
@@ -105,10 +107,11 @@ function UpdateRow({ update, onSave, onDelete }: UpdateRowProps) {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+            <label htmlFor={`${rowId}-message`} className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
               Message
             </label>
             <textarea
+              id={`${rowId}-message`}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={2}
@@ -158,6 +161,7 @@ export default function TripUpdatesManager({ tripId }: TripUpdatesManagerProps) 
   const [adding, setAdding] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [newCreatedAt, setNewCreatedAt] = useState(() => toDateTimeLocalValue(new Date().toISOString()));
+  const addFormId = useId();
 
   const sortedUpdates = useMemo(() => sortByCreatedAtDesc(updates), [updates]);
 
@@ -303,10 +307,11 @@ export default function TripUpdatesManager({ tripId }: TripUpdatesManagerProps) 
             <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Add update</h4>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                <label htmlFor={`${addFormId}-created-at`} className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
                   Created at
                 </label>
                 <input
+                  id={`${addFormId}-created-at`}
                   type="datetime-local"
                   value={newCreatedAt}
                   onChange={(e) => setNewCreatedAt(e.target.value)}
@@ -315,10 +320,11 @@ export default function TripUpdatesManager({ tripId }: TripUpdatesManagerProps) 
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                <label htmlFor={`${addFormId}-message`} className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
                   Message
                 </label>
                 <textarea
+                  id={`${addFormId}-message`}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   rows={2}
