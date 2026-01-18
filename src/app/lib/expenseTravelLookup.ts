@@ -353,7 +353,7 @@ export function calculateSplitAmount(
   }, 0);
 
   const equalCount = normalizedModes.filter(mode => mode === 'equal').length;
-  const remainder = expenseAmount - explicitSum;
+  const remainder = Math.max(expenseAmount - explicitSum, 0);
   const equalShare = equalCount > 0 ? remainder / equalCount : 0;
 
   const mode = link.splitMode ?? 'equal';
