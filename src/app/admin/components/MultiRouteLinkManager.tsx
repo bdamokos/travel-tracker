@@ -240,9 +240,9 @@ export default function MultiRouteLinkManager({
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
-        <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <h4 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Multi-Route Expense Linking
-        </span>
+        </h4>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           Link this expense to multiple routes or segments with automatic cost distribution
         </p>
