@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Accommodation, CostTrackingLink, CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { useAccommodations } from '@/app/hooks/useAccommodations';
@@ -54,6 +54,7 @@ export default function LocationAccommodationsManager({
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const id = useId();
   const [newAccommodation, setNewAccommodation] = useState<{
     name: string;
     accommodationData: string;
@@ -280,10 +281,11 @@ export default function LocationAccommodationsManager({
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor={`${id}-new-name`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Accommodation Name *
               </label>
               <input
+                id={`${id}-new-name`}
                 type="text"
                 value={newAccommodation.name}
                 onChange={(e) => setNewAccommodation(prev => ({ ...prev, name: e.target.value }))}
@@ -411,6 +413,7 @@ function EditAccommodationForm({
   tripId: string;
 }) {
   const [editData, setEditData] = useState<Accommodation>(accommodation);
+  const editId = useId();
 
   const handleSave = () => {
     if (!editData.name.trim()) {
@@ -423,10 +426,11 @@ function EditAccommodationForm({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor={`${editId}-name`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Accommodation Name *
         </label>
         <input
+          id={`${editId}-name`}
           type="text"
           value={editData.name}
           onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}

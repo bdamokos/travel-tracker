@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { YnabCategoryMapping, CostTrackingData, YnabCategory } from '@/app/types';
 import { extractCategoriesFromYnabFile } from '@/app/lib/ynabUtils';
 import JSZip from 'jszip';
@@ -79,6 +79,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
   const [mappings, setMappings] = useState<YnabCategoryMapping[]>([]);
   const [extractedCategories, setExtractedCategories] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const id = useId();
   const [newMapping, setNewMapping] = useState({
     ynabCategory: '',
     mappingType: 'none' as 'country' | 'general' | 'none',
@@ -467,7 +468,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
         <h3 className="text-lg font-semibold mb-4">Add New Mapping</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={`${id}-ynab-category`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               YNAB Category
             </label>
             {extractedCategories.length > 0 ? (
@@ -487,6 +488,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
                   );
                 })()}
                 <input
+                  id={`${id}-ynab-category`}
                   type="text"
                   value={newMapping.ynabCategory}
                   onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
@@ -496,6 +498,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
               </div>
             ) : (
               <input
+                id={`${id}-ynab-category`}
                 type="text"
                 value={newMapping.ynabCategory}
                 onChange={(e) => setNewMapping(prev => ({ ...prev, ynabCategory: e.target.value }))}
@@ -506,11 +509,11 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={`${id}-mapping-type`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Mapping Type
             </label>
             <AriaSelect
-              id="mapping-type-select"
+              id={`${id}-mapping-type`}
               value={newMapping.mappingType}
               onChange={(value) => setNewMapping(prev => ({
                 ...prev,
@@ -529,12 +532,12 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
 
           {newMapping.mappingType === 'country' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor={`${id}-country`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Country
               </label>
               <div className="flex gap-2">
                 <AriaSelect
-                  id="country-select"
+                  id={`${id}-country`}
                   value={newMapping.countryName === '__new__' ? '__new__' : newMapping.countryName}
                   onChange={(value) => setNewMapping(prev => ({ ...prev, countryName: value }))}
                   className="flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

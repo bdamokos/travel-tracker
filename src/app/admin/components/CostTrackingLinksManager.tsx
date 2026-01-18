@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import AriaSelect from './AriaSelect';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { 
@@ -26,6 +26,7 @@ export default function CostTrackingLinksManager({
 }: CostTrackingLinksManagerProps) {
   const [selectedExpenseId, setSelectedExpenseId] = useState('');
   const [linkDescription, setLinkDescription] = useState('');
+  const id = useId();
 
   // SWR hooks for data
   const { expenses, isLoading: expensesLoading } = useExpenses(tripId);
@@ -192,11 +193,11 @@ export default function CostTrackingLinksManager({
         {availableToLink.length > 0 && (
           <div className="border border-gray-300 dark:border-gray-600 rounded p-3 space-y-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              <label htmlFor={`${id}-expense-select`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                 Select Expense to Link
               </label>
               <AriaSelect
-                id="expense-select"
+                id={`${id}-expense-select`}
                 value={selectedExpenseId}
                 onChange={(value) => setSelectedExpenseId(value)}
                 className={`w-full px-2 py-1 text-sm ${isMutating ? 'opacity-50 pointer-events-none' : ''}`}
@@ -213,10 +214,11 @@ export default function CostTrackingLinksManager({
 
             {selectedExpenseId && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                <label htmlFor={`${id}-link-description`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                   Link Description (Optional)
                 </label>
                 <input
+                  id={`${id}-link-description`}
                   type="text"
                   value={linkDescription}
                   onChange={(e) => setLinkDescription(e.target.value)}

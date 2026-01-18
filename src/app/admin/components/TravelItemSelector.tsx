@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useId, useMemo } from 'react';
 import { Location, Transportation, Accommodation } from '@/app/types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
@@ -115,6 +115,7 @@ export default function TravelItemSelector({
   const [selectedType, setSelectedType] = useState<'location' | 'accommodation' | 'route' | ''>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
+  const id = useId();
 
   // Use our new SWR hooks for real-time data
   const { expenseLinks } = useExpenseLinks(tripId);
@@ -466,11 +467,11 @@ export default function TravelItemSelector({
   return (
     <div className={`space-y-3 ${className}`}>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor={`${id}-travel-type`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Link to Travel Item (Optional)
         </label>
         <AriaSelect
-          id="travel-type-select"
+          id={`${id}-travel-type`}
           value={selectedType}
           onChange={(value) => handleTypeChange(value)}
           options={[
@@ -484,12 +485,12 @@ export default function TravelItemSelector({
 
       {selectedType && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={`${id}-travel-item`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {selectedType === 'accommodation' ? 'Accommodation' : 
              selectedType === 'location' ? 'Location' : 'Route'}
           </label>
           <AriaSelect
-            id="travel-item-select"
+            id={`${id}-travel-item`}
             value={selectedItem}
             onChange={(value) => handleItemChange(value)}
             options={selectOptions}
@@ -500,10 +501,11 @@ export default function TravelItemSelector({
 
       {selectedItem && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={`${id}-description`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Link Description (Optional)
           </label>
           <input
+            id={`${id}-description`}
             type="text"
             value={description}
             onChange={(e) => handleDescriptionChange(e.target.value)}

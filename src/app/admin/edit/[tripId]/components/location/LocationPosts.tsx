@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Location } from '@/app/types';
 
 const updatePost = <T extends { id: string }>(
@@ -242,6 +242,7 @@ export default function LocationPosts({
   const [instagramLoading, setInstagramLoading] = useState(false);
   const [instagramError, setInstagramError] = useState<string | null>(null);
   const [selectedInstagramId, setSelectedInstagramId] = useState('');
+  const id = useId();
 
   useEffect(() => {
     setSelectedInstagramId('');
@@ -356,9 +357,10 @@ export default function LocationPosts({
       
       {/* Instagram Posts */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instagram Posts</label>
+        <label htmlFor={`${id}-instagram-import`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instagram Posts</label>
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <select
+            id={`${id}-instagram-import`}
             value={selectedInstagramId}
             onChange={(e) => handleImportChange(e.target.value)}
             className="min-w-[220px] flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
@@ -427,9 +429,10 @@ export default function LocationPosts({
 
       {/* TikTok Posts */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">TikTok Posts</label>
+        <label htmlFor={`${id}-tiktok-url`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">TikTok Posts</label>
         <div className="flex gap-2 mb-2">
           <input
+            id={`${id}-tiktok-url`}
             type="url"
             value={newTikTokPost.url || ''}
             onChange={(e) => setNewTikTokPost(prev => ({ ...prev, url: e.target.value }))}
@@ -467,9 +470,10 @@ export default function LocationPosts({
 
       {/* Blog Posts */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Blog Posts</label>
+        <label htmlFor={`${id}-blog-title`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Blog Posts</label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
           <input
+            id={`${id}-blog-title`}
             type="text"
             value={newBlogPost.title || ''}
             onChange={(e) => setNewBlogPost(prev => ({ ...prev, title: e.target.value }))}
