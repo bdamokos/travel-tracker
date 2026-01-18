@@ -911,15 +911,15 @@ export default function CashTransactionManager({
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor={`cash-allocation-date-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Spending date *
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <span className="block mb-1">Spending date *</span>
+                      <AccessibleDatePicker
+                        id={`cash-allocation-date-${group.currency}`}
+                        value={allocationForm.date}
+                        onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
+                        required
+                      />
                     </label>
-                    <AccessibleDatePicker
-                      id={`cash-allocation-date-${group.currency}`}
-                      value={allocationForm.date}
-                      onChange={date => handleAllocationChange(group.currency, { date: date ?? null })}
-                      required
-                    />
                   </div>
                   <div>
                     <label htmlFor={`cash-allocation-local-amount-${group.currency}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1086,15 +1086,15 @@ export default function CashTransactionManager({
         {openSections.sources && (
           <div id="cash-sources-form" className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="cash-source-date" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Exchange date *
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="block mb-1">Exchange date *</span>
+                <AccessibleDatePicker
+                  id="cash-source-date"
+                  value={sourceForm.date}
+                  onChange={date => setSourceForm(prev => ({ ...prev, date: date ?? null }))}
+                  required
+                />
               </label>
-              <AccessibleDatePicker
-                id="cash-source-date"
-                value={sourceForm.date}
-                onChange={date => setSourceForm(prev => ({ ...prev, date: date ?? null }))}
-                required
-              />
             </div>
 
             <div>
@@ -1223,15 +1223,15 @@ export default function CashTransactionManager({
         {openSections.refunds && (
           <div id="cash-refunds-form" className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="cash-refund-date" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Refund date *
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="block mb-1">Refund date *</span>
+                <AccessibleDatePicker
+                  id="cash-refund-date"
+                  value={refundForm.date}
+                  onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
+                  required
+                />
               </label>
-              <AccessibleDatePicker
-                id="cash-refund-date"
-                value={refundForm.date}
-                onChange={date => setRefundForm(prev => ({ ...prev, date: date ?? null }))}
-                required
-              />
             </div>
 
             <div>
@@ -1376,15 +1376,15 @@ export default function CashTransactionManager({
             ) : (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="cash-conversion-date" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Conversion date *
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <span className="block mb-1">Conversion date *</span>
+                    <AccessibleDatePicker
+                      id="cash-conversion-date"
+                      value={conversionForm.date}
+                      onChange={date => setConversionForm(prev => ({ ...prev, date: date ?? null }))}
+                      required
+                    />
                   </label>
-                  <AccessibleDatePicker
-                    id="cash-conversion-date"
-                    value={conversionForm.date}
-                    onChange={date => setConversionForm(prev => ({ ...prev, date: date ?? null }))}
-                    required
-                  />
                 </div>
 
                 <div>
@@ -1543,15 +1543,15 @@ export default function CashTransactionManager({
             ) : (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="cash-refund-to-base-date" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Refund date *
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <span className="block mb-1">Refund date *</span>
+                    <AccessibleDatePicker
+                      id="cash-refund-to-base-date"
+                      value={refundToBaseForm.date}
+                      onChange={date => setRefundToBaseForm(prev => ({ ...prev, date: date ?? null }))}
+                      required
+                    />
                   </label>
-                  <AccessibleDatePicker
-                    id="cash-refund-to-base-date"
-                    value={refundToBaseForm.date}
-                    onChange={date => setRefundToBaseForm(prev => ({ ...prev, date: date ?? null }))}
-                    required
-                  />
                 </div>
 
                 <div>

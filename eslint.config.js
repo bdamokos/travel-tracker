@@ -22,7 +22,10 @@ const eslintConfig = [
       // Tracking: https://github.com/bdamokos/travel-tracker/issues/219 (target: 2026-03-31)
       "jsx-a11y/click-events-have-key-events": "warn",
       "jsx-a11y/html-has-lang": "warn",
-      "jsx-a11y/label-has-associated-control": "warn",
+      "jsx-a11y/label-has-associated-control": ["warn", {
+        controlComponents: ["AccessibleDatePicker", "AriaSelect"],
+        depth: 3
+      }],
       "jsx-a11y/no-autofocus": "warn",
       "jsx-a11y/no-noninteractive-element-interactions": "warn",
       "jsx-a11y/no-noninteractive-tabindex": "warn",
