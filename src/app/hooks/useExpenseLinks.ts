@@ -7,6 +7,9 @@ export interface ExpenseLink {
   travelItemName: string;
   travelItemType: 'location' | 'accommodation' | 'route';
   description?: string;
+  // Multi-route expense distribution
+  splitMode?: 'equal' | 'percentage' | 'fixed';
+  splitValue?: number;
 }
 
 interface LinkExpenseRequest {

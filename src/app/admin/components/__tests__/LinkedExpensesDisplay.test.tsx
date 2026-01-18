@@ -193,6 +193,44 @@ describe('LinkedExpensesDisplay', () => {
     });
   });
 
+  it('should display allocated split amount for multi-link expenses', async () => {
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'expense-1',
+          travelItemId: 'route-1',
+          travelItemName: 'A → B',
+          travelItemType: 'route',
+          splitMode: 'equal'
+        },
+        {
+          expenseId: 'expense-1',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location',
+          splitMode: 'equal'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    });
+
+    render(
+      <LinkedExpensesDisplay
+        itemId="location-1"
+        itemType="location"
+        tripId={mockTripId}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('💰 Linked Expenses (1)')).toBeInTheDocument();
+      expect(screen.getByText('Restaurant dinner')).toBeInTheDocument();
+      expect(screen.getByText('EUR 50.00')).toBeInTheDocument();
+    });
+  });
+
   it('should not render when no expenses are linked', async () => {
     mockUseExpenseLinks.mockReturnValue({
       expenseLinks: [],
