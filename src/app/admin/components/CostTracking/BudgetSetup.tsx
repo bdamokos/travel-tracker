@@ -35,23 +35,27 @@ export default function BudgetSetup({
   return (
     <div>
       <h3 className="text-xl font-semibold mb-4">Budget Setup</h3>
-      {mode === 'create' && !selectedTrip && (
-        <div className="mb-4">
-          <h4 className="text-lg font-medium mb-2">Select a Trip</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {existingTrips.map((trip) => (
-              <div key={trip.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                   onClick={() => handleTripSelection(trip)}>
-                <h4 className="font-semibold">{trip.title}</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{trip.description}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+	      {mode === 'create' && !selectedTrip && (
+	        <div className="mb-4">
+	          <h4 className="text-lg font-medium mb-2">Select a Trip</h4>
+	          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+	            {existingTrips.map((trip) => (
+	              <button
+	                key={trip.id}
+	                type="button"
+	                className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
+	                onClick={() => handleTripSelection(trip)}
+	              >
+	                <h4 className="font-semibold">{trip.title}</h4>
+	                <p className="text-sm text-gray-500 dark:text-gray-400">{trip.description}</p>
+	                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+	                  {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
+	                </p>
+	              </button>
+	            ))}
+	          </div>
+	        </div>
+	      )}
 
       {(selectedTrip || mode === 'edit') && (
         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-4">

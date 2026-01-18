@@ -1,10 +1,10 @@
 'use client';
 
 import { formatCurrency, formatDate } from '@/app/lib/costUtils';
+import { calculateSplitAmount, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { CostTrackingData } from '@/app/types';
-import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 
 interface LinkedExpensesDisplayProps {
   // New: support multiple items
@@ -42,6 +42,18 @@ export default function LinkedExpensesDisplay({
     targetItems.some(item => item.itemId === link.travelItemId && item.itemType === link.travelItemType)
   );
 
+  const groupLinksByExpenseId = (links: typeof relevantLinks): Map<string, typeof relevantLinks> => {
+    return links.reduce((acc, link) => {
+      const group = acc.get(link.expenseId) ?? [];
+      group.push(link);
+      acc.set(link.expenseId, group);
+      return acc;
+    }, new Map<string, typeof relevantLinks>());
+  };
+
+  const allLinksByExpenseId = groupLinksByExpenseId(expenseLinks || []);
+  const relevantLinksByExpenseId = groupLinksByExpenseId(relevantLinks);
+
   // Get the linked expenses
   const linkedExpenses = (expenses || [])
     .filter(expense => relevantLinks.some(link => link.expenseId === expense.id))
@@ -65,18 +77,34 @@ export default function LinkedExpensesDisplay({
         💰 Linked Expenses ({linkedExpenses.length})
       </div>
       <div className="space-y-1">
-        {linkedExpenses.map(expense => (
-          <div key={expense.id} className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-            <div className="flex items-center gap-2">
-              <span>{expense.description}</span>
-              
+        {linkedExpenses.map(expense => {
+          const allLinksForExpense = allLinksByExpenseId.get(expense.id) || [];
+          const relevantForExpense = relevantLinksByExpenseId.get(expense.id) || [];
+
+          const allocatedAmount = relevantForExpense.reduce(
+            (sum, link) => sum + calculateSplitAmount(expense.amount, link, allLinksForExpense),
+            0
+          );
+
+          const isSplit = allLinksForExpense.length > 1;
+          const showTotalHint = isSplit && Math.abs(allocatedAmount - expense.amount) > 0.0001;
+
+          const amountTitle = showTotalHint
+            ? `${formatCurrency(allocatedAmount, expense.currency)} of ${formatCurrency(expense.amount, expense.currency)}`
+            : undefined;
+
+          return (
+            <div key={expense.id} className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+              <div className="flex items-center gap-2">
+                <span>{expense.description}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span title={amountTitle}>{formatCurrency(allocatedAmount, expense.currency)}</span>
+                <span className="text-gray-500 dark:text-gray-400">{formatDate(expense.date)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span>{formatCurrency(expense.amount, expense.currency)}</span>
-              <span className="text-gray-500 dark:text-gray-400">{formatDate(expense.date)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

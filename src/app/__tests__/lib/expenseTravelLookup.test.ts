@@ -4,6 +4,7 @@
 
 import { ExpenseTravelLookup, TripData } from '@/app/lib/expenseTravelLookup';
 import { Location, Accommodation, Transportation, CostTrackingLink, Expense } from '@/app/types';
+import { calculateSplitAmount } from '@/app/lib/expenseTravelLookup';
 
 describe('ExpenseTravelLookup', () => {
   const mockTripData: TripData = {
@@ -370,5 +371,31 @@ describe('ExpenseTravelLookup', () => {
       expect(lookup.getTravelLinkForExpense('exp1')).toBeNull();
       expect(lookup.getAllTravelLinks().size).toBe(0);
     });
+  });
+});
+
+describe('calculateSplitAmount', () => {
+  it('splits remaining amount across equal links', () => {
+    const expenseAmount = 100;
+    const links: CostTrackingLink[] = [
+      { expenseId: 'exp', splitMode: 'fixed', splitValue: 30 },
+      { expenseId: 'exp', splitMode: 'equal' },
+      { expenseId: 'exp', splitMode: 'equal' }
+    ];
+
+    expect(calculateSplitAmount(expenseAmount, links[0], links)).toBe(30);
+    expect(calculateSplitAmount(expenseAmount, links[1], links)).toBe(35);
+    expect(calculateSplitAmount(expenseAmount, links[2], links)).toBe(35);
+  });
+
+  it('clamps equal-share remainder to 0 when explicit allocations exceed total', () => {
+    const expenseAmount = 100;
+    const links: CostTrackingLink[] = [
+      { expenseId: 'exp', splitMode: 'fixed', splitValue: 110 },
+      { expenseId: 'exp', splitMode: 'equal' }
+    ];
+
+    expect(calculateSplitAmount(expenseAmount, links[0], links)).toBe(110);
+    expect(calculateSplitAmount(expenseAmount, links[1], links)).toBe(0);
   });
 });

@@ -317,26 +317,53 @@ export function calculateSplitAmount(
   link: CostTrackingLink,
   allLinksForExpense?: CostTrackingLink[]
 ): number {
-  // If no split mode is set, this is a legacy single-link expense (100% allocation)
-  if (!link.splitMode) {
-    return expenseAmount;
+  const links = allLinksForExpense ?? [];
+
+  // Single-link fallback: legacy behavior is full allocation.
+  // For explicit split modes, still respect the configured value.
+  if (links.length <= 1) {
+    if (!link.splitMode) {
+      return expenseAmount;
+    }
+
+    switch (link.splitMode) {
+      case 'equal':
+        return expenseAmount;
+      case 'percentage': {
+        const percentage = link.splitValue || 0;
+        return (expenseAmount * percentage) / 100;
+      }
+      case 'fixed':
+        return link.splitValue || 0;
+      default:
+        return expenseAmount;
+    }
   }
 
-  switch (link.splitMode) {
-    case 'equal': {
-      // Divide equally among all links
-      const linkCount = allLinksForExpense?.length || 1;
-      return expenseAmount / linkCount;
-    }
-    case 'percentage': {
-      // Use the percentage value (0-100)
-      const percentage = link.splitValue || 0;
-      return (expenseAmount * percentage) / 100;
-    }
-    case 'fixed': {
-      // Use the fixed amount value
+  // Multi-link behavior:
+  // - Treat missing splitMode as 'equal' to avoid overcounting legacy multi-links.
+  // - Allocate fixed/percentage first, then distribute the remainder across 'equal' links.
+  const normalizedModes = links.map(l => l.splitMode ?? 'equal');
+
+  const explicitSum = links.reduce((sum, l, idx) => {
+    const mode = normalizedModes[idx];
+    if (mode === 'fixed') return sum + (l.splitValue || 0);
+    if (mode === 'percentage') return sum + (expenseAmount * (l.splitValue || 0)) / 100;
+    return sum;
+  }, 0);
+
+  const equalCount = normalizedModes.filter(mode => mode === 'equal').length;
+  const remainder = Math.max(expenseAmount - explicitSum, 0);
+  const equalShare = equalCount > 0 ? remainder / equalCount : 0;
+
+  const mode = link.splitMode ?? 'equal';
+  switch (mode) {
+    case 'fixed':
       return link.splitValue || 0;
-    }
+    case 'percentage':
+      return (expenseAmount * (link.splitValue || 0)) / 100;
+    case 'equal':
+      return equalShare;
     default:
       return expenseAmount;
   }

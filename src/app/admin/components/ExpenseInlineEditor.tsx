@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Expense, ExpenseType } from '@/app/types';
 import TravelItemSelector from './TravelItemSelector';
 import MultiRouteLinkManager from './MultiRouteLinkManager';
@@ -32,6 +32,7 @@ export default function ExpenseInlineEditor({
   travelLookup,
   tripId
 }: ExpenseInlineEditorProps) {
+  const idPrefix = `expense-inline-${useId().replace(/:/g, '')}`;
   const [formData, setFormData] = useState<Expense>({
     ...expense
   });
@@ -55,6 +56,16 @@ export default function ExpenseInlineEditor({
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
   const disableFinancialFields = isCashSourceExpense || isCashAllocationExpense;
+
+  const dateLabelId = `${idPrefix}-date-label`;
+  const dateInputId = `${idPrefix}-date`;
+  const amountInputId = `${idPrefix}-amount`;
+  const currencySelectId = `${idPrefix}-currency`;
+  const categorySelectId = `${idPrefix}-category`;
+  const countrySelectId = `${idPrefix}-country`;
+  const typeSelectId = `${idPrefix}-type`;
+  const descriptionInputId = `${idPrefix}-description`;
+  const notesInputId = `${idPrefix}-notes`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,11 +119,11 @@ export default function ExpenseInlineEditor({
         {/* Date and Amount */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <span id={dateLabelId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date *
-            </label>
+            </span>
             <AccessibleDatePicker
-              id="expense-inline-date"
+              id={dateInputId}
               value={
                 formData.date instanceof Date
                   ? formData.date
@@ -122,14 +133,16 @@ export default function ExpenseInlineEditor({
               }
               onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
+              aria-labelledby={dateLabelId}
               className="text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={amountInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Amount *
             </label>
             <input
+              id={amountInputId}
               type="number"
               step="0.01"
               value={formData.amount}
@@ -150,11 +163,11 @@ export default function ExpenseInlineEditor({
         {/* Currency and Category */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={currencySelectId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Currency
             </label>
             <AriaSelect
-              id="currency-select"
+              id={currencySelectId}
               value={formData.currency}
               onChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
               className="w-full px-2 py-1 text-sm"
@@ -168,11 +181,11 @@ export default function ExpenseInlineEditor({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={categorySelectId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category *
             </label>
             <AriaSelect
-              id="category-select"
+              id={categorySelectId}
               value={formData.category}
               onChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
               className="w-full px-2 py-1 text-sm"
@@ -186,11 +199,11 @@ export default function ExpenseInlineEditor({
         {/* Country and Expense Type */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={countrySelectId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Country
             </label>
             <AriaSelect
-              id="country-select"
+              id={countrySelectId}
               value={formData.country || ''}
               onChange={(value) => setFormData(prev => ({ ...prev, country: value }))}
               className="w-full px-2 py-1 text-sm"
@@ -199,11 +212,11 @@ export default function ExpenseInlineEditor({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={typeSelectId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
               Type
             </label>
             <AriaSelect
-              id="expense-type-select"
+              id={typeSelectId}
               value={formData.expenseType}
               onChange={(value) => setFormData(prev => ({ ...prev, expenseType: value as ExpenseType }))}
               className="w-full px-2 py-1 text-sm"
@@ -219,10 +232,11 @@ export default function ExpenseInlineEditor({
 
         {/* Description */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={descriptionInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Description
           </label>
           <input
+            id={descriptionInputId}
             type="text"
             value={formData.description || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -233,10 +247,11 @@ export default function ExpenseInlineEditor({
 
         {/* Notes */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={notesInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Notes
           </label>
           <textarea
+            id={notesInputId}
             value={formData.notes || ''}
             onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
             className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
@@ -261,9 +276,9 @@ export default function ExpenseInlineEditor({
 
         {/* Travel Item Selector */}
         <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
             Link to Travel Item
-          </label>
+          </div>
 
           <label className="flex items-center mb-2">
             <input
