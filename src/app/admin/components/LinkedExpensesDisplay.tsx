@@ -1,10 +1,10 @@
 'use client';
 
 import { formatCurrency, formatDate } from '@/app/lib/costUtils';
+import { calculateSplitAmount, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { CostTrackingData } from '@/app/types';
-import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 
 interface LinkedExpensesDisplayProps {
   // New: support multiple items
@@ -42,6 +42,26 @@ export default function LinkedExpensesDisplay({
     targetItems.some(item => item.itemId === link.travelItemId && item.itemType === link.travelItemType)
   );
 
+  const allLinksByExpenseId = new Map<string, typeof relevantLinks>();
+  (expenseLinks || []).forEach(link => {
+    const existing = allLinksByExpenseId.get(link.expenseId);
+    if (existing) {
+      existing.push(link);
+    } else {
+      allLinksByExpenseId.set(link.expenseId, [link]);
+    }
+  });
+
+  const relevantLinksByExpenseId = new Map<string, typeof relevantLinks>();
+  relevantLinks.forEach(link => {
+    const existing = relevantLinksByExpenseId.get(link.expenseId);
+    if (existing) {
+      existing.push(link);
+    } else {
+      relevantLinksByExpenseId.set(link.expenseId, [link]);
+    }
+  });
+
   // Get the linked expenses
   const linkedExpenses = (expenses || [])
     .filter(expense => relevantLinks.some(link => link.expenseId === expense.id))
@@ -65,18 +85,46 @@ export default function LinkedExpensesDisplay({
         💰 Linked Expenses ({linkedExpenses.length})
       </div>
       <div className="space-y-1">
-        {linkedExpenses.map(expense => (
-          <div key={expense.id} className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-            <div className="flex items-center gap-2">
-              <span>{expense.description}</span>
-              
+        {linkedExpenses.map(expense => {
+          const allLinksForExpense = allLinksByExpenseId.get(expense.id) || [];
+          const relevantForExpense = relevantLinksByExpenseId.get(expense.id) || [];
+
+          const allCostLinks = allLinksForExpense.map(link => ({
+            expenseId: link.expenseId,
+            description: link.description ?? link.travelItemName,
+            splitMode: link.splitMode,
+            splitValue: link.splitValue
+          }));
+
+          const allocatedAmount = relevantForExpense.reduce((sum, link) => {
+            const linkAsCost = {
+              expenseId: link.expenseId,
+              description: link.description ?? link.travelItemName,
+              splitMode: link.splitMode,
+              splitValue: link.splitValue
+            };
+            return sum + calculateSplitAmount(expense.amount, linkAsCost, allCostLinks);
+          }, 0);
+
+          const isSplit = allLinksForExpense.length > 1;
+          const showTotalHint = isSplit && Math.abs(allocatedAmount - expense.amount) > 0.0001;
+
+          const amountTitle = showTotalHint
+            ? `${formatCurrency(allocatedAmount, expense.currency)} of ${formatCurrency(expense.amount, expense.currency)}`
+            : undefined;
+
+          return (
+            <div key={expense.id} className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+              <div className="flex items-center gap-2">
+                <span>{expense.description}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span title={amountTitle}>{formatCurrency(allocatedAmount, expense.currency)}</span>
+                <span className="text-gray-500 dark:text-gray-400">{formatDate(expense.date)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span>{formatCurrency(expense.amount, expense.currency)}</span>
-              <span className="text-gray-500 dark:text-gray-400">{formatDate(expense.date)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
