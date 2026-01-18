@@ -216,9 +216,11 @@ export const getMarkerLegendSvgMarkup = (
   tone: MarkerTone,
   size: Partial<MarkerSvgSize> = {}
 ) => {
+  const DEFAULT_LEGEND_WIDTH = 14;
+  const DEFAULT_LEGEND_HEIGHT = 22;
   return getMarkerSvgMarkupWithSize(tone, {
-    width: size.width ?? 14,
-    height: size.height ?? 22,
+    width: size.width ?? DEFAULT_LEGEND_WIDTH,
+    height: size.height ?? DEFAULT_LEGEND_HEIGHT,
   });
 };
 

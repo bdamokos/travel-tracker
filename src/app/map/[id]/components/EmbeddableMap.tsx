@@ -259,11 +259,24 @@ const generateRouteLegendLabel = (
   `;
 };
 
+const LOCATIONS_LEGEND_BASE_ICON_SIZE = { width: 16, height: 24 } as const;
+const LOCATIONS_LEGEND_SUB_ICON_SIZE = { width: 12, height: 18 } as const;
+const LOCATIONS_LEGEND_ITEMS = [
+  { tone: 'past', label: 'Past' },
+  { tone: 'present', label: 'Current' },
+  { tone: 'future', label: 'Future' },
+] as const;
+
 const generateLocationsLegendLabel = (): string => {
-  const baseIcon = getMarkerLegendSvgMarkup('present', { width: 16, height: 24 });
-  const pastIcon = getMarkerLegendSvgMarkup('past', { width: 12, height: 18 });
-  const presentIcon = getMarkerLegendSvgMarkup('present', { width: 12, height: 18 });
-  const futureIcon = getMarkerLegendSvgMarkup('future', { width: 12, height: 18 });
+  const baseIcon = getMarkerLegendSvgMarkup('present', LOCATIONS_LEGEND_BASE_ICON_SIZE);
+  const legendItemsMarkup = LOCATIONS_LEGEND_ITEMS.map(
+    item => `
+      <span style="display: flex; align-items: center; gap: 4px;">
+        ${getMarkerLegendSvgMarkup(item.tone, LOCATIONS_LEGEND_SUB_ICON_SIZE)}
+        <span>${item.label}</span>
+      </span>
+    `
+  ).join('');
 
   return `
     <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -281,9 +294,7 @@ const generateLocationsLegendLabel = (): string => {
         line-height: 1.2;
         opacity: 0.9;
       ">
-        <span style="display: flex; align-items: center; gap: 4px;">${pastIcon}<span>Past</span></span>
-        <span style="display: flex; align-items: center; gap: 4px;">${presentIcon}<span>Current</span></span>
-        <span style="display: flex; align-items: center; gap: 4px;">${futureIcon}<span>Future</span></span>
+        ${legendItemsMarkup}
       </div>
     </div>
   `;
