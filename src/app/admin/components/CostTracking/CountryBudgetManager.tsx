@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { BudgetItem, CountryPeriod, CostTrackingData } from '@/app/types';
 import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 import { calculateInclusiveDays, formatCurrency, formatDate, generateId } from '@/app/lib/costUtils';
@@ -33,6 +34,7 @@ export default function CountryBudgetManager({
   editingPeriodIndex,
   setEditingPeriodIndex,
 }: CountryBudgetManagerProps) {
+  const id = useId();
 
   const addBudgetItem = () => {
     if (!currentBudget.country) {
@@ -186,8 +188,9 @@ export default function CountryBudgetManager({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <label htmlFor={`${id}-budget-notes`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
           <input
+            id={`${id}-budget-notes`}
             type="text"
             value={currentBudget.notes || ''}
             onChange={(e) => setCurrentBudget(prev => ({ ...prev, notes: e.target.value }))}
@@ -316,26 +319,27 @@ export default function CountryBudgetManager({
           </h6>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+              <label htmlFor={`${id}-period-start-date`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
               <AccessibleDatePicker
-                id="period-start-date"
+                id={`${id}-period-start-date`}
                 value={currentPeriod.startDate instanceof Date ? currentPeriod.startDate : (currentPeriod.startDate ? new Date(currentPeriod.startDate) : null)}
                 onChange={(d) => setCurrentPeriod(prev => ({ ...prev, startDate: d || undefined }))}
                 className="w-full"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+              <label htmlFor={`${id}-period-end-date`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
               <AccessibleDatePicker
-                id="period-end-date"
+                id={`${id}-period-end-date`}
                 value={currentPeriod.endDate instanceof Date ? currentPeriod.endDate : (currentPeriod.endDate ? new Date(currentPeriod.endDate) : null)}
                 onChange={(d) => setCurrentPeriod(prev => ({ ...prev, endDate: d || undefined }))}
                 className="w-full"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
+              <label htmlFor={`${id}-period-notes`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
               <input
+                id={`${id}-period-notes`}
                 type="text"
                 value={currentPeriod.notes || ''}
                 onChange={(e) => setCurrentPeriod(prev => ({ ...prev, notes: e.target.value }))}
