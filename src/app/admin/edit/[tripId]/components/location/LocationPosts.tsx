@@ -397,6 +397,7 @@ export default function LocationPosts({
             onChange={(e) => setNewInstagramPost(prev => ({ ...prev, url: e.target.value }))}
             className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
             placeholder="Instagram post URL"
+            aria-label="Instagram post URL"
           />
           <input
             type="text"
@@ -404,6 +405,7 @@ export default function LocationPosts({
             onChange={(e) => setNewInstagramPost(prev => ({ ...prev, caption: e.target.value }))}
             className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
             placeholder="Caption (optional)"
+            aria-label="Instagram caption"
           />
           <button
             onClick={onAddInstagramPost}
@@ -445,6 +447,7 @@ export default function LocationPosts({
             onChange={(e) => setNewTikTokPost(prev => ({ ...prev, caption: e.target.value }))}
             className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
             placeholder="Caption (optional)"
+            aria-label="TikTok caption"
           />
           <button
             onClick={onAddTikTokPost}
@@ -486,6 +489,7 @@ export default function LocationPosts({
             onChange={(e) => setNewBlogPost(prev => ({ ...prev, url: e.target.value }))}
             className="px-2 py-1 border border-gray-300 rounded-sm text-sm"
             placeholder="Blog post URL"
+            aria-label="Blog post URL"
           />
           <div className="flex gap-1">
             <input
@@ -494,6 +498,7 @@ export default function LocationPosts({
               onChange={(e) => setNewBlogPost(prev => ({ ...prev, excerpt: e.target.value }))}
               className="flex-1 px-2 py-1 border border-gray-300 rounded-sm text-sm"
               placeholder="Excerpt (optional)"
+              aria-label="Blog post excerpt"
             />
             <button
               onClick={onAddBlogPost}

@@ -478,7 +478,8 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
                   console.log('DEBUG: Unmapped categories for dropdown:', unmappedCats);
                   return (
                     <AriaSelect
-                      id="ynab-category-select"
+                      id={`${id}-ynab-category-select`}
+                      aria-label="Select from extracted categories"
                       value=""
                       onChange={(value) => setNewMapping(prev => ({ ...prev, ynabCategory: value }))}
                       options={unmappedCats.map(category => ({ value: category, label: category }))}

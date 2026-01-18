@@ -144,12 +144,12 @@ export default function AccommodationInput({
       <div className="flex items-center space-x-2">
         <input
           type="checkbox"
-          id="accommodation-public"
+          id={`${id}-public`}
           checked={isAccommodationPublic}
           onChange={(e) => onPrivacyChange(e.target.checked)}
           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
-        <label htmlFor="accommodation-public" className="text-sm text-gray-700 dark:text-gray-300">
+        <label htmlFor={`${id}-public`} className="text-sm text-gray-700 dark:text-gray-300">
           Make accommodation details public (visible on embeddable maps)
         </label>
       </div>
