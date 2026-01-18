@@ -30,8 +30,17 @@ const eslintConfig = [
       // focus management in dialogs; keep the rule for DOM elements but ignore non-DOM props.
       // Tracking: https://github.com/bdamokos/travel-tracker/issues/224
       "jsx-a11y/no-autofocus": ["warn", { ignoreNonDOM: true }],
+      // Note: jsx-a11y/no-noninteractive-element-interactions is disabled with inline comments
+      // where role="application" is used (e.g., interactive map widgets)
       "jsx-a11y/no-noninteractive-element-interactions": "warn",
-      "jsx-a11y/no-noninteractive-tabindex": "warn",
+      "jsx-a11y/no-noninteractive-tabindex": [
+        "warn",
+        {
+          // Allow tabIndex on elements with role="application" (e.g., interactive map widgets)
+          roles: ["application"],
+          tags: [],
+        },
+      ],
       "jsx-a11y/no-static-element-interactions": "warn",
     },
   },

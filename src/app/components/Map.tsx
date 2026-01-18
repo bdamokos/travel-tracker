@@ -792,6 +792,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         When expanded, a collapse marker is available to return to group view.
       </div>
       <MapStatusAnnouncer id={mapStatusId} announcement={mapAnnouncement} />
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- This div is an interactive application widget with role="application" for custom keyboard map navigation */}
       <div
         ref={mapContainerRef}
         className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
