@@ -17,15 +17,45 @@ interface DistanceByType {
   color: string;
 }
 
+/**
+ * Sums distances between consecutive coordinate points
+ * @param points - Array of [lat, lng] coordinate pairs representing a route path
+ * @returns Total distance in kilometers by summing each segment
+ */
+function calculateDistanceFromPoints(points: [number, number][]): number {
+  if (points.length < 2) return 0;
+
+  return points.reduce((total, point, index) => {
+    if (index === 0) return total;
+    return total + calculateDistance(points[index - 1], point);
+  }, 0);
+}
+
+/**
+ * Calculates the total distance for a single route or multi-segment journey
+ * Handles both simple routes and routes with subRoutes, preferring routePoints over endpoint calculations
+ * @param route - TravelRoute object containing route data including coordinates and optional path points
+ * @returns Total distance in kilometers
+ */
 function getRouteDistance(route: TravelRoute): number {
-  // If the route has sub-routes, sum them up
+  // If route has sub-routes, sum them up
   if (route.subRoutes && route.subRoutes.length > 0) {
     return route.subRoutes.reduce((total, subRoute) => {
+      // Prefer routePoints if available (actual path)
+      if (subRoute.routePoints && subRoute.routePoints.length >= 2) {
+        return total + calculateDistanceFromPoints(subRoute.routePoints);
+      }
+      // Fallback to endpoint calculation
       if (subRoute.fromCoords && subRoute.toCoords) {
         return total + calculateDistance(subRoute.fromCoords, subRoute.toCoords);
       }
       return total;
     }, 0);
+  }
+
+  // Prefer routePoints if available (actual path)
+  if (route.routePoints && route.routePoints.length >= 2) {
+    return calculateDistanceFromPoints(route.routePoints);
   }
 
   // Calculate distance from coordinates
@@ -36,6 +66,11 @@ function getRouteDistance(route: TravelRoute): number {
   return 0;
 }
 
+/**
+ * Formats distance value for display
+ * @param distance - Distance in kilometers
+ * @returns Formatted string with "km" suffix (e.g., "100 km" or "99.9 km")
+ */
 function formatDistance(distance: number): string {
   if (distance >= 100) {
     return Math.round(distance).toLocaleString() + ' km';
@@ -51,15 +86,25 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
       // If route has subRoutes, attribute distance to each subRoute's transport type
       if (route.subRoutes && route.subRoutes.length > 0) {
         route.subRoutes.forEach(subRoute => {
-          if (subRoute.fromCoords && subRoute.toCoords) {
-            const distance = calculateDistance(subRoute.fromCoords, subRoute.toCoords);
-            const type = subRoute.transportType;
-            const existing = byType.get(type) || { distance: 0, count: 0 };
-            byType.set(type, {
-              distance: existing.distance + distance,
-              count: existing.count + 1,
-            });
+          let distance: number;
+          
+          // Prefer routePoints if available (actual path)
+          if (subRoute.routePoints && subRoute.routePoints.length >= 2) {
+            distance = calculateDistanceFromPoints(subRoute.routePoints);
           }
+          // Fallback to endpoint calculation
+          else if (subRoute.fromCoords && subRoute.toCoords) {
+            distance = calculateDistance(subRoute.fromCoords, subRoute.toCoords);
+          } else {
+            return;
+          }
+          
+          const type = subRoute.transportType;
+          const existing = byType.get(type) || { distance: 0, count: 0 };
+          byType.set(type, {
+            distance: existing.distance + distance,
+            count: existing.count + 1,
+          });
         });
       } else {
         // For simple routes, use the route's transport type
