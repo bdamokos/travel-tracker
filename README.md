@@ -30,15 +30,14 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - Instagram post integration
 - Blog post integration
 - Comprehensive travel expense tracking and budget management
+  
+  ![Cost Tracker Overview](./public/screenshots/cost_tracker.png)
 
-![Cost Tracker Overview](./public/screenshots/cost_tracker.png)
+  The cost tracking overview shows your budget status, expenses, and spending summaries at a glance.
 
-The cost tracking overview shows your budget status, expenses, and spending summaries at a glance.
+  ![Cost Tracker Edit](./public/screenshots/cost_tracker_edit.png)
 
-![Cost Tracker Edit](./public/screenshots/cost_tracker_edit.png)
-
-The cost tracker editor provides comprehensive tools for managing budgets, expenses, categories, and YNAB integration.
-
+  The cost tracker editor provides comprehensive tools for managing budgets, expenses, categories, and YNAB integration.
 - YNAB (You Need A Budget) integration for importing financial data
 - **Backup Management System** with restoration capabilities and automated cleanup
 - Responsive design for desktop and mobile
