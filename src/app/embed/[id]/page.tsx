@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { NextRequest } from 'next/server';
-import { getDomainConfig, getMapUrl } from '@/app/lib/domains';
-import { GET as getTravelDataApi } from '@/app/api/travel-data/route';
+import { getMapUrl } from '@/app/lib/domains';
+import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
 import EmbeddableMap from '@/app/map/[id]/components/EmbeddableMap';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
@@ -45,18 +45,30 @@ interface TravelData {
 
 async function getTravelData(id: string): Promise<TravelData | null> {
   try {
-    // Call API route handler directly to avoid network round trip
-    const { embedDomain } = getDomainConfig();
-    const baseUrl = embedDomain || 'http://localhost:3000';
-    const url = new URL(`${baseUrl}/api/travel-data?id=${id}`);
-    const request = new NextRequest(url);
-    const response = await getTravelDataApi(request);
+    const unifiedData = await loadUnifiedTripData(id);
 
-    if (!response.ok) {
+    if (!unifiedData) {
       return null;
     }
 
-    return await response.json();
+    const travelData = {
+      id: unifiedData.id,
+      title: unifiedData.title,
+      description: unifiedData.description,
+      startDate: unifiedData.startDate,
+      endDate: unifiedData.endDate,
+      createdAt: unifiedData.createdAt,
+      instagramUsername: unifiedData.travelData?.instagramUsername,
+      locations: unifiedData.travelData?.locations || [],
+      routes: unifiedData.travelData?.routes || [],
+      days: unifiedData.travelData?.days,
+      accommodations: unifiedData.accommodations || [],
+      publicUpdates: unifiedData.publicUpdates || []
+    };
+
+    const filteredData = filterTravelDataForServer(travelData, null);
+
+    return filteredData as unknown as TravelData;
   } catch (error) {
     console.error('Error fetching travel data:', error);
     return null;
