@@ -42,10 +42,10 @@ describe('DistanceSummary', () => {
     });
 
     it('falls back to endpoint calculation when routePoints not available', () => {
-      const routeWithoutPoints: TravelRoute = {
+      const routeWithoutPoints = {
         ...mockRoute,
-        routePoints: undefined as any
-      };
+        routePoints: undefined
+      } as Partial<TravelRoute> as TravelRoute;
 
       render(<DistanceSummary routes={[routeWithoutPoints]} />);
 
@@ -53,12 +53,12 @@ describe('DistanceSummary', () => {
     });
 
     it('handles routes with no coordinates gracefully', () => {
-      const routeNoCoords: TravelRoute = {
+      const routeNoCoords = {
         ...mockRoute,
-        fromCoords: undefined as any,
-        toCoords: undefined as any,
-        routePoints: undefined as any
-      };
+        fromCoords: undefined,
+        toCoords: undefined,
+        routePoints: undefined
+      } as Partial<TravelRoute> as TravelRoute;
 
       render(<DistanceSummary routes={[routeNoCoords]} />);
 
@@ -170,8 +170,8 @@ describe('DistanceSummary', () => {
           },
           {
             ...routeWithSubRoutes.subRoutes![1],
-            routePoints: undefined as any
-          }
+            routePoints: undefined
+          } as Partial<TravelRoute> as TravelRoute
         ]
       };
 

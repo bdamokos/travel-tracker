@@ -200,8 +200,8 @@ describe('Distance Calculation Fix Verification', () => {
         toCoords: [42.3601, -71.0589],
         transportType: 'train',
         date: new Date('2025-01-15'),
-        routePoints: undefined as any
-      };
+        routePoints: undefined
+      } as Partial<TravelRoute> as TravelRoute;
 
       let distance = 0;
       if (noPointsRoute.routePoints && noPointsRoute.routePoints.length >= 2) {
