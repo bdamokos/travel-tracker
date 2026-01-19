@@ -6,11 +6,11 @@ Use the same trip/location/route payloads as the integration test in `src/app/__
 
 After following these steps, you'll have sample data that looks like this:
 
-![Sample Map View](./public/screenshots/map_view.png)
+![Interactive map displaying travel routes with location markers and transportation paths](./public/screenshots/map_view.png)
 
-![Sample Calendar View](./public/screenshots/calendar_view.png)
+![Calendar view showing London on January 1st and Paris on January 15th, 2024](./public/screenshots/calendar_view.png)
 
-![Sample Cost Tracker](./public/screenshots/cost_tracker.png)
+![Cost tracking overview showing budget of €2,500 and spent €150 with €2,350 remaining](./public/screenshots/cost_tracker.png)
 
 ## Setup Instructions
 
