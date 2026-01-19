@@ -15,19 +15,18 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - Interactive OpenStreetMap display with route visualization
 - Different route styles based on transportation type (air, land, sea)
 - Chronological travel timeline and calendar interface
+  
+  ![Map View](./public/screenshots/map_view.png)
 
-![Map View](./public/screenshots/map_view.png)
+  The interactive map view displays your travel routes with location markers, transportation routes, and detailed trip information.
 
-The interactive map view displays your travel routes with location markers, transportation routes, and detailed trip information.
+  ![Calendar View](./public/screenshots/calendar_view.png)
 
-![Calendar View](./public/screenshots/calendar_view.png)
+  The calendar view provides a chronological overview of your journey, showing locations and activities by date.
 
-The calendar view provides a chronological overview of your journey, showing locations and activities by date.
+  ![Edit Trip](./public/screenshots/edit_trip.png)
 
-![Edit Trip](./public/screenshots/edit_trip.png)
-
-The trip editor allows you to add locations, routes, accommodations, and manage all aspects of your travel data.
-
+  The trip editor allows you to add locations, routes, accommodations, and manage all aspects of your travel data.
 - Instagram post integration
 - Blog post integration
 - Comprehensive travel expense tracking and budget management
