@@ -57,6 +57,7 @@ async function getTravelData(id: string): Promise<TravelData | null> {
       description: unifiedData.description,
       startDate: unifiedData.startDate,
       endDate: unifiedData.endDate,
+      createdAt: unifiedData.createdAt,
       instagramUsername: unifiedData.travelData?.instagramUsername,
       locations: unifiedData.travelData?.locations || [],
       routes: unifiedData.travelData?.routes || [],
