@@ -17,15 +17,26 @@ interface DistanceByType {
   color: string;
 }
 
+/**
+ * Sums distances between consecutive coordinate points
+ * @param points - Array of [lat, lng] coordinate pairs representing a route path
+ * @returns Total distance in kilometers by summing each segment
+ */
 function calculateDistanceFromPoints(points: [number, number][]): number {
   if (points.length < 2) return 0;
-  
+
   return points.reduce((total, point, index) => {
     if (index === 0) return total;
     return total + calculateDistance(points[index - 1], point);
   }, 0);
 }
 
+/**
+ * Calculates the total distance for a single route or multi-segment journey
+ * Handles both simple routes and routes with subRoutes, preferring routePoints over endpoint calculations
+ * @param route - TravelRoute object containing route data including coordinates and optional path points
+ * @returns Total distance in kilometers
+ */
 function getRouteDistance(route: TravelRoute): number {
   // If route has sub-routes, sum them up
   if (route.subRoutes && route.subRoutes.length > 0) {
@@ -55,6 +66,11 @@ function getRouteDistance(route: TravelRoute): number {
   return 0;
 }
 
+/**
+ * Formats distance value for display
+ * @param distance - Distance in kilometers
+ * @returns Formatted string with "km" suffix (e.g., "100 km" or "99.9 km")
+ */
 function formatDistance(distance: number): string {
   if (distance >= 100) {
     return Math.round(distance).toLocaleString() + ' km';
