@@ -2,6 +2,16 @@
 
 Use the same trip/location/route payloads as the integration test in `src/app/__tests__/integration/map-functionality.test.ts` to seed a server with realistic map data. The workflow mirrors the test pyramid (create trip → add locations → add route points).
 
+## Example Output
+
+After following these steps, you'll have sample data that looks like this:
+
+![Sample Map View](./public/screenshots/map_view.png)
+
+![Sample Calendar View](./public/screenshots/calendar_view.png)
+
+![Sample Cost Tracker](./public/screenshots/cost_tracker.png)
+
 ## Setup Instructions
 
 1. **Start the app** (admin or embed is fine) and export the variables used below:
