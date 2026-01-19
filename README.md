@@ -1,8 +1,12 @@
 # Travel Tracker
 
-![Travel Tracker](./public/screenshots/embeddable_map.png)
+![Embeddable map view showing travel routes between London and Paris with location markers](./public/screenshots/embeddable_map.png)
 
 A web application that visualizes travel journeys on an OpenStreetMap (OSM) interface, allowing users to trace their routes through various transportation methods while displaying chronological travel notes, Instagram posts, and blog content alongside the map.
+
+![Admin dashboard showing trips list with Edit, Shadow, Map, and Calendar buttons](./public/screenshots/admin_overview.png)
+
+The admin interface provides a comprehensive dashboard for managing your travel data, including trips, cost tracking, and backups.
 
 Furthermore, it includes a private cost tracking feature that allows users to track their expenses and budgets.
 
@@ -11,17 +15,33 @@ Furthermore, it includes a private cost tracking feature that allows users to tr
 - Interactive OpenStreetMap display with route visualization
 - Different route styles based on transportation type (air, land, sea)
 - Chronological travel timeline and calendar interface
+  
+  ![Interactive map displaying travel routes with location markers and transportation paths](./public/screenshots/map_view.png)
 
+  The interactive map view displays your travel routes with location markers, transportation routes, and detailed trip information.
+
+  ![Calendar view showing London on January 1st and Paris on January 15th, 2024](./public/screenshots/calendar_view.png)
+
+  The calendar view provides a chronological overview of your journey, showing locations and activities by date.
+
+  ![Trip editor interface showing London and Paris locations with route details](./public/screenshots/edit_trip.png)
+
+  The trip editor allows you to add locations, routes, accommodations, and manage all aspects of your travel data.
 - Instagram post integration
 - Blog post integration
 - Comprehensive travel expense tracking and budget management
+  
+  ![Cost tracking overview showing budget of €2,500 and spent €150 with €2,350 remaining](./public/screenshots/cost_tracker.png)
+
+  The cost tracking overview shows your budget status, expenses, and spending summaries at a glance.
+
+  ![Cost tracker editor with budget setup, expense categories, and YNAB integration sections](./public/screenshots/cost_tracker_edit.png)
+
+  The cost tracker editor provides comprehensive tools for managing budgets, expenses, categories, and YNAB integration.
 - YNAB (You Need A Budget) integration for importing financial data
 - **Backup Management System** with restoration capabilities and automated cleanup
 - Responsive design for desktop and mobile
 - Server-side data storage
-
-![Travel Tracker Screenshot](./public/screenshots/admin_overview.png)
-![Travel Tracker Screenshot](./public/screenshots/cost_tracker.png)
 
 ## Technologies Used
 
