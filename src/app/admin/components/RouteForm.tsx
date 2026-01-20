@@ -8,6 +8,10 @@ import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
 import AccessibleDatePicker from './AccessibleDatePicker';
 
+/**
+ * Generates a unique identifier using timestamp and random string.
+ * @returns A unique string identifier.
+ */
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
@@ -36,6 +40,14 @@ export default function RouteForm({
   const [validationError, setValidationError] = useState<string>('');
   const [geocodingInProgress, setGeocodingInProgress] = useState<Record<string, boolean>>({});
 
+  /**
+   * Geocodes a location name for a sub-route segment.
+   * First checks locationOptions for existing coordinates, otherwise calls the geocoding API.
+   * @param locationName - The name of the location to geocode
+   * @param segmentId - The ID of the segment being geocoded (for loading state tracking)
+   * @param field - Whether this is the 'from' or 'to' location
+   * @returns The coordinates [longitude, latitude] or null if geocoding fails
+   */
   const geocodeSegmentLocation = async (
     locationName: string,
     segmentId: string,
@@ -60,7 +72,13 @@ export default function RouteForm({
     }
   };
 
-  // React 19 Action for adding/updating routes
+  /**
+   * React 19 Action for adding/updating routes.
+   * Validates route data, geocodes locations if needed, and calls onRouteAdded.
+   * Supports both single routes and multi-segment routes (subRoutes).
+   * @param formData - The form data containing route information
+   * @throws Error if validation fails (missing required fields, from/to are same, segments not connected)
+   */
   async function submitRouteAction(formData: FormData) {
     setValidationError('');
     const data = Object.fromEntries(formData);
@@ -181,6 +199,10 @@ export default function RouteForm({
     resetForm();
   }
 
+  /**
+   * Resets the form to its default empty state.
+   * Clears all route fields including subRoutes and exits edit mode.
+   */
   function resetForm() {
     setCurrentRoute({
       transportType: 'plane',
@@ -203,6 +225,11 @@ export default function RouteForm({
     }
   }
 
+  /**
+   * Adds a new sub-route segment to the current route.
+   * The new segment starts from the previous segment's destination (or route from)
+   * and goes to the route's destination. Geocodes locations if coordinates are missing.
+   */
   const addSubRoute = async () => {
     const existingSubRoutes = currentRoute.subRoutes || [];
     const lastSegment = existingSubRoutes[existingSubRoutes.length - 1];
@@ -246,15 +273,56 @@ export default function RouteForm({
     }));
   };
 
-  const updateSubRoute = (index: number, updates: Partial<TravelRouteSegment>) => {
+  /**
+   * Updates a sub-route segment at the specified index.
+   * If the 'from' or 'to' locations are changed, attempts to geocode the new location names
+   * to get coordinates. Falls back to locationOptions lookup and defaults to [0, 0] if geocoding fails.
+   * @param index - The index of the segment to update
+   * @param updates - Partial updates to apply to the segment
+   */
+  const updateSubRoute = async (index: number, updates: Partial<TravelRouteSegment>) => {
     const subRoutes = [...(currentRoute.subRoutes || [])];
-    subRoutes[index] = { ...subRoutes[index], ...updates } as TravelRouteSegment;
+    const segment = { ...subRoutes[index], ...updates } as TravelRouteSegment;
+
+    // Geocode 'from' location if it changed and needs coordinates
+    if ('from' in updates && updates.from) {
+      const fromLocation = locationOptions.find(loc => loc.name === updates.from);
+      if (fromLocation) {
+        segment.fromCoords = fromLocation.coordinates;
+      } else if (onGeocode) {
+        try {
+          segment.fromCoords = await onGeocode(updates.from);
+        } catch {
+          segment.fromCoords = [0, 0];
+        }
+      }
+    }
+
+    // Geocode 'to' location if it changed and needs coordinates
+    if ('to' in updates && updates.to) {
+      const toLocation = locationOptions.find(loc => loc.name === updates.to);
+      if (toLocation) {
+        segment.toCoords = toLocation.coordinates;
+      } else if (onGeocode) {
+        try {
+          segment.toCoords = await onGeocode(updates.to);
+        } catch {
+          segment.toCoords = [0, 0];
+        }
+      }
+    }
+
+    subRoutes[index] = segment;
     setCurrentRoute(prev => ({
       ...prev,
       subRoutes
     }));
   };
 
+  /**
+   * Removes a sub-route segment at the specified index.
+   * @param index - The index of the segment to remove
+   */
   const removeSubRoute = (index: number) => {
     const subRoutes = currentRoute.subRoutes?.filter((_, i) => i !== index);
     setCurrentRoute(prev => ({
@@ -263,6 +331,11 @@ export default function RouteForm({
     }));
   };
 
+  /**
+   * Moves a sub-route segment up or down in the segment order.
+   * @param index - The index of the segment to move
+   * @param direction - -1 to move up, 1 to move down
+   */
   const moveSubRoute = (index: number, direction: -1 | 1) => {
     const subRoutes = [...(currentRoute.subRoutes || [])];
     const targetIndex = index + direction;
