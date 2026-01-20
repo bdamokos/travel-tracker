@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels } from '@/app/lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
@@ -10,16 +10,24 @@ import AccessibleDatePicker from './AccessibleDatePicker';
 
 /**
  * Creates a debounced version of a function that delays execution until after wait milliseconds
- * have elapsed since the last call.
+ * have elapsed since the last call. Returns an object with the debounced function and a cleanup method.
  */
 function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
+): { fn: (...args: Parameters<T>) => void; cancel: () => void } {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
+  return {
+    fn: (...args: Parameters<T>) => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    },
+    cancel: () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+    }
   };
 }
 
@@ -55,9 +63,24 @@ export default function RouteForm({
   const [validationError, setValidationError] = useState<string>('');
   const [geocodingInProgress, setGeocodingInProgress] = useState<Record<string, boolean>>({});
 
+  // Ref to track current subRoutes for updateSubRoute to avoid stale closure
+  // and prevent useCallback from being recreated on every subRoutes change
+  const subRoutesRef = useRef(currentRoute.subRoutes);
+  useEffect(() => {
+    subRoutesRef.current = currentRoute.subRoutes;
+  }, [currentRoute.subRoutes]);
+
   // Refs to track debounced geocoding functions for each segment
   type GeocodeFn = (locationName: string, field: 'from' | 'to') => Promise<void>;
-  const geocodingDebouncersRef = useRef<Record<string, ReturnType<typeof debounce<GeocodeFn>>>>({});
+  type Debouncer = ReturnType<typeof debounce<GeocodeFn>>;
+  const geocodingDebouncersRef = useRef<Record<string, Debouncer>>({});
+
+  // Cleanup all debounced functions on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(geocodingDebouncersRef.current).forEach(debouncer => debouncer.cancel());
+    };
+  }, []);
 
   /**
    * Geocodes a location name for a sub-route segment.
@@ -302,31 +325,35 @@ export default function RouteForm({
    * @param updates - Partial updates to apply to the segment
    */
   const updateSubRoute = useCallback((index: number, updates: Partial<TravelRouteSegment>) => {
-    // Capture the segment ID before any state updates
-    const currentSubRoutes = currentRoute.subRoutes || [];
-    const segmentId = currentSubRoutes[index]?.id;
+    // Capture the segment ID before any state updates - guard against undefined segment
+    // Using ref to avoid stale closure and prevent useCallback recreation on every subRoutes change
+    const currentSubRoutes = subRoutesRef.current || [];
+    const segment = currentSubRoutes[index];
+    if (!segment) return; // Guard: invalid index
+    const segmentId = segment.id;
 
     setCurrentRoute(prev => {
       const subRoutes = [...(prev.subRoutes || [])];
-      const segment = { ...subRoutes[index], ...updates } as TravelRouteSegment;
+      const updatedSegment = { ...subRoutes[index], ...updates } as TravelRouteSegment;
 
       // Update the state immediately for UI responsiveness
-      subRoutes[index] = segment;
+      subRoutes[index] = updatedSegment;
       return {
         ...prev,
         subRoutes
       };
     });
 
-    // Helper function to geocode a location and update the segment
+    // Helper function to geocode a location and update the segment by ID only
+    // This avoids stale closure issues if segments are reordered
     const geocodeAndUpdate = async (locationName: string, field: 'from' | 'to') => {
       const location = locationOptions.find(loc => loc.name === locationName);
       if (location) {
-        // Update with existing coordinates
+        // Update with existing coordinates - use ID-only matching
         setCurrentRoute(prev => ({
           ...prev,
-          subRoutes: prev.subRoutes?.map((s, i) =>
-            i === index && s.id === segmentId
+          subRoutes: prev.subRoutes?.map((s) =>
+            s.id === segmentId
               ? { ...s, [`${field}Coords`]: location.coordinates }
               : s
           )
@@ -337,8 +364,8 @@ export default function RouteForm({
           const coords = await onGeocode(locationName);
           setCurrentRoute(prev => ({
             ...prev,
-            subRoutes: prev.subRoutes?.map((s, i) =>
-              i === index && s.id === segmentId
+            subRoutes: prev.subRoutes?.map((s) =>
+              s.id === segmentId
                 ? { ...s, [`${field}Coords`]: coords }
                 : s
             )
@@ -346,8 +373,8 @@ export default function RouteForm({
         } catch {
           setCurrentRoute(prev => ({
             ...prev,
-            subRoutes: prev.subRoutes?.map((s, i) =>
-              i === index && s.id === segmentId
+            subRoutes: prev.subRoutes?.map((s) =>
+              s.id === segmentId
                 ? { ...s, [`${field}Coords`]: [0, 0] }
                 : s
             )
@@ -364,7 +391,7 @@ export default function RouteForm({
       if (!geocodingDebouncersRef.current[debouncerKey]) {
         geocodingDebouncersRef.current[debouncerKey] = debounce(geocodeAndUpdate, 800);
       }
-      geocodingDebouncersRef.current[debouncerKey](updates.from, 'from');
+      geocodingDebouncersRef.current[debouncerKey].fn(updates.from, 'from');
     }
 
     // Geocode 'to' location if it changed (debounced)
@@ -373,9 +400,9 @@ export default function RouteForm({
       if (!geocodingDebouncersRef.current[debouncerKey]) {
         geocodingDebouncersRef.current[debouncerKey] = debounce(geocodeAndUpdate, 800);
       }
-      geocodingDebouncersRef.current[debouncerKey](updates.to, 'to');
+      geocodingDebouncersRef.current[debouncerKey].fn(updates.to, 'to');
     }
-  }, [currentRoute.subRoutes, locationOptions, onGeocode, setCurrentRoute]);
+  }, [locationOptions, onGeocode, setCurrentRoute]);
 
   /**
    * Removes a sub-route segment at the specified index.
