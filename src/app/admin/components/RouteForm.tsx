@@ -34,6 +34,31 @@ export default function RouteForm({
   onGeocode
 }: RouteFormProps) {
   const [validationError, setValidationError] = useState<string>('');
+  const [geocodingInProgress, setGeocodingInProgress] = useState<Record<string, boolean>>({});
+
+  const geocodeSegmentLocation = async (
+    locationName: string,
+    segmentId: string,
+    field: 'from' | 'to'
+  ): Promise<[number, number] | null> => {
+    if (!onGeocode) return null;
+
+    const location = locationOptions.find(loc => loc.name === locationName);
+    if (location) {
+      return location.coordinates;
+    }
+
+    try {
+      setGeocodingInProgress(prev => ({ ...prev, [`${segmentId}-${field}`]: true }));
+      const coords = await onGeocode(locationName);
+      setGeocodingInProgress(prev => ({ ...prev, [`${segmentId}-${field}`]: false }));
+      return coords;
+    } catch (error) {
+      console.warn(`Failed to geocode ${field} location for segment ${segmentId}:`, error);
+      setGeocodingInProgress(prev => ({ ...prev, [`${segmentId}-${field}`]: false }));
+      return null;
+    }
+  };
 
   // React 19 Action for adding/updating routes
   async function submitRouteAction(formData: FormData) {
@@ -178,16 +203,29 @@ export default function RouteForm({
     }
   }
 
-  const addSubRoute = () => {
+  const addSubRoute = async () => {
     const existingSubRoutes = currentRoute.subRoutes || [];
     const lastSegment = existingSubRoutes[existingSubRoutes.length - 1];
     const fromName = lastSegment?.to || currentRoute.from || '';
     const toName = currentRoute.to || lastSegment?.to || '';
-    const fromCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates || currentRoute.fromCoords;
-    const toCoords = locationOptions.find(loc => loc.name === toName)?.coordinates || currentRoute.toCoords;
+    
+    let fromCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates || currentRoute.fromCoords;
+    let toCoords = locationOptions.find(loc => loc.name === toName)?.coordinates || currentRoute.toCoords;
 
+    const newSegmentId = generateId();
+
+    if (!fromCoords || fromCoords[0] === 0 && fromCoords[1] === 0) {
+      const geocoded = await geocodeSegmentLocation(fromName, newSegmentId, 'from');
+      if (geocoded) fromCoords = geocoded;
+    }
+    
+    if (!toCoords || toCoords[0] === 0 && toCoords[1] === 0) {
+      const geocoded = await geocodeSegmentLocation(toName, newSegmentId, 'to');
+      if (geocoded) toCoords = geocoded;
+    }
+    
     const newSegment: TravelRouteSegment = {
-      id: generateId(),
+      id: newSegmentId,
       from: fromName,
       to: toName,
       fromCoords: fromCoords || [0, 0],
@@ -201,7 +239,7 @@ export default function RouteForm({
       useManualRoutePoints: false,
       isReturn: false
     };
-
+    
     setCurrentRoute(prev => ({
       ...prev,
       subRoutes: [...existingSubRoutes, newSegment]
@@ -468,6 +506,26 @@ export default function RouteForm({
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span id={`sub-route-date-label-${segment.id}`} className="block text-xs font-medium text-gray-700 mb-1">
+                        Date *
+                      </span>
+                      <AccessibleDatePicker
+                        id={`sub-route-date-${segment.id}`}
+                        value={segment.date instanceof Date ? segment.date : (segment.date ? new Date(segment.date) : null)}
+                        onChange={(d) => d && updateSubRoute(index, { date: d })}
+                        required
+                        aria-labelledby={`sub-route-date-label-${segment.id}`}
+                        className="text-sm"
+                      />
+                      {geocodingInProgress[`${segment.id}-date`] && (
+                        <span className="text-xs text-blue-600 ml-2">Loading...</span>
+                      )}
+                    </div>
+                    <div />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     <div>
                       <label htmlFor={`sub-route-from-${segment.id}`} className="block text-xs font-medium text-gray-700 mb-1">
@@ -483,6 +541,9 @@ export default function RouteForm({
                         required
                         allowsCustomValue={true}
                       />
+                      {geocodingInProgress[`${segment.id}-from`] && (
+                        <span className="text-xs text-blue-600 ml-2">Loading...</span>
+                      )}
                     </div>
                     <div>
                       <label htmlFor={`sub-route-to-${segment.id}`} className="block text-xs font-medium text-gray-700 mb-1">
@@ -498,6 +559,9 @@ export default function RouteForm({
                         required
                         allowsCustomValue={true}
                       />
+                      {geocodingInProgress[`${segment.id}-to`] && (
+                        <span className="text-xs text-blue-600 ml-2">Loading...</span>
+                      )}
                     </div>
                   </div>
 
