@@ -389,13 +389,14 @@ export function useTripEditor(tripId: string | null) {
   };
 
   const handleRouteAdded = async (newRoute: TravelRoute) => {
-    // Auto-create missing locations for route endpoints
+    // Auto-create missing locations for route endpoints only (not intermediate waypoints)
     const updatedLocations = [...travelData.locations];
     const endpointCandidates = newRoute.subRoutes?.length
-      ? newRoute.subRoutes.flatMap(segment => ([
-          { name: segment.from, coords: segment.fromCoords, date: segment.date },
-          { name: segment.to, coords: segment.toCoords, date: segment.date }
-        ]))
+      ? [
+          // Only the first segment's from (route start) and last segment's to (route end)
+          { name: newRoute.subRoutes[0].from, coords: newRoute.subRoutes[0].fromCoords, date: newRoute.subRoutes[0].date },
+          { name: newRoute.subRoutes[newRoute.subRoutes.length - 1].to, coords: newRoute.subRoutes[newRoute.subRoutes.length - 1].toCoords, date: newRoute.subRoutes[newRoute.subRoutes.length - 1].date }
+        ]
       : [
           { name: newRoute.from, coords: newRoute.fromCoords, date: newRoute.date },
           { name: newRoute.to, coords: newRoute.toCoords, date: newRoute.date }
