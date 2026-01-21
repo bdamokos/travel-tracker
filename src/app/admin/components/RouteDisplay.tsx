@@ -52,19 +52,29 @@ export default function RouteDisplay({
   const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
   const hasManualSegments = route.subRoutes?.some(segment => segment.useManualRoutePoints) || false;
 
+  // For multisegment routes, derive emoji from the segments
+  const getMultiSegmentEmoji = () => {
+    if (!hasSubRoutes) return getTransportIcon(route.transportType);
+    return route.subRoutes!.map(segment => getTransportIcon(segment.transportType)).join('');
+  };
+
   return (
     <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{getTransportIcon(route.transportType)}</span>
+            <span className="text-lg">{getMultiSegmentEmoji()}</span>
             <h4 className="font-semibold text-gray-900 dark:text-white">
               {route.from} {route.isReturn ? '⇆' : '→'} {route.to}
             </h4>
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            <span>{transportationLabels[route.transportType]}</span>
+            {hasSubRoutes ? (
+              <span>Multisegment</span>
+            ) : (
+              <span>{transportationLabels[route.transportType]}</span>
+            )}
             <span className="mx-2">•</span>
             <span>{formatDate(route.date)}</span>
             {route.duration && (

@@ -312,7 +312,7 @@ interface TransportationItemProps {
 }
 
 const TransportationItem: React.FC<TransportationItemProps> = ({ transportation, travelLookup, costData }) => {
-  const { type, from, to, distance, departureTime, arrivalTime, id } = transportation;
+  const { type, from, to, distance, departureTime, arrivalTime, id, subRoutes } = transportation;
   const [totalLinkedCost, setTotalLinkedCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -323,7 +323,7 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
       setTotalLinkedCost(total);
     }
   }, [travelLookup, costData, id]);
-  
+
   const getTransportIcon = (type: Transportation['type']) => {
     switch (type) {
       case 'walk':
@@ -351,15 +351,28 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
         return '🚀';
     }
   };
-  
+
+  const hasSubRoutes = (subRoutes?.length || 0) > 0;
+
+  // For multisegment routes, derive emoji from the segments
+  const getTransportEmoji = () => {
+    if (!hasSubRoutes) return getTransportIcon(type);
+    return subRoutes!.map(segment => getTransportIcon(segment.type)).join('');
+  };
+
+  const getTransportTypeLabel = () => {
+    if (hasSubRoutes) return 'Multisegment';
+    return type;
+  };
+
   return (
     <div className="flex items-start">
       <div className="shrink-0 mt-1 text-xl" style={{ color: transportationColors[type] }}>
-        {getTransportIcon(type)}
+        {getTransportEmoji()}
       </div>
       <div className="ml-2">
         <div className="font-medium capitalize text-gray-900 dark:text-white">
-          {type} from {from} to {to}
+          {getTransportTypeLabel()} from {from} to {to}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
           {departureTime && arrivalTime ? (
