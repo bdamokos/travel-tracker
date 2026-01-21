@@ -172,6 +172,7 @@ export default function RouteForm({
         privateNotes: data.privateNotes as string || '',
         useManualRoutePoints: false,
         isReturn: data.isReturn === 'on',
+        doubleDistance: data.doubleDistance === 'on',
         costTrackingLinks: currentRoute.costTrackingLinks || [],
         subRoutes: currentRoute.subRoutes
       };
@@ -219,6 +220,7 @@ export default function RouteForm({
       privateNotes: data.privateNotes as string || '',
       useManualRoutePoints: false,
       isReturn: data.isReturn === 'on',
+      doubleDistance: data.doubleDistance === 'on',
       costTrackingLinks: currentRoute.costTrackingLinks || []
     };
 
@@ -260,6 +262,7 @@ export default function RouteForm({
       costTrackingLinks: [],
       useManualRoutePoints: false,
       isReturn: false,
+      doubleDistance: false,
       subRoutes: undefined
     });
 
@@ -307,7 +310,8 @@ export default function RouteForm({
       privateNotes: '',
       costTrackingLinks: [],
       useManualRoutePoints: false,
-      isReturn: false
+      isReturn: false,
+      doubleDistance: false
     };
     
     setCurrentRoute(prev => ({
@@ -582,6 +586,21 @@ export default function RouteForm({
           </label>
         </div>
 
+        {!hasSubRoutes && (
+          <div className="flex items-center">
+            <input
+              id="route-double-distance"
+              name="doubleDistance"
+              type="checkbox"
+              defaultChecked={currentRoute.doubleDistance}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="route-double-distance" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+              Count distance twice (for return trips)
+            </label>
+          </div>
+        )}
+
         {/* Sub-routes */}
         <div className="md:col-span-2 border border-blue-200 bg-blue-50 rounded p-3 space-y-3">
           <div className="flex items-center justify-between">
@@ -736,6 +755,19 @@ export default function RouteForm({
                     </label>
                   </div>
 
+                  <div className="flex items-center mt-2">
+                    <input
+                      id={`sub-route-double-distance-${segment.id}`}
+                      type="checkbox"
+                      checked={segment.doubleDistance || false}
+                      onChange={(e) => updateSubRoute(index, { doubleDistance: e.target.checked })}
+                      className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor={`sub-route-double-distance-${segment.id}`} className="ml-2 block text-xs text-gray-700">
+                      Count distance twice (for return trips)
+                    </label>
+                  </div>
+
                   <div className="mt-2">
                     <label htmlFor={`sub-route-notes-${segment.id}`} className="block text-xs font-medium text-gray-700 mb-1">
                       Public Notes
@@ -845,6 +877,7 @@ export default function RouteForm({
                   costTrackingLinks: [],
                   useManualRoutePoints: false,
                   isReturn: false,
+                  doubleDistance: false,
                   subRoutes: undefined
                 });
               }}

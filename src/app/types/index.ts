@@ -117,6 +117,8 @@ export interface TravelRouteSegment {
   useManualRoutePoints?: boolean;
   // When true, this is a return route
   isReturn?: boolean;
+  // When true, count the distance twice (for return trips)
+  doubleDistance?: boolean;
   // Shadow planning flag (admin only) - indicates if this is editable in shadow mode
   isReadOnly?: boolean;
 }

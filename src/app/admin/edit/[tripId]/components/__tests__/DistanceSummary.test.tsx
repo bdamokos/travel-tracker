@@ -351,4 +351,146 @@ describe('DistanceSummary', () => {
       expect(screen.getByText(/2 routes/)).toBeInTheDocument();
     });
   });
+
+  describe('Double Distance Feature', () => {
+    it('doubles the distance for a simple route when doubleDistance is true', () => {
+      const route: TravelRoute = {
+        ...mockRoute,
+        doubleDistance: true,
+        routePoints: [
+          [40.7128, -74.0060],
+          [45.0, -60.0],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      const { container } = render(<DistanceSummary routes={[route]} />);
+
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // Check that the displayed distance is doubled by looking at the total distance element
+      // The total distance should be significantly larger than the non-doubled version
+      // (which would be about 5,570 km for this route)
+      const totalDistanceEl = container.querySelector('.text-2xl.font-bold.text-blue-600');
+      const distanceText = totalDistanceEl?.textContent || '';
+      const distanceValue = parseFloat(distanceText.replace(/,/g, '').replace(' km', '') || '0');
+      expect(distanceValue).toBeGreaterThan(10000); // Should be significantly larger than non-doubled distance (~5,570 km)
+      expect(distanceValue).toBeLessThan(15000);
+    });
+
+    it('does not double the distance when doubleDistance is false or undefined', () => {
+      const route1: TravelRoute = {
+        ...mockRoute,
+        doubleDistance: false,
+        routePoints: [
+          [40.7128, -74.0060],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      const { container: container1, unmount: unmount1 } = render(<DistanceSummary routes={[route1]} />);
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // When doubleDistance is false, the distance should not be doubled
+      const totalDistanceEl1 = container1.querySelector('.text-2xl.font-bold.text-blue-600');
+      const distanceText1 = totalDistanceEl1?.textContent || '';
+      const distanceValue1 = parseFloat(distanceText1.replace(/,/g, '').replace(' km', '') || '0');
+      expect(distanceValue1).toBeGreaterThan(0);
+      expect(distanceValue1).toBeLessThan(10000); // Should not be doubled
+      unmount1();
+
+      // Test undefined case
+      const route2: TravelRoute = {
+        ...mockRoute,
+        doubleDistance: undefined,
+        routePoints: [
+          [40.7128, -74.0060],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      const { container: container2 } = render(<DistanceSummary routes={[route2]} />);
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // When doubleDistance is undefined, the distance should also not be doubled
+      const totalDistanceEl2 = container2.querySelector('.text-2xl.font-bold.text-blue-600');
+      const distanceText2 = totalDistanceEl2?.textContent || '';
+      const distanceValue2 = parseFloat(distanceText2.replace(/,/g, '').replace(' km', '') || '0');
+      expect(distanceValue2).toBeGreaterThan(0);
+      expect(distanceValue2).toBeLessThan(10000);
+    });
+
+    it('doubles the distance for sub-routes when doubleDistance is true on the segment', () => {
+      const routeWithSubRoutes: TravelRoute = {
+        id: 'route-double',
+        from: 'New York',
+        to: 'Paris',
+        fromCoords: [40.7128, -74.0060],
+        toCoords: [48.8566, 2.3522],
+        transportType: 'other',
+        date: new Date('2025-01-15'),
+        subRoutes: [
+          {
+            id: 'sub-1',
+            from: 'New York',
+            to: 'London',
+            fromCoords: [40.7128, -74.0060],
+            toCoords: [51.5074, -0.1278],
+            transportType: 'plane',
+            date: new Date('2025-01-15'),
+            doubleDistance: true
+          },
+          {
+            id: 'sub-2',
+            from: 'London',
+            to: 'Paris',
+            fromCoords: [51.5074, -0.1278],
+            toCoords: [48.8566, 2.3522],
+            transportType: 'train',
+            date: new Date('2025-01-16'),
+            doubleDistance: false
+          }
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithSubRoutes]} />);
+
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // The distance should include both plane and train breakdowns
+      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
+      expect(screen.getByText(/Airplane/i)).toBeInTheDocument();
+      expect(screen.getByText(/Train/i)).toBeInTheDocument();
+    });
+
+    it('correctly aggregates by transport type with double distances', () => {
+      const routes: TravelRoute[] = [
+        {
+          ...mockRoute,
+          id: 'route-1',
+          transportType: 'plane',
+          doubleDistance: true,
+          routePoints: [
+            [40.7128, -74.0060],
+            [51.5074, -0.1278]
+          ]
+        },
+        {
+          ...mockRoute,
+          id: 'route-2',
+          from: 'London',
+          to: 'Paris',
+          fromCoords: [51.5074, -0.1278],
+          toCoords: [48.8566, 2.3522],
+          transportType: 'train',
+          doubleDistance: false,
+          routePoints: [
+            [51.5074, -0.1278],
+            [48.8566, 2.3522]
+          ]
+        }
+      ];
+
+      render(<DistanceSummary routes={routes} />);
+
+      expect(screen.getByText(/Total distance across 2 routes/)).toBeInTheDocument();
+      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
+    });
+  });
 });
