@@ -226,9 +226,9 @@ describe('DistanceSummary', () => {
       render(<DistanceSummary routes={routes} />);
 
       expect(screen.getByText(/Total distance across 3 routes/)).toBeInTheDocument();
-      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
-      expect(screen.getByText(/Airplane/i)).toBeInTheDocument();
-      expect(screen.getByText(/Train/i)).toBeInTheDocument();
+      expect(screen.getByText(/By transportation type \(all routes\):/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Airplane/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Train/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -301,7 +301,7 @@ describe('DistanceSummary', () => {
       render(<DistanceSummary routes={[ferryRoute]} />);
 
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
-      expect(screen.getByText(/ferry/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/ferry/i).length).toBeGreaterThan(0);
     });
 
     it('handles complex multi-segment journey', () => {
@@ -435,9 +435,9 @@ describe('DistanceSummary', () => {
 
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
       // The distance should include both plane and train breakdowns
-      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
-      expect(screen.getByText(/Airplane/i)).toBeInTheDocument();
-      expect(screen.getByText(/Train/i)).toBeInTheDocument();
+      expect(screen.getByText(/By transportation type \(all routes\):/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Airplane/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Train/i).length).toBeGreaterThan(0);
     });
 
     it('correctly aggregates by transport type with double distances', () => {
@@ -471,7 +471,7 @@ describe('DistanceSummary', () => {
       render(<DistanceSummary routes={routes} />);
 
       expect(screen.getByText(/Total distance across 2 routes/)).toBeInTheDocument();
-      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
+      expect(screen.getByText(/By transportation type \(all routes\):/)).toBeInTheDocument();
     });
   });
 });
