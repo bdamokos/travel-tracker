@@ -340,9 +340,13 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
   const transportTypeLabel = hasSubRoutes ? 'Multisegment' : type;
 
   // For multisegment routes, use the color of the first segment, otherwise use parent type color
-  const displayColor = hasSubRoutes && subRoutes && subRoutes[0]
-    ? transportationColors[subRoutes[0].type]
-    : transportationColors[type];
+  // TransportationSegment has 'type' property (not 'transportType')
+  const firstSegmentType = hasSubRoutes && subRoutes && subRoutes[0]
+    ? subRoutes[0].type
+    : 'other';
+  const displayColor = hasSubRoutes && subRoutes
+    ? transportationColors[firstSegmentType] ?? transportationColors.other
+    : transportationColors[type] ?? transportationColors.other;
 
   return (
     <div className="flex items-start">
