@@ -586,18 +586,20 @@ export default function RouteForm({
           </label>
         </div>
 
-        <div className="flex items-center">
-          <input
-            id="route-double-distance"
-            name="doubleDistance"
-            type="checkbox"
-            defaultChecked={currentRoute.doubleDistance}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-          <label htmlFor="route-double-distance" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-            Count distance twice (for return trips)
-          </label>
-        </div>
+        {!hasSubRoutes && (
+          <div className="flex items-center">
+            <input
+              id="route-double-distance"
+              name="doubleDistance"
+              type="checkbox"
+              defaultChecked={currentRoute.doubleDistance}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="route-double-distance" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+              Count distance twice (for return trips)
+            </label>
+          </div>
+        )}
 
         {/* Sub-routes */}
         <div className="md:col-span-2 border border-blue-200 bg-blue-50 rounded p-3 space-y-3">

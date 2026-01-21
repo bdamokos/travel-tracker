@@ -984,19 +984,21 @@ export default function RouteInlineEditor({
 	          </label>
 	        </div>
 
-	        {/* Double Distance Checkbox */}
-	        <div className="flex items-center">
-	          <input
-	            id={doubleDistanceCheckboxId}
-	            type="checkbox"
-	            checked={formData.doubleDistance || false}
-	            onChange={(e) => setFormData(prev => ({ ...prev, doubleDistance: e.target.checked }))}
-	            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-	          />
-	          <label htmlFor={doubleDistanceCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
-	            Count distance twice (for return trips)
-	          </label>
-	        </div>
+	        {/* Double Distance Checkbox - only show for simple routes (not sub-routes) */}
+	        {!hasSubRoutes && (
+	          <div className="flex items-center">
+	            <input
+	              id={doubleDistanceCheckboxId}
+	              type="checkbox"
+	              checked={formData.doubleDistance || false}
+	              onChange={(e) => setFormData(prev => ({ ...prev, doubleDistance: e.target.checked }))}
+	              className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+	            />
+	            <label htmlFor={doubleDistanceCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
+	              Count distance twice (for return trips)
+	            </label>
+	          </div>
+	        )}
 
 	        {/* Public Notes */}
 	        <div>

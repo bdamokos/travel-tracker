@@ -364,10 +364,17 @@ describe('DistanceSummary', () => {
         ]
       };
 
-      render(<DistanceSummary routes={[route]} />);
+      const { container } = render(<DistanceSummary routes={[route]} />);
 
-      // The distance should be doubled - check that some distance value is displayed
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // Check that the displayed distance is doubled by looking at the total distance element
+      // The total distance should be significantly larger than the non-doubled version
+      // (which would be about 5,570 km for this route)
+      const totalDistanceEl = container.querySelector('.text-2xl.font-bold.text-blue-600');
+      const distanceText = totalDistanceEl?.textContent || '';
+      const distanceValue = parseFloat(distanceText.replace(/,/g, '').replace(' km', '') || '0');
+      expect(distanceValue).toBeGreaterThan(10000); // Should be significantly larger than non-doubled distance (~5,570 km)
+      expect(distanceValue).toBeLessThan(15000);
     });
 
     it('does not double the distance when doubleDistance is false or undefined', () => {
@@ -380,8 +387,14 @@ describe('DistanceSummary', () => {
         ]
       };
 
-      const { unmount: unmount1 } = render(<DistanceSummary routes={[route1]} />);
+      const { container: container1, unmount: unmount1 } = render(<DistanceSummary routes={[route1]} />);
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // When doubleDistance is false, the distance should not be doubled
+      const totalDistanceEl1 = container1.querySelector('.text-2xl.font-bold.text-blue-600');
+      const distanceText1 = totalDistanceEl1?.textContent || '';
+      const distanceValue1 = parseFloat(distanceText1.replace(/,/g, '').replace(' km', '') || '0');
+      expect(distanceValue1).toBeGreaterThan(0);
+      expect(distanceValue1).toBeLessThan(10000); // Should not be doubled
       unmount1();
 
       // Test undefined case
@@ -394,8 +407,14 @@ describe('DistanceSummary', () => {
         ]
       };
 
-      render(<DistanceSummary routes={[route2]} />);
+      const { container: container2 } = render(<DistanceSummary routes={[route2]} />);
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // When doubleDistance is undefined, the distance should also not be doubled
+      const totalDistanceEl2 = container2.querySelector('.text-2xl.font-bold.text-blue-600');
+      const distanceText2 = totalDistanceEl2?.textContent || '';
+      const distanceValue2 = parseFloat(distanceText2.replace(/,/g, '').replace(' km', '') || '0');
+      expect(distanceValue2).toBeGreaterThan(0);
+      expect(distanceValue2).toBeLessThan(10000);
     });
 
     it('doubles the distance for sub-routes when doubleDistance is true on the segment', () => {
