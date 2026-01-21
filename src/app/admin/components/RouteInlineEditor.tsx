@@ -56,6 +56,7 @@ export default function RouteInlineEditor({
   const toInputId = `${idPrefix}-to`;
   const durationInputId = `${idPrefix}-duration`;
   const returnCheckboxId = `${idPrefix}-is-return`;
+  const doubleDistanceCheckboxId = `${idPrefix}-double-distance`;
   const publicNotesId = `${idPrefix}-notes`;
   const privateNotesId = `${idPrefix}-private-notes`;
 
@@ -262,7 +263,8 @@ export default function RouteInlineEditor({
         privateNotes: '',
         costTrackingLinks: [],
         useManualRoutePoints: false,
-        isReturn: false
+        isReturn: false,
+        doubleDistance: false
       };
 
       return {
@@ -818,6 +820,19 @@ export default function RouteInlineEditor({
                     </label>
 	                  </div>
 
+                  <div className="flex items-center mt-2">
+                    <input
+                      id={`sub-route-double-distance-${segment.id}`}
+                      type="checkbox"
+                      checked={segment.doubleDistance || false}
+                      onChange={(e) => updateSubRoute(index, { doubleDistance: e.target.checked })}
+                      className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor={`sub-route-double-distance-${segment.id}`} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
+                      Count distance twice (for return trips)
+                    </label>
+	                  </div>
+
 	                  <div className="mt-2">
 	                    <label htmlFor={`sub-route-notes-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
 	                      Public Notes
@@ -966,6 +981,20 @@ export default function RouteInlineEditor({
 	          />
 	          <label htmlFor={returnCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
 	            Return Route (shown as ⇆)
+	          </label>
+	        </div>
+
+	        {/* Double Distance Checkbox */}
+	        <div className="flex items-center">
+	          <input
+	            id={doubleDistanceCheckboxId}
+	            type="checkbox"
+	            checked={formData.doubleDistance || false}
+	            onChange={(e) => setFormData(prev => ({ ...prev, doubleDistance: e.target.checked }))}
+	            className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+	          />
+	          <label htmlFor={doubleDistanceCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
+	            Count distance twice (for return trips)
 	          </label>
 	        </div>
 

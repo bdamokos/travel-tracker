@@ -38,32 +38,42 @@ function calculateDistanceFromPoints(points: [number, number][]): number {
  * @returns Total distance in kilometers
  */
 function getRouteDistance(route: TravelRoute): number {
+  let distance = 0;
+
   // If route has sub-routes, sum them up
   if (route.subRoutes && route.subRoutes.length > 0) {
-    return route.subRoutes.reduce((total, subRoute) => {
+    distance = route.subRoutes.reduce((total, subRoute) => {
+      let segmentDistance: number;
       // Prefer routePoints if available (actual path)
       if (subRoute.routePoints && subRoute.routePoints.length >= 2) {
-        return total + calculateDistanceFromPoints(subRoute.routePoints);
+        segmentDistance = calculateDistanceFromPoints(subRoute.routePoints);
       }
       // Fallback to endpoint calculation
-      if (subRoute.fromCoords && subRoute.toCoords) {
-        return total + calculateDistance(subRoute.fromCoords, subRoute.toCoords);
+      else if (subRoute.fromCoords && subRoute.toCoords) {
+        segmentDistance = calculateDistance(subRoute.fromCoords, subRoute.toCoords);
+      } else {
+        return total;
       }
-      return total;
+      // Double the distance if the segment has doubleDistance flag set
+      return total + (subRoute.doubleDistance ? segmentDistance * 2 : segmentDistance);
     }, 0);
+  } else {
+    // Prefer routePoints if available (actual path)
+    if (route.routePoints && route.routePoints.length >= 2) {
+      distance = calculateDistanceFromPoints(route.routePoints);
+    }
+    // Calculate distance from coordinates
+    else if (route.fromCoords && route.toCoords) {
+      distance = calculateDistance(route.fromCoords, route.toCoords);
+    }
+
+    // Double the distance if the route has doubleDistance flag set
+    if (route.doubleDistance) {
+      distance *= 2;
+    }
   }
 
-  // Prefer routePoints if available (actual path)
-  if (route.routePoints && route.routePoints.length >= 2) {
-    return calculateDistanceFromPoints(route.routePoints);
-  }
-
-  // Calculate distance from coordinates
-  if (route.fromCoords && route.toCoords) {
-    return calculateDistance(route.fromCoords, route.toCoords);
-  }
-
-  return 0;
+  return distance;
 }
 
 /**
@@ -87,7 +97,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
       if (route.subRoutes && route.subRoutes.length > 0) {
         route.subRoutes.forEach(subRoute => {
           let distance: number;
-          
+
           // Prefer routePoints if available (actual path)
           if (subRoute.routePoints && subRoute.routePoints.length >= 2) {
             distance = calculateDistanceFromPoints(subRoute.routePoints);
@@ -98,7 +108,12 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
           } else {
             return;
           }
-          
+
+          // Double the distance if the segment has doubleDistance flag set
+          if (subRoute.doubleDistance) {
+            distance *= 2;
+          }
+
           const type = subRoute.transportType;
           const existing = byType.get(type) || { distance: 0, count: 0 };
           byType.set(type, {

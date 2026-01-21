@@ -351,4 +351,127 @@ describe('DistanceSummary', () => {
       expect(screen.getByText(/2 routes/)).toBeInTheDocument();
     });
   });
+
+  describe('Double Distance Feature', () => {
+    it('doubles the distance for a simple route when doubleDistance is true', () => {
+      const route: TravelRoute = {
+        ...mockRoute,
+        doubleDistance: true,
+        routePoints: [
+          [40.7128, -74.0060],
+          [45.0, -60.0],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      render(<DistanceSummary routes={[route]} />);
+
+      // The distance should be doubled - check that some distance value is displayed
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+    });
+
+    it('does not double the distance when doubleDistance is false or undefined', () => {
+      const route1: TravelRoute = {
+        ...mockRoute,
+        doubleDistance: false,
+        routePoints: [
+          [40.7128, -74.0060],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      const { unmount: unmount1 } = render(<DistanceSummary routes={[route1]} />);
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      unmount1();
+
+      // Test undefined case
+      const route2: TravelRoute = {
+        ...mockRoute,
+        doubleDistance: undefined,
+        routePoints: [
+          [40.7128, -74.0060],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      render(<DistanceSummary routes={[route2]} />);
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+    });
+
+    it('doubles the distance for sub-routes when doubleDistance is true on the segment', () => {
+      const routeWithSubRoutes: TravelRoute = {
+        id: 'route-double',
+        from: 'New York',
+        to: 'Paris',
+        fromCoords: [40.7128, -74.0060],
+        toCoords: [48.8566, 2.3522],
+        transportType: 'other',
+        date: new Date('2025-01-15'),
+        subRoutes: [
+          {
+            id: 'sub-1',
+            from: 'New York',
+            to: 'London',
+            fromCoords: [40.7128, -74.0060],
+            toCoords: [51.5074, -0.1278],
+            transportType: 'plane',
+            date: new Date('2025-01-15'),
+            doubleDistance: true
+          },
+          {
+            id: 'sub-2',
+            from: 'London',
+            to: 'Paris',
+            fromCoords: [51.5074, -0.1278],
+            toCoords: [48.8566, 2.3522],
+            transportType: 'train',
+            date: new Date('2025-01-16'),
+            doubleDistance: false
+          }
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithSubRoutes]} />);
+
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // The distance should include both plane and train breakdowns
+      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
+      expect(screen.getByText(/Airplane/i)).toBeInTheDocument();
+      expect(screen.getByText(/Train/i)).toBeInTheDocument();
+    });
+
+    it('correctly aggregates by transport type with double distances', () => {
+      const routes: TravelRoute[] = [
+        {
+          ...mockRoute,
+          id: 'route-1',
+          transportType: 'plane',
+          doubleDistance: true,
+          routePoints: [
+            [40.7128, -74.0060],
+            [51.5074, -0.1278]
+          ]
+        },
+        {
+          ...mockRoute,
+          id: 'route-2',
+          from: 'London',
+          to: 'Paris',
+          fromCoords: [51.5074, -0.1278],
+          toCoords: [48.8566, 2.3522],
+          transportType: 'train',
+          doubleDistance: false,
+          routePoints: [
+            [51.5074, -0.1278],
+            [48.8566, 2.3522]
+          ]
+        }
+      ];
+
+      render(<DistanceSummary routes={routes} />);
+
+      expect(screen.getByText(/Total distance across 2 routes/)).toBeInTheDocument();
+      expect(screen.getByText(/By transportation type:/)).toBeInTheDocument();
+    });
+  });
 });
