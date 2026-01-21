@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Transportation, TravelRoute } from '@/app/types';
-import { transportationLabels } from '@/app/lib/routeUtils';
+import { transportationLabels, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel } from '@/app/lib/routeUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface RouteDisplayProps {
@@ -28,23 +28,6 @@ export default function RouteDisplay({
     });
   };
 
-  const getTransportIcon = (type: Transportation['type']) => {
-    const icons: Record<Transportation['type'], string> = {
-      plane: '✈️',
-      car: '🚗',
-      train: '🚂',
-      bus: '🚌',
-      shuttle: '🚐',
-      ferry: '⛴️',
-      boat: '🚢',
-      bike: '🚴',
-      walk: '🚶',
-      metro: '🚇',
-      other: '🚙'
-    };
-    return icons[type] || '🚙';
-  };
-
   const hasValidCoords = (coords: [number, number]) => {
     return coords[0] !== 0 || coords[1] !== 0;
   };
@@ -52,11 +35,15 @@ export default function RouteDisplay({
   const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
   const hasManualSegments = route.subRoutes?.some(segment => segment.useManualRoutePoints) || false;
 
-  // For multisegment routes, derive emoji from the segments
-  const getMultiSegmentEmoji = () => {
-    if (!hasSubRoutes) return getTransportIcon(route.transportType);
-    return route.subRoutes!.map(segment => getTransportIcon(segment.transportType)).join('');
-  };
+  // Get the emoji to display (single for regular routes, concatenated for multisegment)
+  const displayEmoji = hasSubRoutes && route.subRoutes
+    ? getMultiSegmentEmoji(route.subRoutes)
+    : getTransportIcon(route.transportType);
+
+  // Get accessibility label for screen readers
+  const ariaLabel = hasSubRoutes && route.subRoutes
+    ? getMultiSegmentAriaLabel(route.subRoutes.length)
+    : transportationLabels[route.transportType];
 
   return (
     <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
@@ -64,7 +51,7 @@ export default function RouteDisplay({
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{getMultiSegmentEmoji()}</span>
+            <span className="text-lg" aria-label={ariaLabel}>{displayEmoji}</span>
             <h4 className="font-semibold text-gray-900 dark:text-white">
               {route.from} {route.isReturn ? '⇆' : '→'} {route.to}
             </h4>
