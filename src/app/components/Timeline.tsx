@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CostTrackingData, Journey, JourneyDay, Transportation } from '@/app/types';
-import { transportationColors } from '@/app/lib/routeUtils';
+import { transportationColors, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel } from '@/app/lib/routeUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AccommodationDisplay from '@/app/components/AccommodationDisplay';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
@@ -312,7 +312,7 @@ interface TransportationItemProps {
 }
 
 const TransportationItem: React.FC<TransportationItemProps> = ({ transportation, travelLookup, costData }) => {
-  const { type, from, to, distance, departureTime, arrivalTime, id } = transportation;
+  const { type, from, to, distance, departureTime, arrivalTime, id, subRoutes } = transportation;
   const [totalLinkedCost, setTotalLinkedCost] = useState<number | null>(null);
 
   useEffect(() => {
@@ -323,43 +323,39 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
       setTotalLinkedCost(total);
     }
   }, [travelLookup, costData, id]);
-  
-  const getTransportIcon = (type: Transportation['type']) => {
-    switch (type) {
-      case 'walk':
-        return '🚶';
-      case 'bus':
-        return '🚌';
-      case 'shuttle':
-        return '🚐';
-      case 'train':
-        return '🚆';
-      case 'plane':
-        return '✈️';
-      case 'car':
-        return '🚗';
-      case 'ferry':
-        return '⛴️';
-      case 'bike':
-        return '🚲';
-      case 'metro':
-        return '🚇';
-      case 'boat':
-        return '🚢';
-      case 'other':
-      default:
-        return '🚀';
-    }
-  };
-  
+
+  const hasSubRoutes = (subRoutes?.length || 0) > 0;
+
+  // Get the emoji to display (single for regular routes, concatenated for multisegment)
+  const displayEmoji = hasSubRoutes && subRoutes
+    ? getMultiSegmentEmoji(subRoutes)
+    : getTransportIcon(type);
+
+  // Get accessibility label for screen readers
+  const ariaLabel = hasSubRoutes && subRoutes
+    ? getMultiSegmentAriaLabel(subRoutes.length)
+    : `${type} from ${from} to ${to}`;
+
+  // Get the label to display
+  const transportTypeLabel = hasSubRoutes ? 'Multisegment' : type;
+
+  // For multisegment routes, use the color of the first segment, otherwise use parent type color
+  // TransportationSegment has 'type' property (not 'transportType')
+  const firstSegmentType = hasSubRoutes && subRoutes && subRoutes[0]
+    ? subRoutes[0].type
+    : 'other';
+  const displayColor = hasSubRoutes && subRoutes
+    ? transportationColors[firstSegmentType] ?? transportationColors.other
+    : transportationColors[type] ?? transportationColors.other;
+
   return (
     <div className="flex items-start">
-      <div className="shrink-0 mt-1 text-xl" style={{ color: transportationColors[type] }}>
-        {getTransportIcon(type)}
+      <div className="shrink-0 mt-1 text-xl" style={{ color: displayColor }}>
+        <span aria-label={ariaLabel}>{displayEmoji}</span>
       </div>
       <div className="ml-2">
         <div className="font-medium capitalize text-gray-900 dark:text-white">
-          {type} from {from} to {to}
+          {transportTypeLabel} from {from} to {to}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
           {departureTime && arrivalTime ? (

@@ -105,6 +105,36 @@ export const transportationLabels = Object.fromEntries(
   Object.entries(transportationConfig).map(([key, config]) => [key, config.description])
 );
 
+// Get emoji icon for a transport type
+export const getTransportIcon = (type: Transportation['type']): string => {
+  const icons: Record<Transportation['type'], string> = {
+    plane: '✈️',
+    car: '🚗',
+    train: '🚆',
+    bus: '🚌',
+    shuttle: '🚐',
+    ferry: '⛴️',
+    boat: '🚢',
+    bike: '🚴',
+    walk: '🚶',
+    metro: '🚇',
+    other: '🚙'
+  };
+  return icons[type] || '🚙';
+};
+
+// Get emoji for multisegment routes (concatenated from segment emojis)
+export const getMultiSegmentEmoji = <T extends { transportType?: Transportation['type']; type?: Transportation['type'] }>(
+  segments: T[]
+): string => {
+  return segments.map(segment => getTransportIcon(segment.transportType || segment.type || 'other')).join('');
+};
+
+// Get accessibility label for multisegment routes
+export const getMultiSegmentAriaLabel = (segmentCount: number): string => {
+  return `Multisegment route with ${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
+};
+
 // Helper functions for coordinate calculations
 const toRadians = (degrees: number) => degrees * (Math.PI / 180);
 const toDegrees = (radians: number) => radians * (180 / Math.PI);
