@@ -493,4 +493,130 @@ describe('DistanceSummary', () => {
       expect(screen.getByText(/By transportation type \(all routes\):/)).toBeInTheDocument();
     });
   });
+
+  describe('Past and Future Route Separation', () => {
+    // Get a date that is definitely in the past
+    const pastDate = new Date();
+    pastDate.setFullYear(pastDate.getFullYear() - 1);
+
+    // Get a date that is definitely in the future
+    const futureDate = new Date();
+    futureDate.setFullYear(futureDate.getFullYear() + 1);
+
+    // Today's date
+    const today = new Date();
+
+    it('separates past and future routes correctly', () => {
+      const routes: TravelRoute[] = [
+        {
+          ...mockRoute,
+          id: 'route-1',
+          from: 'New York',
+          to: 'Boston',
+          fromCoords: [40.7128, -74.0060],
+          toCoords: [42.3601, -71.0589],
+          transportType: 'train',
+          date: pastDate,
+          routePoints: [
+            [40.7128, -74.0060],
+            [42.3601, -71.0589]
+          ]
+        },
+        {
+          ...mockRoute,
+          id: 'route-2',
+          from: 'Paris',
+          to: 'Berlin',
+          fromCoords: [48.8566, 2.3522],
+          toCoords: [52.5200, 13.4050],
+          transportType: 'plane',
+          date: futureDate,
+          routePoints: [
+            [48.8566, 2.3522],
+            [52.5200, 13.4050]
+          ]
+        }
+      ];
+
+      render(<DistanceSummary routes={routes} />);
+
+      expect(screen.getByText(/Total distance across 2 routes/)).toBeInTheDocument();
+      expect(screen.getByText(/By route status:/)).toBeInTheDocument();
+      expect(screen.getByText(/Past routes/)).toBeInTheDocument();
+      expect(screen.getByText(/Future routes/)).toBeInTheDocument();
+    });
+
+    it('includes today routes in past section', () => {
+      const routes: TravelRoute[] = [
+        {
+          ...mockRoute,
+          id: 'route-1',
+          from: 'New York',
+          to: 'Boston',
+          fromCoords: [40.7128, -74.0060],
+          toCoords: [42.3601, -71.0589],
+          transportType: 'train',
+          date: today,
+          routePoints: [
+            [40.7128, -74.0060],
+            [42.3601, -71.0589]
+          ]
+        }
+      ];
+
+      render(<DistanceSummary routes={routes} />);
+
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+      // Today's routes are counted as past
+      expect(screen.getByText(/Past routes/)).toBeInTheDocument();
+    });
+
+    it('shows only past routes section when all routes are in the past', () => {
+      const routes: TravelRoute[] = [
+        {
+          ...mockRoute,
+          id: 'route-1',
+          from: 'New York',
+          to: 'Boston',
+          fromCoords: [40.7128, -74.0060],
+          toCoords: [42.3601, -71.0589],
+          transportType: 'train',
+          date: pastDate,
+          routePoints: [
+            [40.7128, -74.0060],
+            [42.3601, -71.0589]
+          ]
+        }
+      ];
+
+      render(<DistanceSummary routes={routes} />);
+
+      expect(screen.getByText(/Past routes/)).toBeInTheDocument();
+      expect(screen.queryByText(/Future routes/)).not.toBeInTheDocument();
+    });
+
+    it('shows only future routes section when all routes are in the future', () => {
+      const routes: TravelRoute[] = [
+        {
+          ...mockRoute,
+          id: 'route-1',
+          from: 'Paris',
+          to: 'Berlin',
+          fromCoords: [48.8566, 2.3522],
+          toCoords: [52.5200, 13.4050],
+          transportType: 'plane',
+          date: futureDate,
+          routePoints: [
+            [48.8566, 2.3522],
+            [52.5200, 13.4050]
+          ]
+        }
+      ];
+
+      render(<DistanceSummary routes={routes} />);
+
+      expect(screen.getByText(/Future routes/)).toBeInTheDocument();
+      expect(screen.queryByText(/Past routes/)).not.toBeInTheDocument();
+    });
+  });
 });

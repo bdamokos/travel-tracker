@@ -33,48 +33,25 @@ function calculateDistanceFromPoints(points: [number, number][]): number {
 }
 
 /**
- * Calculates the total distance for a single route or multi-segment journey
- * Handles both simple routes and routes with subRoutes, preferring routePoints over endpoint calculations
- * @param route - TravelRoute object containing route data including coordinates and optional path points
- * @returns Total distance in kilometers
+ * Calculates the distance for a single route segment
+ * Prefers routePoints if available, falls back to endpoint calculation
+ * @param segment - TravelRouteSegment containing route data
+ * @returns Distance in kilometers, doubled if doubleDistance flag is set
  */
-function getRouteDistance(route: TravelRoute): number {
+function getSegmentDistance(segment: TravelRoute): number {
   let distance = 0;
 
-  // If route has sub-routes, sum them up
-  if (route.subRoutes && route.subRoutes.length > 0) {
-    distance = route.subRoutes.reduce((total, subRoute) => {
-      let segmentDistance: number;
-      // Prefer routePoints if available (actual path)
-      if (subRoute.routePoints && subRoute.routePoints.length >= 2) {
-        segmentDistance = calculateDistanceFromPoints(subRoute.routePoints);
-      }
-      // Fallback to endpoint calculation
-      else if (subRoute.fromCoords && subRoute.toCoords) {
-        segmentDistance = calculateDistance(subRoute.fromCoords, subRoute.toCoords);
-      } else {
-        return total;
-      }
-      // Double the distance if the segment has doubleDistance flag set
-      return total + (subRoute.doubleDistance ? segmentDistance * 2 : segmentDistance);
-    }, 0);
-  } else {
-    // Prefer routePoints if available (actual path)
-    if (route.routePoints && route.routePoints.length >= 2) {
-      distance = calculateDistanceFromPoints(route.routePoints);
-    }
-    // Calculate distance from coordinates
-    else if (route.fromCoords && route.toCoords) {
-      distance = calculateDistance(route.fromCoords, route.toCoords);
-    }
-
-    // Double the distance if the route has doubleDistance flag set
-    if (route.doubleDistance) {
-      distance *= 2;
-    }
+  // Prefer routePoints if available (actual path)
+  if (segment.routePoints && segment.routePoints.length >= 2) {
+    distance = calculateDistanceFromPoints(segment.routePoints);
+  }
+  // Fallback to endpoint calculation
+  else if (segment.fromCoords && segment.toCoords) {
+    distance = calculateDistance(segment.fromCoords, segment.toCoords);
   }
 
-  return distance;
+  // Double the distance if the segment has doubleDistance flag set
+  return segment.doubleDistance ? distance * 2 : distance;
 }
 
 /**
@@ -91,11 +68,12 @@ function formatDistance(distance: number): string {
 
 /**
  * Check if a route (or its sub-routes) contains only future dates
+ * Routes on today's date are considered future (not yet traveled)
  */
 function isFutureRoute(route: TravelRoute, today: Date): boolean {
   const checkRouteDate = (date: Date | string | undefined): boolean => {
     const routeDate = normalizeUtcDateToLocalDay(date);
-    return routeDate !== null && routeDate > today;
+    return routeDate !== null && routeDate >= today;
   };
 
   if (route.subRoutes && route.subRoutes.length > 0) {
@@ -107,11 +85,12 @@ function isFutureRoute(route: TravelRoute, today: Date): boolean {
 
 /**
  * Check if a route (or its sub-routes) contains only past dates
+ * Routes on today's date are considered past (already traveled or in progress)
  */
 function isPastRoute(route: TravelRoute, today: Date): boolean {
   const checkRouteDate = (date: Date | string | undefined): boolean => {
     const routeDate = normalizeUtcDateToLocalDay(date);
-    return routeDate !== null && routeDate < today;
+    return routeDate !== null && routeDate <= today;
   };
 
   if (route.subRoutes && route.subRoutes.length > 0) {
@@ -134,30 +113,14 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
     let totalFutureDistance = 0;
 
     routes.forEach(route => {
-      const routeDistance = getRouteDistance(route);
       const isPast = isPastRoute(route, today);
       const isFuture = isFutureRoute(route, today);
 
       // If route has subRoutes, attribute distance to each subRoute's transport type
       if (route.subRoutes && route.subRoutes.length > 0) {
         route.subRoutes.forEach(subRoute => {
-          let distance: number;
-
-          // Prefer routePoints if available (actual path)
-          if (subRoute.routePoints && subRoute.routePoints.length >= 2) {
-            distance = calculateDistanceFromPoints(subRoute.routePoints);
-          }
-          // Fallback to endpoint calculation
-          else if (subRoute.fromCoords && subRoute.toCoords) {
-            distance = calculateDistance(subRoute.fromCoords, subRoute.toCoords);
-          } else {
-            return;
-          }
-
-          // Double the distance if the segment has doubleDistance flag set
-          if (subRoute.doubleDistance) {
-            distance *= 2;
-          }
+          const distance = getSegmentDistance(subRoute);
+          if (distance === 0) return;
 
           const type = subRoute.transportType;
           const existing = byType.get(type) || { distance: 0, count: 0 };
@@ -167,16 +130,17 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
           });
 
           // Classify by past/future based on sub-route date
+          // Routes on today's date are considered past (already traveled or in progress)
           const subRouteDate = normalizeUtcDateToLocalDay(subRoute.date);
           if (subRouteDate) {
-            if (subRouteDate < today) {
+            if (subRouteDate <= today) {
               totalPastDistance += distance;
               const pastExisting = pastByType.get(type) || { distance: 0, count: 0 };
               pastByType.set(type, {
                 distance: pastExisting.distance + distance,
                 count: pastExisting.count + 1,
               });
-            } else if (subRouteDate > today) {
+            } else {
               totalFutureDistance += distance;
               const futureExisting = futureByType.get(type) || { distance: 0, count: 0 };
               futureByType.set(type, {
@@ -188,6 +152,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
         });
       } else {
         // For simple routes, use the route's transport type
+        const routeDistance = getSegmentDistance(route);
         const type = route.transportType;
         const existing = byType.get(type) || { distance: 0, count: 0 };
         byType.set(type, {
@@ -240,7 +205,8 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
     return null;
   }
 
-  const totalDistance = pastDistance + futureDistance;
+  // Calculate total distance from all routes (not just past + future, which would exclude today's routes)
+  const totalDistance = distanceByType.reduce((sum, item) => sum + item.distance, 0);
 
   // Render a single distance breakdown section
   const renderDistanceBreakdown = (
