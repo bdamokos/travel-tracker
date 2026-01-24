@@ -32,6 +32,19 @@ export const getCurrentTripStatus = (
   const today = normalizeUtcDateToLocalDay(now);
   if (!today) return null;
 
+  for (const route of routes) {
+    const departure = normalizeDate(route.departureTime ?? route.date);
+    const arrival = normalizeDate(route.arrivalTime ?? route.departureTime ?? route.date);
+    if (!departure) continue;
+    const routeEnd = arrival && arrival >= departure ? arrival : departure;
+    if (today >= departure && today <= routeEnd) {
+      return `Current location: Travelling today between ${route.from} and ${route.to}`;
+    }
+    if (isSameDay(today, departure)) {
+      return `Current location: Travelling today between ${route.from} and ${route.to}`;
+    }
+  }
+
   for (const location of locations) {
     const start = normalizeDate(location.date);
     const end = normalizeDate(location.endDate ?? location.date);
@@ -39,22 +52,9 @@ export const getCurrentTripStatus = (
 
     if (today >= start && today <= end) {
       if (location.notes && /sidetrip|side trip/i.test(location.notes)) {
-        return `Current location: Sidetrip to ${location.name}`;
+        return `Current location: On an excursion to ${location.name}`;
       }
       return `Current location: ${location.name}`;
-    }
-  }
-
-  for (const route of routes) {
-    const departure = normalizeDate(route.departureTime ?? route.date);
-    const arrival = normalizeDate(route.arrivalTime ?? route.departureTime ?? route.date);
-    if (!departure) continue;
-    const routeEnd = arrival && arrival >= departure ? arrival : departure;
-    if (today >= departure && today <= routeEnd) {
-      return `Current location: Travelling between ${route.from} and ${route.to}`;
-    }
-    if (isSameDay(today, departure)) {
-      return `Current location: Travelling between ${route.from} and ${route.to}`;
     }
   }
 
