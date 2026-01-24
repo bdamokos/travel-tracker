@@ -38,10 +38,10 @@ export const getCurrentTripStatus = (
     if (!departure) continue;
     const routeEnd = arrival && arrival >= departure ? arrival : departure;
     if (today >= departure && today <= routeEnd) {
-      return `Current location: Travelling today between ${route.from} and ${route.to}`;
+      return `Current location: We are travelling today between ${route.from} and ${route.to}`;
     }
     if (isSameDay(today, departure)) {
-      return `Current location: Travelling today between ${route.from} and ${route.to}`;
+      return `Current location: We are travelling today between ${route.from} and ${route.to}`;
     }
   }
 
@@ -52,7 +52,7 @@ export const getCurrentTripStatus = (
 
     if (today >= start && today <= end) {
       if (location.notes && /sidetrip|side trip/i.test(location.notes)) {
-        return `Current location: On an excursion to ${location.name}`;
+        return `Current location: We are on an excursion to ${location.name}`;
       }
       return `Current location: ${location.name}`;
     }
