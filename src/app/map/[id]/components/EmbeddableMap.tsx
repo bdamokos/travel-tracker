@@ -1139,10 +1139,19 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     `] = startEndLayer;
 
     // Add layer control to map
-    L.control.layers(undefined, overlays, {
-      collapsed: false,
+    const layersControl = L.control.layers(undefined, overlays, {
+      collapsed: true,
       position: 'topright'
     }).addTo(map);
+
+    const layersToggle = layersControl
+      .getContainer()
+      ?.querySelector<HTMLAnchorElement>('.leaflet-control-layers-toggle');
+
+    if (layersToggle) {
+      layersToggle.setAttribute('title', 'Toggle map legend');
+      layersToggle.setAttribute('aria-label', 'Toggle map legend');
+    }
 
     // Handle overlay visibility changes for keyboard navigation (WCAG compliance)
     map.on('overlayadd', (event: L.LayersControlEvent) => {
