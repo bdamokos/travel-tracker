@@ -6,6 +6,7 @@ import { useTripEditor } from './hooks/useTripEditor';
 import { formatDateRange } from '@/app/lib/dateUtils';
 import { formatDate } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation } from '@/app/lib/expenseTravelLookup';
+import { combineAccommodationDescriptions } from '@/app/lib/combineAccommodationDescriptions';
 import DeleteWarningDialog from '@/app/admin/components/DeleteWarningDialog';
 import ReassignmentDialog from '@/app/admin/components/ReassignmentDialog';
 import TripMetadataForm from './components/TripMetadataForm';
@@ -262,10 +263,21 @@ export default function TripEditorPage() {
         lines.push(locationLineParts.join(' '));
 
         const accommodationNames = accommodationsByLocation.get(location.id) || [];
-        if (accommodationNames.length > 0) {
-          lines.push(`   - Accommodations: ${accommodationNames.join('; ')}`);
-        } else if (location.accommodationData) {
-          lines.push(`   - Accommodation: ${collapseText(location.accommodationData)}`);
+        // Some trips may still have legacy accommodationData on the Location even after moving
+        // to separate Accommodation entities. Include both to avoid dropping information.
+        const legacyAccommodation = location.accommodationData
+          ? collapseText(location.accommodationData)
+          : '';
+
+        const combinedAccommodationNames = combineAccommodationDescriptions(
+          accommodationNames,
+          legacyAccommodation
+        );
+
+        if (combinedAccommodationNames.length > 0) {
+          const label = combinedAccommodationNames.length > 1 ? 'Accommodations' : 'Accommodation';
+          const value = combinedAccommodationNames.join('; ');
+          lines.push(`   - ${label}: ${value}`);
         }
 
         if (location.notes) {
