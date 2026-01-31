@@ -1,8 +1,16 @@
+/**
+ * Combine accommodation names from the new Accommodation entities with optional legacy
+ * `Location.accommodationData`.
+ *
+ * - Preserves order
+ * - Trims values
+ * - Deduplicates case-insensitively
+ */
 export function combineAccommodationDescriptions(
   accommodationNames: string[],
   legacyAccommodation?: string | null
 ): string[] {
-  const combined = [...(accommodationNames || [])];
+  const combined = [...accommodationNames];
 
   const legacy = (legacyAccommodation || '').trim();
   if (legacy) {

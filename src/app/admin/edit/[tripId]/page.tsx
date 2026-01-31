@@ -274,10 +274,10 @@ export default function TripEditorPage() {
           legacyAccommodation
         );
 
-        if (combinedAccommodationNames.length > 1) {
-          lines.push(`   - Accommodations: ${combinedAccommodationNames.join('; ')}`);
-        } else if (combinedAccommodationNames.length === 1) {
-          lines.push(`   - Accommodation: ${combinedAccommodationNames[0]}`);
+        if (combinedAccommodationNames.length > 0) {
+          const label = combinedAccommodationNames.length > 1 ? 'Accommodations' : 'Accommodation';
+          const value = combinedAccommodationNames.join('; ');
+          lines.push(`   - ${label}: ${value}`);
         }
 
         if (location.notes) {
