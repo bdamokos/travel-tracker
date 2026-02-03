@@ -47,6 +47,10 @@ export default function RouteInlineEditor({
   const [segmentImportError, setSegmentImportError] = useState<Record<string, string>>({});
   const [validationError, setValidationError] = useState<string>('');
   const [segmentRefreshStatus, setSegmentRefreshStatus] = useState<Record<string, string>>({});
+  const [routeCoordOverrides, setRouteCoordOverrides] = useState<{ from: boolean; to: boolean }>({
+    from: false,
+    to: false
+  });
   const refreshTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const transportSelectId = `${idPrefix}-transport-type`;
@@ -105,6 +109,8 @@ export default function RouteInlineEditor({
     }
     return fallback || [0, 0];
   };
+
+  const isZeroCoords = (coords?: [number, number]) => !coords || (coords[0] === 0 && coords[1] === 0);
 
   const COORD_EPSILON = 1e-9;
 
@@ -195,9 +201,13 @@ export default function RouteInlineEditor({
       return;
     }
 
-    // Update coordinates based on location selection or geocode
-    const fromCoords = await resolveLocationCoords(formData.from, formData.fromCoords);
-    const toCoords = await resolveLocationCoords(formData.to, formData.toCoords);
+    // Update coordinates based on location selection or geocode (unless user overrode them)
+    const fromCoords = routeCoordOverrides.from && !isZeroCoords(formData.fromCoords)
+      ? (formData.fromCoords as [number, number])
+      : await resolveLocationCoords(formData.from, formData.fromCoords);
+    const toCoords = routeCoordOverrides.to && !isZeroCoords(formData.toCoords)
+      ? (formData.toCoords as [number, number])
+      : await resolveLocationCoords(formData.to, formData.toCoords);
 
     onSave({
       ...formData,
@@ -239,6 +249,43 @@ export default function RouteInlineEditor({
         subRoutes
       };
     });
+  };
+
+  const updateRouteCoord = (
+    key: 'fromCoords' | 'toCoords',
+    axis: 0 | 1,
+    value: string
+  ) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
+    setFormData(prev => {
+      const coords = [...(prev[key] || [0, 0])] as [number, number];
+      coords[axis] = parsed;
+      return {
+        ...prev,
+        [key]: coords
+      };
+    });
+
+    setRouteCoordOverrides(prev => ({
+      ...prev,
+      [key === 'fromCoords' ? 'from' : 'to']: true
+    }));
+  };
+
+  const handleRouteLocationChange = (field: 'from' | 'to', value: string) => {
+    const locationMatch = locationOptions.find(loc => loc.name === value);
+    const coords = locationMatch?.coordinates || [0, 0];
+
+    setFormData(prev => ({
+      ...prev,
+      ...(field === 'from' ? { from: value, fromCoords: coords } : { to: value, toCoords: coords })
+    }));
+
+    setRouteCoordOverrides(prev => ({ ...prev, [field]: false }));
   };
 
   const addSubRoute = () => {
@@ -542,7 +589,7 @@ export default function RouteInlineEditor({
               <AriaComboBox
                 id={fromInputId}
                 value={formData.from}
-                onChange={(value) => setFormData(prev => ({ ...prev, from: value }))}
+                onChange={(value) => handleRouteLocationChange('from', value)}
                 className="w-full px-2 py-1 text-sm"
                 options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
                 placeholder="Paris"
@@ -567,7 +614,7 @@ export default function RouteInlineEditor({
               <AriaComboBox
                 id={toInputId}
                 value={formData.to}
-                onChange={(value) => setFormData(prev => ({ ...prev, to: value }))}
+                onChange={(value) => handleRouteLocationChange('to', value)}
                 className="w-full px-2 py-1 text-sm"
                 options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
                 placeholder="London"
@@ -577,6 +624,60 @@ export default function RouteInlineEditor({
             )}
           </div>
         </div>
+        {!hasSubRoutes && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                From Coordinates
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="From latitude"
+                  value={formData.fromCoords?.[0] ?? 0}
+                  onChange={(e) => updateRouteCoord('fromCoords', 0, e.target.value)}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Lat"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="From longitude"
+                  value={formData.fromCoords?.[1] ?? 0}
+                  onChange={(e) => updateRouteCoord('fromCoords', 1, e.target.value)}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Lng"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                To Coordinates
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="To latitude"
+                  value={formData.toCoords?.[0] ?? 0}
+                  onChange={(e) => updateRouteCoord('toCoords', 0, e.target.value)}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Lat"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="To longitude"
+                  value={formData.toCoords?.[1] ?? 0}
+                  onChange={(e) => updateRouteCoord('toCoords', 1, e.target.value)}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Lng"
+                />
+              </div>
+            </div>
+          </div>
+        )}
         {hasSubRoutes && (
           <p className="text-xs text-gray-500 dark:text-gray-400">From/To are derived from first and last segments.</p>
         )}

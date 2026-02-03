@@ -62,6 +62,10 @@ export default function RouteForm({
 }: RouteFormProps) {
   const [validationError, setValidationError] = useState<string>('');
   const [geocodingInProgress, setGeocodingInProgress] = useState<Record<string, boolean>>({});
+  const [routeCoordOverrides, setRouteCoordOverrides] = useState<{ from: boolean; to: boolean }>({
+    from: false,
+    to: false
+  });
 
   // Ref to track current subRoutes for updateSubRoute to avoid stale closure
   // and prevent useCallback from being recreated on every subRoutes change
@@ -69,6 +73,10 @@ export default function RouteForm({
   useEffect(() => {
     subRoutesRef.current = currentRoute.subRoutes;
   }, [currentRoute.subRoutes]);
+
+  useEffect(() => {
+    setRouteCoordOverrides({ from: false, to: false });
+  }, [editingRouteIndex, currentRoute.id]);
 
   // Refs to track debounced geocoding functions for each segment
   type GeocodeFn = (locationName: string, field: 'from' | 'to') => Promise<void>;
@@ -112,6 +120,45 @@ export default function RouteForm({
       setGeocodingInProgress(prev => ({ ...prev, [`${segmentId}-${field}`]: false }));
       return null;
     }
+  };
+
+  const isZeroCoords = (coords?: [number, number]) => !coords || (coords[0] === 0 && coords[1] === 0);
+
+  const handleRouteLocationChange = (field: 'from' | 'to', value: string) => {
+    const locationMatch = locationOptions.find(loc => loc.name === value);
+    const coords = locationMatch?.coordinates || [0, 0];
+
+    setCurrentRoute((prev: Partial<TravelRoute>) => ({
+      ...prev,
+      ...(field === 'from' ? { from: value, fromCoords: coords } : { to: value, toCoords: coords })
+    }));
+
+    setRouteCoordOverrides(prev => ({ ...prev, [field]: false }));
+  };
+
+  const updateRouteCoord = (
+    key: 'fromCoords' | 'toCoords',
+    axis: 0 | 1,
+    value: string
+  ) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
+    setCurrentRoute((prev: Partial<TravelRoute>) => {
+      const coords = [...(prev[key] || [0, 0])] as [number, number];
+      coords[axis] = parsed;
+      return {
+        ...prev,
+        [key]: coords
+      };
+    });
+
+    setRouteCoordOverrides(prev => ({
+      ...prev,
+      [key === 'fromCoords' ? 'from' : 'to']: true
+    }));
   };
 
   /**
@@ -186,11 +233,18 @@ export default function RouteForm({
     const fromLocation = locationOptions.find(loc => loc.name === data.from);
     const toLocation = locationOptions.find(loc => loc.name === data.to);
 
-    let fromCoords: [number, number] = fromLocation?.coordinates || [0, 0];
-    let toCoords: [number, number] = toLocation?.coordinates || [0, 0];
+    const hasManualFrom = routeCoordOverrides.from && !isZeroCoords(currentRoute.fromCoords);
+    const hasManualTo = routeCoordOverrides.to && !isZeroCoords(currentRoute.toCoords);
+
+    let fromCoords: [number, number] = hasManualFrom
+      ? (currentRoute.fromCoords as [number, number])
+      : (fromLocation?.coordinates || currentRoute.fromCoords || [0, 0]);
+    let toCoords: [number, number] = hasManualTo
+      ? (currentRoute.toCoords as [number, number])
+      : (toLocation?.coordinates || currentRoute.toCoords || [0, 0]);
 
     // Geocode new locations if needed
-    if (!fromLocation && onGeocode) {
+    if (!hasManualFrom && !fromLocation && onGeocode) {
       try {
         fromCoords = await onGeocode(data.from as string);
       } catch (error) {
@@ -198,7 +252,7 @@ export default function RouteForm({
       }
     }
 
-    if (!toLocation && onGeocode) {
+    if (!hasManualTo && !toLocation && onGeocode) {
       try {
         toCoords = await onGeocode(data.to as string);
       } catch (error) {
@@ -265,6 +319,8 @@ export default function RouteForm({
       doubleDistance: false,
       subRoutes: undefined
     });
+
+    setRouteCoordOverrides({ from: false, to: false });
 
     if (editingRouteIndex !== null) {
       setEditingRouteIndex(null);
@@ -408,6 +464,26 @@ export default function RouteForm({
     }
   }, [locationOptions, onGeocode, setCurrentRoute]);
 
+  const updateSubRouteCoord = (
+    index: number,
+    key: 'fromCoords' | 'toCoords',
+    axis: 0 | 1,
+    value: string
+  ) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
+    const currentSubRoutes = subRoutesRef.current || [];
+    const segment = currentSubRoutes[index];
+    if (!segment) return;
+
+    const coords = [...(segment[key] || [0, 0])] as [number, number];
+    coords[axis] = parsed;
+    updateSubRoute(index, { [key]: coords } as Partial<TravelRouteSegment>);
+  };
+
   /**
    * Removes a sub-route segment at the specified index.
    * @param index - The index of the segment to remove
@@ -511,7 +587,7 @@ export default function RouteForm({
               id="route-from"
               name="from"
               defaultValue={currentRoute.from || ''}
-              onChange={(value) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, from: value }))}
+              onChange={(value) => handleRouteLocationChange('from', value)}
               required
               options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
               placeholder="Enter location name (new locations will be created)"
@@ -538,7 +614,7 @@ export default function RouteForm({
               id="route-to"
               name="to"
               defaultValue={currentRoute.to || ''}
-              onChange={(value) => setCurrentRoute((prev: Partial<TravelRoute>) => ({ ...prev, to: value }))}
+              onChange={(value) => handleRouteLocationChange('to', value)}
               required
               options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
               placeholder="Enter location name (new locations will be created)"
@@ -546,6 +622,61 @@ export default function RouteForm({
             />
           )}
         </div>
+
+        {!hasSubRoutes && (
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <div className="block text-sm font-medium text-gray-700 mb-1">
+                From Coordinates
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="From latitude"
+                  value={currentRoute.fromCoords?.[0] ?? 0}
+                  onChange={(e) => updateRouteCoord('fromCoords', 0, e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                  placeholder="Lat"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="From longitude"
+                  value={currentRoute.fromCoords?.[1] ?? 0}
+                  onChange={(e) => updateRouteCoord('fromCoords', 1, e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                  placeholder="Lng"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="block text-sm font-medium text-gray-700 mb-1">
+                To Coordinates
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="To latitude"
+                  value={currentRoute.toCoords?.[0] ?? 0}
+                  onChange={(e) => updateRouteCoord('toCoords', 0, e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                  placeholder="Lat"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  aria-label="To longitude"
+                  value={currentRoute.toCoords?.[1] ?? 0}
+                  onChange={(e) => updateRouteCoord('toCoords', 1, e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                  placeholder="Lng"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {hasSubRoutes ? (
           <div className="md:col-span-2">
@@ -739,6 +870,59 @@ export default function RouteForm({
                       {geocodingInProgress[`${segment.id}-to`] && (
                         <span className="text-xs text-blue-600 ml-2">Loading...</span>
                       )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <div className="block text-xs font-medium text-gray-700 mb-1">
+                        From Coordinates
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="any"
+                          aria-label="From latitude"
+                          value={segment.fromCoords?.[0] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 0, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                          placeholder="Lat"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          aria-label="From longitude"
+                          value={segment.fromCoords?.[1] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'fromCoords', 1, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                          placeholder="Lng"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="block text-xs font-medium text-gray-700 mb-1">
+                        To Coordinates
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          step="any"
+                          aria-label="To latitude"
+                          value={segment.toCoords?.[0] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 0, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                          placeholder="Lat"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          aria-label="To longitude"
+                          value={segment.toCoords?.[1] ?? 0}
+                          onChange={(e) => updateSubRouteCoord(index, 'toCoords', 1, e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                          placeholder="Lng"
+                        />
+                      </div>
                     </div>
                   </div>
 
