@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { TravelRoute, TravelRouteSegment } from '@/app/types';
-import { transportationTypes, transportationLabels } from '@/app/lib/routeUtils';
+import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -81,15 +81,22 @@ export default function RouteForm({
   useEffect(() => {
     setCurrentRoute(prev => {
       const hasSubRoutes = (prev.subRoutes?.length || 0) > 0;
-      if (hasSubRoutes && prev.transportType !== 'multimodal') {
-        return { ...prev, transportType: 'multimodal' };
+      if (hasSubRoutes) {
+        const derivedType = getCompositeTransportType(prev.subRoutes ?? [], prev.transportType || 'plane');
+        if (prev.transportType !== derivedType) {
+          return { ...prev, transportType: derivedType };
+        }
       }
       if (!hasSubRoutes && prev.transportType === 'multimodal') {
         return { ...prev, transportType: 'plane' };
       }
       return prev;
     });
-  }, [currentRoute.subRoutes?.length, setCurrentRoute]);
+  }, [
+    currentRoute.subRoutes?.length,
+    currentRoute.subRoutes?.map(segment => segment.transportType).join('|'),
+    setCurrentRoute
+  ]);
 
   // Refs to track debounced geocoding functions for each segment
   type GeocodeFn = (locationName: string, field: 'from' | 'to') => Promise<void>;
@@ -220,9 +227,11 @@ export default function RouteForm({
 
       // Derive transport type from segments - use 'multimodal' for multi-segment routes
       // since segments can have different transport types
+      const derivedType = getCompositeTransportType(currentRoute.subRoutes ?? [], 'multimodal');
+
       const route: TravelRoute = {
         id: editingRouteIndex !== null ? currentRoute.id! : generateId(),
-        transportType: 'multimodal',
+        transportType: derivedType,
         from: firstSegment.from,
         to: lastSegment.to,
         fromCoords: firstSegment.fromCoords || [0, 0],
@@ -542,8 +551,12 @@ export default function RouteForm({
       label: transportationLabels[type]
     }));
 
+  const derivedRouteType = hasSubRoutes
+    ? getCompositeTransportType(currentRoute.subRoutes ?? [], currentRoute.transportType || 'plane')
+    : (currentRoute.transportType || 'plane');
+
   const routeTransportOptions = hasSubRoutes
-    ? [{ value: 'multimodal', label: transportationLabels.multimodal }]
+    ? [{ value: derivedRouteType, label: transportationLabels[derivedRouteType] }]
     : segmentTransportOptions;
 
   return (
@@ -568,10 +581,10 @@ export default function RouteForm({
             Transportation Type {hasSubRoutes ? '' : '*'}
           </label>
           <AriaSelect
-            key={`route-type-${hasSubRoutes ? 'multi' : 'single'}`}
+            key={`route-type-${hasSubRoutes ? derivedRouteType : 'single'}`}
             id="route-type"
             name="type"
-            defaultValue={hasSubRoutes ? 'multimodal' : (currentRoute.transportType || 'plane')}
+            defaultValue={hasSubRoutes ? derivedRouteType : (currentRoute.transportType || 'plane')}
             required={!hasSubRoutes}
             options={routeTransportOptions}
             placeholder="Select Transportation"

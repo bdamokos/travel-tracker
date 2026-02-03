@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { TravelRoute } from '@/app/types';
-import { transportationLabels, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel } from '@/app/lib/routeUtils';
+import { transportationLabels, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface RouteDisplayProps {
@@ -33,6 +33,9 @@ export default function RouteDisplay({
   };
 
   const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
+  const compositeType = hasSubRoutes && route.subRoutes
+    ? getCompositeTransportType(route.subRoutes, route.transportType)
+    : route.transportType;
   const hasManualSegments = route.subRoutes?.some(segment => segment.useManualRoutePoints) || false;
 
   // Get the emoji to display (single for regular routes, concatenated for multimodal)
@@ -42,7 +45,7 @@ export default function RouteDisplay({
 
   // Get accessibility label for screen readers
   const ariaLabel = hasSubRoutes && route.subRoutes
-    ? getMultiSegmentAriaLabel(route.subRoutes.length)
+    ? getMultiSegmentAriaLabel(route.subRoutes.length, compositeType)
     : transportationLabels[route.transportType];
 
   return (
@@ -58,7 +61,7 @@ export default function RouteDisplay({
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {hasSubRoutes ? (
-              <span>Multimodal</span>
+              <span>{transportationLabels[compositeType]}</span>
             ) : (
               <span>{transportationLabels[route.transportType]}</span>
             )}

@@ -359,7 +359,7 @@ describe('Data Migration System', () => {
       expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     });
 
-    it('should relabel multisegment routes as multimodal', () => {
+    it('should relabel multi-segment routes based on segment types', () => {
       const testData: UnifiedTripData = {
         schemaVersion: 8,
         id: 'test-trip-9',
@@ -384,6 +384,46 @@ describe('Data Migration System', () => {
                   to: 'B'
                 }
               ]
+            },
+            {
+              id: 'route-2',
+              type: 'other',
+              from: 'C',
+              to: 'D',
+              subRoutes: [
+                {
+                  id: 'seg-2a',
+                  type: 'train',
+                  from: 'C',
+                  to: 'D'
+                },
+                {
+                  id: 'seg-2b',
+                  type: 'train',
+                  from: 'D',
+                  to: 'E'
+                }
+              ]
+            },
+            {
+              id: 'route-3',
+              type: 'car',
+              from: 'F',
+              to: 'G',
+              subRoutes: [
+                {
+                  id: 'seg-3a',
+                  type: 'bus',
+                  from: 'F',
+                  to: 'G'
+                },
+                {
+                  id: 'seg-3b',
+                  type: 'train',
+                  from: 'G',
+                  to: 'H'
+                }
+              ]
             }
           ]
         }
@@ -392,7 +432,9 @@ describe('Data Migration System', () => {
       const result = migrateToLatestSchema(testData);
 
       expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(result.travelData?.routes?.[0].type).toBe('multimodal');
+      expect(result.travelData?.routes?.[0].type).toBe('bus');
+      expect(result.travelData?.routes?.[1].type).toBe('train');
+      expect(result.travelData?.routes?.[2].type).toBe('multimodal');
     });
   });
 

@@ -138,9 +138,31 @@ export const getMultiSegmentEmoji = <T extends { transportType?: Transportation[
   return segments.map(segment => getTransportIcon(segment.transportType || segment.type || 'other')).join('');
 };
 
-// Get accessibility label for multimodal routes
-export const getMultiSegmentAriaLabel = (segmentCount: number): string => {
-  return `Multimodal route with ${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
+// Resolve a composite transport type for multi-segment routes
+export const getCompositeTransportType = <T extends { transportType?: Transportation['type']; type?: Transportation['type'] }>(
+  segments: T[],
+  fallback: Transportation['type'] = 'other'
+): Transportation['type'] => {
+  const types = new Set(
+    segments
+      .map(segment => segment.transportType || segment.type)
+      .filter((type): type is Transportation['type'] => Boolean(type))
+  );
+
+  if (types.size === 0) return fallback;
+  if (types.size === 1) return Array.from(types)[0];
+  return 'multimodal';
+};
+
+// Get accessibility label for multi-segment routes
+export const getMultiSegmentAriaLabel = (
+  segmentCount: number,
+  transportType: Transportation['type'] = 'multimodal'
+): string => {
+  const label = transportType === 'multimodal'
+    ? 'Multimodal'
+    : (transportationLabels[transportType] ?? transportType);
+  return `${label} route with ${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
 };
 
 // Helper functions for coordinate calculations

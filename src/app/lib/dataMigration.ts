@@ -155,22 +155,34 @@ export function migrateFromV7ToV8(data: UnifiedTripData): UnifiedTripData {
 }
 
 /**
- * Migrate from schema v8 to v9 - label multisegment routes as multimodal
+ * Migrate from schema v8 to v9 - align multi-segment route types with segment transport
  */
 export function migrateFromV8ToV9(data: UnifiedTripData): UnifiedTripData {
   const tripId = data.id;
   const relabeledRoutes: string[] = [];
 
+  const resolveCompositeType = (transportation?: Transportation): Transportation['type'] | null => {
+    if (!transportation?.subRoutes?.length) return null;
+    const types = new Set(
+      transportation.subRoutes
+        .map(segment => segment.type)
+        .filter((type): type is Transportation['type'] => Boolean(type))
+    );
+    if (types.size === 0) return null;
+    if (types.size === 1) return Array.from(types)[0];
+    return 'multimodal';
+  };
+
   const normalizeTransportation = (transportation?: Transportation): Transportation | undefined => {
     if (!transportation) return transportation;
-    const hasSubRoutes = Array.isArray(transportation.subRoutes) && transportation.subRoutes.length > 0;
-    if (!hasSubRoutes || transportation.type === 'multimodal') {
+    const derivedType = resolveCompositeType(transportation);
+    if (!derivedType || transportation.type === derivedType) {
       return transportation;
     }
     relabeledRoutes.push(transportation.id);
     return {
       ...transportation,
-      type: 'multimodal'
+      type: derivedType
     };
   };
 
@@ -190,7 +202,7 @@ export function migrateFromV8ToV9(data: UnifiedTripData): UnifiedTripData {
     : data.travelData;
 
   if (relabeledRoutes.length > 0) {
-    console.log(`Trip ${tripId} v8→v9 migration relabeled multimodal routes:`, relabeledRoutes);
+    console.log(`Trip ${tripId} v8→v9 migration relabeled multi-segment routes:`, relabeledRoutes);
   }
 
   return {

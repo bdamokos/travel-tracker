@@ -2,7 +2,7 @@
 
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
-import { transportationTypes, transportationLabels } from '@/app/lib/routeUtils';
+import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
@@ -74,15 +74,21 @@ export default function RouteInlineEditor({
   useEffect(() => {
     setFormData(prev => {
       const hasSubRoutes = (prev.subRoutes?.length || 0) > 0;
-      if (hasSubRoutes && prev.transportType !== 'multimodal') {
-        return { ...prev, transportType: 'multimodal' };
+      if (hasSubRoutes) {
+        const derivedType = getCompositeTransportType(prev.subRoutes ?? [], prev.transportType || 'plane');
+        if (prev.transportType !== derivedType) {
+          return { ...prev, transportType: derivedType };
+        }
       }
       if (!hasSubRoutes && prev.transportType === 'multimodal') {
         return { ...prev, transportType: 'plane' };
       }
       return prev;
     });
-  }, [formData.subRoutes?.length]);
+  }, [
+    formData.subRoutes?.length,
+    formData.subRoutes?.map(segment => segment.transportType).join('|')
+  ]);
 
   const scheduleRefreshStatusClear = (statusKey: string, delay: number) => {
     const existingTimeout = refreshTimeouts.current[statusKey];
@@ -196,9 +202,11 @@ export default function RouteInlineEditor({
       const first = updatedSubRoutes[0];
       const last = updatedSubRoutes[updatedSubRoutes.length - 1];
 
+      const derivedType = getCompositeTransportType(updatedSubRoutes, formData.transportType || 'multimodal');
+
       onSave({
         ...formData,
-        transportType: 'multimodal',
+        transportType: derivedType,
         subRoutes: updatedSubRoutes,
         from: first.from,
         to: last.to,
@@ -555,8 +563,12 @@ export default function RouteInlineEditor({
       label: transportationLabels[type]
     }));
 
+  const derivedRouteType = hasSubRoutes
+    ? getCompositeTransportType(formData.subRoutes ?? [], formData.transportType || 'plane')
+    : (formData.transportType || 'plane');
+
   const routeTransportOptions = hasSubRoutes
-    ? [{ value: 'multimodal', label: transportationLabels.multimodal }]
+    ? [{ value: derivedRouteType, label: transportationLabels[derivedRouteType] }]
     : segmentTransportOptions;
 
   return (
@@ -575,7 +587,7 @@ export default function RouteInlineEditor({
             </label>
             <AriaSelect
               id={transportSelectId}
-              value={hasSubRoutes ? 'multimodal' : formData.transportType}
+              value={hasSubRoutes ? derivedRouteType : formData.transportType}
               onChange={(value) => setFormData(prev => ({ ...prev, transportType: value as Transportation['type'] }))}
               className="w-full px-2 py-1 text-sm"
               required

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CostTrackingData, Journey, JourneyDay, Transportation } from '@/app/types';
-import { transportationColors, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel } from '@/app/lib/routeUtils';
+import { transportationColors, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AccommodationDisplay from '@/app/components/AccommodationDisplay';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
@@ -325,6 +325,9 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
   }, [travelLookup, costData, id]);
 
   const hasSubRoutes = (subRoutes?.length || 0) > 0;
+  const compositeType = hasSubRoutes && subRoutes
+    ? getCompositeTransportType(subRoutes, type)
+    : type;
 
   // Get the emoji to display (single for regular routes, concatenated for multimodal)
   const displayEmoji = hasSubRoutes && subRoutes
@@ -333,11 +336,11 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
 
   // Get accessibility label for screen readers
   const ariaLabel = hasSubRoutes && subRoutes
-    ? getMultiSegmentAriaLabel(subRoutes.length)
+    ? getMultiSegmentAriaLabel(subRoutes.length, compositeType)
     : `${type} from ${from} to ${to}`;
 
   // Get the label to display
-  const transportTypeLabel = hasSubRoutes ? 'multimodal' : type;
+  const transportTypeLabel = hasSubRoutes ? compositeType : type;
 
   // For multimodal routes, use the color of the first segment, otherwise use parent type color
   // TransportationSegment has 'type' property (not 'transportType')

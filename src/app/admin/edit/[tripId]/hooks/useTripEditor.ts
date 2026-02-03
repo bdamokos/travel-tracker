@@ -7,7 +7,7 @@ import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelRoute
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
-import { generateRoutePoints } from '@/app/lib/routeUtils';
+import { generateRoutePoints, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 
@@ -165,7 +165,9 @@ export function useTripEditor(tripId: string | null) {
     // Migrate routes to new format if they don't have IDs
     const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute>) => {
       const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
-      const routeTransportType = hasSubRoutes ? 'multimodal' : (route.transportType || 'car');
+      const routeTransportType = hasSubRoutes
+        ? getCompositeTransportType(route.subRoutes ?? [], route.transportType || 'car')
+        : (route.transportType || 'car');
 
       return {
         id: route.id || generateId(),
