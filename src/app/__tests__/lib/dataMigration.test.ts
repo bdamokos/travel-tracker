@@ -358,11 +358,47 @@ describe('Data Migration System', () => {
 
       expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     });
+
+    it('should relabel multisegment routes as multimodal', () => {
+      const testData: UnifiedTripData = {
+        schemaVersion: 8,
+        id: 'test-trip-9',
+        title: 'Test Trip 9',
+        description: 'Test Description',
+        startDate: '2024-01-01',
+        endDate: '2024-01-10',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        travelData: {
+          routes: [
+            {
+              id: 'route-1',
+              type: 'other',
+              from: 'A',
+              to: 'B',
+              subRoutes: [
+                {
+                  id: 'seg-1',
+                  type: 'bus',
+                  from: 'A',
+                  to: 'B'
+                }
+              ]
+            }
+          ]
+        }
+      };
+
+      const result = migrateToLatestSchema(testData);
+
+      expect(result.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      expect(result.travelData?.routes?.[0].type).toBe('multimodal');
+    });
   });
 
   describe('CURRENT_SCHEMA_VERSION', () => {
     it('should have the correct schema version', () => {
-      expect(CURRENT_SCHEMA_VERSION).toBe(8);
+      expect(CURRENT_SCHEMA_VERSION).toBe(9);
     });
   });
 });

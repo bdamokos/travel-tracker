@@ -326,7 +326,7 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
 
   const hasSubRoutes = (subRoutes?.length || 0) > 0;
 
-  // Get the emoji to display (single for regular routes, concatenated for multisegment)
+  // Get the emoji to display (single for regular routes, concatenated for multimodal)
   const displayEmoji = hasSubRoutes && subRoutes
     ? getMultiSegmentEmoji(subRoutes)
     : getTransportIcon(type);
@@ -337,9 +337,9 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
     : `${type} from ${from} to ${to}`;
 
   // Get the label to display
-  const transportTypeLabel = hasSubRoutes ? 'Multisegment' : type;
+  const transportTypeLabel = hasSubRoutes ? 'multimodal' : type;
 
-  // For multisegment routes, use the color of the first segment, otherwise use parent type color
+  // For multimodal routes, use the color of the first segment, otherwise use parent type color
   // TransportationSegment has 'type' property (not 'transportType')
   const firstSegmentType = hasSubRoutes && subRoutes && subRoutes[0]
     ? subRoutes[0].type

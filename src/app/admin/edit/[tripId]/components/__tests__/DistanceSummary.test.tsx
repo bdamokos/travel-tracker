@@ -424,7 +424,7 @@ describe('DistanceSummary', () => {
         to: 'Paris',
         fromCoords: [40.7128, -74.0060],
         toCoords: [48.8566, 2.3522],
-        transportType: 'other',
+        transportType: 'multimodal',
         date: new Date('2025-01-15'),
         subRoutes: [
           {

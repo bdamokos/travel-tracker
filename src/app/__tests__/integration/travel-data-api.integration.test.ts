@@ -102,7 +102,7 @@ describe('Travel Data API Endpoints', () => {
             to: 'Santiago',
             fromCoords: [-22.9111, -68.1997],
             toCoords: [-33.4489, -70.6693],
-            transportType: 'other',
+            transportType: 'multimodal',
             date: new Date('2024-07-05T00:00:00.000Z'),
             subRoutes: [
               {

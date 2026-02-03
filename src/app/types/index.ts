@@ -71,7 +71,7 @@ export type Location = {
 };
 
 // Transportation type for route segments
-export type TransportationType = 'walk' | 'bike' | 'car' | 'bus' | 'shuttle' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'other';
+export type TransportationType = 'walk' | 'bike' | 'car' | 'bus' | 'shuttle' | 'train' | 'plane' | 'ferry' | 'boat' | 'metro' | 'multimodal' | 'other';
 
 export interface TransportationSegment {
   id: string;

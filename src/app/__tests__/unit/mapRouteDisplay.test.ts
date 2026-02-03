@@ -23,7 +23,7 @@ describe('mapRouteDisplay', () => {
       to: 'C',
       fromCoords: [1, 2],
       toCoords: [5, 6],
-      transportType: 'other',
+      transportType: 'multimodal',
       date: '2024-01-01T00:00:00.000Z',
       subRoutes: [
         {
@@ -57,7 +57,7 @@ describe('mapRouteDisplay', () => {
       to: 'D',
       fromCoords: [1, 2],
       toCoords: [7, 8],
-      transportType: 'other',
+      transportType: 'multimodal',
       date: '2024-01-01T00:00:00.000Z',
       subRoutes: [
         {
@@ -133,4 +133,3 @@ describe('mapRouteDisplay', () => {
     expect(resolveMapRouteSegmentPoints(segment)).toEqual([[1, 2], [3, 4]]);
   });
 });
-

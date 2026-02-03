@@ -163,41 +163,46 @@ export function useTripEditor(tripId: string | null) {
     })) || [];
 
     // Migrate routes to new format if they don't have IDs
-    const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute>) => ({
-      id: route.id || generateId(),
-      from: route.from || '',
-      to: route.to || '',
-      fromCoords: route.fromCoords || [0, 0] as [number, number],
-      toCoords: route.toCoords || [0, 0] as [number, number],
-      transportType: route.transportType || 'car',
-      date: route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date(),
-      duration: route.duration,
-      notes: route.notes || '',
-      privateNotes: route.privateNotes,
-      costTrackingLinks: route.costTrackingLinks || [],
-      routePoints: route.routePoints, // Preserve existing routePoints
-      useManualRoutePoints: route.useManualRoutePoints,
-      isReturn: route.isReturn,
-      subRoutes: route.subRoutes?.map((segment: Partial<TravelRouteSegment>) => ({
-        id: segment.id || generateId(),
-        from: segment.from || '',
-        to: segment.to || '',
-        fromCoords: segment.fromCoords || [0, 0] as [number, number],
-        toCoords: segment.toCoords || [0, 0] as [number, number],
-        transportType: segment.transportType || route.transportType || 'car',
-        date: segment.date
-          ? (segment.date instanceof Date ? segment.date : new Date(segment.date))
-          : (route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date()),
-        duration: segment.duration,
-        notes: segment.notes || '',
-        privateNotes: segment.privateNotes,
-        costTrackingLinks: segment.costTrackingLinks || [],
-        routePoints: segment.routePoints,
-        useManualRoutePoints: segment.useManualRoutePoints,
-        isReturn: segment.isReturn,
-        isReadOnly: segment.isReadOnly
-      }))
-    })) || [];
+    const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute>) => {
+      const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
+      const routeTransportType = hasSubRoutes ? 'multimodal' : (route.transportType || 'car');
+
+      return {
+        id: route.id || generateId(),
+        from: route.from || '',
+        to: route.to || '',
+        fromCoords: route.fromCoords || [0, 0] as [number, number],
+        toCoords: route.toCoords || [0, 0] as [number, number],
+        transportType: routeTransportType,
+        date: route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date(),
+        duration: route.duration,
+        notes: route.notes || '',
+        privateNotes: route.privateNotes,
+        costTrackingLinks: route.costTrackingLinks || [],
+        routePoints: route.routePoints, // Preserve existing routePoints
+        useManualRoutePoints: route.useManualRoutePoints,
+        isReturn: route.isReturn,
+        subRoutes: route.subRoutes?.map((segment: Partial<TravelRouteSegment>) => ({
+          id: segment.id || generateId(),
+          from: segment.from || '',
+          to: segment.to || '',
+          fromCoords: segment.fromCoords || [0, 0] as [number, number],
+          toCoords: segment.toCoords || [0, 0] as [number, number],
+          transportType: segment.transportType || (routeTransportType !== 'multimodal' ? routeTransportType : undefined) || 'car',
+          date: segment.date
+            ? (segment.date instanceof Date ? segment.date : new Date(segment.date))
+            : (route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date()),
+          duration: segment.duration,
+          notes: segment.notes || '',
+          privateNotes: segment.privateNotes,
+          costTrackingLinks: segment.costTrackingLinks || [],
+          routePoints: segment.routePoints,
+          useManualRoutePoints: segment.useManualRoutePoints,
+          isReturn: segment.isReturn,
+          isReadOnly: segment.isReadOnly
+        }))
+      };
+    }) || [];
 
     return {
       id: tripData.id,

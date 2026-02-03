@@ -78,6 +78,19 @@ export default function RouteForm({
     setRouteCoordOverrides({ from: false, to: false });
   }, [editingRouteIndex, currentRoute.id]);
 
+  useEffect(() => {
+    setCurrentRoute(prev => {
+      const hasSubRoutes = (prev.subRoutes?.length || 0) > 0;
+      if (hasSubRoutes && prev.transportType !== 'multimodal') {
+        return { ...prev, transportType: 'multimodal' };
+      }
+      if (!hasSubRoutes && prev.transportType === 'multimodal') {
+        return { ...prev, transportType: 'plane' };
+      }
+      return prev;
+    });
+  }, [currentRoute.subRoutes?.length, setCurrentRoute]);
+
   // Refs to track debounced geocoding functions for each segment
   type GeocodeFn = (locationName: string, field: 'from' | 'to') => Promise<void>;
   type Debouncer = ReturnType<typeof debounce<GeocodeFn>>;
@@ -205,11 +218,11 @@ export default function RouteForm({
         }
       }
 
-      // Derive transport type from segments - use 'other' for multi-segment routes
+      // Derive transport type from segments - use 'multimodal' for multi-segment routes
       // since segments can have different transport types
       const route: TravelRoute = {
         id: editingRouteIndex !== null ? currentRoute.id! : generateId(),
-        transportType: 'other',
+        transportType: 'multimodal',
         from: firstSegment.from,
         to: lastSegment.to,
         fromCoords: firstSegment.fromCoords || [0, 0],
@@ -355,13 +368,18 @@ export default function RouteForm({
       if (geocoded) toCoords = geocoded;
     }
     
+    const segmentTransportType = lastSegment?.transportType
+      || (currentRoute.transportType && currentRoute.transportType !== 'multimodal'
+        ? currentRoute.transportType
+        : 'plane');
+
     const newSegment: TravelRouteSegment = {
       id: newSegmentId,
       from: fromName,
       to: toName,
       fromCoords: fromCoords || [0, 0],
       toCoords: toCoords || [0, 0],
-      transportType: currentRoute.transportType || 'plane',
+      transportType: segmentTransportType,
       date: segmentDate,
       duration: '',
       notes: '',
@@ -517,10 +535,16 @@ export default function RouteForm({
 
   const hasSubRoutes = (currentRoute.subRoutes?.length || 0) > 0;
 
-  const transportOptions = transportationTypes.map(type => ({
-    value: type,
-    label: transportationLabels[type]
-  }));
+  const segmentTransportOptions = transportationTypes
+    .filter(type => type !== 'multimodal')
+    .map(type => ({
+      value: type,
+      label: transportationLabels[type]
+    }));
+
+  const routeTransportOptions = hasSubRoutes
+    ? [{ value: 'multimodal', label: transportationLabels.multimodal }]
+    : segmentTransportOptions;
 
   return (
     <div className="bg-gray-50 p-4 rounded-md mb-4">
@@ -544,11 +568,12 @@ export default function RouteForm({
             Transportation Type {hasSubRoutes ? '' : '*'}
           </label>
           <AriaSelect
+            key={`route-type-${hasSubRoutes ? 'multi' : 'single'}`}
             id="route-type"
             name="type"
-            defaultValue={currentRoute.transportType || 'plane'}
+            defaultValue={hasSubRoutes ? 'multimodal' : (currentRoute.transportType || 'plane')}
             required={!hasSubRoutes}
-            options={transportOptions}
+            options={routeTransportOptions}
             placeholder="Select Transportation"
             disabled={hasSubRoutes}
           />
@@ -797,7 +822,7 @@ export default function RouteForm({
                         onChange={(value) => updateSubRoute(index, { transportType: value as TravelRoute['transportType'] })}
                         className="w-full px-2 py-1 text-sm"
                         required
-                        options={transportOptions}
+                        options={segmentTransportOptions}
                         placeholder="Select Transportation"
                       />
                     </div>

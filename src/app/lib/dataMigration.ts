@@ -61,7 +61,7 @@ export function isUnifiedFormat(data: unknown): data is UnifiedTripData {
 /**
  * Current schema version - increment when introducing breaking changes
  */
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /**
  * Migrate from schema v6 to v7 - Repair orphaned accommodation references
@@ -150,6 +150,53 @@ export function migrateFromV7ToV8(data: UnifiedTripData): UnifiedTripData {
     ...data,
     publicUpdates: Array.isArray(data.publicUpdates) ? data.publicUpdates : [],
     schemaVersion: 8,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Migrate from schema v8 to v9 - label multisegment routes as multimodal
+ */
+export function migrateFromV8ToV9(data: UnifiedTripData): UnifiedTripData {
+  const tripId = data.id;
+  const relabeledRoutes: string[] = [];
+
+  const normalizeTransportation = (transportation?: Transportation): Transportation | undefined => {
+    if (!transportation) return transportation;
+    const hasSubRoutes = Array.isArray(transportation.subRoutes) && transportation.subRoutes.length > 0;
+    if (!hasSubRoutes || transportation.type === 'multimodal') {
+      return transportation;
+    }
+    relabeledRoutes.push(transportation.id);
+    return {
+      ...transportation,
+      type: 'multimodal'
+    };
+  };
+
+  const travelData = data.travelData
+    ? {
+        ...data.travelData,
+        routes: Array.isArray(data.travelData.routes)
+          ? data.travelData.routes.map(route => normalizeTransportation(route) as Transportation)
+          : data.travelData.routes,
+        days: Array.isArray(data.travelData.days)
+          ? data.travelData.days.map(day => ({
+              ...day,
+              transportation: normalizeTransportation(day.transportation)
+            }))
+          : data.travelData.days
+      }
+    : data.travelData;
+
+  if (relabeledRoutes.length > 0) {
+    console.log(`Trip ${tripId} v8→v9 migration relabeled multimodal routes:`, relabeledRoutes);
+  }
+
+  return {
+    ...data,
+    travelData,
+    schemaVersion: 9,
     updatedAt: new Date().toISOString()
   };
 }
@@ -566,6 +613,9 @@ export function migrateToLatestSchema(data: UnifiedTripData): UnifiedTripData {
   }
   if (data.schemaVersion < 8) {
     data = migrateFromV7ToV8(data);
+  }
+  if (data.schemaVersion < 9) {
+    data = migrateFromV8ToV9(data);
   }
   
   // Ensure current version

@@ -75,6 +75,13 @@ export const transportationConfig: Record<Transportation['type'], {
     dashArray: '20, 5',   // Long dashed line for boat
     description: 'Boat'
   },
+  multimodal: {
+    color: '#0F766E',     // Teal
+    weight: 4,
+    opacity: 0.8,
+    dashArray: '8, 4',    // Distinct dashed line for multimodal
+    description: 'Multimodal'
+  },
   other: {
     color: '#607D8B',     // Grey Blue
     weight: 3,
@@ -118,21 +125,22 @@ export const getTransportIcon = (type: Transportation['type']): string => {
     bike: '🚴',
     walk: '🚶',
     metro: '🚇',
+    multimodal: '🔀',
     other: '🚙'
   };
   return icons[type] || '🚙';
 };
 
-// Get emoji for multisegment routes (concatenated from segment emojis)
+// Get emoji for multimodal routes (concatenated from segment emojis)
 export const getMultiSegmentEmoji = <T extends { transportType?: Transportation['type']; type?: Transportation['type'] }>(
   segments: T[]
 ): string => {
   return segments.map(segment => getTransportIcon(segment.transportType || segment.type || 'other')).join('');
 };
 
-// Get accessibility label for multisegment routes
+// Get accessibility label for multimodal routes
 export const getMultiSegmentAriaLabel = (segmentCount: number): string => {
-  return `Multisegment route with ${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
+  return `Multimodal route with ${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
 };
 
 // Helper functions for coordinate calculations
@@ -291,6 +299,7 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
     case 'shuttle':
     case 'train':
     case 'metro':
+    case 'multimodal':
     case 'other':
     default:
       return 'car';
@@ -403,6 +412,7 @@ export const generateRoutePoints = async (
     case 'car':
     case 'walk':
     case 'bike':
+    case 'multimodal':
     case 'other':
     default:
       // For land routes, try to get realistic routing from OSRM
@@ -464,6 +474,7 @@ export const generateRoutePointsSync = (
     case 'car':
     case 'walk':
     case 'bike':
+    case 'multimodal':
     case 'other':
     default:
       return [fromCoordinates, toCoordinates];

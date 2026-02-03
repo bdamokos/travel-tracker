@@ -71,6 +71,19 @@ export default function RouteInlineEditor({
     };
   }, []);
 
+  useEffect(() => {
+    setFormData(prev => {
+      const hasSubRoutes = (prev.subRoutes?.length || 0) > 0;
+      if (hasSubRoutes && prev.transportType !== 'multimodal') {
+        return { ...prev, transportType: 'multimodal' };
+      }
+      if (!hasSubRoutes && prev.transportType === 'multimodal') {
+        return { ...prev, transportType: 'plane' };
+      }
+      return prev;
+    });
+  }, [formData.subRoutes?.length]);
+
   const scheduleRefreshStatusClear = (statusKey: string, delay: number) => {
     const existingTimeout = refreshTimeouts.current[statusKey];
     if (existingTimeout) {
@@ -81,11 +94,6 @@ export default function RouteInlineEditor({
       delete refreshTimeouts.current[statusKey];
     }, delay);
   };
-
-  const transportOptions = transportationTypes.map(type => ({
-    value: type,
-    label: transportationLabels[type]
-  }));
 
   const resolveLocationCoords = async (
     locationName: string,
@@ -190,6 +198,7 @@ export default function RouteInlineEditor({
 
       onSave({
         ...formData,
+        transportType: 'multimodal',
         subRoutes: updatedSubRoutes,
         from: first.from,
         to: last.to,
@@ -299,13 +308,18 @@ export default function RouteInlineEditor({
       const baseDate = lastSegment?.date ?? prev.date;
       const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
 
+      const segmentTransportType = lastSegment?.transportType
+        || (prev.transportType && prev.transportType !== 'multimodal'
+          ? prev.transportType
+          : 'plane');
+
       const newSegment: TravelRouteSegment = {
         id: generateId(),
         from: fromName,
         to: toName,
         fromCoords: fromCoords || [0, 0],
         toCoords: toCoords || [0, 0],
-        transportType: prev.transportType,
+        transportType: segmentTransportType,
         date: segmentDate,
         duration: '',
         notes: '',
@@ -534,6 +548,17 @@ export default function RouteInlineEditor({
 
   const hasSubRoutes = (formData.subRoutes?.length || 0) > 0;
 
+  const segmentTransportOptions = transportationTypes
+    .filter(type => type !== 'multimodal')
+    .map(type => ({
+      value: type,
+      label: transportationLabels[type]
+    }));
+
+  const routeTransportOptions = hasSubRoutes
+    ? [{ value: 'multimodal', label: transportationLabels.multimodal }]
+    : segmentTransportOptions;
+
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 shadow-sm">
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -550,12 +575,13 @@ export default function RouteInlineEditor({
             </label>
             <AriaSelect
               id={transportSelectId}
-              value={formData.transportType}
+              value={hasSubRoutes ? 'multimodal' : formData.transportType}
               onChange={(value) => setFormData(prev => ({ ...prev, transportType: value as Transportation['type'] }))}
               className="w-full px-2 py-1 text-sm"
               required
-              options={transportOptions}
+              options={routeTransportOptions}
               placeholder="Select Transportation"
+              disabled={hasSubRoutes}
             />
           </div>
           <div>
@@ -741,15 +767,15 @@ export default function RouteInlineEditor({
 	                      <label htmlFor={`sub-route-type-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
 	                        Transportation *
 	                      </label>
-	                      <AriaSelect
-	                        id={`sub-route-type-${segment.id}`}
-	                        value={segment.transportType}
+                      <AriaSelect
+                        id={`sub-route-type-${segment.id}`}
+                        value={segment.transportType}
                         onChange={(value) => updateSubRoute(index, { transportType: value as Transportation['type'] })}
                         className="w-full px-2 py-1 text-sm"
                         required
-                        options={transportOptions}
+                        options={segmentTransportOptions}
                         placeholder="Select Transportation"
-	                      />
+                      />
 	                    </div>
 	                    <div>
 	                      <span id={`sub-route-date-label-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

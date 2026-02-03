@@ -35,7 +35,7 @@ export default function RouteDisplay({
   const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
   const hasManualSegments = route.subRoutes?.some(segment => segment.useManualRoutePoints) || false;
 
-  // Get the emoji to display (single for regular routes, concatenated for multisegment)
+  // Get the emoji to display (single for regular routes, concatenated for multimodal)
   const displayEmoji = hasSubRoutes && route.subRoutes
     ? getMultiSegmentEmoji(route.subRoutes)
     : getTransportIcon(route.transportType);
@@ -58,7 +58,7 @@ export default function RouteDisplay({
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {hasSubRoutes ? (
-              <span>Multisegment</span>
+              <span>Multimodal</span>
             ) : (
               <span>{transportationLabels[route.transportType]}</span>
             )}

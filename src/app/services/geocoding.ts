@@ -107,7 +107,7 @@ export function calculateDistance(
 /**
  * Estimate travel time based on the distance and transportation type
  * @param distance Distance in kilometers
- * @param transportType Transportation type (walk, bike, car, bus, shuttle, train, metro, plane, ferry, boat, other)
+ * @param transportType Transportation type (walk, bike, car, bus, shuttle, train, metro, plane, ferry, boat, multimodal, other)
  * @returns Estimated travel time in minutes
  */
 export function estimateTravelTime(
@@ -126,6 +126,7 @@ export function estimateTravelTime(
     plane: 800,
     ferry: 40,
     boat: 30,   // General boat speed
+    multimodal: 50,
     other: 50
   };
   
@@ -144,6 +145,7 @@ export function estimateTravelTime(
     case 'train':
     case 'bus':
     case 'shuttle':
+    case 'multimodal':
       additionalTime = 20; // 20 min for waiting, boarding
       break;
     case 'ferry':
@@ -212,6 +214,7 @@ export function calculateCO2Emissions(
     plane: 0.25,
     ferry: 0.19,
     boat: 0.19,
+    multimodal: 0.10,
     other: 0.10
   };
   
