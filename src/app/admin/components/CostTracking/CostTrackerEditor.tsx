@@ -543,6 +543,12 @@ export default function CostTrackerEditor({
       />
       {(selectedTrip || mode === 'edit') && (
       <>
+        {costSummary && (
+          <div className="mb-8">
+            <CostSummaryDashboard costSummary={costSummary} costData={costData} />
+          </div>
+        )}
+
         <CountryBudgetManager
           costData={costData}
           setCostData={setCostData}
@@ -609,10 +615,6 @@ export default function CostTrackerEditor({
             tripId={costData.tripId}
           />
         </div>
-
-        {costSummary && (
-          <CostSummaryDashboard costSummary={costSummary} costData={costData} />
-        )}
 
         {costSummary && costSummary.countryBreakdown.some(c => c.spentAmount > 0) && (
             <CostPieCharts
