@@ -296,6 +296,8 @@ export default function RouteInlineEditor({
       const toName = prev.to || lastSegment?.to || '';
       const fromCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates || prev.fromCoords;
       const toCoords = locationOptions.find(loc => loc.name === toName)?.coordinates || prev.toCoords;
+      const baseDate = lastSegment?.date ?? prev.date;
+      const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
 
       const newSegment: TravelRouteSegment = {
         id: generateId(),
@@ -304,7 +306,7 @@ export default function RouteInlineEditor({
         fromCoords: fromCoords || [0, 0],
         toCoords: toCoords || [0, 0],
         transportType: prev.transportType,
-        date: prev.date,
+        date: segmentDate,
         duration: '',
         notes: '',
         privateNotes: '',

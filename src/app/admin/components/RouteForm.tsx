@@ -337,6 +337,8 @@ export default function RouteForm({
     const lastSegment = existingSubRoutes[existingSubRoutes.length - 1];
     const fromName = lastSegment?.to || currentRoute.from || '';
     const toName = currentRoute.to || lastSegment?.to || '';
+    const baseDate = lastSegment?.date ?? currentRoute.date;
+    const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
     
     let fromCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates || currentRoute.fromCoords;
     let toCoords = locationOptions.find(loc => loc.name === toName)?.coordinates || currentRoute.toCoords;
@@ -360,7 +362,7 @@ export default function RouteForm({
       fromCoords: fromCoords || [0, 0],
       toCoords: toCoords || [0, 0],
       transportType: currentRoute.transportType || 'plane',
-      date: currentRoute.date || new Date(),
+      date: segmentDate,
       duration: '',
       notes: '',
       privateNotes: '',
