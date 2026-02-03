@@ -544,7 +544,9 @@ export default function CostTrackerEditor({
       {(selectedTrip || mode === 'edit') && (
       <>
         {costSummary && (
-          <CostSummaryDashboard costSummary={costSummary} costData={costData} />
+          <div className="mb-8">
+            <CostSummaryDashboard costSummary={costSummary} costData={costData} />
+          </div>
         )}
 
         <CountryBudgetManager
