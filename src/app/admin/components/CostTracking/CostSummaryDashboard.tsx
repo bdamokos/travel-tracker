@@ -101,8 +101,9 @@ export default function CostSummaryDashboard({
               <div className="mt-4">
                 <div className="flex items-end gap-1 h-20">
                   {tripSpendingHistory.map((entry) => {
-                    const percentage = maxTripSpending > 0 ? (entry.amount / maxTripSpending) * 100 : 0;
-                    const barHeight = Math.max(percentage, entry.amount > 0 ? 8 : 2); // ensure small expenses still visible
+                    const normalizedAmount = Math.max(entry.amount, 0);
+                    const percentage = maxTripSpending > 0 ? (normalizedAmount / maxTripSpending) * 100 : 0;
+                    const minHeight = normalizedAmount > 0 ? '6px' : '2px';
                     const [year, month, day] = entry.date.split('-').map(Number);
                     const labelDate = !Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)
                       ? new Date(year, month - 1, day)
@@ -113,7 +114,10 @@ export default function CostSummaryDashboard({
                     });
                     return (
                       <div key={entry.date} className="flex-1 h-full flex flex-col items-center justify-end">
-                        <div className="w-full bg-orange-200 dark:bg-orange-900/60 rounded-t-sm overflow-hidden" style={{ height: `${barHeight}%` }}>
+                        <div
+                          className="w-full bg-orange-200 dark:bg-orange-900/60 rounded-t-sm overflow-hidden"
+                          style={{ height: `${percentage}%`, minHeight }}
+                        >
                           <div className="w-full h-full bg-orange-500 dark:bg-orange-400" />
                         </div>
                         <div className="mt-1 text-[10px] text-orange-700 dark:text-orange-300 text-center leading-tight">
