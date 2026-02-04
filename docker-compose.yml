@@ -10,6 +10,7 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_APP_MODE=admin
+      - INSTAGRAM_APP_ID=${INSTAGRAM_APP_ID}
     restart: unless-stopped
     
   travel-tracker-embed:
@@ -21,6 +22,7 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_PUBLIC_APP_MODE=embed
+      - INSTAGRAM_APP_ID=${INSTAGRAM_APP_ID}
     restart: unless-stopped
 
 volumes:
