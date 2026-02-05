@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { CostSummary, CostTrackingData } from '@/app/types';
 import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
 
@@ -8,11 +9,14 @@ interface CostSummaryDashboardProps {
   costData: CostTrackingData;
 }
 
+type TrendDirection = 'up' | 'down' | 'flat';
+
 
 export default function CostSummaryDashboard({
   costSummary,
   costData
-}: CostSummaryDashboardProps) {
+}: CostSummaryDashboardProps): JSX.Element {
+  const today = new Date();
   const dailyBudgetLabel = (() => {
     const days = costSummary.dailyBudgetBasisDays;
     const baseLabel = costSummary.tripStatus === 'during' ? 'remaining day' : 'journey day';
@@ -24,6 +28,119 @@ export default function CostSummaryDashboard({
   const maxTripSpending = tripSpendingHistory.length > 0
     ? Math.max(...tripSpendingHistory.map(entry => entry.amount), 0)
     : 0;
+
+  const normalizeDate = (value: Date) => {
+    const normalized = new Date(value);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  };
+
+  const getEffectiveTripEnd = () => {
+    const tripEndDate = normalizeDate(new Date(costData.tripEndDate));
+    const normalizedToday = normalizeDate(today);
+    return normalizedToday < tripEndDate ? normalizedToday : tripEndDate;
+  };
+
+  const tripStartDate = normalizeDate(new Date(costData.tripStartDate));
+  const effectiveTripEnd = getEffectiveTripEnd();
+
+  const getAverageForDateRange = (startDate: Date, endDate: Date) => {
+    if (endDate < tripStartDate) {
+      return { average: 0, total: 0, days: 0 };
+    }
+
+    const effectiveStart = startDate < tripStartDate ? tripStartDate : startDate;
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const days = Math.floor((endDate.getTime() - effectiveStart.getTime()) / msPerDay) + 1;
+
+    if (days <= 0) {
+      return { average: 0, total: 0, days: 0 };
+    }
+
+    const total = costData.expenses
+      .filter(expense => {
+        const expenseDate = normalizeDate(new Date(expense.date));
+        return expenseDate >= effectiveStart && expenseDate <= endDate;
+      })
+      .reduce((sum, expense) => sum + expense.amount, 0);
+
+    return { average: total / days, total, days };
+  };
+
+  const calculateRangeAverage = (rangeDays: number) => {
+    const rangeEnd = effectiveTripEnd;
+    const rangeStart = normalizeDate(new Date(rangeEnd));
+    rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
+    return getAverageForDateRange(rangeStart, rangeEnd);
+  };
+
+  const calculateTrend = (rangeDays: number, currentAverage: number) => {
+    const previousRangeEnd = normalizeDate(new Date(effectiveTripEnd));
+    previousRangeEnd.setDate(previousRangeEnd.getDate() - rangeDays);
+    const previousRangeStart = normalizeDate(new Date(previousRangeEnd));
+    previousRangeStart.setDate(previousRangeStart.getDate() - (rangeDays - 1));
+
+    const { average: previousAverage } = getAverageForDateRange(previousRangeStart, previousRangeEnd);
+    const delta = previousAverage > 0 ? ((currentAverage - previousAverage) / previousAverage) * 100 : 0;
+    const trend: TrendDirection = delta > 2 ? 'up' : delta < -2 ? 'down' : 'flat';
+    return { trend, delta, previousAverage };
+  };
+
+  const weeklyAverage = calculateRangeAverage(7);
+  const weeklyTrend = calculateTrend(7, weeklyAverage.average);
+  const monthlyAverage = calculateRangeAverage(30);
+  const monthlyTrend = calculateTrend(30, monthlyAverage.average);
+
+  const currentCountries = (() => {
+    if (costSummary.tripStatus !== 'during') {
+      return [];
+    }
+
+    const todayDate = normalizeDate(today);
+    const countriesWithPeriods = costData.countryBudgets.filter(budget => {
+      if (!budget.periods || budget.periods.length === 0) {
+        return false;
+      }
+      return budget.periods.some(period => {
+        const start = normalizeDate(new Date(period.startDate));
+        const end = normalizeDate(new Date(period.endDate));
+        return todayDate >= start && todayDate <= end;
+      });
+    });
+
+    if (countriesWithPeriods.length > 0) {
+      return Array.from(new Set(countriesWithPeriods.map(budget => budget.country)));
+    }
+
+    const recentCountrySpend = costData.expenses
+      .filter(expense => {
+        const expenseDate = normalizeDate(new Date(expense.date));
+        const daysAgo = Math.floor((todayDate.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysAgo >= 0 && daysAgo < 7 && expense.country && !expense.isGeneralExpense;
+      })
+      .reduce((acc, expense) => {
+        const key = expense.country;
+        acc.set(key, (acc.get(key) || 0) + expense.amount);
+        return acc;
+      }, new Map<string, number>());
+
+    return Array.from(recentCountrySpend.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([country]) => country);
+  })();
+
+  const currentCountryBreakdowns = currentCountries
+    .map(country => costSummary.countryBreakdown.find(entry => entry.country === country))
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+  const trendLabel = (trend: TrendDirection, delta: number) => {
+    if (trend === 'flat') {
+      return 'Steady';
+    }
+    const rounded = Math.abs(delta).toFixed(1);
+    return trend === 'up' ? `Up ${rounded}%` : `Down ${rounded}%`;
+  };
 
   return (
     <div>
@@ -132,6 +249,56 @@ export default function CostSummaryDashboard({
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Daily Average Highlights */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-emerald-50 dark:bg-emerald-950 p-4 rounded-lg">
+          <h4 className="font-medium text-emerald-800 dark:text-emerald-200">Last 7 Days Avg</h4>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-300">
+            {formatCurrency(weeklyAverage.average, costData.currency)}
+          </p>
+          <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+            {weeklyAverage.days > 0 ? `Based on ${weeklyAverage.days} day${weeklyAverage.days === 1 ? '' : 's'}` : 'No recent spend'}
+          </p>
+          <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-2">
+            Trend: {trendLabel(weeklyTrend.trend, weeklyTrend.delta)} vs prior week
+          </p>
+        </div>
+        <div className="bg-teal-50 dark:bg-teal-950 p-4 rounded-lg">
+          <h4 className="font-medium text-teal-800 dark:text-teal-200">Last 30 Days Avg</h4>
+          <p className="text-xl font-bold text-teal-600 dark:text-teal-300">
+            {formatCurrency(monthlyAverage.average, costData.currency)}
+          </p>
+          <p className="text-xs text-teal-700 dark:text-teal-300 mt-1">
+            {monthlyAverage.days > 0 ? `Based on ${monthlyAverage.days} day${monthlyAverage.days === 1 ? '' : 's'}` : 'No recent spend'}
+          </p>
+          <p className="text-xs text-teal-700 dark:text-teal-300 mt-2">
+            Trend: {trendLabel(monthlyTrend.trend, monthlyTrend.delta)} vs prior month
+          </p>
+        </div>
+        {currentCountryBreakdowns.length > 0 ? (
+          currentCountryBreakdowns.map(country => (
+            <div key={country.country} className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg">
+              <h4 className="font-medium text-sky-800 dark:text-sky-200">{country.country} Avg/Day</h4>
+              <p className="text-xl font-bold text-sky-600 dark:text-sky-300">
+                {formatCurrency(country.averagePerDay, costData.currency)}
+              </p>
+              <p className="text-xs text-sky-700 dark:text-sky-300 mt-1">
+                {country.remainingAmount >= 0
+                  ? `Budget left: ${formatCurrency(country.remainingAmount, costData.currency)}`
+                  : `Over budget by: ${formatCurrency(Math.abs(country.remainingAmount), costData.currency)}`}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="bg-sky-50 dark:bg-sky-950 p-4 rounded-lg lg:col-span-2">
+            <h4 className="font-medium text-sky-800 dark:text-sky-200">Current Countries</h4>
+            <p className="text-sm text-sky-700 dark:text-sky-300 mt-1">
+              No active country periods detected yet.
+            </p>
           </div>
         )}
       </div>
