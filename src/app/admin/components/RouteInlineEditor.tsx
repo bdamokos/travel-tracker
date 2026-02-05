@@ -3,6 +3,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
+import { coerceValidDate } from '@/app/lib/dateUtils';
 import { generateId } from '@/app/lib/costUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
@@ -316,8 +317,9 @@ export default function RouteInlineEditor({
 
       const fromCoords = fromLocationCoords || (lastSegment ? lastSegment.toCoords : prev.fromCoords);
       const toCoords = toLocationCoords || (toName === lastSegment?.to ? lastSegment?.toCoords : prev.toCoords);
-      const baseDate = lastSegment?.date ?? prev.date;
-      const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
+      const segmentDate = coerceValidDate(lastSegment?.date)
+        ?? coerceValidDate(prev.date)
+        ?? new Date();
 
       const segmentTransportType = lastSegment?.transportType
         || (prev.transportType && prev.transportType !== 'multimodal'

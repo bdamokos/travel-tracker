@@ -1,4 +1,4 @@
-import { formatUtcDate, formatDateRange, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
+import { coerceValidDate, formatUtcDate, formatDateRange, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 
 describe('dateUtils UTC helpers', () => {
   describe('formatUtcDate', () => {
@@ -29,6 +29,22 @@ describe('dateUtils UTC helpers', () => {
 
     it('returns null for invalid dates', () => {
       expect(normalizeUtcDateToLocalDay('not-a-date')).toBeNull();
+    });
+  });
+
+  describe('coerceValidDate', () => {
+    it('returns a cloned Date for valid Date values', () => {
+      const source = new Date('2024-07-15T00:00:00.000Z');
+      const result = coerceValidDate(source);
+      expect(result).not.toBeNull();
+      expect(result).not.toBe(source);
+      expect(result?.toISOString()).toBe(source.toISOString());
+    });
+
+    it('returns a Date for valid string values and null for invalid values', () => {
+      expect(coerceValidDate('2024-07-15T00:00:00.000Z')?.toISOString()).toBe('2024-07-15T00:00:00.000Z');
+      expect(coerceValidDate('not-a-date')).toBeNull();
+      expect(coerceValidDate(undefined)).toBeNull();
     });
   });
 

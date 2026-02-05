@@ -15,6 +15,10 @@ function parseDate(value: string | Date | undefined | null): Date | null {
   return isNaN(date.getTime()) ? null : date;
 }
 
+export function coerceValidDate(value: string | Date | undefined | null): Date | null {
+  return parseDate(value);
+}
+
 /**
  * Convert a date (stored as UTC midnight) to a local Date at the same calendar day.
  * This avoids the off-by-one effect when rendering in different timezones.

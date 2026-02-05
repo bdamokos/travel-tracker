@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
+import { coerceValidDate } from '@/app/lib/dateUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -359,8 +360,9 @@ export default function RouteForm({
     const lastSegment = existingSubRoutes[existingSubRoutes.length - 1];
     const fromName = lastSegment?.to || currentRoute.from || '';
     const toName = currentRoute.to || lastSegment?.to || '';
-    const baseDate = lastSegment?.date ?? currentRoute.date;
-    const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
+    const segmentDate = coerceValidDate(lastSegment?.date)
+      ?? coerceValidDate(currentRoute.date)
+      ?? new Date();
     
     const fromLocationCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates;
     const toLocationCoords = locationOptions.find(loc => loc.name === toName)?.coordinates;
@@ -646,7 +648,8 @@ export default function RouteForm({
             name="date"
             required
             className="w-full"
-            defaultValue={currentRoute.date instanceof Date ? currentRoute.date : (currentRoute.date ? new Date(currentRoute.date) : null)}
+            value={coerceValidDate(currentRoute.date)}
+            onChange={(date) => setCurrentRoute(prev => ({ ...prev, date: date ?? undefined }))}
             data-testid="route-date"
           />
         </div>
