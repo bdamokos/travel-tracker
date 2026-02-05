@@ -1,5 +1,6 @@
 'use client';
 
+import type { JSX } from 'react';
 import { CostSummary, CostTrackingData } from '@/app/types';
 import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
 
@@ -14,7 +15,7 @@ type TrendDirection = 'up' | 'down' | 'flat';
 export default function CostSummaryDashboard({
   costSummary,
   costData
-}: CostSummaryDashboardProps) {
+}: CostSummaryDashboardProps): JSX.Element {
   const today = new Date();
   const dailyBudgetLabel = (() => {
     const days = costSummary.dailyBudgetBasisDays;
@@ -35,12 +36,13 @@ export default function CostSummaryDashboard({
   };
 
   const getEffectiveTripEnd = () => {
-    const tripEndDate = new Date(costData.tripEndDate);
-    return today < tripEndDate ? today : tripEndDate;
+    const tripEndDate = normalizeDate(new Date(costData.tripEndDate));
+    const normalizedToday = normalizeDate(today);
+    return normalizedToday < tripEndDate ? normalizedToday : tripEndDate;
   };
 
   const tripStartDate = normalizeDate(new Date(costData.tripStartDate));
-  const effectiveTripEnd = normalizeDate(getEffectiveTripEnd());
+  const effectiveTripEnd = getEffectiveTripEnd();
 
   const getAverageForDateRange = (startDate: Date, endDate: Date) => {
     if (endDate < tripStartDate) {
@@ -285,7 +287,9 @@ export default function CostSummaryDashboard({
                 {formatCurrency(country.averagePerDay, costData.currency)}
               </p>
               <p className="text-xs text-sky-700 dark:text-sky-300 mt-1">
-                {country.remainingAmount >= 0 ? 'Budget left' : 'Over budget'}: {formatCurrency(country.remainingAmount, costData.currency)}
+                {country.remainingAmount >= 0
+                  ? `Budget left: ${formatCurrency(country.remainingAmount, costData.currency)}`
+                  : `Over budget by: ${formatCurrency(Math.abs(country.remainingAmount), costData.currency)}`}
               </p>
             </div>
           ))
