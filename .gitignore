@@ -42,6 +42,7 @@ GEMINI.md
 
 # Sync scripts
 sync-github.sh
+sync-main.sh
 GITHUB_SYNC_WORKFLOW.md
 .last_github_sync
 sync-from-github.sh
