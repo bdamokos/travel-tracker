@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { coerceValidDate } from '@/app/lib/dateUtils';
+import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -205,30 +206,46 @@ export default function RouteForm({
         return;
       }
 
-      // Validate segment connectivity
-      const firstSegment = currentRoute.subRoutes![0];
-      const lastSegment = currentRoute.subRoutes![currentRoute.subRoutes!.length - 1];
+      const subRoutes = currentRoute.subRoutes!;
 
-      for (let i = 0; i < currentRoute.subRoutes!.length; i++) {
-        const segment = currentRoute.subRoutes![i];
+      for (let i = 0; i < subRoutes.length; i++) {
+        const segment = subRoutes[i];
         if (segment.from === segment.to) {
           setValidationError(`Segment ${i + 1}: From and To locations must be different.`);
           return;
         }
       }
 
-      for (let i = 1; i < currentRoute.subRoutes!.length; i++) {
-        const prev = currentRoute.subRoutes![i - 1];
-        const curr = currentRoute.subRoutes![i];
-        if (prev.to !== curr.from) {
-          setValidationError(`Segment ${i + 1} must start where segment ${i} ends (${prev.to}).`);
+      const validation = validateAndNormalizeCompositeRoute({
+        ...currentRoute,
+        subRoutes
+      });
+
+      if (!validation.ok) {
+        if (validation.error.code === 'disconnected_segment') {
+          setValidationError(`Sub-route ${validation.error.segmentNumber} must start where the previous segment ends.`);
           return;
         }
+        if (validation.error.code === 'from_mismatch' || validation.error.code === 'to_mismatch') {
+          setValidationError('Route start/end must match the first and last sub-routes.');
+          return;
+        }
+        if (validation.error.code === 'from_coords_mismatch' || validation.error.code === 'to_coords_mismatch') {
+          setValidationError('Sub-route coordinates do not align with route endpoints.');
+          return;
+        }
+        setValidationError('Composite route validation failed.');
+        return;
       }
+
+      const normalizedRoute = validation.normalizedRoute;
+      const normalizedSubRoutes = normalizedRoute.subRoutes as TravelRouteSegment[];
+      const firstSegment = normalizedSubRoutes[0];
+      const lastSegment = normalizedSubRoutes[normalizedSubRoutes.length - 1];
 
       // Derive transport type from segments - use 'multimodal' for multi-segment routes
       // since segments can have different transport types
-      const derivedType = getCompositeTransportType(currentRoute.subRoutes ?? [], 'multimodal');
+      const derivedType = getCompositeTransportType(normalizedSubRoutes, 'multimodal');
 
       const route: TravelRoute = {
         id: editingRouteIndex !== null ? currentRoute.id! : generateId(),
@@ -244,7 +261,7 @@ export default function RouteForm({
         isReturn: data.isReturn === 'on',
         doubleDistance: data.doubleDistance === 'on',
         costTrackingLinks: currentRoute.costTrackingLinks || [],
-        subRoutes: currentRoute.subRoutes
+        subRoutes: normalizedSubRoutes
       };
 
       await onRouteAdded(route);

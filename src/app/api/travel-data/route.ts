@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '@/app/lib/unifiedDataService';
 import { filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
+import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
 
@@ -17,84 +18,29 @@ type RoutePayload = RouteSegmentPayload & {
   subRoutes?: RouteSegmentPayload[];
 };
 
-// Allow sub-meter coordinate drift from serialization/geocoding differences.
-const COORD_EPSILON = 1e-6;
-
-const normalizeLocationName = (value?: string) => value?.trim().toLowerCase() || '';
-
-const isSameLocationName = (left?: string, right?: string) => {
-  if (!left || !right) return false;
-  return normalizeLocationName(left) === normalizeLocationName(right);
-};
-
-const isSameCoords = (left?: [number, number], right?: [number, number]) => {
-  if (!left || !right) return false;
-  return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
-};
-
 const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
   if (!routes) return { routes };
 
   const normalized = routes.map((route) => {
-    if (!route.subRoutes?.length) {
-      return route;
+    const validation = validateAndNormalizeCompositeRoute(route);
+    if (validation.ok) {
+      return validation.normalizedRoute as RoutePayload;
     }
 
-    const first = route.subRoutes[0];
-    const last = route.subRoutes[route.subRoutes.length - 1];
-
-    if (route.from && route.from !== first.from) {
-      return { error: `Route ${route.id} from does not match sub-route start` };
+    switch (validation.error.code) {
+      case 'from_mismatch':
+        return { error: `Route ${route.id} from does not match sub-route start` };
+      case 'to_mismatch':
+        return { error: `Route ${route.id} to does not match sub-route end` };
+      case 'from_coords_mismatch':
+        return { error: `Route ${route.id} fromCoords does not match sub-route start` };
+      case 'to_coords_mismatch':
+        return { error: `Route ${route.id} toCoords does not match sub-route end` };
+      case 'disconnected_segment':
+        return { error: `Route ${route.id} sub-route ${validation.error.segmentNumber} does not connect to previous segment` };
+      default:
+        return { error: `Route ${route.id} failed validation` };
     }
-
-    if (route.to && route.to !== last.to) {
-      return { error: `Route ${route.id} to does not match sub-route end` };
-    }
-
-    // Prefer name continuity. Coordinates can differ slightly between edits/loads.
-    if (
-      route.fromCoords &&
-      first.fromCoords &&
-      !isSameLocationName(route.from, first.from) &&
-      !isSameCoords(route.fromCoords, first.fromCoords)
-    ) {
-      return { error: `Route ${route.id} fromCoords does not match sub-route start` };
-    }
-
-    if (
-      route.toCoords &&
-      last.toCoords &&
-      !isSameLocationName(route.to, last.to) &&
-      !isSameCoords(route.toCoords, last.toCoords)
-    ) {
-      return { error: `Route ${route.id} toCoords does not match sub-route end` };
-    }
-
-    const disconnectedIndex = route.subRoutes.findIndex((segment, index) => {
-      if (index === 0) return false;
-      const previous = route.subRoutes![index - 1];
-      const namesMatch = isSameLocationName(previous.to, segment.from);
-      if (previous.to && segment.from && !namesMatch) {
-        return true;
-      }
-      // If names match we treat the segment boundary as connected.
-      if (!namesMatch && previous.toCoords && segment.fromCoords && !isSameCoords(previous.toCoords, segment.fromCoords)) {
-        return true;
-      }
-      return false;
-    });
-
-    if (disconnectedIndex > 0) {
-      return { error: `Route ${route.id} sub-route ${disconnectedIndex + 1} does not connect to previous segment` };
-    }
-
-    return {
-      ...route,
-      from: first.from,
-      to: last.to,
-      fromCoords: first.fromCoords ?? route.fromCoords,
-      toCoords: last.toCoords ?? route.toCoords
-    };
   });
 
   const errorResult = normalized.find((entry) => typeof entry === 'object' && 'error' in entry) as

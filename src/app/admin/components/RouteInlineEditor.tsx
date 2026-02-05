@@ -3,6 +3,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
+import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { coerceValidDate } from '@/app/lib/dateUtils';
 import { generateId } from '@/app/lib/costUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
@@ -127,19 +128,6 @@ export default function RouteInlineEditor({
 
   const isZeroCoords = (coords?: [number, number]) => !coords || (coords[0] === 0 && coords[1] === 0);
 
-  // Accept tiny coordinate drift from serialization/geocoding differences.
-  const COORD_EPSILON = 1e-6;
-
-  const isSamePoint = (left?: [number, number], right?: [number, number]) => {
-    if (!left || !right) return false;
-    return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
-  };
-
-  const isSameLocationName = (left?: string, right?: string) => {
-    if (!left || !right) return false;
-    return left.trim().toLowerCase() === right.trim().toLowerCase();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError('');
@@ -189,34 +177,33 @@ export default function RouteInlineEditor({
         return;
       }
 
-      const disconnectedIndex = updatedSubRoutes.findIndex((segment, index) => {
-        if (index === 0) return false;
-        const previous = updatedSubRoutes[index - 1];
-        const namesMatch = isSameLocationName(previous.to, segment.from);
-        if (previous.to && segment.from && !namesMatch) {
-          return true;
-        }
-        // If names match, allow minor coordinate drift.
-        if (!namesMatch && previous.toCoords && segment.fromCoords && !isSamePoint(previous.toCoords, segment.fromCoords)) {
-          return true;
-        }
-        return false;
+      const validation = validateAndNormalizeCompositeRoute({
+        ...formData,
+        subRoutes: updatedSubRoutes
       });
 
-      if (disconnectedIndex > 0) {
-        setValidationError(`Sub-route ${disconnectedIndex + 1} must start where the previous segment ends.`);
+      if (!validation.ok) {
+        if (validation.error.code === 'disconnected_segment') {
+          setValidationError(`Sub-route ${validation.error.segmentNumber} must start where the previous segment ends.`);
+          return;
+        }
+        if (validation.error.code === 'from_mismatch' || validation.error.code === 'to_mismatch') {
+          setValidationError('Route start/end must match the first and last sub-routes.');
+          return;
+        }
+        setValidationError('Sub-route coordinates do not align with route endpoints.');
         return;
       }
-
-      const first = updatedSubRoutes[0];
-      const last = updatedSubRoutes[updatedSubRoutes.length - 1];
+      const normalizedSubRoutes = validation.normalizedRoute.subRoutes as TravelRouteSegment[];
+      const first = normalizedSubRoutes[0];
+      const last = normalizedSubRoutes[normalizedSubRoutes.length - 1];
 
       const derivedType = getCompositeTransportType(updatedSubRoutes, formData.transportType || 'multimodal');
 
       onSave({
         ...formData,
         transportType: derivedType,
-        subRoutes: updatedSubRoutes,
+        subRoutes: normalizedSubRoutes,
         from: first.from,
         to: last.to,
         fromCoords: first.fromCoords,
