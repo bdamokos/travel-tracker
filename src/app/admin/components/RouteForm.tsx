@@ -362,8 +362,11 @@ export default function RouteForm({
     const baseDate = lastSegment?.date ?? currentRoute.date;
     const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
     
-    let fromCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates || currentRoute.fromCoords;
-    let toCoords = locationOptions.find(loc => loc.name === toName)?.coordinates || currentRoute.toCoords;
+    const fromLocationCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates;
+    const toLocationCoords = locationOptions.find(loc => loc.name === toName)?.coordinates;
+
+    let fromCoords = fromLocationCoords || (lastSegment ? lastSegment.toCoords : currentRoute.fromCoords);
+    let toCoords = toLocationCoords || (toName === lastSegment?.to ? lastSegment?.toCoords : currentRoute.toCoords);
 
     const newSegmentId = generateId();
 
@@ -423,7 +426,40 @@ export default function RouteForm({
 
     setCurrentRoute(prev => {
       const subRoutes = [...(prev.subRoutes || [])];
-      const updatedSegment = { ...subRoutes[index], ...updates } as TravelRouteSegment;
+      let updatedSegment = { ...subRoutes[index], ...updates } as TravelRouteSegment;
+
+      const applyImmediateCoords = (
+        field: 'from' | 'to',
+        nextValue: string | undefined,
+        previousValue: string
+      ) => {
+        if (nextValue === undefined || nextValue === previousValue) {
+          return;
+        }
+
+        const locationMatch = locationOptions.find(loc => loc.name === nextValue);
+        if (locationMatch) {
+          updatedSegment = {
+            ...updatedSegment,
+            [`${field}Coords`]: locationMatch.coordinates
+          } as TravelRouteSegment;
+          return;
+        }
+
+        // Clear stale coordinates when switching to an unknown location.
+        updatedSegment = {
+          ...updatedSegment,
+          [`${field}Coords`]: [0, 0]
+        } as TravelRouteSegment;
+      };
+
+      if ('from' in updates) {
+        applyImmediateCoords('from', updates.from, segment.from);
+      }
+
+      if ('to' in updates) {
+        applyImmediateCoords('to', updates.to, segment.to);
+      }
 
       // Update the state immediately for UI responsiveness
       subRoutes[index] = updatedSegment;
@@ -476,20 +512,26 @@ export default function RouteForm({
 
     // Geocode 'from' location if it changed (debounced)
     if ('from' in updates && updates.from && segmentId) {
-      const debouncerKey = `${segmentId}-from`;
-      if (!geocodingDebouncersRef.current[debouncerKey]) {
-        geocodingDebouncersRef.current[debouncerKey] = debounce(geocodeAndUpdate, 800);
+      const hasMatch = locationOptions.some(loc => loc.name === updates.from);
+      if (!hasMatch) {
+        const debouncerKey = `${segmentId}-from`;
+        if (!geocodingDebouncersRef.current[debouncerKey]) {
+          geocodingDebouncersRef.current[debouncerKey] = debounce(geocodeAndUpdate, 800);
+        }
+        geocodingDebouncersRef.current[debouncerKey].fn(updates.from, 'from');
       }
-      geocodingDebouncersRef.current[debouncerKey].fn(updates.from, 'from');
     }
 
     // Geocode 'to' location if it changed (debounced)
     if ('to' in updates && updates.to && segmentId) {
-      const debouncerKey = `${segmentId}-to`;
-      if (!geocodingDebouncersRef.current[debouncerKey]) {
-        geocodingDebouncersRef.current[debouncerKey] = debounce(geocodeAndUpdate, 800);
+      const hasMatch = locationOptions.some(loc => loc.name === updates.to);
+      if (!hasMatch) {
+        const debouncerKey = `${segmentId}-to`;
+        if (!geocodingDebouncersRef.current[debouncerKey]) {
+          geocodingDebouncersRef.current[debouncerKey] = debounce(geocodeAndUpdate, 800);
+        }
+        geocodingDebouncersRef.current[debouncerKey].fn(updates.to, 'to');
       }
-      geocodingDebouncersRef.current[debouncerKey].fn(updates.to, 'to');
     }
   }, [locationOptions, onGeocode, setCurrentRoute]);
 

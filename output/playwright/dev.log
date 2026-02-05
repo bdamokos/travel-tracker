@@ -1,0 +1,87 @@
+$ next dev
+   ▲ Next.js 15.5.7
+   - Local:        http://localhost:3005
+   - Network:      http://192.168.1.10:3005
+
+ ✓ Starting...
+ ✓ Ready in 4s
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 4.5s (677 modules)
+ GET /admin 200 in 5545ms
+ ✓ Compiled in 1332ms (249 modules)
+[MapPrecalc] Pre-calculating dynamic map data for 25 location stays
+[Weather] cache:hit { key: '40.7128_-74.0060_2023-12-31_2023-12-31', count: 1 }
+[Weather] cache:hit { key: '48.8589_2.3200_2025-08-06_2025-08-08', count: 3 }
+[Weather] cache:hit { key: '0.0000_0.0000_2025-08-06_2025-08-21', count: 16 }
+[Weather] cache:hit { key: '-22.9110_-43.2094_2025-09-30_2025-10-06', count: 7 }
+[Weather] cache:hit { key: '-15.7940_-47.8828_2025-10-06_2025-10-09', count: 4 }
+[Weather] cache:hit { key: '-3.1316_-59.9825_2025-10-09_2025-10-17', count: 9 }
+[Weather] cache:hit { key: '-23.5507_-46.6334_2025-10-17_2025-10-21', count: 5 }
+[Weather] cache:hit { key: '-25.5304_-54.5831_2025-10-21_2025-10-22', count: 2 }
+[Weather] cache:hit { key: '-25.6108_-54.5764_2025-10-22_2025-10-25', count: 4 }
+[Weather] cache:hit { key: '-34.6084_-58.4441_2025-10-25_2025-11-08', count: 15 }
+[Weather] cache:hit { key: '-34.4699_-57.8434_2025-10-31_2025-10-31', count: 1 }
+[Weather] cache:hit { key: '-54.8073_-68.3084_2025-11-08_2025-11-11', count: 4 }
+[Weather] cache:hit { key: '-65.2183_-64.1183_2025-11-11_2025-11-22', count: 12 }
+[Weather] cache:hit { key: '-54.8073_-68.3084_2025-11-22_2025-11-24', count: 3 }
+[Weather] cache:hit { key: '-53.1626_-70.9078_2025-11-24_2025-11-25', count: 2 }
+[Weather] cache:hit { key: '-54.9358_-67.6063_2025-11-25_2025-11-28', count: 4 }
+[Weather] cache:hit { key: '-53.1626_-70.9078_2025-11-28_2025-11-30', count: 3 }
+[Weather] cache:hit { key: '-51.7262_-72.5060_2025-11-30_2025-12-03', count: 4 }
+[Weather] cache:hit { key: '-50.3387_-72.2737_2025-12-03_2025-12-06', count: 4 }
+[Weather] cache:hit { key: '-49.3320_-72.8860_2025-12-06_2025-12-09', count: 4 }
+[Weather] cache:hit { key: '-46.5916_-70.9255_2025-12-10_2025-12-13', count: 4 }
+[Weather] cache:hit { key: '-41.1335_-71.3101_2025-12-13_2025-12-20', count: 8 }
+[Weather] cache:hit { key: '-33.4378_-70.6505_2026-01-13_2026-01-14', count: 2 }
+[Weather] cache:hit { key: '-27.1481_-109.4273_2026-01-14_2026-01-21', count: 8 }
+[Weather] cache:hit { key: '-33.4378_-70.6505_2026-01-21_2026-01-22', count: 2 }
+ ○ Compiling /api/travel-data ...
+ ✓ Compiled /api/travel-data in 679ms (690 modules)
+Error loading unified trip data: Error: ENOENT: no such file or directory, open '/Users/bence/Developer/Travel_tracker/data/trip-ml8rhm4kzxxp6dq2als.json'
+    at async loadUnifiedTripData (src/app/lib/unifiedDataService.ts:383:28)
+    at async updateTravelData (src/app/lib/unifiedDataService.ts:503:20)
+    at async POST (src/app/api/travel-data/route.ts:106:5)
+  381 |     // Load unified file
+  382 |     const unifiedFilePath = getUnifiedTripFilePath(tripId);
+> 383 |     const unifiedContent = await readFile(unifiedFilePath, 'utf-8');
+      |                            ^
+  384 |     const parsed = JSON.parse(unifiedContent, dateReviver);
+  385 |
+  386 |     if (isUnifiedFormat(parsed)) { {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/bence/Developer/Travel_tracker/data/trip-ml8rhm4kzxxp6dq2als.json'
+}
+ POST /api/travel-data 200 in 1322ms
+ ✓ Compiled in 317ms (250 modules)
+ ○ Compiling /admin/edit/[tripId] ...
+ ✓ Compiled /admin/edit/[tripId] in 6s (1787 modules)
+ GET /admin/edit/ml8rhm4kzxxp6dq2als 200 in 35377ms
+ ○ Compiling /api/admin-check ...
+ ✓ Compiled /api/admin-check in 9.6s (1731 modules)
+ GET /api/admin-check 200 in 12520ms
+ GET /api/travel-data?id=ml8rhm4kzxxp6dq2als 200 in 12063ms
+ ○ Compiling /api/travel-data/[tripId]/updates ...
+ ✓ Compiled /api/travel-data/[tripId]/updates in 21.6s (1870 modules)
+ GET /admin/api/accommodations?tripId=ml8rhm4kzxxp6dq2als 200 in 24283ms
+ GET /admin/api/accommodations?tripId=ml8rhm4kzxxp6dq2als 200 in 4315ms
+ GET /api/cost-tracking?id=ml8rhm4kzxxp6dq2als 404 in 24385ms
+ GET /api/cost-tracking?id=ml8rhm4kzxxp6dq2als 404 in 452ms
+ GET /api/travel-data/ml8rhm4kzxxp6dq2als/expense-links 200 in 26981ms
+ GET /api/travel-data/ml8rhm4kzxxp6dq2als/updates 200 in 35978ms
+ GET /api/travel-data/ml8rhm4kzxxp6dq2als/updates 200 in 35997ms
+ GET /api/cost-tracking?id=ml8rhm4kzxxp6dq2als 404 in 96ms
+ GET /api/travel-data/ml8rhm4kzxxp6dq2als/expense-links 200 in 75ms
+ PUT /api/travel-data?id=ml8rhm4kzxxp6dq2als 200 in 37ms
+ ✓ Compiled in 477ms (801 modules)
+ GET /admin/edit/ml8rhm4kzxxp6dq2als 200 in 394ms
+ GET /api/travel-data?id=ml8rhm4kzxxp6dq2als 200 in 16ms
+Created backup for trip ml8rhm4kzxxp6dq2als at /Users/bence/Developer/Travel_tracker/data/backups/deleted-trip-ml8rhm4kzxxp6dq2als-2026-02-05T01-15-03-362Z.json
+Added backup metadata for trip ml8rhm4kzxxp6dq2als
+Deleted unified trip file: /Users/bence/Developer/Travel_tracker/data/trip-ml8rhm4kzxxp6dq2als.json
+Successfully deleted trip ml8rhm4kzxxp6dq2als with backup
+ DELETE /api/travel-data?id=ml8rhm4kzxxp6dq2als 200 in 32ms
+ ✓ Compiled in 185ms (801 modules)
+ GET /admin/edit/ml8rhm4kzxxp6dq2als 200 in 48ms
+[?25h

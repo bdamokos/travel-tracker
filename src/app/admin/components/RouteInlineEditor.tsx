@@ -311,8 +311,11 @@ export default function RouteInlineEditor({
       const lastSegment = existingSubRoutes[existingSubRoutes.length - 1];
       const fromName = lastSegment?.to || prev.from;
       const toName = prev.to || lastSegment?.to || '';
-      const fromCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates || prev.fromCoords;
-      const toCoords = locationOptions.find(loc => loc.name === toName)?.coordinates || prev.toCoords;
+      const fromLocationCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates;
+      const toLocationCoords = locationOptions.find(loc => loc.name === toName)?.coordinates;
+
+      const fromCoords = fromLocationCoords || (lastSegment ? lastSegment.toCoords : prev.fromCoords);
+      const toCoords = toLocationCoords || (toName === lastSegment?.to ? lastSegment?.toCoords : prev.toCoords);
       const baseDate = lastSegment?.date ?? prev.date;
       const segmentDate = baseDate instanceof Date ? baseDate : (baseDate ? new Date(baseDate) : new Date());
 
