@@ -127,11 +127,17 @@ export default function RouteInlineEditor({
 
   const isZeroCoords = (coords?: [number, number]) => !coords || (coords[0] === 0 && coords[1] === 0);
 
-  const COORD_EPSILON = 1e-9;
+  // Accept tiny coordinate drift from serialization/geocoding differences.
+  const COORD_EPSILON = 1e-6;
 
   const isSamePoint = (left?: [number, number], right?: [number, number]) => {
     if (!left || !right) return false;
     return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
+  };
+
+  const isSameLocationName = (left?: string, right?: string) => {
+    if (!left || !right) return false;
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,10 +192,12 @@ export default function RouteInlineEditor({
       const disconnectedIndex = updatedSubRoutes.findIndex((segment, index) => {
         if (index === 0) return false;
         const previous = updatedSubRoutes[index - 1];
-        if (previous.to !== segment.from) {
+        const namesMatch = isSameLocationName(previous.to, segment.from);
+        if (previous.to && segment.from && !namesMatch) {
           return true;
         }
-        if (previous.toCoords && segment.fromCoords && !isSamePoint(previous.toCoords, segment.fromCoords)) {
+        // If names match, allow minor coordinate drift.
+        if (!namesMatch && previous.toCoords && segment.fromCoords && !isSamePoint(previous.toCoords, segment.fromCoords)) {
           return true;
         }
         return false;

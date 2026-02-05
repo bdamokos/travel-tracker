@@ -342,7 +342,14 @@ export function useTripEditor(tripId: string | null) {
         }
         return true;
       } else {
-        console.error('Auto-save failed:', response.status);
+        let errorDetails = '';
+        try {
+          const errorBody = await response.text();
+          errorDetails = errorBody;
+        } catch {
+          errorDetails = '';
+        }
+        console.error('Auto-save failed:', response.status, errorDetails);
         return false;
       }
     } catch (error) {

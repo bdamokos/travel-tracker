@@ -17,7 +17,15 @@ type RoutePayload = RouteSegmentPayload & {
   subRoutes?: RouteSegmentPayload[];
 };
 
-const COORD_EPSILON = 1e-9;
+// Allow sub-meter coordinate drift from serialization/geocoding differences.
+const COORD_EPSILON = 1e-6;
+
+const normalizeLocationName = (value?: string) => value?.trim().toLowerCase() || '';
+
+const isSameLocationName = (left?: string, right?: string) => {
+  if (!left || !right) return false;
+  return normalizeLocationName(left) === normalizeLocationName(right);
+};
 
 const isSameCoords = (left?: [number, number], right?: [number, number]) => {
   if (!left || !right) return false;
@@ -43,21 +51,34 @@ const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
       return { error: `Route ${route.id} to does not match sub-route end` };
     }
 
-    if (route.fromCoords && first.fromCoords && !isSameCoords(route.fromCoords, first.fromCoords)) {
+    // Prefer name continuity. Coordinates can differ slightly between edits/loads.
+    if (
+      route.fromCoords &&
+      first.fromCoords &&
+      !isSameLocationName(route.from, first.from) &&
+      !isSameCoords(route.fromCoords, first.fromCoords)
+    ) {
       return { error: `Route ${route.id} fromCoords does not match sub-route start` };
     }
 
-    if (route.toCoords && last.toCoords && !isSameCoords(route.toCoords, last.toCoords)) {
+    if (
+      route.toCoords &&
+      last.toCoords &&
+      !isSameLocationName(route.to, last.to) &&
+      !isSameCoords(route.toCoords, last.toCoords)
+    ) {
       return { error: `Route ${route.id} toCoords does not match sub-route end` };
     }
 
     const disconnectedIndex = route.subRoutes.findIndex((segment, index) => {
       if (index === 0) return false;
       const previous = route.subRoutes![index - 1];
-      if (previous.to && segment.from && previous.to !== segment.from) {
+      const namesMatch = isSameLocationName(previous.to, segment.from);
+      if (previous.to && segment.from && !namesMatch) {
         return true;
       }
-      if (previous.toCoords && segment.fromCoords && !isSameCoords(previous.toCoords, segment.fromCoords)) {
+      // If names match we treat the segment boundary as connected.
+      if (!namesMatch && previous.toCoords && segment.fromCoords && !isSameCoords(previous.toCoords, segment.fromCoords)) {
         return true;
       }
       return false;

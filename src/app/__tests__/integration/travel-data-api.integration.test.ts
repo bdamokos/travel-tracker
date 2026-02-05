@@ -225,6 +225,66 @@ describe('Travel Data API Endpoints', () => {
       ).rejects.toThrow(/400/);
     });
 
+    it('should accept connected sub-routes when names match but coordinates have tiny drift', async () => {
+      const epsilonDriftData = {
+        title: 'Composite Route With Coordinate Drift',
+        description: 'Coordinate drift should not break name-based segment continuity',
+        startDate: '2024-07-01T00:00:00.000Z',
+        endDate: '2024-07-10T00:00:00.000Z',
+        locations: [],
+        routes: [
+          {
+            id: 'composite-route-drift-1',
+            from: 'A',
+            to: 'C',
+            fromCoords: [10.1234567, 20.1234567],
+            toCoords: [12.1234567, 22.1234567],
+            transportType: 'multimodal',
+            date: new Date('2024-07-05T00:00:00.000Z'),
+            subRoutes: [
+              {
+                id: 'segment-drift-1',
+                from: 'A',
+                to: 'B',
+                fromCoords: [10.1234567, 20.1234567],
+                toCoords: [11.1234567, 21.1234567],
+                transportType: 'plane',
+                date: new Date('2024-07-05T00:00:00.000Z')
+              },
+              {
+                id: 'segment-drift-2',
+                from: 'B',
+                to: 'C',
+                // > 1e-9 (old tolerance), < 1e-6 (new tolerance)
+                fromCoords: [11.1234568, 21.1234568],
+                toCoords: [12.1234567, 22.1234567],
+                transportType: 'plane',
+                date: new Date('2024-07-06T00:00:00.000Z')
+              }
+            ]
+          }
+        ]
+      };
+
+      const response = await apiCall('/api/travel-data', {
+        method: 'POST',
+        body: JSON.stringify(epsilonDriftData)
+      });
+
+      const result = await response.json();
+      expect(result.success).toBe(true);
+
+      const getResponse = await apiCall(`/api/travel-data?id=${result.id}`);
+      const tripData = await getResponse.json();
+      expect(tripData.routes[0].subRoutes).toHaveLength(2);
+      expect(tripData.routes[0].subRoutes[0].to).toBe('B');
+      expect(tripData.routes[0].subRoutes[1].from).toBe('B');
+
+      await apiCall(`/api/travel-data?id=${result.id}`, {
+        method: 'DELETE'
+      });
+    });
+
     it('should handle trip creation with minimal data', async () => {
       const minimalData = {
         title: 'Minimal Trip'
