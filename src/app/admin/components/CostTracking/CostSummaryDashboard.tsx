@@ -8,6 +8,8 @@ interface CostSummaryDashboardProps {
   costData: CostTrackingData;
 }
 
+type TrendDirection = 'up' | 'down' | 'flat';
+
 
 export default function CostSummaryDashboard({
   costSummary,
@@ -37,66 +39,55 @@ export default function CostSummaryDashboard({
     return today < tripEndDate ? today : tripEndDate;
   };
 
-  const calculateRangeAverage = (rangeDays: number) => {
-    const rangeEnd = normalizeDate(getEffectiveTripEnd());
-    const rangeStart = normalizeDate(new Date(rangeEnd));
-    rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
+  const tripStartDate = normalizeDate(new Date(costData.tripStartDate));
+  const effectiveTripEnd = normalizeDate(getEffectiveTripEnd());
 
-    const tripStartDate = normalizeDate(new Date(costData.tripStartDate));
-    if (rangeEnd < tripStartDate) {
+  const getAverageForDateRange = (startDate: Date, endDate: Date) => {
+    if (endDate < tripStartDate) {
       return { average: 0, total: 0, days: 0 };
     }
 
-    const effectiveStart = rangeStart < tripStartDate ? tripStartDate : rangeStart;
+    const effectiveStart = startDate < tripStartDate ? tripStartDate : startDate;
     const msPerDay = 1000 * 60 * 60 * 24;
-    const days = Math.floor((rangeEnd.getTime() - effectiveStart.getTime()) / msPerDay) + 1;
+    const days = Math.floor((endDate.getTime() - effectiveStart.getTime()) / msPerDay) + 1;
+
+    if (days <= 0) {
+      return { average: 0, total: 0, days: 0 };
+    }
+
     const total = costData.expenses
       .filter(expense => {
-        if (expense.expenseType && expense.expenseType !== 'actual') {
-          return false;
-        }
         const expenseDate = normalizeDate(new Date(expense.date));
-        return expenseDate >= effectiveStart && expenseDate <= rangeEnd;
+        return expenseDate >= effectiveStart && expenseDate <= endDate;
       })
       .reduce((sum, expense) => sum + expense.amount, 0);
 
-    return { average: days > 0 ? total / days : 0, total, days };
+    return { average: total / days, total, days };
   };
 
-  const calculateTrend = (rangeDays: number) => {
-    const currentRange = calculateRangeAverage(rangeDays);
-    const previousRangeEnd = normalizeDate(getEffectiveTripEnd());
+  const calculateRangeAverage = (rangeDays: number) => {
+    const rangeEnd = effectiveTripEnd;
+    const rangeStart = normalizeDate(new Date(rangeEnd));
+    rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
+    return getAverageForDateRange(rangeStart, rangeEnd);
+  };
+
+  const calculateTrend = (rangeDays: number, currentAverage: number) => {
+    const previousRangeEnd = normalizeDate(new Date(effectiveTripEnd));
     previousRangeEnd.setDate(previousRangeEnd.getDate() - rangeDays);
     const previousRangeStart = normalizeDate(new Date(previousRangeEnd));
     previousRangeStart.setDate(previousRangeStart.getDate() - (rangeDays - 1));
 
-    const tripStartDate = normalizeDate(new Date(costData.tripStartDate));
-    if (previousRangeEnd < tripStartDate) {
-      return { trend: 'flat', delta: 0, previousAverage: 0 };
-    }
-
-    const effectiveStart = previousRangeStart < tripStartDate ? tripStartDate : previousRangeStart;
-    const msPerDay = 1000 * 60 * 60 * 24;
-    const days = Math.floor((previousRangeEnd.getTime() - effectiveStart.getTime()) / msPerDay) + 1;
-    const total = costData.expenses
-      .filter(expense => {
-        if (expense.expenseType && expense.expenseType !== 'actual') {
-          return false;
-        }
-        const expenseDate = normalizeDate(new Date(expense.date));
-        return expenseDate >= effectiveStart && expenseDate <= previousRangeEnd;
-      })
-      .reduce((sum, expense) => sum + expense.amount, 0);
-    const previousAverage = days > 0 ? total / days : 0;
-    const delta = previousAverage > 0 ? ((currentRange.average - previousAverage) / previousAverage) * 100 : 0;
-    const trend = delta > 2 ? 'up' : delta < -2 ? 'down' : 'flat';
+    const { average: previousAverage } = getAverageForDateRange(previousRangeStart, previousRangeEnd);
+    const delta = previousAverage > 0 ? ((currentAverage - previousAverage) / previousAverage) * 100 : 0;
+    const trend: TrendDirection = delta > 2 ? 'up' : delta < -2 ? 'down' : 'flat';
     return { trend, delta, previousAverage };
   };
 
   const weeklyAverage = calculateRangeAverage(7);
-  const weeklyTrend = calculateTrend(7);
+  const weeklyTrend = calculateTrend(7, weeklyAverage.average);
   const monthlyAverage = calculateRangeAverage(30);
-  const monthlyTrend = calculateTrend(30);
+  const monthlyTrend = calculateTrend(30, monthlyAverage.average);
 
   const currentCountries = (() => {
     if (costSummary.tripStatus !== 'during') {
@@ -116,17 +107,14 @@ export default function CostSummaryDashboard({
     });
 
     if (countriesWithPeriods.length > 0) {
-      return countriesWithPeriods.map(budget => budget.country);
+      return Array.from(new Set(countriesWithPeriods.map(budget => budget.country)));
     }
 
     const recentCountrySpend = costData.expenses
       .filter(expense => {
-        if (expense.expenseType && expense.expenseType !== 'actual') {
-          return false;
-        }
         const expenseDate = normalizeDate(new Date(expense.date));
         const daysAgo = Math.floor((todayDate.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
-        return daysAgo >= 0 && daysAgo <= 7 && expense.country && !expense.isGeneralExpense;
+        return daysAgo >= 0 && daysAgo < 7 && expense.country && !expense.isGeneralExpense;
       })
       .reduce((acc, expense) => {
         const key = expense.country;
@@ -144,7 +132,7 @@ export default function CostSummaryDashboard({
     .map(country => costSummary.countryBreakdown.find(entry => entry.country === country))
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
-  const trendLabel = (trend: 'up' | 'down' | 'flat', delta: number) => {
+  const trendLabel = (trend: TrendDirection, delta: number) => {
     if (trend === 'flat') {
       return 'Steady';
     }
