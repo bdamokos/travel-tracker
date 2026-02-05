@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Accommodation, CostTrackingData } from '@/app/types';
 import { parseAccommodationData } from '@/app/lib/privacyUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';

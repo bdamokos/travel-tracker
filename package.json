@@ -8,7 +8,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --testEnvironment=jsdom",
     "test:accessibility": "jest --testEnvironment=jsdom src/app/__tests__/accessibility",

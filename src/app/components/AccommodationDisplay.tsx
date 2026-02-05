@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { parseAccommodationData, PrivacyOptions } from '@/app/lib/privacyUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { CostTrackingData } from '@/app/types';

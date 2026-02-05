@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Location } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';

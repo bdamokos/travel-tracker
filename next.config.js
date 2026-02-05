@@ -5,9 +5,15 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  // Add this section to ensure images from OpenStreetMap are allowed
+  // Allow loading map tiles from OpenStreetMap
   images: {
-    domains: ['tile.openstreetmap.org'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'tile.openstreetmap.org',
+        pathname: '/**',
+      },
+    ],
   },
   async headers() {
     return [
@@ -62,22 +68,10 @@ const nextConfig = {
       },
     ];
   },
-  eslint: {
-    // Show ESLint issues but don't fail the build
-    ignoreDuringBuilds: false,
-  },
   typescript: {
     // Only fail build on type errors, not linting issues
     ignoreBuildErrors: false,
   },
-  webpack: (config) => {
-    config.resolve = config.resolve || {};
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      
-    };
-    return config;
-  },
 };
 
-export default nextConfig; 
+export default nextConfig;

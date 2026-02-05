@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import WeatherIcon from './WeatherIcon';
 import { WeatherSummary as WeatherSummaryType } from '@/app/types/weather';
 
