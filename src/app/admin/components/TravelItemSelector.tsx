@@ -112,6 +112,7 @@ export default function TravelItemSelector({
 }: TravelItemSelectorProps) {
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<'location' | 'accommodation' | 'route' | ''>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
@@ -144,13 +145,27 @@ export default function TravelItemSelector({
   // Load available travel items from current trip only
   useEffect(() => {
     async function loadTravelItems() {
+      setLoading(true);
+      setLoadError(null);
+
       if (!tripId) {
+        setTravelItems([]);
         setLoading(false);
         return;
       }
 
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+
       try {
-        const response = await fetch(`/api/travel-data?id=${tripId}`);
+        const response = await fetch(`/api/travel-data?id=${tripId}`, { signal: controller.signal });
+        if (!response.ok) {
+          const errorBody = await response.text().catch(() => '');
+          throw new Error(
+            `Unable to load travel items (status ${response.status}).${errorBody ? ` ${errorBody}` : ''}`
+          );
+        }
+
         const tripData = await response.json();
         
         const allItems: TravelItem[] = [];
@@ -237,7 +252,16 @@ export default function TravelItemSelector({
         setTravelItems(allItems);
       } catch (error) {
         console.error('Error loading travel items:', error);
+        if (error instanceof Error && error.name === 'AbortError') {
+          setLoadError('Loading travel items timed out. Please try again.');
+        } else if (error instanceof Error) {
+          setLoadError(error.message || 'Unable to load travel items.');
+        } else {
+          setLoadError('Unable to load travel items.');
+        }
+        setTravelItems([]);
       } finally {
+        window.clearTimeout(timeoutId);
         setLoading(false);
       }
     }
@@ -466,6 +490,11 @@ export default function TravelItemSelector({
 
   return (
     <div className={`space-y-3 ${className}`}>
+      {loadError && (
+        <div className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200" role="alert">
+          {loadError}
+        </div>
+      )}
       <div>
         <label htmlFor={`${id}-travel-type`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Link to Travel Item (Optional)
@@ -534,7 +563,7 @@ export default function TravelItemSelector({
         </div>
       )}
 
-      {travelItems.length === 0 && !loading && (
+      {travelItems.length === 0 && !loading && !loadError && (
         <div className="text-sm text-gray-500 dark:text-gray-400">
           No travel items found. Create some travel data first to link expenses.
         </div>
