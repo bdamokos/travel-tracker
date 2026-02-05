@@ -113,6 +113,7 @@ export default function TravelItemSelector({
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [selectedType, setSelectedType] = useState<'location' | 'accommodation' | 'route' | ''>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
@@ -144,26 +145,36 @@ export default function TravelItemSelector({
 
   // Load available travel items from current trip only
   useEffect(() => {
+    let isCurrent = true;
+    const controller = new AbortController();
+    let timeoutId: number | null = null;
+
     async function loadTravelItems() {
-      setLoading(true);
-      setLoadError(null);
+      if (isCurrent) {
+        setLoading(true);
+        setLoadError(null);
+      }
 
       if (!tripId) {
-        setTravelItems([]);
-        setLoading(false);
+        if (isCurrent) {
+          setTravelItems([]);
+          setLoading(false);
+        }
         return;
       }
 
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+      timeoutId = window.setTimeout(() => controller.abort(), 10000);
 
       try {
         const response = await fetch(`/api/travel-data?id=${tripId}`, { signal: controller.signal });
         if (!response.ok) {
           const errorBody = await response.text().catch(() => '');
-          throw new Error(
-            `Unable to load travel items (status ${response.status}).${errorBody ? ` ${errorBody}` : ''}`
-          );
+          console.error('Failed to load travel items response', {
+            tripId,
+            status: response.status,
+            errorBody
+          });
+          throw new Error('Unable to load travel items. Please try again later.');
         }
 
         const tripData = await response.json();
@@ -249,25 +260,40 @@ export default function TravelItemSelector({
           const dateB = b.date ? new Date(b.date).getTime() : Number.MAX_SAFE_INTEGER;
           return dateA - dateB;
         });
-        setTravelItems(allItems);
+
+        if (isCurrent) {
+          setTravelItems(allItems);
+        }
       } catch (error) {
+        if (!isCurrent) {
+          return;
+        }
         console.error('Error loading travel items:', error);
         if (error instanceof Error && error.name === 'AbortError') {
           setLoadError('Loading travel items timed out. Please try again.');
-        } else if (error instanceof Error) {
-          setLoadError(error.message || 'Unable to load travel items.');
         } else {
-          setLoadError('Unable to load travel items.');
+          setLoadError('Unable to load travel items. Please try again later.');
         }
-        setTravelItems([]);
       } finally {
-        window.clearTimeout(timeoutId);
-        setLoading(false);
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+        }
+        if (isCurrent) {
+          setLoading(false);
+        }
       }
     }
     
     loadTravelItems();
-  }, [tripId]);
+
+    return () => {
+      isCurrent = false;
+      controller.abort();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [tripId, reloadToken]);
 
   const normalizedTransactionDates = useMemo(() => {
     const values: Array<Date | string | null | undefined> = [transactionDate];
@@ -457,7 +483,22 @@ export default function TravelItemSelector({
     }
 
     const selectedTravelItem = travelItems.find(item => item.id === itemId);
-    if (!selectedTravelItem) return;
+    if (!selectedTravelItem) {
+      const fallbackType = type as 'location' | 'accommodation' | 'route';
+      const fallbackInfo: TravelLinkInfo = {
+        type: fallbackType,
+        id: itemId,
+        name: desc || initialValue?.name || itemId,
+        tripTitle: initialValue?.tripTitle
+      };
+
+      if (fallbackType === 'accommodation' && initialValue?.locationName) {
+        fallbackInfo.locationName = initialValue.locationName;
+      }
+
+      onReferenceChange(fallbackInfo);
+      return;
+    }
 
     const travelLinkInfo: TravelLinkInfo = {
       type: selectedTravelItem.type as 'location' | 'accommodation' | 'route',
@@ -480,19 +521,28 @@ export default function TravelItemSelector({
     onReferenceChange(undefined);
   };
 
-  if (loading) {
-    return (
-      <div className={`text-sm text-gray-500 dark:text-gray-400 ${className}`}>
-        Loading travel items...
-      </div>
-    );
-  }
+  const handleRetry = () => {
+    setReloadToken((prev) => prev + 1);
+  };
 
   return (
     <div className={`space-y-3 ${className}`}>
       {loadError && (
         <div className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200" role="alert">
-          {loadError}
+          <div className="font-medium">Unable to load travel items</div>
+          <div className="mt-1">{loadError}</div>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="mt-2 text-xs font-semibold text-red-700 hover:underline dark:text-red-200"
+          >
+            Retry loading
+          </button>
+        </div>
+      )}
+      {loading && (
+        <div className="text-xs text-gray-500 dark:text-gray-400" aria-live="polite">
+          Loading travel items...
         </div>
       )}
       <div>
@@ -503,6 +553,7 @@ export default function TravelItemSelector({
           id={`${id}-travel-type`}
           value={selectedType}
           onChange={(value) => handleTypeChange(value)}
+          disabled={loading}
           options={[
             { value: 'location', label: 'Location' },
             { value: 'accommodation', label: 'Accommodation' },
@@ -522,6 +573,7 @@ export default function TravelItemSelector({
             id={`${id}-travel-item`}
             value={selectedItem}
             onChange={(value) => handleItemChange(value)}
+            disabled={loading}
             options={selectOptions}
             placeholder={`Select ${selectedType}...`}
           />
@@ -538,6 +590,7 @@ export default function TravelItemSelector({
             type="text"
             value={description}
             onChange={(e) => handleDescriptionChange(e.target.value)}
+            disabled={loading}
             placeholder={
               selectedType === 'accommodation' ? 'e.g., Hotel booking deposit' :
               selectedType === 'location' ? 'e.g., Activities at this location' :
