@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 interface WeatherIconProps {
   icon: string; // emoji or short icon text
   temperature?: number | null; // average or current
@@ -20,4 +18,3 @@ export default function WeatherIcon({ icon, temperature, label, size = 'sm' }: W
     </div>
   );
 }
-

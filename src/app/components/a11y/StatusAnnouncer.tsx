@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 interface StatusAnnouncerProps {
   id?: string;
   announcement: string;
@@ -23,4 +21,3 @@ export default function StatusAnnouncer({
     </div>
   );
 }
-

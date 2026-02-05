@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { TravelRoute } from '@/app/types';
 import { transportationLabels, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';

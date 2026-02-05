@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useId, useState } from 'react';
+import { useId, useState } from 'react';
 import { Accommodation, CostTrackingLink, CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { useAccommodations } from '@/app/hooks/useAccommodations';

@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Location } from '@/app/types';
 import { formatDuration } from '@/app/lib/durationUtils';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';

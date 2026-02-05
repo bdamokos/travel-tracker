@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { TravelRoute, TransportationType } from '@/app/types';
 import { transportationConfig } from '@/app/lib/routeUtils';
 import { calculateDistance } from '@/app/services/geocoding';

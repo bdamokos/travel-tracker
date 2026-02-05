@@ -5,7 +5,6 @@
 
 'use client';
 
-import React from 'react';
 import { Location, JourneyDay } from '@/app/types';
 import { formatDateRange } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
