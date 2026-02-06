@@ -15,6 +15,20 @@ import RouteManager from './components/RouteManager';
 import AccommodationManager from './components/AccommodationManager';
 import TripUpdatesManager from './components/TripUpdatesManager';
 
+type EditorSectionId = 'trip' | 'locations' | 'routes' | 'accommodations' | 'updates';
+
+interface EditorSectionSummary {
+  id: EditorSectionId;
+  title: string;
+  subtitle: string;
+  metric: string;
+}
+
+const EDITOR_SECTIONS: EditorSectionId[] = ['trip', 'locations', 'routes', 'accommodations', 'updates'];
+
+const isEditorSectionId = (value: string | null): value is EditorSectionId =>
+  value !== null && EDITOR_SECTIONS.includes(value as EditorSectionId);
+
 /**
  * Render the trip editor page for creating or editing a travel map, including metadata, locations, routes, accommodations, export, and admin access checks.
  *
@@ -30,6 +44,7 @@ export default function TripEditorPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [activeSection, setActiveSection] = useState<EditorSectionId>('locations');
   const hasAutoExportedRef = useRef(false);
 
   // Check admin access
@@ -409,6 +424,63 @@ export default function TripEditorPage() {
   }, [buildExportText, showNotification, slugify, travelData.routes.length, travelData.title, travelData.locations.length]);
 
   const exportQuery = searchParams?.get('exportText');
+  const sectionQuery = searchParams?.get('section');
+
+  useEffect(() => {
+    if (isEditorSectionId(sectionQuery)) {
+      setActiveSection(sectionQuery);
+    }
+  }, [sectionQuery]);
+
+  const selectSection = useCallback((section: EditorSectionId) => {
+    setActiveSection(section);
+    const nextParams = new URLSearchParams(searchParams?.toString() || '');
+    nextParams.set('section', section);
+    router.replace(`?${nextParams.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+  const sectionSummaries = useMemo<EditorSectionSummary[]>(() => {
+    const tripRange = formatDateRange(travelData.startDate, travelData.endDate) || 'Set dates';
+    const accommodationCount = (travelData.accommodations || []).length;
+
+    return [
+      {
+        id: 'trip',
+        title: 'Trip Details',
+        subtitle: 'Title, dates, description, metadata',
+        metric: tripRange
+      },
+      {
+        id: 'locations',
+        title: 'Locations',
+        subtitle: 'Stops, posts, and location-level edits',
+        metric: `${travelData.locations.length} total`
+      },
+      {
+        id: 'routes',
+        title: 'Routes',
+        subtitle: 'Transport legs, route stats, map generation',
+        metric: `${travelData.routes.length} total`
+      },
+      {
+        id: 'accommodations',
+        title: 'Accommodations',
+        subtitle: 'Manage stay assignments and details',
+        metric: `${accommodationCount} linked`
+      },
+      {
+        id: 'updates',
+        title: 'Public Updates',
+        subtitle: 'Feed entries shown on map and calendar',
+        metric: 'Manual + auto feed'
+      }
+    ];
+  }, [travelData.accommodations, travelData.endDate, travelData.locations.length, travelData.routes.length, travelData.startDate]);
+
+  const activeSectionSummary = useMemo(
+    () => sectionSummaries.find(section => section.id === activeSection) || sectionSummaries[0],
+    [activeSection, sectionSummaries]
+  );
 
   useEffect(() => {
     const shouldAutoExport = exportQuery === '1' || exportQuery === 'true' || exportQuery === 'txt';
@@ -504,63 +576,114 @@ export default function TripEditorPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push('/admin')}
-                className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                ← Back to List
-              </button>
-              <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-                {tripId === 'new' ? 'Create New Travel Map' : 'Edit Travel Map'}
-              </h1>
-              {autoSaving && (
-                <div className="flex items-center gap-2 text-blue-600">
-                  <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm">Auto-saving...</span>
-                </div>
-              )}
-              {!autoSaving && hasUnsavedChanges && (
-                <div className="flex items-center gap-2 text-amber-600">
-                  <div className="w-2 h-2 bg-amber-600 rounded-full"></div>
-                  <span className="text-sm">Unsaved changes</span>
-                </div>
-              )}
-              {!autoSaving && !hasUnsavedChanges && (tripId !== 'new' || travelData.id) && (
-                <div className="flex items-center gap-2 text-green-600">
-                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                  <span className="text-sm">All changes saved</span>
-                </div>
-              )}
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  ← Back to List
+                </button>
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+                  {tripId === 'new' ? 'Create New Travel Map' : 'Edit Travel Map'}
+                </h1>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {autoSaving && (
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm">Auto-saving...</span>
+                  </div>
+                )}
+                {!autoSaving && hasUnsavedChanges && (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <div className="w-2 h-2 bg-amber-600 rounded-full"></div>
+                    <span className="text-sm">Unsaved changes</span>
+                  </div>
+                )}
+                {!autoSaving && !hasUnsavedChanges && (tripId !== 'new' || travelData.id) && (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                    <span className="text-sm">All changes saved</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExportText}
-                disabled={isExporting}
-                className={`px-4 py-2 rounded-md text-white transition-colors ${isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
-                title="Quickly download an LLM-friendly text summary. Add ?exportText=1 to the URL to auto-download."
-              >
-                {isExporting ? 'Preparing export…' : 'Export LLM text'}
-              </button>
+
+            <button
+              onClick={handleExportText}
+              disabled={isExporting}
+              className={`px-4 py-2 rounded-md text-white transition-colors ${isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+              title="Quickly download an LLM-friendly text summary. Add ?exportText=1 to the URL to auto-download."
+            >
+              {isExporting ? 'Preparing export…' : 'Export LLM text'}
+            </button>
+          </div>
+
+          <div className="mb-6 grid gap-3 grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Locations</p>
+              <p className="text-xl font-semibold text-gray-900 dark:text-white mt-1">{travelData.locations.length}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Routes</p>
+              <p className="text-xl font-semibold text-gray-900 dark:text-white mt-1">{travelData.routes.length}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Accommodations</p>
+              <p className="text-xl font-semibold text-gray-900 dark:text-white mt-1">{(travelData.accommodations || []).length}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Trip Dates</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                {formatDateRange(travelData.startDate, travelData.endDate) || 'Set dates'}
+              </p>
             </div>
           </div>
 
-          {/* Main Editor Content - Broken down into smaller components */}
-          <div className="space-y-8">
-            {/* Basic Info */}
-            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <nav className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2">
+              {sectionSummaries.map(section => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => selectSection(section.id)}
+                  aria-current={activeSection === section.id ? 'page' : undefined}
+                  className={`rounded-md border px-3 py-2 text-left transition-colors ${activeSection === section.id
+                    ? 'border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-900/20 dark:text-blue-100'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                >
+                  <div className="text-sm font-semibold">{section.title}</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">{section.metric}</div>
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Current Section</p>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">{activeSectionSummary.title}</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{activeSectionSummary.subtitle}</p>
+              </div>
+              <div className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                {activeSectionSummary.metric}
+              </div>
+            </div>
+
+            {activeSection === 'trip' && (
               <TripMetadataForm
                 travelData={travelData}
                 setTravelData={setTravelData}
                 setHasUnsavedChanges={setHasUnsavedChanges}
               />
-            </section>
+            )}
 
-            {/* Locations */}
-            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            {activeSection === 'locations' && (
               <LocationManager
                 tripId={tripId}
                 travelData={travelData}
@@ -588,10 +711,9 @@ export default function TripEditorPage() {
                 addBlogPost={addBlogPost}
                 calculateSmartDurations={calculateSmartDurations}
               />
-            </section>
+            )}
 
-            {/* Routes */}
-            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            {activeSection === 'routes' && (
               <RouteManager
                 travelData={travelData}
                 setTravelData={setTravelData}
@@ -607,10 +729,9 @@ export default function TripEditorPage() {
                 generateMap={generateMap}
                 tripId={tripId}
               />
-            </section>
+            )}
 
-            {/* Accommodations */}
-            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            {activeSection === 'accommodations' && (
               <AccommodationManager
                 travelData={travelData}
                 setTravelData={setTravelData}
@@ -618,13 +739,12 @@ export default function TripEditorPage() {
                 travelLookup={travelLookup}
                 costData={costData}
               />
-            </section>
+            )}
 
-            {/* Public updates feed */}
-            <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            {activeSection === 'updates' && (
               <TripUpdatesManager tripId={tripId === 'new' ? (travelData.id || null) : tripId} />
-            </section>
-          </div>
+            )}
+          </section>
 
           {/* Safe Deletion Dialogs - Moved from TravelDataForm.tsx */}
           {deleteDialog && (

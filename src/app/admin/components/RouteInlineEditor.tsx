@@ -49,6 +49,7 @@ export default function RouteInlineEditor({
   const [segmentImportError, setSegmentImportError] = useState<Record<string, string>>({});
   const [validationError, setValidationError] = useState<string>('');
   const [segmentRefreshStatus, setSegmentRefreshStatus] = useState<Record<string, string>>({});
+  const [collapsedSubRoutes, setCollapsedSubRoutes] = useState<Record<string, boolean>>({});
   const [routeCoordOverrides, setRouteCoordOverrides] = useState<{ from: boolean; to: boolean }>({
     from: false,
     to: false
@@ -91,6 +92,36 @@ export default function RouteInlineEditor({
     formData.subRoutes?.length,
     formData.subRoutes?.map(segment => segment.transportType).join('|')
   ]);
+
+  useEffect(() => {
+    setCollapsedSubRoutes(prev => {
+      const subRoutes = formData.subRoutes || [];
+      const next: Record<string, boolean> = {};
+      const isFirstInitialization = Object.keys(prev).length === 0;
+      let changed = false;
+
+      subRoutes.forEach((segment, index) => {
+        if (Object.prototype.hasOwnProperty.call(prev, segment.id)) {
+          next[segment.id] = prev[segment.id];
+        } else {
+          next[segment.id] = isFirstInitialization ? index > 0 : false;
+          changed = true;
+        }
+      });
+
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      if (!changed) {
+        if (prevKeys.length !== nextKeys.length) {
+          changed = true;
+        } else if (prevKeys.some(id => !Object.prototype.hasOwnProperty.call(next, id))) {
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [formData.subRoutes]);
 
   const scheduleRefreshStatusClear = (statusKey: string, delay: number) => {
     const existingTimeout = refreshTimeouts.current[statusKey];
@@ -369,6 +400,33 @@ export default function RouteInlineEditor({
     });
   };
 
+  const toggleSubRouteCollapse = (segmentId: string) => {
+    setCollapsedSubRoutes(prev => ({
+      ...prev,
+      [segmentId]: !(prev[segmentId] ?? false)
+    }));
+  };
+
+  const expandAllSubRoutes = () => {
+    setCollapsedSubRoutes(prev => {
+      const next = { ...prev };
+      (formData.subRoutes || []).forEach(segment => {
+        next[segment.id] = false;
+      });
+      return next;
+    });
+  };
+
+  const collapseAllSubRoutes = () => {
+    setCollapsedSubRoutes(prev => {
+      const next = { ...prev };
+      (formData.subRoutes || []).forEach(segment => {
+        next[segment.id] = true;
+      });
+      return next;
+    });
+  };
+
   const extractCoordinates = (geojson: unknown): [number, number][] | null => {
     const toLatLng = (pair: unknown): [number, number] | null => {
       if (!Array.isArray(pair) || pair.length < 2) return null;
@@ -571,6 +629,18 @@ export default function RouteInlineEditor({
     ? [{ value: derivedRouteType, label: transportationLabels[derivedRouteType] }]
     : segmentTransportOptions;
 
+  const formatSegmentDateLabel = (value: Date | string): string => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 'No date';
+    }
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 shadow-sm">
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -731,22 +801,63 @@ export default function RouteInlineEditor({
                 Compose this route from segments. Start/end are derived from the first/last segment.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={addSubRoute}
-              className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-            >
-              Add segment
-            </button>
+            <div className="flex items-center gap-2">
+              {hasSubRoutes && (
+                <>
+                  <button
+                    type="button"
+                    onClick={expandAllSubRoutes}
+                    className="px-2 py-1 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-200 text-xs rounded border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800/50"
+                  >
+                    Expand all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={collapseAllSubRoutes}
+                    className="px-2 py-1 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-200 text-xs rounded border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800/50"
+                  >
+                    Collapse all
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={addSubRoute}
+                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+              >
+                Add segment
+              </button>
+            </div>
           </div>
           {hasSubRoutes ? (
             <div className="space-y-3">
               {formData.subRoutes?.map((segment, index) => (
                 <div key={segment.id} className="border border-blue-200 dark:border-blue-600 rounded p-3 bg-white dark:bg-gray-800">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                      Segment {index + 1}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleSubRouteCollapse(segment.id)}
+                      aria-expanded={!(collapsedSubRoutes[segment.id] ?? index > 0)}
+                      aria-controls={`segment-editor-${segment.id}`}
+                      className="flex items-center gap-2 text-left min-w-0"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`text-gray-500 transition-transform ${(collapsedSubRoutes[segment.id] ?? index > 0) ? '' : 'rotate-90'}`}
+                      >
+                        ▶
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">
+                          Segment {index + 1}: {segment.from || 'From'} → {segment.to || 'To'}
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                          {transportationLabels[segment.transportType]} • {formatSegmentDateLabel(segment.date)}
+                          {segment.duration ? ` • ${segment.duration}` : ''}
+                          {segment.useManualRoutePoints ? ' • Manual GeoJSON' : ''}
+                        </div>
+                      </div>
+                    </button>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -774,6 +885,8 @@ export default function RouteInlineEditor({
                     </div>
                   </div>
 
+                  {!(collapsedSubRoutes[segment.id] ?? index > 0) && (
+                    <div id={`segment-editor-${segment.id}`}>
 	                  <div className="grid grid-cols-2 gap-2 mt-2">
 	                    <div>
 	                      <label htmlFor={`sub-route-type-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1054,8 +1167,8 @@ export default function RouteInlineEditor({
                     ) : (
                       <div className="text-xs text-gray-600 dark:text-gray-300">
                         Tip: first feature with LineString is used; coordinates should be [lng, lat].
-                      </div>
-                    )}
+	                      </div>
+	                    )}
 	                  </div>
 
 	                  <div className="mt-3">
@@ -1071,9 +1184,11 @@ export default function RouteInlineEditor({
                     ) : (
                       <div className="text-sm text-gray-500 dark:text-gray-400 italic p-2 bg-gray-100 dark:bg-gray-600 rounded">
                         💡 Expense linking will be available with valid trip ID
-                      </div>
-                    )}
-                  </div>
+	                      </div>
+	                    )}
+	                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
