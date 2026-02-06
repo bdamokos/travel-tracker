@@ -82,6 +82,7 @@ describe('Trip updates RSS route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/rss+xml');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=300, stale-while-revalidate=3600');
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
     expect(xml).toContain('<rss version="2.0"');
     expect(xml).toContain('<title>Europe &amp; Beyond - Trip Updates</title>');
@@ -91,6 +92,9 @@ describe('Trip updates RSS route', () => {
     );
     expect(xml).toContain('Manual &lt;announce&gt; &amp; update');
     expect(xml).toContain('https://example.com/post?x=1&amp;y=2');
+    expect(xml).toContain(
+      '<guid isPermaLink="false">https://travel.example/api/travel-data/trip-1/updates/rss#auto-1</guid>'
+    );
     expect(xml).not.toContain('Secret Base');
     expect(xml).not.toContain('javascript:alert(1)');
 

@@ -3,6 +3,7 @@ import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { TripUpdate, TripUpdateLink } from '@/app/types';
 
+const RSS_CACHE_CONTROL = 'public, max-age=300, stale-while-revalidate=3600';
 const XML_INVALID_CHARS = /[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD]/g;
 
 const isValidHttpUrl = (url: string): boolean => {
@@ -78,7 +79,7 @@ const buildRssXml = ({
       const links = getValidLinks(update.links);
       const itemLink = links[0]?.url || `${mapUrl}#update-${encodeURIComponent(update.id)}`;
       const pubDate = getUpdateDate(update, fallbackDate).toUTCString();
-      const guid = `${title}:${update.id}`;
+      const guid = `${feedUrl}#${update.id}`;
       return [
         '<item>',
         `<title>${escapeXml(update.message)}</title>`,
@@ -146,7 +147,7 @@ export async function GET(
     return new NextResponse(rss, {
       headers: {
         'Content-Type': 'application/rss+xml; charset=utf-8',
-        'Cache-Control': 'no-store',
+        'Cache-Control': RSS_CACHE_CONTROL,
       },
     });
   } catch (error) {

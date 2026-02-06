@@ -1,3 +1,4 @@
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
@@ -14,6 +15,31 @@ interface CalendarPageProps {
     tripId: string;
   }>;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tripId: string }>;
+}): Promise<Metadata> {
+  const { tripId } = await params;
+  const tripData = await loadUnifiedTripData(tripId);
+
+  if (!tripData) {
+    return {
+      title: 'Trip Calendar Not Found',
+    };
+  }
+
+  return {
+    title: `${tripData.title} - Trip Calendar`,
+    description: tripData.description || `Trip calendar for ${tripData.title}`,
+    alternates: {
+      types: {
+        'application/rss+xml': `/api/travel-data/${encodeURIComponent(tripId)}/updates/rss`,
+      },
+    },
+  };
 }
 
 async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
