@@ -236,6 +236,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: `${travelData.title} - Travel Map`,
     description: travelData.description || `Travel map from ${travelData.startDate} to ${travelData.endDate}`,
+    alternates: {
+      types: {
+        'application/rss+xml': `/api/travel-data/${encodeURIComponent(id)}/updates/rss`
+      }
+    }
   };
 }
 
