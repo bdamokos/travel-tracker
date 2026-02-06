@@ -45,17 +45,49 @@ export const getCurrentTripStatus = (
     }
   }
 
+  // --- Transition detection based on overlapping locations ---
+  const activeLocations: { location: LocationTiming; start: Date; end: Date }[] = [];
   for (const location of locations) {
     const start = normalizeDate(location.date);
     const end = normalizeDate(location.endDate ?? location.date);
     if (!start || !end) continue;
-
     if (today >= start && today <= end) {
-      if (location.notes && /sidetrip|side trip/i.test(location.notes)) {
-        return `Current location: Excursion to ${location.name}`;
-      }
-      return `Current location: ${location.name}`;
+      activeLocations.push({ location, start, end });
     }
+  }
+
+  if (activeLocations.length >= 2) {
+    // Sort by start date so earlier = departing, later = arriving
+    activeLocations.sort((a, b) => a.start.getTime() - b.start.getTime());
+    const departing = activeLocations[0].location;
+    const arriving = activeLocations[activeLocations.length - 1].location;
+    // Try to find a matching route between them
+    const matchingRoute = routes.find(
+      (r) =>
+        r.from.toLowerCase() === departing.name.toLowerCase() &&
+        r.to.toLowerCase() === arriving.name.toLowerCase()
+    );
+    const from = matchingRoute ? matchingRoute.from : departing.name;
+    const to = matchingRoute ? matchingRoute.to : arriving.name;
+    return `Current location: Travelling today between ${from} and ${to}`;
+  }
+
+  if (activeLocations.length === 1) {
+    const { location: loc, end } = activeLocations[0];
+    if (isSameDay(today, end)) {
+      // Last day at this location — check if there's a route departing from here
+      const departingRoute = routes.find(
+        (r) => r.from.toLowerCase() === loc.name.toLowerCase()
+      );
+      if (departingRoute) {
+        return `Current location: Travelling today between ${departingRoute.from} and ${departingRoute.to}`;
+      }
+    }
+    // Normal single location (or last day with no route)
+    if (loc.notes && /sidetrip|side trip/i.test(loc.notes)) {
+      return `Current location: Excursion to ${loc.name}`;
+    }
+    return `Current location: ${loc.name}`;
   }
 
   return null;

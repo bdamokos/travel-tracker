@@ -10,7 +10,7 @@ import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import TripUpdates from '@/app/components/TripUpdates';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
-// import NextStepsCard from '@/app/components/NextStepsCard';
+
 
 interface TravelData {
   id: string;
@@ -322,11 +322,6 @@ export default async function MapPage({ params }: {
           routes={travelData.routes}
         />
 
-        {/* Next steps summary */}
-        {/* <div className="mb-6">
-          <NextStepsCard tripId={travelData.id} />
-        </div> */}
-        
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
           <div style={{ height: '600px' }}>
             <EmbeddableMap travelData={travelData} />
