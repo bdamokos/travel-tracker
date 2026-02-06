@@ -199,9 +199,16 @@ class MapDataPreloader {
 
 const globalState = globalThis as typeof globalThis & { __mapDataPreloader?: MapDataPreloader };
 
+function isProductionBuildPhase(): boolean {
+  const nextPhase = process.env.NEXT_PHASE;
+  const lifecycleEvent = process.env.npm_lifecycle_event ?? process.env.BUN_LIFECYCLE_EVENT;
+  return nextPhase === 'phase-production-build' || lifecycleEvent === 'build';
+}
+
 export function ensureMapDataPreloaderRunning(): void {
   if (typeof window !== 'undefined') return;
   if (process.env.NODE_ENV === 'test') return;
+  if (isProductionBuildPhase()) return;
   if (process.env.DISABLE_MAP_PREFETCH === 'true') return;
 
   if (!globalState.__mapDataPreloader) {
