@@ -76,14 +76,31 @@ export default function BudgetSetup({
               <input
                 id="reserved-budget"
                 type="number"
-                value={costData.reservedBudget ?? 0}
-                onChange={(e) => setCostData(prev => ({
-                  ...prev,
-                  reservedBudget: Math.max(
-                    0,
-                    Math.min(prev.overallBudget || 0, parseFloat(e.target.value) || 0)
-                  )
-                }))}
+                value={costData.reservedBudget ?? ''}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+
+                  if (nextValue === '') {
+                    setCostData(prev => ({
+                      ...prev,
+                      reservedBudget: undefined
+                    }));
+                    return;
+                  }
+
+                  const parsedValue = Number(nextValue);
+                  if (Number.isNaN(parsedValue)) {
+                    return;
+                  }
+
+                  setCostData(prev => ({
+                    ...prev,
+                    reservedBudget: Math.max(
+                      0,
+                      Math.min(prev.overallBudget || 0, parsedValue)
+                    )
+                  }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="1000"
                 max={costData.overallBudget || undefined}
