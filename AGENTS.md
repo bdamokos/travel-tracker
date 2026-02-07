@@ -135,3 +135,6 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 
 ## Philosophy
 "Go to the Moon not because it is easy, but because it is hard" - do not compromise on testing or correctness even when difficult. Test thoroughly, write maintainable code, prioritize accessibility.
+
+## New learnings
+As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
