@@ -15,6 +15,7 @@ import type { AriaButtonProps } from '@react-aria/button';
 import type { AriaDateFieldProps } from '@react-aria/datepicker';
 import type { AriaDialogProps } from '@react-aria/dialog';
 import type { DateSegment as AriaDateSegment } from '@react-stately/datepicker';
+import { formatLocalDateInput, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface AccessibleDatePickerProps {
   id: string;
@@ -35,21 +36,18 @@ interface AccessibleDatePickerProps {
 
 // Utility functions for date conversion
 function dateToCalendarDate(date: Date | null | undefined): CalendarDate | undefined {
-  if (!date) return undefined;
-  return new CalendarDate(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+  const localDay = parseDateAsLocalDay(date);
+  if (!localDay) return undefined;
+  return new CalendarDate(localDay.getFullYear(), localDay.getMonth() + 1, localDay.getDate());
 }
 
 function calendarDateToDate(calendarDate: CalendarDate | null): Date | null {
   if (!calendarDate) return null;
-  return new Date(Date.UTC(calendarDate.year, calendarDate.month - 1, calendarDate.day));
+  return new Date(calendarDate.year, calendarDate.month - 1, calendarDate.day);
 }
 
 function formatDateForInput(date: Date | null | undefined): string {
-  if (!date) return '';
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(date.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return formatLocalDateInput(date);
 }
 
 export default function AccessibleDatePicker({

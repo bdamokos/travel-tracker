@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { CostTrackingData, CountryPeriod } from '@/app/types';
 import { ExpenseLink } from '@/app/hooks/useExpenseLinks';
+import { formatLocalDateInput } from '@/app/lib/localDateUtils';
 
 interface ExportDataMenuProps {
   costData: CostTrackingData;
@@ -35,14 +36,7 @@ const BUDGET_HEADERS = [
 ];
 
 function formatDateForExport(date: Date | string | undefined | null): string {
-  if (!date) {
-    return '';
-  }
-  const normalized = date instanceof Date ? date : new Date(date);
-  if (Number.isNaN(normalized.getTime())) {
-    return '';
-  }
-  return normalized.toISOString().split('T')[0];
+  return formatLocalDateInput(date);
 }
 
 function buildPeriodSummary(periods?: CountryPeriod[]): string {
@@ -259,7 +253,7 @@ export default function ExportDataMenu({ costData }: ExportDataMenuProps) {
         });
 
         const slug = deriveFileSlug(costData);
-        const timestamp = new Date().toISOString().split('T')[0];
+        const timestamp = formatLocalDateInput(new Date());
 
         if (format === 'csv') {
           const zip = new JSZip();

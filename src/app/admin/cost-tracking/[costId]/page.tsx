@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { CostTrackingData, ExistingTrip } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEditor';
+import { getTodayLocalDay } from '@/app/lib/localDateUtils';
 
 export default function CostTrackingPage() {
   const params = useParams();
@@ -22,8 +23,8 @@ export default function CostTrackingPage() {
     id: '',
     tripId: '',
     tripTitle: '',
-    tripStartDate: new Date(),
-    tripEndDate: new Date(),
+    tripStartDate: getTodayLocalDay(),
+    tripEndDate: getTodayLocalDay(),
     overallBudget: 0,
     reservedBudget: 0,
     currency: 'EUR',

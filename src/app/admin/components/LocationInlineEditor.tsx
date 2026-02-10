@@ -7,6 +7,7 @@ import LocationAccommodationsManager from '@/app/admin/components/LocationAccomm
 import { Location, CostTrackingData } from '@/app/types';
 import { formatDuration } from '@/app/lib/durationUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { formatLocalDateInput, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface LocationInlineEditorProps {
   location: Location;
@@ -90,9 +91,10 @@ export default function LocationInlineEditor({
   };
 
   const handleEndDateChange = (endDate: string) => {
-    const endDateObj = endDate ? new Date(endDate) : undefined;
-    const duration = endDateObj && formData.date ? 
-      Math.ceil((endDateObj.getTime() - (formData.date instanceof Date ? formData.date.getTime() : new Date(formData.date).getTime())) / (1000 * 60 * 60 * 24)) + 1 : 
+    const endDateObj = endDate ? (parseDateAsLocalDay(endDate) || undefined) : undefined;
+    const startDate = parseDateAsLocalDay(formData.date);
+    const duration = endDateObj && startDate ?
+      Math.ceil((endDateObj.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 :
       undefined;
     
     setFormData(prev => ({ ...prev, endDate: endDateObj, duration }));
@@ -134,7 +136,7 @@ export default function LocationInlineEditor({
             </span>
             <AccessibleDatePicker
               id={arrivalDateInputId}
-              value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
+              value={parseDateAsLocalDay(formData.date)}
               onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
               aria-labelledby={arrivalDateLabelId}
@@ -147,8 +149,8 @@ export default function LocationInlineEditor({
             </span>
             <AccessibleDatePicker
               id={departureDateInputId}
-              value={formData.endDate instanceof Date ? formData.endDate : (formData.endDate ? new Date(formData.endDate) : null)}
-              onChange={(endDate) => handleEndDateChange(endDate ? endDate.toISOString().split('T')[0] : '')}
+              value={parseDateAsLocalDay(formData.endDate)}
+              onChange={(endDate) => handleEndDateChange(formatLocalDateInput(endDate))}
               aria-labelledby={departureDateLabelId}
               className="text-sm"
             />

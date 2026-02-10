@@ -11,6 +11,7 @@ import {
 } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import { getTransactionImportKey } from '@/app/lib/ynabUtils';
+import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import type { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { buildTravelReference } from '@/app/lib/travelLinkUtils';
 import AriaSelect from './AriaSelect';
@@ -147,9 +148,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
     return expenses
       .map((expense) => {
-        const dateValue = expense.date instanceof Date ? expense.date : new Date(expense.date);
+        const dateValue = parseDateAsLocalDay(expense.date);
 
-        if (Number.isNaN(dateValue.getTime())) {
+        if (!dateValue) {
           return null;
         }
 
@@ -202,8 +203,8 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       return [];
     }
 
-    const transactionDate = new Date(transaction.date);
-    if (Number.isNaN(transactionDate.getTime())) {
+    const transactionDate = parseDateAsLocalDay(transaction.date);
+    if (!transactionDate) {
       return [];
     }
 
@@ -243,7 +244,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
       const match: YnabDuplicateMatch = {
         expenseId: expense.id,
         description: expense.description,
-        date: expense.date.toISOString().split('T')[0],
+        date: formatLocalDateInput(expense.date),
         amount: expense.amount,
         currency: expense.currency,
         daysApart: diffDays,
@@ -738,7 +739,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
           const expense: Expense = {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-            date: new Date(transaction.date),
+            date: parseDateAsLocalDay(transaction.date) || getTodayLocalDay(),
             amount: transaction.amount,
             currency: costData.currency, // Use the trip's currency
             category: selection.expenseCategory,

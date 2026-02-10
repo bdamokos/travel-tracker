@@ -3,6 +3,7 @@
 import React from 'react';
 import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 import { Location, Transportation, CostTrackingLink } from '@/app/types';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface TravelRoute {
   id: string;
@@ -106,7 +107,7 @@ export default function TripMetadataForm({
           <label htmlFor="journey-start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
           <AccessibleDatePicker
             id="journey-start-date"
-            value={travelData.startDate instanceof Date ? travelData.startDate : (travelData.startDate ? new Date(travelData.startDate) : null)}
+            value={parseDateAsLocalDay(travelData.startDate)}
             onChange={(d) => {
               if (d) {
                 setTravelData(prev => ({ ...prev, startDate: d }));
@@ -120,7 +121,7 @@ export default function TripMetadataForm({
           <label htmlFor="journey-end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
           <AccessibleDatePicker
             id="journey-end-date"
-            value={travelData.endDate instanceof Date ? travelData.endDate : (travelData.endDate ? new Date(travelData.endDate) : null)}
+            value={parseDateAsLocalDay(travelData.endDate)}
             onChange={(d) => {
               if (d) {
                 setTravelData(prev => ({ ...prev, endDate: d }));

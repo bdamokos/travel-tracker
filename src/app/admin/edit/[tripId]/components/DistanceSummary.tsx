@@ -68,12 +68,12 @@ function formatDistance(distance: number): string {
 
 /**
  * Check if a route (or its sub-routes) contains only future dates
- * Routes on today's date are considered future (not yet traveled)
+ * Routes on today's date are considered past/in-progress, not future.
  */
 function isFutureRoute(route: TravelRoute, today: Date): boolean {
   const checkRouteDate = (date: Date | string | undefined): boolean => {
     const routeDate = normalizeUtcDateToLocalDay(date);
-    return routeDate !== null && routeDate >= today;
+    return routeDate !== null && routeDate > today;
   };
 
   if (route.subRoutes && route.subRoutes.length > 0) {

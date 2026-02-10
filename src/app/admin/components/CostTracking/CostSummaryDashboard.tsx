@@ -3,6 +3,7 @@
 import type { JSX } from 'react';
 import { CostSummary, CostTrackingData } from '@/app/types';
 import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface CostSummaryDashboardProps {
   costSummary: CostSummary;
@@ -16,7 +17,7 @@ export default function CostSummaryDashboard({
   costSummary,
   costData
 }: CostSummaryDashboardProps): JSX.Element {
-  const today = new Date();
+  const today = getTodayLocalDay();
   const dailyBudgetLabel = (() => {
     const days = costSummary.dailyBudgetBasisDays;
     const baseLabel = costSummary.tripStatus === 'during' ? 'remaining day' : 'journey day';
@@ -29,19 +30,17 @@ export default function CostSummaryDashboard({
     ? Math.max(...tripSpendingHistory.map(entry => entry.amount), 0)
     : 0;
 
-  const normalizeDate = (value: Date) => {
-    const normalized = new Date(value);
-    normalized.setHours(0, 0, 0, 0);
-    return normalized;
+  const normalizeDate = (value: Date | string): Date => {
+    return parseDateAsLocalDay(value) || new Date(NaN);
   };
 
   const getEffectiveTripEnd = () => {
-    const tripEndDate = normalizeDate(new Date(costData.tripEndDate));
+    const tripEndDate = normalizeDate(costData.tripEndDate);
     const normalizedToday = normalizeDate(today);
     return normalizedToday < tripEndDate ? normalizedToday : tripEndDate;
   };
 
-  const tripStartDate = normalizeDate(new Date(costData.tripStartDate));
+  const tripStartDate = normalizeDate(costData.tripStartDate);
   const effectiveTripEnd = getEffectiveTripEnd();
 
   const getAverageForDateRange = (startDate: Date, endDate: Date) => {
@@ -59,7 +58,7 @@ export default function CostSummaryDashboard({
 
     const total = costData.expenses
       .filter(expense => {
-        const expenseDate = normalizeDate(new Date(expense.date));
+        const expenseDate = normalizeDate(expense.date);
         return expenseDate >= effectiveStart && expenseDate <= endDate;
       })
       .reduce((sum, expense) => sum + expense.amount, 0);
@@ -102,8 +101,8 @@ export default function CostSummaryDashboard({
         return false;
       }
       return budget.periods.some(period => {
-        const start = normalizeDate(new Date(period.startDate));
-        const end = normalizeDate(new Date(period.endDate));
+        const start = normalizeDate(period.startDate);
+        const end = normalizeDate(period.endDate);
         return todayDate >= start && todayDate <= end;
       });
     });
@@ -114,7 +113,7 @@ export default function CostSummaryDashboard({
 
     const recentCountrySpend = costData.expenses
       .filter(expense => {
-        const expenseDate = normalizeDate(new Date(expense.date));
+        const expenseDate = normalizeDate(expense.date);
         const daysAgo = Math.floor((todayDate.getTime() - expenseDate.getTime()) / (1000 * 60 * 60 * 24));
         return daysAgo >= 0 && daysAgo < 7 && expense.country && !expense.isGeneralExpense;
       })
@@ -224,7 +223,7 @@ export default function CostSummaryDashboard({
                     const [year, month, day] = entry.date.split('-').map(Number);
                     const labelDate = !Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)
                       ? new Date(year, month - 1, day)
-                      : new Date(entry.date);
+                      : (parseDateAsLocalDay(entry.date) || today);
                     const dayLabel = labelDate.toLocaleDateString(undefined, {
                       month: 'short',
                       day: 'numeric'
@@ -338,7 +337,8 @@ export default function CostSummaryDashboard({
           <h4 className="font-medium text-gray-800 dark:text-gray-200">
             {(() => {
               if (costSummary.tripStatus === 'before') {
-                const daysUntilStart = Math.max(0, Math.ceil((new Date(costData.tripStartDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+                const tripStart = normalizeDate(costData.tripStartDate);
+                const daysUntilStart = Math.max(0, Math.ceil((tripStart.getTime() - today.getTime()) / (1000 * 3600 * 24)));
                 return daysUntilStart > 0 ? 'Days Until Trip' : 'Trip Starting';
               } else if (costSummary.tripStatus === 'during') {
                 return 'Days Until End';
@@ -350,7 +350,8 @@ export default function CostSummaryDashboard({
           <p className="text-lg font-bold text-gray-600 dark:text-gray-300">
             {(() => {
               if (costSummary.tripStatus === 'before') {
-                const daysUntilStart = Math.max(0, Math.ceil((new Date(costData.tripStartDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
+                const tripStart = normalizeDate(costData.tripStartDate);
+                const daysUntilStart = Math.max(0, Math.ceil((tripStart.getTime() - today.getTime()) / (1000 * 3600 * 24)));
                 return daysUntilStart;
               } else if (costSummary.tripStatus === 'during') {
                 return costSummary.remainingDays;

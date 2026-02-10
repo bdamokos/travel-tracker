@@ -9,6 +9,7 @@ import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
 import { REAL_LOCATION_MARKER } from '@/app/lib/shadowConstants'; // Fixed: removed unused SHADOW_LOCATION_PREFIX import
+import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 type ShadowRoutePayload = {
   id?: string;
@@ -41,7 +42,7 @@ export function useShadowTripEditor(tripId: string) {
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
     coordinates: [0, 0],
-    date: new Date(),
+    date: getTodayLocalDay(),
     notes: '',
     instagramPosts: [],
     tikTokPosts: [],
@@ -58,7 +59,7 @@ export function useShadowTripEditor(tripId: string) {
     fromCoords: [0, 0],
     toCoords: [0, 0],
     transportType: 'plane',
-    date: new Date(),
+    date: getTodayLocalDay(),
     duration: '',
     notes: '',
     privateNotes: '',
@@ -173,8 +174,8 @@ export function useShadowTripEditor(tripId: string) {
         const shadowTravelData: TravelData = {
           title: data.title,
           description: data.description,
-          startDate: new Date(data.startDate),
-          endDate: new Date(data.endDate),
+          startDate: parseDateAsLocalDay(data.startDate) || getTodayLocalDay(),
+          endDate: parseDateAsLocalDay(data.endDate) || getTodayLocalDay(),
           // Combine real locations with shadow locations for editing
           // Real locations are shown as read-only context, shadow locations are editable
           locations: [
@@ -187,7 +188,7 @@ export function useShadowTripEditor(tripId: string) {
                 ...loc,
                 id: loc.id,
                 name: `${REAL_LOCATION_MARKER} ${loc.name}`, // Mark real locations with icon
-                date: new Date(loc.date),
+                date: parseDateAsLocalDay(loc.date) || getTodayLocalDay(),
                 // Mark as read-only by adding a flag we can check in the editor
                 isReadOnly: true,
                 // Include accommodation IDs so AccommodationManager can find them
@@ -201,7 +202,7 @@ export function useShadowTripEditor(tripId: string) {
               
               return {
                 ...loc,
-                date: new Date(loc.date || new Date()),
+                date: parseDateAsLocalDay(loc.date) || getTodayLocalDay(),
                 isReadOnly: false,
                 // Include accommodation IDs so AccommodationManager can find them
                 accommodationIds: accommodationIds.length > 0 ? accommodationIds : loc.accommodationIds || []
@@ -213,7 +214,7 @@ export function useShadowTripEditor(tripId: string) {
             ...realRoutes.map((route: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
               ...route,
               transportType: route.type || route.transportType,
-              date: new Date(route.departureTime || route.date || new Date()),
+              date: parseDateAsLocalDay(route.departureTime || route.date) || getTodayLocalDay(),
               fromCoords: route.fromCoords || [0, 0],
               toCoords: route.toCoords || [0, 0],
               from: `${REAL_LOCATION_MARKER} ${route.from}`, // Mark real routes
@@ -224,13 +225,13 @@ export function useShadowTripEditor(tripId: string) {
             ...shadowRoutes.map((route: ShadowRoutePayload) => ({
               ...route,
               transportType: route.type || route.transportType,
-              date: new Date(route.departureTime || route.date || new Date()),
+              date: parseDateAsLocalDay(route.departureTime || route.date) || getTodayLocalDay(),
               fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
               toCoords: route.toCoords || route.toCoordinates || [0, 0],
               subRoutes: route.subRoutes?.map((segment: ShadowRoutePayload) => ({
                 ...segment,
                 transportType: segment.type || segment.transportType,
-                date: new Date(segment.departureTime || segment.date || new Date()),
+                date: parseDateAsLocalDay(segment.departureTime || segment.date) || getTodayLocalDay(),
                 fromCoords: segment.fromCoords || segment.fromCoordinates || [0, 0],
                 toCoords: segment.toCoords || segment.toCoordinates || [0, 0],
                 distanceOverride: segment.distanceOverride
@@ -257,12 +258,12 @@ export function useShadowTripEditor(tripId: string) {
               routes: shadowTravelData.routes.map(route => ({
                 ...route,
                 type: route.transportType,
-                departureTime: route.date?.toISOString(),
+                departureTime: formatLocalDateInput(route.date),
                 privateNotes: route.privateNotes,
                 subRoutes: route.subRoutes?.map(segment => ({
                   ...segment,
                   type: segment.transportType,
-                  departureTime: segment.date?.toISOString(),
+                  departureTime: formatLocalDateInput(segment.date),
                   privateNotes: segment.privateNotes,
                   fromCoordinates: segment.fromCoords,
                   toCoordinates: segment.toCoords
@@ -309,7 +310,7 @@ export function useShadowTripEditor(tripId: string) {
               from: route.from,
               to: route.to,
               type: route.transportType,
-              departureTime: route.date?.toISOString(),
+              departureTime: formatLocalDateInput(route.date),
               privateNotes: route.privateNotes,
               fromCoordinates: route.fromCoords,
               toCoordinates: route.toCoords,
@@ -321,7 +322,7 @@ export function useShadowTripEditor(tripId: string) {
                 from: segment.from,
                 to: segment.to,
                 type: segment.transportType,
-                departureTime: segment.date?.toISOString(),
+                departureTime: formatLocalDateInput(segment.date),
                 privateNotes: segment.privateNotes,
                 fromCoordinates: segment.fromCoords,
                 toCoordinates: segment.toCoords,
@@ -375,7 +376,7 @@ export function useShadowTripEditor(tripId: string) {
     setCurrentLocation({
       name: '',
       coordinates: [0, 0],
-      date: new Date(),
+      date: getTodayLocalDay(),
       notes: '',
       instagramPosts: [],
       tikTokPosts: [],
@@ -403,7 +404,7 @@ export function useShadowTripEditor(tripId: string) {
       fromCoords: [0, 0],
       toCoords: [0, 0],
       transportType: 'plane',
-      date: new Date(),
+      date: getTodayLocalDay(),
       duration: '',
       notes: '',
       privateNotes: '',

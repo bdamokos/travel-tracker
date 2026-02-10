@@ -6,6 +6,7 @@ import { ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLook
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
 import AriaSelect from '@/app/admin/components/AriaSelect';
 import { buildSideTripMap } from '@/app/lib/sideTripUtils';
+import { formatLocalDateInput, getLocalDateSortValue } from '@/app/lib/localDateUtils';
 
 interface TravelItem {
   id: string;
@@ -25,30 +26,8 @@ const normalizeDateString = (dateValue?: string | Date | null) => {
     return null;
   }
 
-  if (dateValue instanceof Date) {
-    return Number.isNaN(dateValue.getTime())
-      ? null
-      : dateValue.toISOString().split('T')[0];
-  }
-
-  if (typeof dateValue === 'string') {
-    const trimmed = dateValue.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const isoMatch = trimmed.match(/^\d{4}-\d{2}-\d{2}/);
-    if (isoMatch) {
-      return isoMatch[0];
-    }
-
-    const parsed = new Date(trimmed);
-    return Number.isNaN(parsed.getTime())
-      ? null
-      : parsed.toISOString().split('T')[0];
-  }
-
-  return null;
+  const formatted = formatLocalDateInput(dateValue);
+  return formatted || null;
 };
 
 const formatItemLabel = (item: TravelItem) => {
@@ -192,7 +171,7 @@ export default function TravelItemSelector({
               type: 'location',
               name: location.name,
               description: location.notes || '',
-              date: location.date instanceof Date ? location.date.toISOString().split('T')[0] : location.date,
+              date: formatLocalDateInput(location.date),
               tripTitle: tripData.title,
               baseLocationId: baseLocation?.id
             });
@@ -203,7 +182,7 @@ export default function TravelItemSelector({
         if (tripData.routes) {
           tripData.routes.forEach((route: Transportation) => {
             // Extract date from departureTime if available (Transportation doesn't have a date field)
-            const routeDate = route.departureTime ? route.departureTime.split('T')[0] : undefined;
+            const routeDate = route.departureTime ? formatLocalDateInput(route.departureTime) : undefined;
             const routeName = `${route.from} → ${route.to}`;
 
             // Add parent route
@@ -220,7 +199,7 @@ export default function TravelItemSelector({
             if (route.subRoutes && route.subRoutes.length > 0) {
               route.subRoutes.forEach((subRoute) => {
                 // Extract date from subRoute's departureTime if available, otherwise use parent route's date
-                const subRouteDate = subRoute.departureTime ? subRoute.departureTime.split('T')[0] : routeDate;
+                const subRouteDate = subRoute.departureTime ? formatLocalDateInput(subRoute.departureTime) : routeDate;
 
                 allItems.push({
                   id: subRoute.id,
@@ -256,8 +235,8 @@ export default function TravelItemSelector({
         
         // Sort by date (items without dates go to the end)
         allItems.sort((a, b) => {
-          const dateA = a.date ? new Date(a.date).getTime() : Number.MAX_SAFE_INTEGER;
-          const dateB = b.date ? new Date(b.date).getTime() : Number.MAX_SAFE_INTEGER;
+          const dateA = getLocalDateSortValue(a.date);
+          const dateB = getLocalDateSortValue(b.date);
           return dateA - dateB;
         });
 
@@ -324,7 +303,7 @@ export default function TravelItemSelector({
       .filter(item => item.type === selectedType)
       .map(item => {
         const normalizedDate = normalizeDateString(item.date);
-        const timestamp = normalizedDate ? Date.parse(normalizedDate) : null;
+        const timestamp = normalizedDate ? getLocalDateSortValue(normalizedDate) : null;
         return {
           ...item,
           normalizedDate,

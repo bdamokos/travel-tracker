@@ -17,6 +17,11 @@ import {
   roundCurrency
 } from '@/app/lib/cashTransactions';
 import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
+import {
+  formatLocalDateLabel,
+  getLocalDateSortValue,
+  getTodayLocalDay
+} from '@/app/lib/localDateUtils';
 
 interface CashTransactionManagerProps {
   costData: CostTrackingData;
@@ -81,7 +86,7 @@ type CashRefundToBaseFormState = {
 };
 
 const INITIAL_SOURCE_FORM: CashSourceFormState = {
-  date: new Date(),
+  date: getTodayLocalDay(),
   baseAmount: '',
   localAmount: '',
   localCurrency: '',
@@ -91,7 +96,7 @@ const INITIAL_SOURCE_FORM: CashSourceFormState = {
 };
 
 const INITIAL_REFUND_FORM: CashRefundFormState = {
-  date: new Date(),
+  date: getTodayLocalDay(),
   localAmount: '',
   localCurrency: '',
   exchangeRate: '',
@@ -101,7 +106,7 @@ const INITIAL_REFUND_FORM: CashRefundFormState = {
 };
 
 const INITIAL_CONVERSION_FORM: CashConversionFormState = {
-  date: new Date(),
+  date: getTodayLocalDay(),
   sourceCurrency: '',
   sourceLocalAmount: '',
   targetLocalAmount: '',
@@ -112,7 +117,7 @@ const INITIAL_CONVERSION_FORM: CashConversionFormState = {
 };
 
 const INITIAL_REFUND_TO_BASE_FORM: CashRefundToBaseFormState = {
-  date: new Date(),
+  date: getTodayLocalDay(),
   sourceCurrency: '',
   localAmount: '',
   exchangeRateBasePerLocal: '',
@@ -131,7 +136,7 @@ const INITIAL_REFUND_TO_BASE_FORM: CashRefundToBaseFormState = {
 function createInitialAllocationForm(sourceCountry: string): CashAllocationFormState {
   return {
     expenseId: generateId(),
-    date: new Date(),
+    date: getTodayLocalDay(),
     localAmount: '',
     category: '',
     country: sourceCountry || '',
@@ -180,7 +185,7 @@ export default function CashTransactionManager({
     () =>
       costData.expenses
         .filter(isCashSource)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+        .sort((a, b) => getLocalDateSortValue(a.date) - getLocalDateSortValue(b.date)),
     [costData.expenses]
   );
 
@@ -774,7 +779,7 @@ export default function CashTransactionManager({
             </p>
           </div>
           <div className="text-right text-xs text-yellow-800 dark:text-yellow-200">
-            <div>Exchange date: {new Date(source.date).toLocaleDateString()}</div>
+            <div>Exchange date: {formatLocalDateLabel(source.date, undefined, { year: 'numeric', month: 'numeric', day: 'numeric' })}</div>
             <div>Country: {source.country || 'General'}</div>
           </div>
         </div>
@@ -786,7 +791,7 @@ export default function CashTransactionManager({
             </h6>
             <ul className="space-y-1 text-xs text-yellow-900 dark:text-yellow-100">
               {allocations
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .sort((a, b) => getLocalDateSortValue(b.date) - getLocalDateSortValue(a.date))
                 .map(allocation => {
                   if (!isCashAllocation(allocation)) {
                     return null;
@@ -802,7 +807,7 @@ export default function CashTransactionManager({
                   return (
                     <li key={`${allocation.id}-${source.id}`} className="flex justify-between gap-2">
                       <span>
-                        {new Date(allocation.date).toLocaleDateString()} • {allocation.category}
+                        {formatLocalDateLabel(allocation.date, undefined, { year: 'numeric', month: 'numeric', day: 'numeric' })} • {allocation.category}
                         {allocation.description ? ` – ${allocation.description}` : ''}
                       </span>
                       <span>
@@ -835,7 +840,7 @@ export default function CashTransactionManager({
           id: allocationForm.expenseId,
           sources: group.sources,
           localAmount: pendingLocal,
-          date: allocationForm.date || new Date(),
+          date: allocationForm.date || getTodayLocalDay(),
           trackingCurrency: currency,
           category: allocationForm.category || (spendingCategories[0] ?? CASH_CATEGORY_NAME),
           country: allocationForm.country,

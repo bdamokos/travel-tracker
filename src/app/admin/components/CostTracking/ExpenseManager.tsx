@@ -22,6 +22,7 @@ import InPlaceEditor from '@/app/admin/components/InPlaceEditor';
 import TravelItemSelector from '@/app/admin/components/TravelItemSelector';
 import TravelLinkDisplay from '@/app/admin/components/TravelLinkDisplay';
 import CashTransactionManager from '@/app/admin/components/CostTracking/CashTransactionManager';
+import { getLocalDateSortValue } from '@/app/lib/localDateUtils';
 
 interface ExpenseManagerProps {
   costData: CostTrackingData;
@@ -98,7 +99,7 @@ export default function ExpenseManager({
 
   const filteredExpenses = useMemo(() => {
     const sortedExpenses = [...costData.expenses].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      (a, b) => getLocalDateSortValue(b.date) - getLocalDateSortValue(a.date)
     );
 
     if (!showUnlinkedOnly) {

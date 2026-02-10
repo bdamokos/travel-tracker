@@ -34,6 +34,7 @@ import {
   isCashAllocation,
   isCashSource
 } from '@/app/lib/cashTransactions';
+import { getTodayLocalDay } from '@/app/lib/localDateUtils';
 
 interface CostTrackerEditorProps {
   costData: CostTrackingData;
@@ -83,7 +84,7 @@ export default function CostTrackerEditor({
   });
 
   const [currentExpense, setCurrentExpense] = useState<Partial<Expense>>({
-    date: new Date(),
+    date: getTodayLocalDay(),
     amount: 0,
     currency: 'EUR',
     category: '',
@@ -101,8 +102,8 @@ export default function CostTrackerEditor({
   const [editingPeriodForBudget, setEditingPeriodForBudget] = useState<string | null>(null);
   const [editingPeriodIndex, setEditingPeriodIndex] = useState<number | null>(null);
   const [currentPeriod, setCurrentPeriod] = useState<Partial<CountryPeriod>>({
-    startDate: new Date(),
-    endDate: new Date(),
+    startDate: getTodayLocalDay(),
+    endDate: getTodayLocalDay(),
     notes: ''
   });
   

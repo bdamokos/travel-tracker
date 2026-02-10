@@ -1,23 +1,21 @@
 import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '@/app/types';
-import { formatUtcDate } from './dateUtils';
+import { formatLocalDateInput, formatLocalDateLabel, getLocalDateSortValue, getTodayLocalDay, parseDateAsLocalDay } from './localDateUtils';
 
 const MS_IN_DAY = 1000 * 60 * 60 * 24;
 
 /**
- * Normalize a date-like value to the start of its day in UTC to avoid timezone drift.
+ * Normalize a date-like value to local start-of-day.
  */
-function normalizeToUtcDay(dateInput: Date | string): Date | null {
-  const date = new Date(dateInput);
-  if (isNaN(date.getTime())) return null;
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+function normalizeToLocalDay(dateInput: Date | string): Date | null {
+  return parseDateAsLocalDay(dateInput);
 }
 
 /**
  * Calculate inclusive day counts between two dates in a timezone-safe way.
  */
 export function calculateInclusiveDays(startDate: Date | string, endDate: Date | string): number {
-  const start = normalizeToUtcDay(startDate);
-  const end = normalizeToUtcDay(endDate);
+  const start = normalizeToLocalDay(startDate);
+  const end = normalizeToLocalDay(endDate);
   if (!start || !end || end < start) return 0;
 
   return Math.round((end.getTime() - start.getTime()) / MS_IN_DAY) + 1;
@@ -28,8 +26,8 @@ export function calculateInclusiveDays(startDate: Date | string, endDate: Date |
  */
 function isPostTripExpense(expense: Expense, tripEndDate: Date): boolean {
   if (expense.expenseType !== 'actual') return false;
-  const expenseDate = new Date(expense.date);
-  return expenseDate > tripEndDate;
+  const expenseDate = parseDateAsLocalDay(expense.date);
+  return expenseDate ? expenseDate > tripEndDate : false;
 }
 
 /**
@@ -71,7 +69,8 @@ function calculateExpenseTotals(expenses: Expense[], expenseType: ExpenseType | 
  */
 function getExpensesByDateAndType(expenses: Expense[], startDate: Date, endDate: Date, expenseType?: ExpenseType, tripEndDate?: Date): Expense[] {
   return expenses.filter(expense => {
-    const expenseDate = new Date(expense.date);
+    const expenseDate = parseDateAsLocalDay(expense.date);
+    if (!expenseDate) return false;
     const eType = expense.expenseType || 'actual';
 
     // Date range check
@@ -95,7 +94,8 @@ function getExpensesByDateAndType(expenses: Expense[], startDate: Date, endDate:
  */
 function getExpensesBeforeDate(expenses: Expense[], date: Date, expenseType?: ExpenseType, tripEndDate?: Date): Expense[] {
   return expenses.filter(expense => {
-    const expenseDate = new Date(expense.date);
+    const expenseDate = parseDateAsLocalDay(expense.date);
+    if (!expenseDate) return false;
     const eType = expense.expenseType || 'actual';
 
     // Date check
@@ -121,9 +121,9 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
   const reservedBudget = Math.max(0, costData.reservedBudget || 0);
   const spendableBudget = Math.max(0, totalBudget - reservedBudget);
 
-  const today = new Date();
-  const startDate = new Date(costData.tripStartDate);
-  const endDate = new Date(costData.tripEndDate);
+  const today = getTodayLocalDay();
+  const startDate = parseDateAsLocalDay(costData.tripStartDate) || getTodayLocalDay();
+  const endDate = parseDateAsLocalDay(costData.tripEndDate) || getTodayLocalDay();
   const msPerDay = 1000 * 3600 * 24;
 
   // Calculate total days and remaining days
@@ -224,11 +224,8 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
     const historyWindow = 7;
     const msPerDay = 1000 * 60 * 60 * 24;
 
-    const normalizeDate = (value: Date) => {
-      const normalized = new Date(value);
-      // Always snap to midnight in UTC so day buckets are stable regardless of viewer timezone
-      normalized.setUTCHours(0, 0, 0, 0);
-      return normalized;
+    const normalizeDate = (value: Date | string) => {
+      return parseDateAsLocalDay(value) || new Date(NaN);
     };
 
     const startOfTrip = normalizeDate(startDate);
@@ -251,11 +248,11 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
 
     const dayTotals = new Map<string, number>();
     tripActualExpenses.forEach(expense => {
-      const expenseDate = normalizeDate(new Date(expense.date));
+      const expenseDate = normalizeDate(expense.date);
       if (expenseDate < earliestDay || expenseDate > effectiveHistoryEnd) {
         return;
       }
-      const key = expenseDate.toISOString().split('T')[0];
+      const key = formatLocalDateInput(expenseDate);
       dayTotals.set(key, (dayTotals.get(key) || 0) + expense.amount);
     });
 
@@ -266,7 +263,7 @@ export function calculateCostSummary(costData: CostTrackingData): CostSummary {
       const day = new Date(earliestDay);
       day.setDate(earliestDay.getDate() + offset);
       if (day > endOfTrip) break;
-      const key = day.toISOString().split('T')[0];
+      const key = formatLocalDateInput(day);
       history.push({
         date: key,
         amount: dayTotals.get(key) || 0,
@@ -317,9 +314,9 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
   const countryMap = new Map<string, CountryBreakdown>();
 
   // Calculate trip status for consistent logic
-  const today = new Date();
-  const startDate = new Date(costData.tripStartDate);
-  const endDate = new Date(costData.tripEndDate);
+  const today = getTodayLocalDay();
+  const startDate = parseDateAsLocalDay(costData.tripStartDate) || getTodayLocalDay();
+  const endDate = parseDateAsLocalDay(costData.tripEndDate) || getTodayLocalDay();
   let tripStatus: 'before' | 'during' | 'after';
   if (today < startDate) {
     tripStatus = 'before';
@@ -432,10 +429,13 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     const generalActualExpenses = generalExpenses.filter(e =>
       (e.expenseType || 'actual') === 'actual' && !isPostTripExpense(e, endDate)
     );
-    const generalPreTrip = generalActualExpenses.filter(e => new Date(e.date) < startDate).reduce((sum, e) => sum + e.amount, 0);
+    const generalPreTrip = generalActualExpenses.filter(e => {
+      const expenseDate = parseDateAsLocalDay(e.date);
+      return expenseDate ? expenseDate < startDate : false;
+    }).reduce((sum, e) => sum + e.amount, 0);
     const generalTrip = generalActualExpenses.filter(e => {
-      const date = new Date(e.date);
-      return date >= startDate && date <= endDate;
+      const expenseDate = parseDateAsLocalDay(e.date);
+      return expenseDate ? (expenseDate >= startDate && expenseDate <= endDate) : false;
     }).reduce((sum, e) => sum + e.amount, 0);
 
     countryMap.set('General', {
@@ -466,10 +466,13 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     const actualExpenses = countryData.expenses.filter(e =>
       (e.expenseType || 'actual') === 'actual' && !isPostTripExpense(e, endDate)
     );
-    const preTripActualExpenses = actualExpenses.filter(e => new Date(e.date) < startDate);
+    const preTripActualExpenses = actualExpenses.filter(e => {
+      const expenseDate = parseDateAsLocalDay(e.date);
+      return expenseDate ? expenseDate < startDate : false;
+    });
     const tripActualExpenses = actualExpenses.filter(e => {
-      const date = new Date(e.date);
-      return date >= startDate && date <= endDate;
+      const expenseDate = parseDateAsLocalDay(e.date);
+      return expenseDate ? (expenseDate >= startDate && expenseDate <= endDate) : false;
     });
 
     countryData.preTripSpent = preTripActualExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -486,14 +489,17 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     if (countryBudget?.periods && countryBudget.periods.length > 0) {
       // Use configured periods to calculate total days
       countryData.days = countryBudget.periods.reduce((totalDays, period) => {
-        const periodStart = new Date(period.startDate);
-        const periodEnd = new Date(period.endDate);
+        const periodStart = parseDateAsLocalDay(period.startDate);
+        const periodEnd = parseDateAsLocalDay(period.endDate);
+        if (!periodStart || !periodEnd) return totalDays;
         const periodDays = calculateInclusiveDays(periodStart, periodEnd);
         return totalDays + periodDays;
       }, 0);
     } else {
       // Fallback to expense-based calculation
-      const countryExpenseDates = countryData.expenses.map(e => new Date(e.date));
+      const countryExpenseDates = countryData.expenses
+        .map(e => parseDateAsLocalDay(e.date))
+        .filter((date): date is Date => date !== null);
       if (countryExpenseDates.length > 0) {
         const minDate = new Date(Math.min(...countryExpenseDates.map(d => d.getTime())));
         const maxDate = new Date(Math.max(...countryExpenseDates.map(d => d.getTime())));
@@ -540,8 +546,12 @@ function calculateRemainingDaysInCountry(
   let remainingDays = 0;
 
   for (const period of periods) {
-    const periodStart = new Date(period.startDate);
-    const periodEnd = new Date(Math.min(new Date(period.endDate).getTime(), tripEndDate.getTime()));
+    const periodStart = parseDateAsLocalDay(period.startDate);
+    const periodEndRaw = parseDateAsLocalDay(period.endDate);
+    if (!periodStart || !periodEndRaw) {
+      continue;
+    }
+    const periodEnd = new Date(Math.min(periodEndRaw.getTime(), tripEndDate.getTime()));
 
     if (today < periodEnd) {
       const startFrom = today > periodStart ? today : periodStart;
@@ -592,12 +602,12 @@ function calculateCountryDailyAverage(
       today
     );
   } else {
-    // CASE 2: No configured periods - use trip duration or expense dates
-    return calculateDailyAverageWithoutPeriods(
-      countryData.expenses.filter(e => {
-        const date = new Date(e.date);
-        return date >= tripStartDate && date <= tripEndDate;
-      }),
+      // CASE 2: No configured periods - use trip duration or expense dates
+      return calculateDailyAverageWithoutPeriods(
+        countryData.expenses.filter(e => {
+          const expenseDate = parseDateAsLocalDay(e.date);
+          return expenseDate ? (expenseDate >= tripStartDate && expenseDate <= tripEndDate) : false;
+        }),
       countryData.tripSpent,
       today,
       tripStartDate,
@@ -618,8 +628,11 @@ function calculateDailyAverageWithPeriods(
   let totalElapsedDays = 0;
 
   for (const period of periods) {
-    const periodStart = new Date(period.startDate);
-    const periodEnd = new Date(period.endDate);
+    const periodStart = parseDateAsLocalDay(period.startDate);
+    const periodEnd = parseDateAsLocalDay(period.endDate);
+    if (!periodStart || !periodEnd) {
+      continue;
+    }
 
     // Skip periods that haven't started yet
     if (today < periodStart) {
@@ -656,7 +669,12 @@ function calculateDailyAverageWithoutPeriods(
   }
 
   // Get the date range of expenses
-  const expenseDates = tripExpenses.map(e => new Date(e.date));
+  const expenseDates = tripExpenses
+    .map(e => parseDateAsLocalDay(e.date))
+    .filter((date): date is Date => date !== null);
+  if (expenseDates.length === 0) {
+    return 0;
+  }
   const minExpenseDate = new Date(Math.min(...expenseDates.map(d => d.getTime())));
   const maxExpenseDate = new Date(Math.max(...expenseDates.map(d => d.getTime())));
 
@@ -709,12 +727,13 @@ export function calculateCategoryBreakdown(expenses: Expense[]): CategoryBreakdo
  * Get expenses by date range
  */
 export function getExpensesByDateRange(expenses: Expense[], startDate: string, endDate: string): Expense[] {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseDateAsLocalDay(startDate);
+  const end = parseDateAsLocalDay(endDate);
+  if (!start || !end) return [];
 
   return expenses.filter(expense => {
-    const expenseDate = new Date(expense.date);
-    return expenseDate >= start && expenseDate <= end;
+    const expenseDate = parseDateAsLocalDay(expense.date);
+    return expenseDate ? (expenseDate >= start && expenseDate <= end) : false;
   });
 }
 
@@ -739,13 +758,14 @@ export function calculateDailySpendingTrend(expenses: Expense[]): { date: string
   const dailySpending = new Map<string, number>();
 
   expenses.forEach(expense => {
-    const date = expense.date instanceof Date ? expense.date.toISOString().split('T')[0] : expense.date;
+    const date = formatLocalDateInput(expense.date);
+    if (!date) return;
     dailySpending.set(date, (dailySpending.get(date) || 0) + expense.amount);
   });
 
   return Array.from(dailySpending.entries())
     .map(([date, amount]) => ({ date, amount }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => getLocalDateSortValue(a.date) - getLocalDateSortValue(b.date));
 }
 
 /**
@@ -781,10 +801,12 @@ export function generateId(): string {
 export function isExpenseWithinPeriods(expense: Expense, periods: CountryPeriod[]): boolean {
   if (!periods || periods.length === 0) return true;
 
-  const expenseDate = new Date(expense.date);
+  const expenseDate = parseDateAsLocalDay(expense.date);
+  if (!expenseDate) return false;
   return periods.some(period => {
-    const periodStart = new Date(period.startDate);
-    const periodEnd = new Date(period.endDate);
+    const periodStart = parseDateAsLocalDay(period.startDate);
+    const periodEnd = parseDateAsLocalDay(period.endDate);
+    if (!periodStart || !periodEnd) return false;
     return expenseDate >= periodStart && expenseDate <= periodEnd;
   });
 }
@@ -806,11 +828,11 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
  */
 export function formatDate(dateInput: string | Date): string {
   // Handle different date formats
-  let date: Date;
+  let date: Date | null = null;
 
   // If it's already a Date object, use it directly
   if (dateInput instanceof Date) {
-    date = dateInput;
+    date = parseDateAsLocalDay(dateInput);
   } else {
     const dateString = dateInput;
 
@@ -822,23 +844,21 @@ export function formatDate(dateInput: string | Date): string {
         const day = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
         const year = parseInt(parts[2], 10);
-        date = new Date(year, month, day);
+        date = parseDateAsLocalDay(new Date(year, month, day));
       } else {
-        // Try to parse as-is
-        date = new Date(dateString);
+        date = parseDateAsLocalDay(dateString);
       }
     } else {
-      // Try to parse as-is (ISO format, etc.)
-      date = new Date(dateString);
+      date = parseDateAsLocalDay(dateString);
     }
   }
 
   // Check if date is valid
-  if (isNaN(date.getTime())) {
+  if (!date) {
     return 'Invalid Date';
   }
 
-  return formatUtcDate(date, 'en-GB', {
+  return formatLocalDateLabel(date, 'en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric'

@@ -3,6 +3,7 @@
 import { CostTrackingData, ExistingTrip } from '@/app/types';
 import { formatDate } from '@/app/lib/costUtils';
 import AriaSelect from '@/app/admin/components/AriaSelect';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface BudgetSetupProps {
   costData: CostTrackingData;
@@ -27,8 +28,8 @@ export default function BudgetSetup({
       ...prev,
       tripId: trip.id,
       tripTitle: trip.title,
-      tripStartDate: new Date(trip.startDate),
-      tripEndDate: new Date(trip.endDate)
+      tripStartDate: parseDateAsLocalDay(trip.startDate) || getTodayLocalDay(),
+      tripEndDate: parseDateAsLocalDay(trip.endDate) || getTodayLocalDay()
     }));
   };
 

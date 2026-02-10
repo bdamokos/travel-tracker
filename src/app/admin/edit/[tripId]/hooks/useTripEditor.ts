@@ -10,6 +10,7 @@ import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { generateRoutePoints, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface ExistingTrip {
   id: string;
@@ -43,8 +44,8 @@ export function useTripEditor(tripId: string | null) {
   const [travelData, setTravelData] = useState<TravelData>({
     title: '',
     description: '',
-    startDate: new Date(),
-    endDate: new Date(),
+    startDate: getTodayLocalDay(),
+    endDate: getTodayLocalDay(),
     instagramUsername: '',
     locations: [],
     routes: [],
@@ -56,7 +57,7 @@ export function useTripEditor(tripId: string | null) {
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
     coordinates: [0, 0],
-    date: new Date(),
+    date: getTodayLocalDay(),
     notes: '',
     instagramPosts: [],
     tikTokPosts: [],
@@ -73,7 +74,7 @@ export function useTripEditor(tripId: string | null) {
     fromCoords: [0, 0],
     toCoords: [0, 0],
     transportType: 'plane',
-    date: new Date(),
+    date: getTodayLocalDay(),
     duration: '',
     notes: '',
     privateNotes: '',
@@ -147,8 +148,8 @@ export function useTripEditor(tripId: string | null) {
       id: location.id || generateId(),
       name: location.name || '',
       coordinates: location.coordinates || [0, 0] as [number, number],
-      date: location.date ? (location.date instanceof Date ? location.date : new Date(location.date)) : new Date(),
-      endDate: location.endDate ? (location.endDate instanceof Date ? location.endDate : new Date(location.endDate)) : undefined,
+      date: parseDateAsLocalDay(location.date) || getTodayLocalDay(),
+      endDate: parseDateAsLocalDay(location.endDate) || undefined,
       duration: location.duration,
       arrivalTime: location.arrivalTime,
       departureTime: location.departureTime,
@@ -176,7 +177,7 @@ export function useTripEditor(tripId: string | null) {
         fromCoords: route.fromCoords || [0, 0] as [number, number],
         toCoords: route.toCoords || [0, 0] as [number, number],
         transportType: routeTransportType,
-        date: route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date(),
+        date: parseDateAsLocalDay(route.date) || getTodayLocalDay(),
         duration: route.duration,
         distanceOverride: route.distanceOverride,
         notes: route.notes || '',
@@ -193,8 +194,8 @@ export function useTripEditor(tripId: string | null) {
           toCoords: segment.toCoords || [0, 0] as [number, number],
           transportType: segment.transportType || (routeTransportType !== 'multimodal' ? routeTransportType : undefined) || 'car',
           date: segment.date
-            ? (segment.date instanceof Date ? segment.date : new Date(segment.date))
-            : (route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date()),
+            ? (parseDateAsLocalDay(segment.date) || getTodayLocalDay())
+            : (parseDateAsLocalDay(route.date) || getTodayLocalDay()),
           duration: segment.duration,
           distanceOverride: segment.distanceOverride,
           notes: segment.notes || '',
@@ -212,8 +213,8 @@ export function useTripEditor(tripId: string | null) {
       id: tripData.id,
       title: tripData.title || '',
       description: tripData.description || '',
-      startDate: tripData.startDate ? (tripData.startDate instanceof Date ? tripData.startDate : new Date(tripData.startDate)) : new Date(),
-      endDate: tripData.endDate ? (tripData.endDate instanceof Date ? tripData.endDate : new Date(tripData.endDate)) : new Date(),
+      startDate: parseDateAsLocalDay(tripData.startDate) || getTodayLocalDay(),
+      endDate: parseDateAsLocalDay(tripData.endDate) || getTodayLocalDay(),
       instagramUsername: tripData.instagramUsername || '',
       locations: migratedLocations,
       routes: migratedRoutes,

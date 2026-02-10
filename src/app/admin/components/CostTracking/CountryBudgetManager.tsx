@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { BudgetItem, CountryPeriod, CostTrackingData } from '@/app/types';
 import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 import { calculateInclusiveDays, formatCurrency, formatDate, generateId } from '@/app/lib/costUtils';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface CountryBudgetManagerProps {
   costData: CostTrackingData;
@@ -83,7 +84,15 @@ export default function CountryBudgetManager({
       return;
     }
 
-    if (new Date(currentPeriod.startDate) > new Date(currentPeriod.endDate)) {
+    const startDate = parseDateAsLocalDay(currentPeriod.startDate);
+    const endDate = parseDateAsLocalDay(currentPeriod.endDate);
+
+    if (!startDate || !endDate) {
+      alert('Invalid period dates.');
+      return;
+    }
+
+    if (startDate > endDate) {
       alert('Start date must be before end date.');
       return;
     }
@@ -95,8 +104,8 @@ export default function CountryBudgetManager({
 
     const period: CountryPeriod = {
       id: editingPeriodIndex !== null ? '' : generateId(), // Will be updated for edit
-      startDate: new Date(currentPeriod.startDate!),
-      endDate: new Date(currentPeriod.endDate!),
+      startDate,
+      endDate,
       notes: currentPeriod.notes || ''
     };
 
@@ -119,7 +128,7 @@ export default function CountryBudgetManager({
     });
 
     setCostData(prev => ({ ...prev, countryBudgets: updatedBudgets }));
-    setCurrentPeriod({ startDate: new Date(), endDate: new Date(), notes: '' });
+    setCurrentPeriod({ startDate: getTodayLocalDay(), endDate: getTodayLocalDay(), notes: '' });
     setEditingPeriodIndex(null);
   };
 
@@ -146,7 +155,7 @@ export default function CountryBudgetManager({
   };
 
   const cancelPeriodEdit = () => {
-    setCurrentPeriod({ startDate: new Date(), endDate: new Date(), notes: '' });
+    setCurrentPeriod({ startDate: getTodayLocalDay(), endDate: getTodayLocalDay(), notes: '' });
     setEditingPeriodForBudget(null);
     setEditingPeriodIndex(null);
   };
@@ -258,7 +267,7 @@ export default function CountryBudgetManager({
                   <button
                     onClick={() => {
                       setEditingPeriodForBudget(budget.id);
-                      setCurrentPeriod({ startDate: new Date(), endDate: new Date(), notes: '' });
+                      setCurrentPeriod({ startDate: getTodayLocalDay(), endDate: getTodayLocalDay(), notes: '' });
                     }}
                     className="text-xs text-blue-500 hover:text-blue-700"
                   >
@@ -322,7 +331,7 @@ export default function CountryBudgetManager({
               <label htmlFor={`${id}-period-start-date`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
               <AccessibleDatePicker
                 id={`${id}-period-start-date`}
-                value={currentPeriod.startDate instanceof Date ? currentPeriod.startDate : (currentPeriod.startDate ? new Date(currentPeriod.startDate) : null)}
+                value={parseDateAsLocalDay(currentPeriod.startDate)}
                 onChange={(d) => setCurrentPeriod(prev => ({ ...prev, startDate: d || undefined }))}
                 className="w-full"
               />
@@ -331,7 +340,7 @@ export default function CountryBudgetManager({
               <label htmlFor={`${id}-period-end-date`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
               <AccessibleDatePicker
                 id={`${id}-period-end-date`}
-                value={currentPeriod.endDate instanceof Date ? currentPeriod.endDate : (currentPeriod.endDate ? new Date(currentPeriod.endDate) : null)}
+                value={parseDateAsLocalDay(currentPeriod.endDate)}
                 onChange={(d) => setCurrentPeriod(prev => ({ ...prev, endDate: d || undefined }))}
                 className="w-full"
               />

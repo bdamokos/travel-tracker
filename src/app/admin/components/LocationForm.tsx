@@ -7,6 +7,7 @@ import LocationAccommodationsManager from '@/app/admin/components/LocationAccomm
 import { formatDuration } from '@/app/lib/durationUtils';
 import { Location, CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -57,8 +58,8 @@ export default function LocationForm({
     // Handle end date and calculate duration
     const startDateStr = data.date as string;
     const endDateStr = data.endDate as string || undefined;
-    const startDate = new Date(startDateStr);
-    const endDate = endDateStr ? new Date(endDateStr) : undefined;
+    const startDate = parseDateAsLocalDay(startDateStr) || getTodayLocalDay();
+    const endDate = endDateStr ? (parseDateAsLocalDay(endDateStr) || undefined) : undefined;
     const duration = endDate && startDate ? 
       Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
       undefined;
@@ -103,7 +104,7 @@ export default function LocationForm({
       setCurrentLocation({
         name: '',
         coordinates: [0, 0],
-        date: new Date(),
+        date: getTodayLocalDay(),
         notes: '',
         instagramPosts: [],
         tikTokPosts: [],
@@ -182,7 +183,7 @@ export default function LocationForm({
             name="date"
             required
             className="w-full"
-            defaultValue={currentLocation.date instanceof Date ? currentLocation.date : (currentLocation.date ? new Date(currentLocation.date) : null)}
+            defaultValue={parseDateAsLocalDay(currentLocation.date)}
             onChange={(val) => val && setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: val as Date }))}
             data-testid="location-date"
           />
@@ -196,10 +197,10 @@ export default function LocationForm({
             id="location-end-date"
             name="endDate"
             className="w-full"
-            defaultValue={currentLocation.endDate instanceof Date ? currentLocation.endDate : (currentLocation.endDate ? new Date(currentLocation.endDate) : null)}
+            defaultValue={parseDateAsLocalDay(currentLocation.endDate)}
             onChange={(endDate) => {
               setCurrentLocation((prev: Partial<Location>) => {
-                const start = prev.date instanceof Date ? prev.date : (prev.date ? new Date(prev.date) : undefined);
+                const start = parseDateAsLocalDay(prev.date) || undefined;
                 const duration = endDate && start ?
                   Math.ceil(((endDate as Date).getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1 :
                   undefined;
@@ -327,7 +328,7 @@ export default function LocationForm({
                 setCurrentLocation({
                   name: '',
                   coordinates: [0, 0],
-                  date: new Date(),
+                  date: getTodayLocalDay(),
                   notes: '',
                   instagramPosts: [],
                   blogPosts: [],

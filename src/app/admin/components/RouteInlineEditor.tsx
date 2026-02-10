@@ -7,6 +7,7 @@ import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteVali
 import { coerceValidDate } from '@/app/lib/dateUtils';
 import { parseDistanceOverride } from '@/app/lib/distanceOverride';
 import { generateId } from '@/app/lib/costUtils';
+import { formatLocalDateLabel, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -347,7 +348,7 @@ export default function RouteInlineEditor({
       const toCoords = toLocationCoords || (toName === lastSegment?.to ? lastSegment?.toCoords : prev.toCoords);
       const segmentDate = coerceValidDate(lastSegment?.date)
         ?? coerceValidDate(prev.date)
-        ?? new Date();
+      ?? getTodayLocalDay();
 
       const segmentTransportType = lastSegment?.transportType
         || (prev.transportType && prev.transportType !== 'multimodal'
@@ -633,11 +634,11 @@ export default function RouteInlineEditor({
     : segmentTransportOptions;
 
   const formatSegmentDateLabel = (value: Date | string): string => {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) {
+    const localDay = parseDateAsLocalDay(value);
+    if (!localDay) {
       return 'No date';
     }
-    return date.toLocaleDateString('en-US', {
+    return formatLocalDateLabel(localDay, 'en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -675,7 +676,7 @@ export default function RouteInlineEditor({
             </span>
             <AccessibleDatePicker
               id={datePickerId}
-              value={formData.date instanceof Date ? formData.date : (formData.date ? new Date(formData.date) : null)}
+              value={parseDateAsLocalDay(formData.date)}
               onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
               aria-labelledby={dateLabelId}
@@ -911,7 +912,7 @@ export default function RouteInlineEditor({
 	                      </span>
 	                      <AccessibleDatePicker
 	                        id={`sub-route-date-${segment.id}`}
-	                        value={segment.date instanceof Date ? segment.date : (segment.date ? new Date(segment.date) : null)}
+	                        value={parseDateAsLocalDay(segment.date)}
 	                        onChange={(d) => d && updateSubRoute(index, { date: d })}
 	                        required
                           aria-labelledby={`sub-route-date-label-${segment.id}`}
