@@ -41,6 +41,13 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
+const parseDistanceOverride = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 interface RouteFormProps {
   currentRoute: Partial<TravelRoute>;
   setCurrentRoute: React.Dispatch<React.SetStateAction<Partial<TravelRoute>>>;
@@ -301,6 +308,7 @@ export default function RouteForm({
     }
 
     // Create route object
+    const distanceOverride = parseDistanceOverride((data.distanceOverride as string) || '');
     const route: TravelRoute = {
       id: editingRouteIndex !== null ? currentRoute.id! : generateId(),
       transportType: data.type as TravelRoute['transportType'],
@@ -311,6 +319,7 @@ export default function RouteForm({
       date: new Date(data.date as string),
       notes: data.notes as string || '',
       duration: data.duration as string || '',
+      distanceOverride,
       privateNotes: data.privateNotes as string || '',
       useManualRoutePoints: false,
       isReturn: data.isReturn === 'on',
@@ -352,6 +361,7 @@ export default function RouteForm({
       date: new Date(),
       notes: '',
       duration: '',
+      distanceOverride: undefined,
       privateNotes: '',
       costTrackingLinks: [],
       useManualRoutePoints: false,
@@ -413,6 +423,7 @@ export default function RouteForm({
       transportType: segmentTransportType,
       date: segmentDate,
       duration: '',
+      distanceOverride: undefined,
       notes: '',
       privateNotes: '',
       costTrackingLinks: [],
@@ -806,6 +817,24 @@ export default function RouteForm({
           </div>
         )}
 
+        {!hasSubRoutes && (
+          <div>
+            <label htmlFor="route-distance-override" className="block text-sm font-medium text-gray-700 mb-1">
+              Distance override (km)
+            </label>
+            <input
+              id="route-distance-override"
+              name="distanceOverride"
+              type="number"
+              min="0"
+              step="any"
+              defaultValue={currentRoute.distanceOverride ?? ''}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Optional"
+            />
+          </div>
+        )}
+
         <div className="flex items-center mt-6">
           <input
             id="route-is-return"
@@ -912,6 +941,21 @@ export default function RouteForm({
                         onChange={(e) => updateSubRoute(index, { duration: e.target.value })}
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
                         placeholder="e.g., 2h 30m"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`sub-route-distance-${segment.id}`} className="block text-xs font-medium text-gray-700 mb-1">
+                        Distance override (km)
+                      </label>
+                      <input
+                        id={`sub-route-distance-${segment.id}`}
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={segment.distanceOverride ?? ''}
+                        onChange={(e) => updateSubRoute(index, { distanceOverride: parseDistanceOverride(e.target.value) })}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                        placeholder="Optional"
                       />
                     </div>
                   </div>
@@ -1159,6 +1203,7 @@ export default function RouteForm({
                   date: new Date(),
                   notes: '',
                   duration: '',
+                  distanceOverride: undefined,
                   privateNotes: '',
                   costTrackingLinks: [],
                   useManualRoutePoints: false,

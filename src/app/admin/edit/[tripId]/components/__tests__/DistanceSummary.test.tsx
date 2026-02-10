@@ -87,6 +87,23 @@ describe('DistanceSummary', () => {
 
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
     });
+
+    it('uses distance override when provided', () => {
+      const routeWithOverride: TravelRoute = {
+        ...mockRoute,
+        distanceOverride: 12.3,
+        routePoints: [
+          [40.7128, -74.0060],
+          [45.0, -60.0],
+          [50.0, -30.0],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithOverride]} />);
+
+      expect(screen.getAllByText('12.3 km').length).toBeGreaterThan(0);
+    });
   });
 
   describe('Routes with SubRoutes', () => {

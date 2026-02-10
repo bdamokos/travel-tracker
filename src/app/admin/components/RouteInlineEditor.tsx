@@ -11,6 +11,13 @@ import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
 import AccessibleDatePicker from './AccessibleDatePicker';
 
+const parseDistanceOverride = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 interface RouteInlineEditorProps {
   route: TravelRoute;
   onSave: (route: TravelRoute) => void;
@@ -62,6 +69,7 @@ export default function RouteInlineEditor({
   const fromInputId = `${idPrefix}-from`;
   const toInputId = `${idPrefix}-to`;
   const durationInputId = `${idPrefix}-duration`;
+  const distanceOverrideInputId = `${idPrefix}-distance-override`;
   const returnCheckboxId = `${idPrefix}-is-return`;
   const doubleDistanceCheckboxId = `${idPrefix}-double-distance`;
   const publicNotesId = `${idPrefix}-notes`;
@@ -361,6 +369,7 @@ export default function RouteInlineEditor({
         transportType: segmentTransportType,
         date: segmentDate,
         duration: '',
+        distanceOverride: undefined,
         notes: '',
         privateNotes: '',
         costTrackingLinks: [],
@@ -1047,17 +1056,33 @@ export default function RouteInlineEditor({
 	                    </div>
 	                  </div>
 
-	                  <div className="mt-2">
-	                    <label htmlFor={`sub-route-duration-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-	                      Duration
-	                    </label>
-	                    <input
-	                      id={`sub-route-duration-${segment.id}`}
-	                      type="text"
-	                      value={segment.duration || ''}
-	                      onChange={(e) => updateSubRoute(index, { duration: e.target.value })}
-	                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  <div className="mt-2">
+                    <label htmlFor={`sub-route-duration-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Duration
+                    </label>
+                    <input
+                      id={`sub-route-duration-${segment.id}`}
+                      type="text"
+                      value={segment.duration || ''}
+                      onChange={(e) => updateSubRoute(index, { duration: e.target.value })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="e.g., 2h 30m, 1 day"
+                    />
+                  </div>
+
+                  <div className="mt-2">
+                    <label htmlFor={`sub-route-distance-${segment.id}`} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Distance override (km)
+                    </label>
+                    <input
+                      id={`sub-route-distance-${segment.id}`}
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={segment.distanceOverride ?? ''}
+                      onChange={(e) => updateSubRoute(index, { distanceOverride: parseDistanceOverride(e.target.value) })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="Optional"
                     />
                   </div>
 
@@ -1241,20 +1266,38 @@ export default function RouteInlineEditor({
 	        </div>
 
 	        {/* Double Distance Checkbox - only show for simple routes (not sub-routes) */}
-	        {!hasSubRoutes && (
-	          <div className="flex items-center">
-	            <input
-	              id={doubleDistanceCheckboxId}
-	              type="checkbox"
-	              checked={formData.doubleDistance || false}
-	              onChange={(e) => setFormData(prev => ({ ...prev, doubleDistance: e.target.checked }))}
-	              className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-	            />
-	            <label htmlFor={doubleDistanceCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
-	              Count distance twice (for return trips)
-	            </label>
-	          </div>
-	        )}
+        {!hasSubRoutes && (
+          <div className="flex items-center">
+            <input
+              id={doubleDistanceCheckboxId}
+              type="checkbox"
+              checked={formData.doubleDistance || false}
+              onChange={(e) => setFormData(prev => ({ ...prev, doubleDistance: e.target.checked }))}
+              className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor={doubleDistanceCheckboxId} className="ml-2 block text-xs text-gray-700 dark:text-gray-300">
+              Count distance twice (for return trips)
+            </label>
+          </div>
+        )}
+
+        {!hasSubRoutes && (
+          <div>
+            <label htmlFor={distanceOverrideInputId} className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Distance override (km)
+            </label>
+            <input
+              id={distanceOverrideInputId}
+              type="number"
+              min="0"
+              step="any"
+              value={formData.distanceOverride ?? ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, distanceOverride: parseDistanceOverride(e.target.value) }))}
+              className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Optional"
+            />
+          </div>
+        )}
 
 	        {/* Public Notes */}
 	        <div>

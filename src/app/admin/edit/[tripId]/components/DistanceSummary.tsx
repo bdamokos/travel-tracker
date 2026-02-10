@@ -41,12 +41,11 @@ function calculateDistanceFromPoints(points: [number, number][]): number {
 function getSegmentDistance(segment: TravelRoute): number {
   let distance = 0;
 
-  // Prefer routePoints if available (actual path)
-  if (segment.routePoints && segment.routePoints.length >= 2) {
+  if (typeof segment.distanceOverride === 'number' && !Number.isNaN(segment.distanceOverride)) {
+    distance = segment.distanceOverride;
+  } else if (segment.routePoints && segment.routePoints.length >= 2) {
     distance = calculateDistanceFromPoints(segment.routePoints);
-  }
-  // Fallback to endpoint calculation
-  else if (segment.fromCoords && segment.toCoords) {
+  } else if (segment.fromCoords && segment.toCoords) {
     distance = calculateDistance(segment.fromCoords, segment.toCoords);
   }
 

@@ -217,6 +217,7 @@ export function useShadowTripEditor(tripId: string) {
               toCoords: route.toCoords || [0, 0],
               from: `${REAL_LOCATION_MARKER} ${route.from}`, // Mark real routes
               to: `${REAL_LOCATION_MARKER} ${route.to}`,
+              distanceOverride: route.distanceOverride,
               isReadOnly: true
             })),
             ...shadowRoutes.map((route: ShadowRoutePayload) => ({
@@ -230,8 +231,10 @@ export function useShadowTripEditor(tripId: string) {
                 transportType: segment.type || segment.transportType,
                 date: new Date(segment.departureTime || segment.date || new Date()),
                 fromCoords: segment.fromCoords || segment.fromCoordinates || [0, 0],
-                toCoords: segment.toCoords || segment.toCoordinates || [0, 0]
+                toCoords: segment.toCoords || segment.toCoordinates || [0, 0],
+                distanceOverride: segment.distanceOverride
               })),
+              distanceOverride: route.distanceOverride,
               isReadOnly: false
             }))
           ]
