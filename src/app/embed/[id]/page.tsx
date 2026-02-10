@@ -7,43 +7,10 @@ import EmbeddableMap from '@/app/map/[id]/components/EmbeddableMap';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
-import type { MapRouteSegment } from '@/app/types';
-
-interface TravelData {
-  id: string;
-  title: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  locations: Array<{
-    id: string;
-    name: string;
-    coordinates: [number, number];
-    date: string;
-    notes?: string;
-    instagramPosts?: Array<{
-      id: string;
-      url: string;
-      caption?: string;
-    }>;
-    tikTokPosts?: Array<{
-      id: string;
-      url: string;
-      caption?: string;
-    }>;
-    blogPosts?: Array<{
-      id: string;
-      title: string;
-      url: string;
-      excerpt?: string;
-    }>;
-  }>;
-  routes: MapRouteSegment[];
-  createdAt: string;
-}
+import type { MapTravelData } from '@/app/types';
 
 
-async function getTravelData(id: string): Promise<TravelData | null> {
+async function getTravelData(id: string): Promise<MapTravelData | null> {
   try {
     const unifiedData = await loadUnifiedTripData(id);
 
@@ -68,7 +35,7 @@ async function getTravelData(id: string): Promise<TravelData | null> {
 
     const filteredData = filterTravelDataForServer(travelData, null);
 
-    return filteredData as unknown as TravelData;
+    return filteredData as unknown as MapTravelData;
   } catch (error) {
     console.error('Error fetching travel data:', error);
     return null;

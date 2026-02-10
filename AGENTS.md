@@ -149,3 +149,5 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Keep PATCH body parsing consistent between travel and cost endpoints: both should deserialize with `dateReviver` so delta merge/type semantics for date fields stay aligned across autosave APIs.
 
 - Public embeddable map now merges repeated visits by normalized location name + coordinates, shows a count badge on the pin for repeat visits, and renders popup visit history grouped under one marker.
+- Shared map-facing trip types now live in `src/app/types/index.ts` as `MapTravelData`/`MapTravelLocation`; avoid duplicating ad-hoc `TravelData` interfaces across map page, embed page, and embeddable map component.
+- `createCountMarkerIcon` now supports an optional `highlighted` flag so merged multi-visit markers can preserve the closest-location visual highlight cue.

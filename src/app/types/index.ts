@@ -142,6 +142,23 @@ export interface MapRouteSegment {
   subRoutes?: MapRouteSegment[];
 }
 
+export type MapTravelLocation = Omit<Location, 'date' | 'endDate'> & {
+  date: string;
+  endDate?: string;
+};
+
+export interface MapTravelData {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  locations: MapTravelLocation[];
+  routes: MapRouteSegment[];
+  createdAt: string;
+  publicUpdates?: TripUpdate[];
+}
+
 // Travel data structure for a complete trip
 export interface TravelData {
   id?: string;

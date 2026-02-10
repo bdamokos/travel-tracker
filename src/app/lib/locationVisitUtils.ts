@@ -1,28 +1,6 @@
-export type VisitLocation = {
-  id: string;
-  name: string;
-  coordinates: [number, number];
-  date: string;
-  endDate?: string;
-  notes?: string;
-  wikipediaRef?: string;
-  instagramPosts?: Array<{
-    id: string;
-    url: string;
-    caption?: string;
-  }>;
-  tikTokPosts?: Array<{
-    id: string;
-    url: string;
-    caption?: string;
-  }>;
-  blogPosts?: Array<{
-    id: string;
-    title: string;
-    url: string;
-    excerpt?: string;
-  }>;
-};
+import type { MapTravelLocation } from '@/app/types';
+
+export type VisitLocation = MapTravelLocation;
 
 export type MergedLocationVisit = {
   key: string;
@@ -31,7 +9,18 @@ export type MergedLocationVisit = {
   visits: VisitLocation[];
 };
 
-const normalizeLocationName = (name: string): string => name.trim().toLowerCase();
+const normalizeGroupKeyName = (name: string): string =>
+  name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s,.-]/g, '')
+    .replace(/^(the|a|an)\s+/i, '')
+    .toLowerCase();
+
+const normalizeDisplayName = (name: string): string =>
+  name
+    .trim()
+    .replace(/\s+/g, ' ');
 
 const normalizeCoordinates = (coordinates: [number, number], precision: number): string => {
   const [lat, lng] = coordinates;
@@ -45,7 +34,7 @@ const getDateSortValue = (value: string): number => {
 };
 
 const buildLocationVisitKey = (location: VisitLocation, coordinatePrecision: number): string =>
-  `${normalizeLocationName(location.name)}|${normalizeCoordinates(location.coordinates, coordinatePrecision)}`;
+  `${normalizeGroupKeyName(location.name)}|${normalizeCoordinates(location.coordinates, coordinatePrecision)}`;
 
 export const mergeLocationVisits = (
   locations: VisitLocation[],
@@ -71,7 +60,7 @@ export const mergeLocationVisits = (
 
     return {
       key,
-      name: representativeVisit?.name ?? '',
+      name: normalizeDisplayName(representativeVisit?.name ?? ''),
       coordinates: representativeVisit?.coordinates ?? [0, 0],
       visits: sortedVisits,
     } satisfies MergedLocationVisit;

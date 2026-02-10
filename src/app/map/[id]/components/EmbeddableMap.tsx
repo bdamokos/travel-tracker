@@ -10,7 +10,7 @@ import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalD
 import { mergeLocationVisits, type MergedLocationVisit } from '@/app/lib/locationVisitUtils';
 import { getRouteStyle, transportationConfig } from '@/app/lib/routeUtils';
 import { getLeafMapRouteSegments, resolveMapRouteSegmentPoints } from '@/app/lib/mapRouteDisplay';
-import type { MapRouteSegment } from '@/app/types';
+import type { MapTravelData } from '@/app/types';
 import {
   attachMarkerKeyHandlers,
   buildLocationAriaLabel,
@@ -39,43 +39,8 @@ const TIKTOK_ICON_MARKUP = getTikTokIconMarkup({
   ariaLabel: 'TikTok',
 });
 
-interface TravelData {
-  id: string;
-  title: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  locations: Array<{
-    id: string;
-    name: string;
-    coordinates: [number, number];
-    date: string;
-    endDate?: string;
-    notes?: string;
-    wikipediaRef?: string;
-    instagramPosts?: Array<{
-      id: string;
-      url: string;
-      caption?: string;
-    }>;
-    tikTokPosts?: Array<{
-      id: string;
-      url: string;
-      caption?: string;
-    }>;
-    blogPosts?: Array<{
-      id: string;
-      title: string;
-      url: string;
-      excerpt?: string;
-    }>;
-  }>;
-  routes: MapRouteSegment[];
-  createdAt: string;
-}
-
 interface EmbeddableMapProps {
-  travelData: TravelData;
+  travelData: MapTravelData;
 }
 
 const escapeHTML = (value: string) =>
@@ -105,26 +70,43 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
   const visits = locationGroup.visits;
   const safeLocationName = escapeHTML(locationGroup.name);
   const visitCount = visits.length;
+  const seenInstagramPostKeys = new Set<string>();
+  const seenTikTokPostKeys = new Set<string>();
+  const seenBlogPostKeys = new Set<string>();
+  const buildPostKey = (id: string | undefined, url: string): string =>
+    url.trim().toLowerCase() || (id?.trim().toLowerCase() ?? '');
 
   const visitSections = visits.map((visit, index) => {
     const safeDateRange = escapeHTML(formatDateRange(visit.date, visit.endDate));
     const safeNotes = visit.notes ? escapeHTML(visit.notes) : '';
     const isLastVisit = index === visits.length - 1;
 
-    const instagramMarkup = (visit.instagramPosts ?? []).map(post => {
-      const caption = post.caption?.trim() || 'View Post';
-      const safeCaption = escapeHTML(caption);
-      const safeUrl = escapeAttribute(post.url);
-      return `
-        <div style="margin-top: 2px;">
-          <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
-            ${safeCaption}
-          </a>
-        </div>
-      `;
-    }).join('');
+    const instagramMarkup = (visit.instagramPosts ?? [])
+      .filter(post => {
+        const key = buildPostKey(post.id, post.url);
+        if (seenInstagramPostKeys.has(key)) return false;
+        seenInstagramPostKeys.add(key);
+        return true;
+      })
+      .map(post => {
+        const caption = post.caption?.trim() || 'View Post';
+        const safeCaption = escapeHTML(caption);
+        const safeUrl = escapeAttribute(post.url);
+        return `
+          <div style="margin-top: 2px;">
+            <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
+              ${safeCaption}
+            </a>
+          </div>
+        `;
+      }).join('');
 
-    const tikTokPosts = visit.tikTokPosts ?? [];
+    const tikTokPosts = (visit.tikTokPosts ?? []).filter(post => {
+      const key = buildPostKey(post.id, post.url);
+      if (seenTikTokPostKeys.has(key)) return false;
+      seenTikTokPostKeys.add(key);
+      return true;
+    });
     const tikTokMarkup = tikTokPosts.map((post, postIndex) => {
       const fallbackLabel = `TikTok Clip${tikTokPosts.length > 1 ? ` #${postIndex + 1}` : ''}`;
       const linkLabel = post.caption?.trim() || fallbackLabel;
@@ -139,19 +121,26 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
       `;
     }).join('');
 
-    const blogMarkup = (visit.blogPosts ?? []).map(post => {
-      const safeTitle = escapeHTML(post.title);
-      const safeUrl = escapeAttribute(post.url);
-      const safeExcerpt = post.excerpt ? escapeHTML(post.excerpt) : '';
-      return `
-        <div style="margin-top: 2px;">
-          <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
-            ${safeTitle}
-          </a>
-          ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeExcerpt}</div>` : ''}
-        </div>
-      `;
-    }).join('');
+    const blogMarkup = (visit.blogPosts ?? [])
+      .filter(post => {
+        const key = buildPostKey(post.id, post.url);
+        if (seenBlogPostKeys.has(key)) return false;
+        seenBlogPostKeys.add(key);
+        return true;
+      })
+      .map(post => {
+        const safeTitle = escapeHTML(post.title);
+        const safeUrl = escapeAttribute(post.url);
+        const safeExcerpt = post.excerpt ? escapeHTML(post.excerpt) : '';
+        return `
+          <div style="margin-top: 2px;">
+            <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
+              ${safeTitle}
+            </a>
+            ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeExcerpt}</div>` : ''}
+          </div>
+        `;
+      }).join('');
 
     return `
       <div style="margin-bottom: ${isLastVisit ? '0' : '10px'}; padding-bottom: ${isLastVisit ? '0' : '10px'}; ${isLastVisit ? '' : `border-bottom: 1px solid ${isDarkMode ? '#4b5563' : '#e5e7eb'};`}">
@@ -609,12 +598,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     // Find the location closest to current date
     const mergedLocations = mergeLocationVisits(travelData.locations);
 
-    const closestLocation = findClosestLocationToCurrentDate(
-      travelData.locations.map(location => ({
-        ...location,
-        date: new Date(location.date)
-      }))
-    );
+    const closestLocation = findClosestLocationToCurrentDate(travelData.locations);
 
     type GroupItem = MergedLocationVisit;
     type Group = { key: string; center: [number, number]; items: GroupItem[] };
@@ -799,7 +783,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         if (trimmedWikipediaRef) {
           wikipediaParams.set('wikipediaRef', trimmedWikipediaRef);
         }
-        const response = await fetch(`/api/wikipedia/${encodeURIComponent(location.name)}?${wikipediaParams.toString()}`);
+        const wikipediaLocationName = location.name.trim() || location.name;
+        const response = await fetch(`/api/wikipedia/${encodeURIComponent(wikipediaLocationName)}?${wikipediaParams.toString()}`);
         if (response.ok) {
           const wikipediaResponse = await response.json();
           // Weather fetch (always today's weather at this location)
@@ -947,7 +932,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const singleDays = temporalInfos.filter(info => info.status === singleTone).map(info => info.days);
           const singleBucket = getMarkerDistanceBucket(singleDays.length > 0 ? Math.min(...singleDays) : 0);
           const icon = location.visits.length > 1
-            ? createCountMarkerIcon(L, location.visits.length, singleTone, singleBucket, { label })
+            ? createCountMarkerIcon(L, location.visits.length, singleTone, singleBucket, { label, highlighted: isHighlighted })
             : getMarkerIcon(location, isHighlighted, label, labelKey);
           if (icon) {
             markerOptions.icon = icon;
