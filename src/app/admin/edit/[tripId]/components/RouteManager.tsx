@@ -8,7 +8,7 @@ import InPlaceEditor from '@/app/admin/components/InPlaceEditor';
 import RouteDisplay from '@/app/admin/components/RouteDisplay';
 import RouteInlineEditor from '@/app/admin/components/RouteInlineEditor';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
-import { formatUtcDate } from '@/app/lib/dateUtils';
+import { formatLocalDateLabel, getLocalDateSortValue } from '@/app/lib/localDateUtils';
 import {
   getCompositeTransportType,
   getMultiSegmentEmoji,
@@ -164,7 +164,7 @@ export default function RouteManager({
             searchableText
           };
         })
-        .sort((a, b) => new Date(a.route.date).getTime() - new Date(b.route.date).getTime()),
+        .sort((a, b) => getLocalDateSortValue(a.route.date) - getLocalDateSortValue(b.route.date)),
     [travelData.routes]
   );
 
@@ -224,7 +224,7 @@ export default function RouteManager({
   };
 
   const formatRouteDate = (date: Date | string): string =>
-    formatUtcDate(date, 'en-US', {
+    formatLocalDateLabel(date, 'en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

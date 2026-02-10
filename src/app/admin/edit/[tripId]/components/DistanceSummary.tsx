@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { TravelRoute, TransportationType } from '@/app/types';
 import { transportationConfig } from '@/app/lib/routeUtils';
 import { calculateDistance } from '@/app/services/geocoding';
-import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface DistanceSummaryProps {
   routes: TravelRoute[];
@@ -68,12 +68,12 @@ function formatDistance(distance: number): string {
 
 /**
  * Check if a route (or its sub-routes) contains only future dates
- * Routes on today's date are considered future (not yet traveled)
+ * Routes on today's date are considered past/in-progress, not future.
  */
 function isFutureRoute(route: TravelRoute, today: Date): boolean {
   const checkRouteDate = (date: Date | string | undefined): boolean => {
-    const routeDate = normalizeUtcDateToLocalDay(date);
-    return routeDate !== null && routeDate >= today;
+    const routeDate = parseDateAsLocalDay(date);
+    return routeDate !== null && routeDate > today;
   };
 
   if (route.subRoutes && route.subRoutes.length > 0) {
@@ -89,7 +89,7 @@ function isFutureRoute(route: TravelRoute, today: Date): boolean {
  */
 function isPastRoute(route: TravelRoute, today: Date): boolean {
   const checkRouteDate = (date: Date | string | undefined): boolean => {
-    const routeDate = normalizeUtcDateToLocalDay(date);
+    const routeDate = parseDateAsLocalDay(date);
     return routeDate !== null && routeDate <= today;
   };
 
@@ -131,7 +131,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
 
           // Classify by past/future based on sub-route date
           // Routes on today's date are considered past (already traveled or in progress)
-          const subRouteDate = normalizeUtcDateToLocalDay(subRoute.date);
+          const subRouteDate = parseDateAsLocalDay(subRoute.date);
           if (subRouteDate) {
             if (subRouteDate <= today) {
               totalPastDistance += distance;

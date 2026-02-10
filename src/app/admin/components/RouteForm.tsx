@@ -6,6 +6,7 @@ import { transportationTypes, transportationLabels, getCompositeTransportType } 
 import { coerceValidDate } from '@/app/lib/dateUtils';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { parseDistanceOverride } from '@/app/lib/distanceOverride';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -310,7 +311,7 @@ export default function RouteForm({
       to: data.to as string,
       fromCoords,
       toCoords,
-      date: new Date(data.date as string),
+      date: parseDateAsLocalDay(data.date as string) || getTodayLocalDay(),
       notes: data.notes as string || '',
       duration: data.duration as string || '',
       distanceOverride,
@@ -352,7 +353,7 @@ export default function RouteForm({
       to: '',
       fromCoords: [0, 0],
       toCoords: [0, 0],
-      date: new Date(),
+      date: getTodayLocalDay(),
       notes: '',
       duration: '',
       distanceOverride: undefined,
@@ -383,7 +384,7 @@ export default function RouteForm({
     const toName = currentRoute.to || lastSegment?.to || '';
     const segmentDate = coerceValidDate(lastSegment?.date)
       ?? coerceValidDate(currentRoute.date)
-      ?? new Date();
+      ?? getTodayLocalDay();
     
     const fromLocationCoords = locationOptions.find(loc => loc.name === fromName)?.coordinates;
     const toLocationCoords = locationOptions.find(loc => loc.name === toName)?.coordinates;
@@ -961,7 +962,7 @@ export default function RouteForm({
                       </span>
                       <AccessibleDatePicker
                         id={`sub-route-date-${segment.id}`}
-                        value={segment.date instanceof Date ? segment.date : (segment.date ? new Date(segment.date) : null)}
+                        value={parseDateAsLocalDay(segment.date)}
                         onChange={(d) => d && updateSubRoute(index, { date: d })}
                         required
                         aria-labelledby={`sub-route-date-label-${segment.id}`}
@@ -1194,7 +1195,7 @@ export default function RouteForm({
                   to: '',
                   fromCoords: [0, 0],
                   toCoords: [0, 0],
-                  date: new Date(),
+                  date: getTodayLocalDay(),
                   notes: '',
                   duration: '',
                   distanceOverride: undefined,

@@ -5,6 +5,7 @@ import { Location } from '@/app/types';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { buildSideTripMap } from '@/app/lib/sideTripUtils';
+import { getLocalDateSortValue, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import LocationItem from './LocationItem';
 import LocationPosts from './LocationPosts';
 
@@ -54,7 +55,7 @@ export default function LocationList({
   const [collapsedLocations, setCollapsedLocations] = useState<Record<string, boolean>>({});
 
   const sortedLocations = useMemo(
-    () => [...locations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    () => [...locations].sort((a, b) => getLocalDateSortValue(a.date) - getLocalDateSortValue(b.date)),
     [locations]
   );
 
@@ -179,12 +180,10 @@ function getTodayMidnight(): Date {
 }
 
 function normalizeDate(value: string | Date): Date {
-  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = parseDateAsLocalDay(value);
+  if (!date) {
     return new Date(NaN);
   }
-
-  date.setHours(0, 0, 0, 0);
   return date;
 }
 

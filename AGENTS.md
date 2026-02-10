@@ -140,3 +140,5 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
 - Added `distanceOverride` on travel route segments to support manual distance overrides in admin route editors and distance summaries.
+- Date handling in admin trip/cost editors should use browser-local calendar-day semantics. Prefer helpers in `src/app/lib/localDateUtils.ts` (`parseDateAsLocalDay`, `formatLocalDateInput`, `getTodayLocalDay`, `getLocalDateSortValue`) over raw `new Date('YYYY-MM-DD')` and `toISOString().split('T')[0]` in editor flows.
+- Running Jest in this repo may hit haste map collisions from `.worktrees/` and `.next/standalone`; when running targeted suites locally, pass `--modulePathIgnorePatterns="<rootDir>/.worktrees"` and `--modulePathIgnorePatterns="<rootDir>/.next"` if needed.

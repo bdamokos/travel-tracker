@@ -7,6 +7,7 @@ import { formatDateRange } from '@/app/lib/dateUtils';
 import { formatDate } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation } from '@/app/lib/expenseTravelLookup';
 import { combineAccommodationDescriptions } from '@/app/lib/combineAccommodationDescriptions';
+import { formatLocalDateInput, getLocalDateSortValue } from '@/app/lib/localDateUtils';
 import DeleteWarningDialog from '@/app/admin/components/DeleteWarningDialog';
 import ReassignmentDialog from '@/app/admin/components/ReassignmentDialog';
 import TripMetadataForm from './components/TripMetadataForm';
@@ -260,8 +261,8 @@ export default function TripEditorPage() {
     lines.push('');
 
     const sortedLocations = [...travelData.locations].sort((a, b) => {
-      const aTime = a.date ? new Date(a.date).getTime() : 0;
-      const bTime = b.date ? new Date(b.date).getTime() : 0;
+      const aTime = getLocalDateSortValue(a.date);
+      const bTime = getLocalDateSortValue(b.date);
       return aTime - bTime;
     });
 
@@ -318,8 +319,8 @@ export default function TripEditorPage() {
         }
 
         if (location.arrivalTime || location.departureTime) {
-          const startDay = location.date ? new Date(location.date).toISOString().split('T')[0] : '';
-          const endDay = location.endDate ? new Date(location.endDate).toISOString().split('T')[0] : startDay;
+          const startDay = formatLocalDateInput(location.date);
+          const endDay = formatLocalDateInput(location.endDate) || startDay;
           const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
           const isTimeOfDay = (value: string) => value.includes(':');
 
@@ -345,8 +346,8 @@ export default function TripEditorPage() {
 
     lines.push('');
     const sortedRoutes = [...travelData.routes].sort((a, b) => {
-      const aTime = a.date ? new Date(a.date).getTime() : 0;
-      const bTime = b.date ? new Date(b.date).getTime() : 0;
+      const aTime = getLocalDateSortValue(a.date);
+      const bTime = getLocalDateSortValue(b.date);
       return aTime - bTime;
     });
 

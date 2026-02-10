@@ -557,6 +557,7 @@ describe('DistanceSummary', () => {
 
     // Today's date
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     it('separates past and future routes correctly', () => {
       const routes: TravelRoute[] = [

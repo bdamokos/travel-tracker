@@ -9,6 +9,7 @@ import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
 import { useLoadExpenseLinks } from '@/app/hooks/useLoadExpenseLinks';
 import { CASH_CATEGORY_NAME, generateId } from '@/app/lib/costUtils';
 import AccessibleDatePicker from './AccessibleDatePicker';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 
 interface ExpenseFormProps {
@@ -69,9 +70,10 @@ export default function ExpenseForm({
       const data = Object.fromEntries(formData);
       
       // Convert form data to expense object
+      const parsedDate = parseDateAsLocalDay(data.date as string);
       const expense: Expense = {
         id: editingExpenseIndex !== null ? currentExpense.id! : generateId(),
-        date: new Date(data.date as string),
+        date: parsedDate || getTodayLocalDay(),
         amount: parseFloat(data.amount as string),
         currency: data.currency as string || currency,
         category: data.category as string,
@@ -119,7 +121,7 @@ export default function ExpenseForm({
       // Reset form data and link state
       resetLinks();
       setCurrentExpense({
-        date: new Date(),
+        date: getTodayLocalDay(),
         amount: 0,
         currency: currency,
         category: '',
@@ -164,11 +166,7 @@ export default function ExpenseForm({
             required
             className="w-full"
             defaultValue={
-              currentExpense.date instanceof Date
-                ? currentExpense.date
-                : (typeof currentExpense.date === 'string' && currentExpense.date)
-                  ? new Date(currentExpense.date)
-                  : null
+              parseDateAsLocalDay(currentExpense.date)
             }
           />
         </div>
@@ -374,7 +372,7 @@ export default function ExpenseForm({
               onClick={() => {
                 setEditingExpenseIndex(null);
                 setCurrentExpense({
-                  date: new Date(),
+                  date: getTodayLocalDay(),
                   amount: 0,
                   currency: currency,
                   category: '',

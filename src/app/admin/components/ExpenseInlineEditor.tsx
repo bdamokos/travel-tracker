@@ -10,6 +10,7 @@ import AccessibleDatePicker from './AccessibleDatePicker';
 import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
 import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
 import { useLoadExpenseLinks } from '@/app/hooks/useLoadExpenseLinks';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface ExpenseInlineEditorProps {
   expense: Expense;
@@ -124,13 +125,7 @@ export default function ExpenseInlineEditor({
             </span>
             <AccessibleDatePicker
               id={dateInputId}
-              value={
-                formData.date instanceof Date
-                  ? formData.date
-                  : typeof formData.date === 'string' && formData.date
-                    ? new Date(formData.date)
-                    : null
-              }
+              value={parseDateAsLocalDay(formData.date)}
               onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
               required
               aria-labelledby={dateLabelId}

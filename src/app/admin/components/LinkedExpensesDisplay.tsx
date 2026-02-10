@@ -5,6 +5,7 @@ import { calculateSplitAmount, ExpenseTravelLookup } from '@/app/lib/expenseTrav
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
 import { useExpenses } from '@/app/hooks/useExpenses';
 import { CostTrackingData } from '@/app/types';
+import { getLocalDateSortValue } from '@/app/lib/localDateUtils';
 
 interface LinkedExpensesDisplayProps {
   // New: support multiple items
@@ -57,7 +58,7 @@ export default function LinkedExpensesDisplay({
   // Get the linked expenses
   const linkedExpenses = (expenses || [])
     .filter(expense => relevantLinks.some(link => link.expenseId === expense.id))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => getLocalDateSortValue(a.date) - getLocalDateSortValue(b.date));
 
   if (isLoading) {
     return (
