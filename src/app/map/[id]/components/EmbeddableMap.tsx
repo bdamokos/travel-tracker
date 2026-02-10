@@ -7,6 +7,7 @@ import type { Marker } from 'leaflet';
 // Import Leaflet CSS separately
 import 'leaflet/dist/leaflet.css';
 import { findClosestLocationToCurrentDate, formatDateRange, getLocationTemporalDistanceDays } from '@/app/lib/dateUtils';
+import { mergeLocationVisits, type MergedLocationVisit } from '@/app/lib/locationVisitUtils';
 import { getRouteStyle, transportationConfig } from '@/app/lib/routeUtils';
 import { getLeafMapRouteSegments, resolveMapRouteSegmentPoints } from '@/app/lib/mapRouteDisplay';
 import type { MapRouteSegment } from '@/app/types';
@@ -86,7 +87,7 @@ const escapeHTML = (value: string) =>
     .replace(/'/g, '&#039;');
 
 // Function to generate popup HTML with Wikipedia and Weather data
-const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?: {
+const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
   title: string;
   extract: string;
   thumbnail?: { source: string };
@@ -101,17 +102,35 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
     ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
     : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
 
-  const safeLocationName = escapeHTML(location.name);
-  const safeDateRange = escapeHTML(formatDateRange(location.date, location.endDate));
-  const safeNotes = location.notes ? escapeHTML(location.notes) : '';
+  const visits = locationGroup.visits;
+  const safeLocationName = escapeHTML(locationGroup.name);
+  const visitCount = visits.length;
+  const visitsMarkup = visits
+    .map((visit, index) => {
+      const safeDateRange = escapeHTML(formatDateRange(visit.date, visit.endDate));
+      const safeNotes = visit.notes ? escapeHTML(visit.notes) : '';
+
+      return `
+        <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid ${isDarkMode ? '#4b5563' : '#e5e7eb'};">
+          <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">
+            ${visitCount > 1 ? `Visit ${index + 1}` : 'Stay'}
+          </div>
+          <p style="font-size: 14px; margin-bottom: 6px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeDateRange}</p>
+          ${safeNotes ? `<p style="font-size: 14px; margin-bottom: 2px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${safeNotes}</p>` : ''}
+        </div>
+      `;
+    })
+    .join('');
+
+  const instagramPosts = visits.flatMap(visit => visit.instagramPosts ?? []);
+  const tikTokPosts = visits.flatMap(visit => visit.tikTokPosts ?? []);
+  const blogPosts = visits.flatMap(visit => visit.blogPosts ?? []);
 
   let popupContent = `
     <div style="padding: 12px; max-width: 400px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
       <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${safeLocationName}</h4>
-      <p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">
-        ${safeDateRange}
-      </p>
-      ${location.notes ? `<p style="font-size: 14px; margin-bottom: 12px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${safeNotes}</p>` : ''}
+      ${visitCount > 1 ? `<p style="font-size: 12px; margin-bottom: 10px; font-weight: 600; ${isDarkMode ? 'color: #bfdbfe;' : 'color: #1d4ed8;'}">Visited ${visitCount} times</p>` : ''}
+      ${visitsMarkup}
   `;
 
   // Add Weather quick line (today)
@@ -151,14 +170,14 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   }
 
   // Add Instagram posts
-  if (location.instagramPosts && location.instagramPosts.length > 0) {
+  if (instagramPosts.length > 0) {
     popupContent += `
       <div style="margin-bottom: 8px;">
         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #bfdbfe;' : 'color: #1d4ed8;'}">
           ${INSTAGRAM_ICON_MARKUP}
           <span>Instagram</span>
         </div>
-        ${location.instagramPosts
+        ${instagramPosts
           .map(post => {
             const caption = post.caption?.trim() || 'View Post';
             const safeCaption = escapeHTML(caption);
@@ -177,15 +196,15 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   }
 
   // Add TikTok posts
-  if (location.tikTokPosts && location.tikTokPosts.length > 0) {
-    const totalTikTokPosts = location.tikTokPosts.length;
+  if (tikTokPosts.length > 0) {
+    const totalTikTokPosts = tikTokPosts.length;
     popupContent += `
       <div style="margin-bottom: 8px;">
         <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #fbcfe8;' : 'color: #db2777;'}">
           ${TIKTOK_ICON_MARKUP}
           <span>TikTok</span>
         </div>
-        ${location.tikTokPosts
+        ${tikTokPosts
           .map((post, index) => {
             const fallbackLabel = `TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}`;
             const linkLabel = post.caption?.trim() || fallbackLabel;
@@ -205,11 +224,11 @@ const generatePopupHTML = (location: TravelData['locations'][0], wikipediaData?:
   }
 
   // Add blog posts
-  if (location.blogPosts && location.blogPosts.length > 0) {
+  if (blogPosts.length > 0) {
     popupContent += `
       <div style="margin-bottom: 8px;">
         <strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>
-        ${location.blogPosts
+        ${blogPosts
           .map(post => {
             const safeTitle = escapeHTML(post.title);
             const safeUrl = escapeAttribute(post.url);
@@ -562,12 +581,15 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const highlightedIconCache = new globalThis.Map<string, import('leaflet').DivIcon>();
 
     const getMarkerIcon = (
-      location: TravelData['locations'][0],
+      location: GroupItem,
       isHighlighted: boolean,
       label: string,
       labelKey: string
     ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
-      const { status, days } = getLocationTemporalDistanceDays(location);
+      const temporalInfos = location.visits.map(visit => getLocationTemporalDistanceDays(visit));
+      const status = getDominantMarkerTone(temporalInfos.map(info => info.status));
+      const statusDays = temporalInfos.filter(info => info.status === status).map(info => info.days);
+      const days = statusDays.length > 0 ? Math.min(...statusDays) : 0;
       const bucket = getMarkerDistanceBucket(days);
       if (isHighlighted) {
         const highlightedKey = `highlight:${status}:${bucket}:${labelKey}`;
@@ -585,18 +607,22 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       return icon;
     };
 
-    const getLocationLabelData = (location: TravelData['locations'][0]) => {
-      const { status } = getLocationTemporalDistanceDays(location);
+    const getLocationLabelData = (location: GroupItem) => {
+      const firstVisit = location.visits[0];
+      const lastVisit = location.visits[location.visits.length - 1];
+      const temporalInfos = location.visits.map(visit => getLocationTemporalDistanceDays(visit));
+      const status = getDominantMarkerTone(temporalInfos.map(info => info.status));
       const labelInput = {
-        id: location.id,
+        id: firstVisit?.id,
         name: location.name,
         status,
-        startDate: location.date,
-        endDate: location.endDate,
+        startDate: firstVisit?.date,
+        endDate: lastVisit?.endDate,
       };
+      const visitSuffix = location.visits.length > 1 ? `, visited ${location.visits.length} times` : '';
 
       return {
-        label: buildLocationAriaLabel(labelInput),
+        label: `${buildLocationAriaLabel(labelInput)}${visitSuffix}`,
         labelKey: buildLocationLabelKey(labelInput),
       };
     };
@@ -622,6 +648,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     // Add markers for locations with grouping + spiderfy
     // Find the location closest to current date
+    const mergedLocations = mergeLocationVisits(travelData.locations);
+
     const closestLocation = findClosestLocationToCurrentDate(
       travelData.locations.map(location => ({
         ...location,
@@ -629,7 +657,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }))
     );
 
-    type GroupItem = TravelData['locations'][0];
+    type GroupItem = MergedLocationVisit;
     type Group = { key: string; center: [number, number]; items: GroupItem[] };
 
     const sortItemsByOrientation = (
@@ -667,7 +695,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
     const buildGroupKey = (items: GroupItem[]): string =>
       items
-        .map(item => item.id)
+        .map(item => item.key)
         .sort()
         .join('|');
 
@@ -775,7 +803,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
 
       currentGroups.forEach(group => {
         if (group.items.length === 1) {
-          nextFocusOrder.push(group.items[0].id);
+          nextFocusOrder.push(group.items[0].key);
           return;
         }
 
@@ -785,7 +813,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         }
 
         group.items.forEach(location => {
-          nextFocusOrder.push(location.id);
+          nextFocusOrder.push(location.key);
         });
         nextFocusOrder.push(`collapse-${group.key}`);
       });
@@ -807,7 +835,8 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           lat: location.coordinates[0].toString(),
           lon: location.coordinates[1].toString()
         });
-        const trimmedWikipediaRef = location.wikipediaRef?.trim();
+        const wikipediaRef = location.visits.find(visit => visit.wikipediaRef?.trim())?.wikipediaRef;
+        const trimmedWikipediaRef = wikipediaRef?.trim();
         if (trimmedWikipediaRef) {
           wikipediaParams.set('wikipediaRef', trimmedWikipediaRef);
         }
@@ -882,7 +911,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const distributed = distributeAroundPointPixels(map, state.group.center, index, state.group.items.length, SPIDER_PIXEL_RADIUS);
         const leg = L.polyline([location.coordinates, distributed], { color: '#9CA3AF', weight: 3, opacity: 0.8, dashArray: '2 4' }).addTo(spiderfyLegsLayer);
         state.legs.push(leg);
-        const isHighlighted = closestLocation?.id === location.id;
+        const isHighlighted = !!closestLocation && location.visits.some(visit => visit.id === closestLocation.id);
         const { label, labelKey } = getLocationLabelData(location);
         const markerOptions: L.MarkerOptions = { keyboard: false };
         const icon = getMarkerIcon(location, isHighlighted, label, labelKey);
@@ -892,11 +921,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const child = L.marker(distributed, markerOptions).addTo(locationMarkersLayer);
         attachPopupAndEnrich(child, location);
         attachMarkerKeyHandlers(child, () => child.openPopup());
-        registerMarkerElement(location.id, label, child);
+        registerMarkerElement(location.key, label, child);
         state.childMarkers.push(child);
       });
 
-      const temporalInfos = state.group.items.map(location => getLocationTemporalDistanceDays(location));
+      const temporalInfos = state.group.items.flatMap(location => location.visits.map(visit => getLocationTemporalDistanceDays(visit)));
       const collapseTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
       const collapseDistanceBucket = getMarkerDistanceBucket(
         Math.min(...temporalInfos.filter(info => info.status === collapseTone).map(info => info.days))
@@ -922,7 +951,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const renderGroups = () => {
       clearAllMarkers();
 
-      const groups = groupLocationsForSpiderfy(map, travelData.locations);
+      const groups = groupLocationsForSpiderfy(map, mergedLocations);
       currentGroups = groups;
       const validKeys = new Set(groups.map(group => group.key));
       for (const key of Array.from(expanded)) {
@@ -937,7 +966,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       }
 
       const highlightedGroup = closestLocation
-        ? groups.find(group => group.items.some(location => location.id === closestLocation.id))
+        ? groups.find(group => group.items.some(location => location.visits.some(visit => visit.id === closestLocation.id)))
         : undefined;
       if (
         highlightedGroup
@@ -951,22 +980,28 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       groups.forEach(group => {
         if (group.items.length === 1) {
           const location = group.items[0];
-          const isHighlighted = closestLocation?.id === location.id;
+          const isHighlighted = !!closestLocation && location.visits.some(visit => visit.id === closestLocation.id);
           const { label, labelKey } = getLocationLabelData(location);
           const markerOptions: L.MarkerOptions = { keyboard: false };
-          const icon = getMarkerIcon(location, isHighlighted, label, labelKey);
+          const temporalInfos = location.visits.map(visit => getLocationTemporalDistanceDays(visit));
+          const singleTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+          const singleDays = temporalInfos.filter(info => info.status === singleTone).map(info => info.days);
+          const singleBucket = getMarkerDistanceBucket(singleDays.length > 0 ? Math.min(...singleDays) : 0);
+          const icon = location.visits.length > 1
+            ? createCountMarkerIcon(L, location.visits.length, singleTone, singleBucket, { label })
+            : getMarkerIcon(location, isHighlighted, label, labelKey);
           if (icon) {
             markerOptions.icon = icon;
           }
           const marker = L.marker(location.coordinates, markerOptions).addTo(locationMarkersLayer);
           attachPopupAndEnrich(marker, location);
           attachMarkerKeyHandlers(marker, () => marker.openPopup());
-          registerMarkerElement(location.id, label, marker);
+          registerMarkerElement(location.key, label, marker);
           singles.push(marker);
           return;
         }
 
-        const temporalInfos = group.items.map(location => getLocationTemporalDistanceDays(location));
+        const temporalInfos = group.items.flatMap(location => location.visits.map(visit => getLocationTemporalDistanceDays(visit)));
         const groupTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
         const groupDistanceBucket = getMarkerDistanceBucket(
           Math.min(...temporalInfos.filter(info => info.status === groupTone).map(info => info.days))

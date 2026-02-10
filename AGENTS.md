@@ -147,3 +147,5 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Cost tracker autosave now supports `PATCH /api/cost-tracking?id=...` with `deltaUpdate`; backend reconstructs current cost state first and applies only explicit add/update/remove operations, so partial/dirty deltas cannot implicitly wipe budgets/expenses.
 - Delta helper cloning must preserve `Date` instances (prefer `structuredClone` or JSON parse with `dateReviver` fallback); plain `JSON.parse(JSON.stringify(...))` breaks runtime date types in autosave snapshots and merge flows.
 - Keep PATCH body parsing consistent between travel and cost endpoints: both should deserialize with `dateReviver` so delta merge/type semantics for date fields stay aligned across autosave APIs.
+
+- Public embeddable map now merges repeated visits by normalized location name + coordinates, shows a count badge on the pin for repeat visits, and renders popup visit history grouped under one marker.
