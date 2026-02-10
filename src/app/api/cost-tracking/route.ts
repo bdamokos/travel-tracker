@@ -4,6 +4,8 @@ import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
+import { applyCostDataDelta, isCostDataDelta, isCostDataDeltaEmpty } from '@/app/lib/costDataDelta';
+import type { CostTrackingData } from '@/app/types';
 
 
 export async function POST(request: NextRequest) {
@@ -176,6 +178,109 @@ export async function PUT(request: NextRequest) {
     );
   }
 } 
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const cleanId = id.replace(/^(cost-)+/, '');
+    const updateRequest = JSON.parse(await request.text(), dateReviver);
+
+    if (updateRequest.deltaUpdate === undefined) {
+      return NextResponse.json(
+        { error: 'Invalid update request' },
+        { status: 400 }
+      );
+    }
+
+    const delta = updateRequest.deltaUpdate;
+    if (!isCostDataDelta(delta)) {
+      return NextResponse.json(
+        { error: 'Invalid delta payload' },
+        { status: 400 }
+      );
+    }
+
+    if (isCostDataDeltaEmpty(delta)) {
+      return NextResponse.json({
+        success: true,
+        message: 'No delta changes to apply'
+      });
+    }
+
+    const unifiedData = await loadUnifiedTripData(cleanId);
+    if (!unifiedData || !unifiedData.costData) {
+      return NextResponse.json(
+        { error: 'Cost tracking data not found' },
+        { status: 404 }
+      );
+    }
+
+    const baseCostData: CostTrackingData = {
+      id: `cost-${cleanId}`,
+      tripId: cleanId,
+      tripTitle: unifiedData.title,
+      tripStartDate: unifiedData.startDate as unknown as CostTrackingData['tripStartDate'],
+      tripEndDate: unifiedData.endDate as unknown as CostTrackingData['tripEndDate'],
+      overallBudget: unifiedData.costData.overallBudget,
+      reservedBudget: unifiedData.costData.reservedBudget || 0,
+      currency: unifiedData.costData.currency,
+      customCategories: unifiedData.costData.customCategories,
+      countryBudgets: unifiedData.costData.countryBudgets,
+      expenses: unifiedData.costData.expenses,
+      ynabImportData: unifiedData.costData.ynabImportData,
+      ynabConfig: unifiedData.costData.ynabConfig,
+      createdAt: unifiedData.createdAt,
+      updatedAt: unifiedData.updatedAt
+    };
+
+    // Defensive merge: omitted fields are ignored, and removals only happen via explicit removedIds.
+    const merged = applyCostDataDelta(baseCostData, delta);
+
+    const updatedUnifiedData = await updateCostData(cleanId, {
+      tripTitle: merged.tripTitle,
+      tripStartDate: merged.tripStartDate,
+      tripEndDate: merged.tripEndDate,
+      overallBudget: merged.overallBudget,
+      reservedBudget: merged.reservedBudget,
+      currency: merged.currency,
+      countryBudgets: merged.countryBudgets,
+      expenses: merged.expenses,
+      customCategories: merged.customCategories,
+      ynabImportData: merged.ynabImportData,
+      ynabConfig: merged.ynabConfig
+    });
+
+    const validation = validateAllTripBoundaries(updatedUnifiedData);
+    if (!validation.isValid) {
+      console.warn('Trip boundary violations detected in trip %s:', cleanId, validation.errors);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Delta applied successfully',
+      id: cleanId
+    });
+  } catch (error) {
+    console.error('Error patching cost tracking data:', error);
+    return NextResponse.json(
+      { error: 'Failed to patch cost tracking data' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function DELETE(request: NextRequest) {
   try {
