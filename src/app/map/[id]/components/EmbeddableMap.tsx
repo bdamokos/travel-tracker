@@ -98,42 +98,80 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
   description?: string;
 }) => {
   const isDarkMode = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const popupStyles = isDarkMode 
+  const popupStyles = isDarkMode
     ? 'background-color: #374151; color: #f9fafb; border: 1px solid #4b5563;'
     : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
 
   const visits = locationGroup.visits;
   const safeLocationName = escapeHTML(locationGroup.name);
   const visitCount = visits.length;
-  const visitsMarkup = visits
-    .map((visit, index) => {
-      const safeDateRange = escapeHTML(formatDateRange(visit.date, visit.endDate));
-      const safeNotes = visit.notes ? escapeHTML(visit.notes) : '';
 
+  const visitSections = visits.map((visit, index) => {
+    const safeDateRange = escapeHTML(formatDateRange(visit.date, visit.endDate));
+    const safeNotes = visit.notes ? escapeHTML(visit.notes) : '';
+    const isLastVisit = index === visits.length - 1;
+
+    const instagramMarkup = (visit.instagramPosts ?? []).map(post => {
+      const caption = post.caption?.trim() || 'View Post';
+      const safeCaption = escapeHTML(caption);
+      const safeUrl = escapeAttribute(post.url);
       return `
-        <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid ${isDarkMode ? '#4b5563' : '#e5e7eb'};">
-          <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">
-            ${visitCount > 1 ? `Visit ${index + 1}` : 'Stay'}
-          </div>
-          <p style="font-size: 14px; margin-bottom: 6px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeDateRange}</p>
-          ${safeNotes ? `<p style="font-size: 14px; margin-bottom: 2px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${safeNotes}</p>` : ''}
+        <div style="margin-top: 2px;">
+          <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
+            ${safeCaption}
+          </a>
         </div>
       `;
-    })
-    .join('');
+    }).join('');
 
-  const instagramPosts = visits.flatMap(visit => visit.instagramPosts ?? []);
-  const tikTokPosts = visits.flatMap(visit => visit.tikTokPosts ?? []);
-  const blogPosts = visits.flatMap(visit => visit.blogPosts ?? []);
+    const tikTokPosts = visit.tikTokPosts ?? [];
+    const tikTokMarkup = tikTokPosts.map((post, postIndex) => {
+      const fallbackLabel = `TikTok Clip${tikTokPosts.length > 1 ? ` #${postIndex + 1}` : ''}`;
+      const linkLabel = post.caption?.trim() || fallbackLabel;
+      const safeLabel = escapeHTML(linkLabel);
+      const safeUrl = escapeAttribute(post.url);
+      return `
+        <div style="margin-top: 2px;">
+          <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
+            ${safeLabel}
+          </a>
+        </div>
+      `;
+    }).join('');
+
+    const blogMarkup = (visit.blogPosts ?? []).map(post => {
+      const safeTitle = escapeHTML(post.title);
+      const safeUrl = escapeAttribute(post.url);
+      const safeExcerpt = post.excerpt ? escapeHTML(post.excerpt) : '';
+      return `
+        <div style="margin-top: 2px;">
+          <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
+            ${safeTitle}
+          </a>
+          ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeExcerpt}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom: ${isLastVisit ? '0' : '10px'}; padding-bottom: ${isLastVisit ? '0' : '10px'}; ${isLastVisit ? '' : `border-bottom: 1px solid ${isDarkMode ? '#4b5563' : '#e5e7eb'};`}">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${visitCount > 1 ? `Visit ${index + 1}` : 'Stay'}</div>
+        <p style="font-size: 14px; margin-bottom: 6px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeDateRange}</p>
+        ${safeNotes ? `<p style="font-size: 14px; margin-bottom: 8px; ${isDarkMode ? 'color: #d1d5db;' : 'color: #374151;'}">${safeNotes}</p>` : ''}
+        ${instagramMarkup ? `<div style="margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #bfdbfe;' : 'color: #1d4ed8;'}">${INSTAGRAM_ICON_MARKUP}<span>Instagram</span></div>${instagramMarkup}</div>` : ''}
+        ${tikTokMarkup ? `<div style="margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #fbcfe8;' : 'color: #db2777;'}">${TIKTOK_ICON_MARKUP}<span>TikTok</span></div>${tikTokMarkup}</div>` : ''}
+        ${blogMarkup ? `<div style="margin-bottom: 8px;"><strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>${blogMarkup}</div>` : ''}
+      </div>
+    `;
+  }).join('');
 
   let popupContent = `
     <div style="padding: 12px; max-width: 400px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
       <h4 style="font-weight: bold; font-size: 18px; margin-bottom: 6px; ${isDarkMode ? 'color: #f9fafb;' : 'color: #111827;'}">${safeLocationName}</h4>
       ${visitCount > 1 ? `<p style="font-size: 12px; margin-bottom: 10px; font-weight: 600; ${isDarkMode ? 'color: #bfdbfe;' : 'color: #1d4ed8;'}">Visited ${visitCount} times</p>` : ''}
-      ${visitsMarkup}
+      ${visitSections}
   `;
 
-  // Add Weather quick line (today)
   if (weatherData) {
     const safeWeatherIcon = escapeHTML(weatherData.icon);
     popupContent += `
@@ -147,7 +185,6 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
     `;
   }
 
-  // Add Wikipedia section
   if (wikipediaData) {
     const safeWikipediaTitle = escapeHTML(wikipediaData.title);
     const safeWikipediaExtract = escapeHTML(wikipediaData.extract.trim());
@@ -165,84 +202,6 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
           </div>
         </div>
         <p style="font-size: 10px; margin-top: 6px; ${isDarkMode ? 'color: #6b7280;' : 'color: #9ca3af;'}">Source: Wikipedia • under Creative Commons BY-SA 4.0 license</p>
-      </div>
-    `;
-  }
-
-  // Add Instagram posts
-  if (instagramPosts.length > 0) {
-    popupContent += `
-      <div style="margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #bfdbfe;' : 'color: #1d4ed8;'}">
-          ${INSTAGRAM_ICON_MARKUP}
-          <span>Instagram</span>
-        </div>
-        ${instagramPosts
-          .map(post => {
-            const caption = post.caption?.trim() || 'View Post';
-            const safeCaption = escapeHTML(caption);
-            const safeUrl = escapeAttribute(post.url);
-            return `
-              <div style="margin-top: 2px;">
-                <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">
-                  ${safeCaption}
-                </a>
-              </div>
-            `;
-          })
-          .join('')}
-      </div>
-    `;
-  }
-
-  // Add TikTok posts
-  if (tikTokPosts.length > 0) {
-    const totalTikTokPosts = tikTokPosts.length;
-    popupContent += `
-      <div style="margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; ${isDarkMode ? 'color: #fbcfe8;' : 'color: #db2777;'}">
-          ${TIKTOK_ICON_MARKUP}
-          <span>TikTok</span>
-        </div>
-        ${tikTokPosts
-          .map((post, index) => {
-            const fallbackLabel = `TikTok Clip${totalTikTokPosts > 1 ? ` #${index + 1}` : ''}`;
-            const linkLabel = post.caption?.trim() || fallbackLabel;
-            const safeLabel = escapeHTML(linkLabel);
-            const safeUrl = escapeAttribute(post.url);
-            return `
-              <div style="margin-top: 2px;">
-                <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #f9a8d4;' : 'color: #ec4899;'}">
-                  ${safeLabel}
-                </a>
-              </div>
-            `;
-          })
-          .join('')}
-      </div>
-    `;
-  }
-
-  // Add blog posts
-  if (blogPosts.length > 0) {
-    popupContent += `
-      <div style="margin-bottom: 8px;">
-        <strong style="font-size: 12px; ${isDarkMode ? 'color: #93c5fd;' : 'color: #1d4ed8;'}">📝 Blog:</strong>
-        ${blogPosts
-          .map(post => {
-            const safeTitle = escapeHTML(post.title);
-            const safeUrl = escapeAttribute(post.url);
-            const safeExcerpt = post.excerpt ? escapeHTML(post.excerpt) : '';
-            return `
-              <div style="margin-top: 2px;">
-                <a href="${safeUrl}" target="_blank" style="font-size: 12px; text-decoration: underline; ${isDarkMode ? 'color: #60a5fa;' : 'color: #2563eb;'}">
-                  ${safeTitle}
-                </a>
-                ${post.excerpt ? `<div style="font-size: 11px; margin-top: 2px; ${isDarkMode ? 'color: #9ca3af;' : 'color: #6b7280;'}">${safeExcerpt}</div>` : ''}
-              </div>
-            `;
-          })
-          .join('')}
       </div>
     `;
   }
@@ -689,7 +648,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const [bLat, bLng] = b.coordinates;
         if (aLng !== bLng) return aLng - bLng;
         if (aLat !== bLat) return aLat - bLat;
-        return a.id.localeCompare(b.id);
+        return a.key.localeCompare(b.key);
       });
     };
 

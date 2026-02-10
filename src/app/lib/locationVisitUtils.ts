@@ -25,14 +25,13 @@ export type VisitLocation = {
 };
 
 export type MergedLocationVisit = {
-  id: string;
   key: string;
   name: string;
   coordinates: [number, number];
   visits: VisitLocation[];
 };
 
-const normalizeLocationName = (name: string): string => name.trim().toLocaleLowerCase();
+const normalizeLocationName = (name: string): string => name.trim().toLowerCase();
 
 const normalizeCoordinates = (coordinates: [number, number], precision: number): string => {
   const [lat, lng] = coordinates;
@@ -45,34 +44,38 @@ const getDateSortValue = (value: string): number => {
   return Number.isNaN(timestamp) ? Number.MAX_SAFE_INTEGER : timestamp;
 };
 
+const buildLocationVisitKey = (location: VisitLocation, coordinatePrecision: number): string =>
+  `${normalizeLocationName(location.name)}|${normalizeCoordinates(location.coordinates, coordinatePrecision)}`;
+
 export const mergeLocationVisits = (
   locations: VisitLocation[],
   coordinatePrecision = 5
 ): MergedLocationVisit[] => {
-  const grouped = new Map<string, MergedLocationVisit>();
+  const grouped = new Map<string, VisitLocation[]>();
 
   locations.forEach(location => {
-    const groupKey = `${normalizeLocationName(location.name)}|${normalizeCoordinates(location.coordinates, coordinatePrecision)}`;
+    const groupKey = buildLocationVisitKey(location, coordinatePrecision);
     const existing = grouped.get(groupKey);
 
     if (existing) {
-      existing.visits.push(location);
+      existing.push(location);
       return;
     }
 
-    grouped.set(groupKey, {
-      id: groupKey,
-      key: groupKey,
-      name: location.name,
-      coordinates: location.coordinates,
-      visits: [location],
-    });
+    grouped.set(groupKey, [location]);
   });
 
-  const merged = Array.from(grouped.values()).map(group => ({
-    ...group,
-    visits: [...group.visits].sort((a, b) => getDateSortValue(a.date) - getDateSortValue(b.date)),
-  }));
+  const merged = Array.from(grouped.entries()).map(([key, visits]) => {
+    const sortedVisits = [...visits].sort((a, b) => getDateSortValue(a.date) - getDateSortValue(b.date));
+    const representativeVisit = sortedVisits[0];
+
+    return {
+      key,
+      name: representativeVisit?.name ?? '',
+      coordinates: representativeVisit?.coordinates ?? [0, 0],
+      visits: sortedVisits,
+    } satisfies MergedLocationVisit;
+  });
 
   return merged.sort((a, b) => {
     const firstVisitA = a.visits[0];
