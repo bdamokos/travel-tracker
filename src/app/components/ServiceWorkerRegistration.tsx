@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 const SERVICE_WORKER_PATH = '/sw.js';
+const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
 export default function ServiceWorkerRegistration(): null {
   useEffect(() => {
@@ -11,19 +12,41 @@ export default function ServiceWorkerRegistration(): null {
     }
 
     let hasRefreshedForNewWorker = false;
-    let onlineHandler: (() => void) | null = null;
+    let registration: ServiceWorkerRegistration | null = null;
+
+    const onControllerChange = (): void => {
+      if (hasRefreshedForNewWorker) {
+        return;
+      }
+
+      hasRefreshedForNewWorker = true;
+      window.location.reload();
+    };
+
+    const onOnline = (): void => {
+      if (!registration) {
+        return;
+      }
+
+      void registration.update();
+    };
 
     const registerServiceWorker = async (): Promise<void> => {
-      const registration = await navigator.serviceWorker.register(SERVICE_WORKER_PATH, {
-        scope: '/',
-      });
+      try {
+        registration = await navigator.serviceWorker.register(SERVICE_WORKER_PATH, {
+          scope: '/',
+        });
+      } catch (error: unknown) {
+        console.warn('Service worker registration failed:', error);
+        return;
+      }
 
       if (registration.waiting) {
         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       }
 
       registration.addEventListener('updatefound', () => {
-        const installingWorker = registration.installing;
+        const installingWorker = registration?.installing;
 
         if (!installingWorker) {
           return;
@@ -36,30 +59,24 @@ export default function ServiceWorkerRegistration(): null {
         });
       });
 
-      const onControllerChange = (): void => {
-        if (hasRefreshedForNewWorker) {
-          return;
-        }
-
-        hasRefreshedForNewWorker = true;
-        window.location.reload();
-      };
-
       navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-
-      onlineHandler = () => {
-        void registration.update();
-      };
-
-      window.addEventListener('online', onlineHandler);
+      window.addEventListener('online', onOnline);
     };
 
     void registerServiceWorker();
 
-    return () => {
-      if (onlineHandler) {
-        window.removeEventListener('online', onlineHandler);
+    const updateInterval = window.setInterval(() => {
+      if (!registration || !navigator.onLine) {
+        return;
       }
+
+      void registration.update();
+    }, UPDATE_CHECK_INTERVAL_MS);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      window.removeEventListener('online', onOnline);
+      window.clearInterval(updateInterval);
     };
   }, []);
 

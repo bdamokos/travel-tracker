@@ -149,3 +149,5 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Keep PATCH body parsing consistent between travel and cost endpoints: both should deserialize with `dateReviver` so delta merge/type semantics for date fields stay aligned across autosave APIs.
 
 - Added a lightweight `public/sw.js` service worker + `ServiceWorkerRegistration` client component to cache app shell, Next static assets, OSM tiles, and key travel/cost API responses with stale-while-revalidate for offline-first behavior and automatic update checks on reconnect.
+
+- Service worker caching should respect server cache intent (`Cache-Control: no-store`) and return explicit offline 503 responses when no cached entry exists, instead of throwing fetch-handler errors.

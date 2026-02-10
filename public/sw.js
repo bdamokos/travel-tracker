@@ -1,16 +1,33 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
 const TILE_CACHE = `tiles-${CACHE_VERSION}`;
+const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 
 const APP_SHELL_URLS = ['/', '/maps', '/manifest.json'];
 const DATA_PATHS = ['/api/travel-data', '/api/cost-tracking'];
 const TILE_HOST = 'tile.openstreetmap.org';
 
+const isCacheableResponse = (response) => {
+  if (!response || !response.ok) {
+    return false;
+  }
+
+  if (response.type !== 'basic' && response.type !== 'cors') {
+    return false;
+  }
+
+  const cacheControl = response.headers.get('Cache-Control') || '';
+  return !cacheControl.includes('no-store');
+};
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(APP_SHELL_CACHE).then((cache) => cache.addAll(APP_SHELL_URLS)).then(() => self.skipWaiting())
+    caches
+      .open(APP_SHELL_CACHE)
+      .then((cache) => cache.addAll(APP_SHELL_URLS))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -19,11 +36,7 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => ![APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE].includes(key))
-            .map((key) => caches.delete(key))
-        )
+        Promise.all(keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
   );
@@ -35,22 +48,29 @@ const networkFirst = async (request, cacheName) => {
   try {
     const response = await fetch(request);
 
-    if (response && response.ok) {
+    if (isCacheableResponse(response)) {
       await cache.put(request, response.clone());
     }
 
     return response;
   } catch {
-    const cached = await cache.match(request);
-    if (cached) {
-      return cached;
+    const cachedRequestMatch = await cache.match(request);
+    if (cachedRequestMatch) {
+      return cachedRequestMatch;
     }
 
     if (request.mode === 'navigate') {
-      return cache.match('/');
+      const shellFallback = await cache.match('/');
+      if (shellFallback) {
+        return shellFallback;
+      }
     }
 
-    throw new Error('Network unavailable and no cache entry found.');
+    return new Response('Offline and no cached copy is available.', {
+      status: 503,
+      statusText: 'Offline',
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
   }
 };
 
@@ -60,7 +80,7 @@ const staleWhileRevalidate = async (request, cacheName) => {
 
   const networkPromise = fetch(request)
     .then(async (response) => {
-      if (response && response.ok) {
+      if (isCacheableResponse(response)) {
         await cache.put(request, response.clone());
       }
 
@@ -78,7 +98,11 @@ const staleWhileRevalidate = async (request, cacheName) => {
     return networkResponse;
   }
 
-  throw new Error('Network unavailable and no cache entry found.');
+  return new Response('Offline and no cached copy is available.', {
+    status: 503,
+    statusText: 'Offline',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
 };
 
 self.addEventListener('fetch', (event) => {
@@ -105,7 +129,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.origin === self.location.origin && (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icon-') || url.pathname === '/manifest.json')) {
+  if (
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith('/_next/static/') ||
+      url.pathname.startsWith('/icon-') ||
+      url.pathname === '/manifest.json')
+  ) {
     event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
   }
 });
