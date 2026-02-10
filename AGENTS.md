@@ -147,7 +147,8 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Cost tracker autosave now supports `PATCH /api/cost-tracking?id=...` with `deltaUpdate`; backend reconstructs current cost state first and applies only explicit add/update/remove operations, so partial/dirty deltas cannot implicitly wipe budgets/expenses.
 - Delta helper cloning must preserve `Date` instances (prefer `structuredClone` or JSON parse with `dateReviver` fallback); plain `JSON.parse(JSON.stringify(...))` breaks runtime date types in autosave snapshots and merge flows.
 - Keep PATCH body parsing consistent between travel and cost endpoints: both should deserialize with `dateReviver` so delta merge/type semantics for date fields stay aligned across autosave APIs.
-
 - Public embeddable map now merges repeated visits by normalized location name + coordinates, shows a count badge on the pin for repeat visits, and renders popup visit history grouped under one marker.
 - Shared map-facing trip types now live in `src/app/types/index.ts` as `MapTravelData`/`MapTravelLocation`; avoid duplicating ad-hoc `TravelData` interfaces across map page, embed page, and embeddable map component.
 - `createCountMarkerIcon` now supports an optional `highlighted` flag so merged multi-visit markers can preserve the closest-location visual highlight cue.
+- Added a lightweight `public/sw.js` service worker + `ServiceWorkerRegistration` client component to cache app shell, Next static assets, OSM tiles, and key travel/cost API responses with stale-while-revalidate for offline-first behavior and automatic update checks on reconnect.
+- Service worker caching should respect server cache intent (`Cache-Control: no-store`) and return explicit offline 503 responses when no cached entry exists, instead of throwing fetch-handler errors.
