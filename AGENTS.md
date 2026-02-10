@@ -154,3 +154,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Service worker caching should respect server cache intent (`Cache-Control: no-store`) and return explicit offline 503 responses when no cached entry exists, instead of throwing fetch-handler errors.
 - Shared collection-delta logic now lives in `src/app/lib/collectionDelta.ts`; both travel and cost delta modules should import it to avoid divergence in add/update/remove/order semantics.
 - Delta shape validators should enforce scalar field types (e.g., number/string/date-like) in addition to collection structure to reject malformed PATCH payloads early.
+- Service worker updates now use `travel-tracker-service-worker-update-available` and `travel-tracker-service-worker-apply-update` window events, and defer activation/reload while `window.__TRAVEL_TRACKER_IS_DIRTY__` is truthy to avoid interrupting unsaved edits.

@@ -8,6 +8,19 @@ const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 const APP_SHELL_URLS = ['/', '/maps', '/manifest.json'];
 const DATA_PATHS = ['/api/travel-data', '/api/cost-tracking'];
 const TILE_HOST = 'tile.openstreetmap.org';
+const TILE_CACHE_LIMIT = 500;
+const CRITICAL_APP_SHELL_URLS = new Set(['/']);
+const OFFLINE_NAVIGATION_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline</title>
+  </head>
+  <body>
+    <p>You're offline, and this page is not cached yet.</p>
+  </body>
+</html>`;
 
 const isCacheableResponse = (response) => {
   if (!response || !response.ok) {
@@ -23,13 +36,31 @@ const isCacheableResponse = (response) => {
 };
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(APP_SHELL_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL_URLS))
-      .then(() => self.skipWaiting())
-  );
+  const preCacheAppShell = async () => {
+    const cache = await caches.open(APP_SHELL_CACHE);
+    const preCacheResults = await Promise.allSettled(APP_SHELL_URLS.map((url) => cache.add(url)));
+
+    preCacheResults.forEach((result, index) => {
+      if (result.status === 'rejected' && CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
+        throw result.reason;
+      }
+    });
+  };
+
+  event.waitUntil(preCacheAppShell().then(() => self.skipWaiting()));
 });
+
+const trimCache = async (cacheName, maxItems) => {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  const itemsToDelete = keys.length - maxItems;
+
+  if (itemsToDelete <= 0) {
+    return;
+  }
+
+  await Promise.all(keys.slice(0, itemsToDelete).map((key) => cache.delete(key)));
+};
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -38,6 +69,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)))
       )
+      .then(() => trimCache(TILE_CACHE, TILE_CACHE_LIMIT))
       .then(() => self.clients.claim())
   );
 });
@@ -64,6 +96,12 @@ const networkFirst = async (request, cacheName) => {
       if (shellFallback) {
         return shellFallback;
       }
+
+      return new Response(OFFLINE_NAVIGATION_HTML, {
+        status: 503,
+        statusText: 'Offline',
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
     }
 
     return new Response('Offline and no cached copy is available.', {
@@ -82,6 +120,12 @@ const staleWhileRevalidate = async (request, cacheName) => {
     .then(async (response) => {
       if (isCacheableResponse(response)) {
         await cache.put(request, response.clone());
+
+        if (cacheName === TILE_CACHE) {
+          await trimCache(TILE_CACHE, TILE_CACHE_LIMIT);
+        }
+      } else if (cacheName === DATA_CACHE) {
+        await cache.delete(request);
       }
 
       return response;
@@ -89,7 +133,6 @@ const staleWhileRevalidate = async (request, cacheName) => {
     .catch(() => null);
 
   if (cached) {
-    void networkPromise;
     return cached;
   }
 
