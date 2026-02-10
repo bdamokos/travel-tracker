@@ -104,6 +104,41 @@ describe('DistanceSummary', () => {
 
       expect(screen.getAllByText('12.3 km').length).toBeGreaterThan(0);
     });
+
+    it('uses zero distance override when provided', () => {
+      const routeWithZeroOverride: TravelRoute = {
+        ...mockRoute,
+        distanceOverride: 0,
+        routePoints: [
+          [40.7128, -74.0060],
+          [45.0, -60.0],
+          [50.0, -30.0],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithZeroOverride]} />);
+
+      expect(screen.getAllByText('0.0 km').length).toBeGreaterThan(0);
+    });
+
+    it('ignores NaN distance override and falls back to route points', () => {
+      const routeWithNaNOverride: TravelRoute = {
+        ...mockRoute,
+        distanceOverride: Number.NaN,
+        routePoints: [
+          [40.7128, -74.0060],
+          [45.0, -60.0],
+          [50.0, -30.0],
+          [51.5074, -0.1278]
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithNaNOverride]} />);
+
+      expect(screen.queryByText('NaN km')).not.toBeInTheDocument();
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+    });
   });
 
   describe('Routes with SubRoutes', () => {

@@ -34,15 +34,16 @@ function calculateDistanceFromPoints(points: [number, number][]): number {
 
 /**
  * Calculates the distance for a single route segment
- * Prefers routePoints if available, falls back to endpoint calculation
+ * Prefers distanceOverride if provided, then routePoints, then endpoint calculation
  * @param segment - TravelRouteSegment containing route data
  * @returns Distance in kilometers, doubled if doubleDistance flag is set
  */
 function getSegmentDistance(segment: TravelRoute): number {
   let distance = 0;
+  const overrideDistance = segment.distanceOverride;
 
-  if (typeof segment.distanceOverride === 'number' && !Number.isNaN(segment.distanceOverride)) {
-    distance = segment.distanceOverride;
+  if (typeof overrideDistance === 'number' && Number.isFinite(overrideDistance)) {
+    distance = overrideDistance;
   } else if (segment.routePoints && segment.routePoints.length >= 2) {
     distance = calculateDistanceFromPoints(segment.routePoints);
   } else if (segment.fromCoords && segment.toCoords) {

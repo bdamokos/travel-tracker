@@ -5,18 +5,12 @@ import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { coerceValidDate } from '@/app/lib/dateUtils';
+import { parseDistanceOverride } from '@/app/lib/distanceOverride';
 import { generateId } from '@/app/lib/costUtils';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
 import AccessibleDatePicker from './AccessibleDatePicker';
-
-const parseDistanceOverride = (value: string): number | undefined => {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
 
 interface RouteInlineEditorProps {
   route: TravelRoute;

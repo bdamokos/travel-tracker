@@ -26,6 +26,7 @@ type ShadowRoutePayload = {
   routePoints?: [number, number][];
   costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
   privateNotes?: string;
+  distanceOverride?: number;
 };
 
 export function useShadowTripEditor(tripId: string) {
@@ -314,6 +315,7 @@ export function useShadowTripEditor(tripId: string) {
               toCoordinates: route.toCoords,
               routePoints: route.routePoints,
               costTrackingLinks: route.costTrackingLinks || [],
+              distanceOverride: route.distanceOverride,
               subRoutes: route.subRoutes?.map(segment => ({
                 id: segment.id,
                 from: segment.from,
@@ -325,6 +327,7 @@ export function useShadowTripEditor(tripId: string) {
                 toCoordinates: segment.toCoords,
                 routePoints: segment.routePoints,
                 costTrackingLinks: segment.costTrackingLinks || [],
+                distanceOverride: segment.distanceOverride,
                 useManualRoutePoints: segment.useManualRoutePoints,
                 isReturn: segment.isReturn,
                 isReadOnly: segment.isReadOnly

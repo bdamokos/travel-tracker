@@ -52,4 +52,23 @@ describe('validateAndNormalizeCompositeRoute', () => {
     expect(result.normalizedRoute.from).toBe('Known Start');
     expect(result.normalizedRoute.to).toBe('Known End');
   });
+
+  it('preserves segment distance overrides after normalization', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'C',
+      subRoutes: [
+        { from: 'A', to: 'B', distanceOverride: 12.5 },
+        { from: 'B', to: 'C', distanceOverride: 8.25 }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error('Expected validation to pass');
+    }
+
+    expect(result.normalizedRoute.subRoutes?.[0].distanceOverride).toBe(12.5);
+    expect(result.normalizedRoute.subRoutes?.[1].distanceOverride).toBe(8.25);
+  });
 });

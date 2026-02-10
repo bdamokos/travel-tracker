@@ -5,6 +5,7 @@ import { TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { coerceValidDate } from '@/app/lib/dateUtils';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
+import { parseDistanceOverride } from '@/app/lib/distanceOverride';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -40,13 +41,6 @@ function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
-
-const parseDistanceOverride = (value: string): number | undefined => {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
 
 interface RouteFormProps {
   currentRoute: Partial<TravelRoute>;
