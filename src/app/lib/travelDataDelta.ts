@@ -1,4 +1,5 @@
 import { Location, TravelData, TravelRoute } from '@/app/types';
+import { dateReviver } from '@/app/lib/jsonDateReviver';
 
 type EntityWithId = { id: string };
 
@@ -30,7 +31,12 @@ const withDateSerialization = (_key: string, value: unknown): unknown =>
 
 const serialize = (value: unknown): string => JSON.stringify(value, withDateSerialization) ?? 'null';
 
-const cloneSerializable = <T>(value: T): T => JSON.parse(serialize(value)) as T;
+const cloneSerializable = <T>(value: T): T => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(value);
+  }
+  return JSON.parse(serialize(value), dateReviver) as T;
+};
 
 const hasCollectionChanges = <T extends EntityWithId>(delta?: CollectionDelta<T>): boolean => {
   if (!delta) return false;

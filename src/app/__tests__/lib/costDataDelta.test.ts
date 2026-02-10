@@ -133,4 +133,13 @@ describe('costDataDelta', () => {
     expect(isCostDataDeltaEmpty({})).toBe(true);
     expect(isCostDataDeltaEmpty({ overallBudget: 120 })).toBe(false);
   });
+
+  it('preserves Date instances when cloning/applying deltas', () => {
+    const previous = buildCostData();
+    const merged = applyCostDataDelta(previous, {});
+
+    expect(merged.tripStartDate).toBeInstanceOf(Date);
+    expect(merged.tripEndDate).toBeInstanceOf(Date);
+    expect(merged.expenses[0].date).toBeInstanceOf(Date);
+  });
 });

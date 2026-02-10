@@ -6,6 +6,7 @@ import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
 import { applyCostDataDelta, isCostDataDelta, isCostDataDeltaEmpty } from '@/app/lib/costDataDelta';
 import type { CostTrackingData } from '@/app/types';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 
 export async function POST(request: NextRequest) {
@@ -232,8 +233,8 @@ export async function PATCH(request: NextRequest) {
       id: `cost-${cleanId}`,
       tripId: cleanId,
       tripTitle: unifiedData.title,
-      tripStartDate: unifiedData.startDate as unknown as CostTrackingData['tripStartDate'],
-      tripEndDate: unifiedData.endDate as unknown as CostTrackingData['tripEndDate'],
+      tripStartDate: parseDateAsLocalDay(unifiedData.startDate) ?? new Date(),
+      tripEndDate: parseDateAsLocalDay(unifiedData.endDate) ?? new Date(),
       overallBudget: unifiedData.costData.overallBudget,
       reservedBudget: unifiedData.costData.reservedBudget || 0,
       currency: unifiedData.costData.currency,

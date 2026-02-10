@@ -5,6 +5,7 @@ import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { applyTravelDataDelta, isTravelDataDelta, isTravelDataDeltaEmpty } from '@/app/lib/travelDataDelta';
 import type { TravelData } from '@/app/types';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
 
@@ -271,16 +272,17 @@ export async function PATCH(request: NextRequest) {
         id: unifiedData.id,
         title: unifiedData.title,
         description: unifiedData.description,
-        startDate: unifiedData.startDate,
-        endDate: unifiedData.endDate,
+        startDate: parseDateAsLocalDay(unifiedData.startDate) ?? new Date(),
+        endDate: parseDateAsLocalDay(unifiedData.endDate) ?? new Date(),
         instagramUsername: unifiedData.travelData?.instagramUsername,
         locations: unifiedData.travelData?.locations || [],
-        routes: unifiedData.travelData?.routes || [],
-        accommodations: unifiedData.accommodations || []
-      } as unknown as TravelData;
+        routes: (unifiedData.travelData?.routes || []) as unknown as TravelData['routes']
+      } as TravelData;
 
       // Defensive merge: apply only explicit add/update/remove operations from the delta.
       // Missing keys never imply deletion.
+      // Accommodations are intentionally excluded here because they are managed by dedicated
+      // accommodation endpoints and not part of TravelDataDelta.
       const merged = applyTravelDataDelta(baseTravelData, delta);
 
       const { routes, error } = normalizeCompositeRoutes(merged.routes as unknown as RoutePayload[]);

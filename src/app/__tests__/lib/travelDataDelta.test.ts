@@ -121,4 +121,14 @@ describe('travelDataDelta', () => {
     expect(isTravelDataDeltaEmpty({})).toBe(true);
     expect(isTravelDataDeltaEmpty({ title: 'Changed' })).toBe(false);
   });
+
+  it('preserves Date instances when cloning/applying deltas', () => {
+    const previous = buildTravelData();
+    const merged = applyTravelDataDelta(previous, {});
+
+    expect(merged.startDate).toBeInstanceOf(Date);
+    expect(merged.endDate).toBeInstanceOf(Date);
+    expect(merged.locations[0].date).toBeInstanceOf(Date);
+    expect(merged.routes[0].date).toBeInstanceOf(Date);
+  });
 });
