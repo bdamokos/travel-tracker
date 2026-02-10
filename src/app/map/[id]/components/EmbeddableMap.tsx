@@ -73,8 +73,19 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
   const seenInstagramPostKeys = new Set<string>();
   const seenTikTokPostKeys = new Set<string>();
   const seenBlogPostKeys = new Set<string>();
-  const buildPostKey = (id: string | undefined, url: string): string =>
-    url.trim().toLowerCase() || (id?.trim().toLowerCase() ?? '');
+  const buildPostKey = (id: string | undefined, url: string): string | null => {
+    const normalizedUrl = url.trim().toLowerCase();
+    if (normalizedUrl) {
+      return `url:${normalizedUrl}`;
+    }
+
+    const normalizedId = id?.trim().toLowerCase();
+    if (normalizedId) {
+      return `id:${normalizedId}`;
+    }
+
+    return null;
+  };
 
   const visitSections = visits.map((visit, index) => {
     const safeDateRange = escapeHTML(formatDateRange(visit.date, visit.endDate));
@@ -84,6 +95,7 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
     const instagramMarkup = (visit.instagramPosts ?? [])
       .filter(post => {
         const key = buildPostKey(post.id, post.url);
+        if (!key) return true;
         if (seenInstagramPostKeys.has(key)) return false;
         seenInstagramPostKeys.add(key);
         return true;
@@ -103,6 +115,7 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
 
     const tikTokPosts = (visit.tikTokPosts ?? []).filter(post => {
       const key = buildPostKey(post.id, post.url);
+      if (!key) return true;
       if (seenTikTokPostKeys.has(key)) return false;
       seenTikTokPostKeys.add(key);
       return true;
@@ -124,6 +137,7 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
     const blogMarkup = (visit.blogPosts ?? [])
       .filter(post => {
         const key = buildPostKey(post.id, post.url);
+        if (!key) return true;
         if (seenBlogPostKeys.has(key)) return false;
         seenBlogPostKeys.add(key);
         return true;
