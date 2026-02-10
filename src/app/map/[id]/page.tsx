@@ -4,48 +4,12 @@ import { headers } from 'next/headers';
 import { getDomainConfig } from '@/app/lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
-import { Location, Transportation, TripUpdate, MapRouteSegment } from '@/app/types';
+import { Location, Transportation, MapRouteSegment, type MapTravelData } from '@/app/types';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import TripUpdates from '@/app/components/TripUpdates';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
-
-
-interface TravelData {
-  id: string;
-  title: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  locations: Array<{
-    id: string;
-    name: string;
-    coordinates: [number, number];
-    date: string;
-    endDate?: string;
-    notes?: string;
-    instagramPosts?: Array<{
-      id: string;
-      url: string;
-      caption?: string;
-    }>;
-    tikTokPosts?: Array<{
-      id: string;
-      url: string;
-      caption?: string;
-    }>;
-    blogPosts?: Array<{
-      id: string;
-      title: string;
-      url: string;
-      excerpt?: string;
-    }>;
-  }>;
-  routes: MapRouteSegment[];
-  createdAt: string;
-  publicUpdates?: TripUpdate[];
-}
 
 const toRouteSegment = (route: Transportation): MapRouteSegment => {
   const fromCoords = (route as Transportation & { fromCoords?: [number, number] }).fromCoords || route.fromCoordinates;
@@ -80,7 +44,13 @@ const toRouteSegment = (route: Transportation): MapRouteSegment => {
     }))
   };
 };
-async function getTravelData(id: string, isAdmin: boolean = false): Promise<TravelData | null> {
+
+const toMapDateString = (value?: string | Date): string | undefined => {
+  if (!value) return undefined;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
+};
+
+async function getTravelData(id: string, isAdmin: boolean = false): Promise<MapTravelData | null> {
   try {
     const { embedDomain } = getDomainConfig();
     const baseUrl = embedDomain || 'http://localhost:3000';
@@ -156,7 +126,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
           });
 
           // Transform shadow data to TravelData format
-          const transformedData: TravelData = {
+          const transformedData: MapTravelData = {
             id: shadowData.id,
             title: shadowData.title,
             description: shadowData.description,
@@ -170,16 +140,25 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<Trav
                 id: loc.id,
                 name: loc.name,
                 coordinates: loc.coordinates,
-                date: loc.date,
-                endDate: loc.endDate,
+                date: toMapDateString(loc.date) ?? '',
+                endDate: toMapDateString(loc.endDate),
                 notes: loc.notes,
+                wikipediaRef: loc.wikipediaRef,
                 instagramPosts: loc.instagramPosts,
                 tikTokPosts: loc.tikTokPosts,
                 blogPosts: loc.blogPosts,
               })),
               ...filteredShadowLocations.map((loc: Location) => ({
-                ...loc,
-                name: `${SHADOW_LOCATION_PREFIX} ${loc.name}` // Prefix shadow locations
+                id: loc.id,
+                name: `${SHADOW_LOCATION_PREFIX} ${loc.name}`, // Prefix shadow locations
+                coordinates: loc.coordinates,
+                date: toMapDateString(loc.date) ?? '',
+                endDate: toMapDateString(loc.endDate),
+                notes: loc.notes,
+                wikipediaRef: loc.wikipediaRef,
+                instagramPosts: loc.instagramPosts,
+                tikTokPosts: loc.tikTokPosts,
+                blogPosts: loc.blogPosts,
               }))
             ],
             // Merge real routes with shadow routes

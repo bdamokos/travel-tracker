@@ -48,6 +48,10 @@ type MarkerAccessibility = {
   dataKey?: string;
 };
 
+type CountMarkerIconOptions = MarkerAccessibility & {
+  highlighted?: boolean;
+};
+
 export const escapeAttribute = (value: string) =>
   value
     .replace(/&/g, '&amp;')
@@ -330,12 +334,25 @@ export const createCountMarkerIcon = (
   count: number,
   tone: MarkerTone,
   distanceBucket = MAX_DISTANCE_BUCKET,
-  accessibility?: MarkerAccessibility
+  options?: CountMarkerIconOptions
 ) => {
   const width = 25;
   const height = 41;
   const badgeSize = 16;
   const normalizedBucket = normalizeDistanceBucket(distanceBucket);
+  const highlighted = options?.highlighted ?? false;
+  const accessibility: MarkerAccessibility | undefined = options
+    ? {
+      label: options.label,
+      role: options.role,
+      tabIndex: options.tabIndex,
+      className: options.className,
+      dataKey: options.dataKey,
+    }
+    : undefined;
+  const highlightedFilter = highlighted
+    ? ' saturate(var(--travel-marker-highlight-saturation, 1.25)) brightness(var(--travel-marker-highlight-brightness, 1.08))'
+    : '';
   const markerHtml = `
     <div class="travel-marker-group" style="position: relative; width: ${width}px; height: ${height}px;">
       <div class="travel-marker-visual" style="
@@ -344,7 +361,7 @@ export const createCountMarkerIcon = (
         height: ${MARKER_HEIGHT}px;
         line-height: 0;
         position: relative;
-        filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1));
+        filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1))${highlightedFilter};
       " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
       <div aria-hidden="true" style="
         position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
@@ -355,7 +372,7 @@ export const createCountMarkerIcon = (
   `;
 
   return leaflet.divIcon({
-    className: `group-count-marker group-count-marker-${tone}`,
+    className: `group-count-marker group-count-marker-${tone}${highlighted ? ' group-count-marker-highlighted' : ''}`,
     html: wrapMarkerHtml(markerHtml, accessibility),
     iconSize: [width, height],
     iconAnchor: [Math.round(width / 2), height],
