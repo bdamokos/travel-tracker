@@ -152,3 +152,5 @@ As you go, document new learnings, discoveries, important structural decisions i
 - `createCountMarkerIcon` now supports an optional `highlighted` flag so merged multi-visit markers can preserve the closest-location visual highlight cue.
 - Added a lightweight `public/sw.js` service worker + `ServiceWorkerRegistration` client component to cache app shell, Next static assets, OSM tiles, and key travel/cost API responses with stale-while-revalidate for offline-first behavior and automatic update checks on reconnect.
 - Service worker caching should respect server cache intent (`Cache-Control: no-store`) and return explicit offline 503 responses when no cached entry exists, instead of throwing fetch-handler errors.
+- Shared collection-delta logic now lives in `src/app/lib/collectionDelta.ts`; both travel and cost delta modules should import it to avoid divergence in add/update/remove/order semantics.
+- Delta shape validators should enforce scalar field types (e.g., number/string/date-like) in addition to collection structure to reject malformed PATCH payloads early.

@@ -115,6 +115,9 @@ describe('travelDataDelta', () => {
     expect(isTravelDataDelta({ locations: { added: [] } })).toBe(true);
     expect(isTravelDataDelta({ locations: [] })).toBe(false);
     expect(isTravelDataDelta({ routes: { removedIds: 'not-array' } })).toBe(false);
+    expect(isTravelDataDelta({ title: 123 })).toBe(false);
+    expect(isTravelDataDelta({ startDate: 123 })).toBe(false);
+    expect(isTravelDataDelta({ instagramUsername: ['nope'] })).toBe(false);
   });
 
   it('detects empty delta payload', () => {

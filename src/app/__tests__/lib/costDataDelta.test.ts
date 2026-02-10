@@ -127,6 +127,9 @@ describe('costDataDelta', () => {
     expect(isCostDataDelta({ expenses: { added: [] } })).toBe(true);
     expect(isCostDataDelta({ countryBudgets: [] })).toBe(false);
     expect(isCostDataDelta({ customCategories: 'not-array' })).toBe(false);
+    expect(isCostDataDelta({ overallBudget: 'not-a-number' })).toBe(false);
+    expect(isCostDataDelta({ reservedBudget: Number.NaN })).toBe(false);
+    expect(isCostDataDelta({ customCategories: ['Food', 123] })).toBe(false);
   });
 
   it('detects empty delta payload', () => {

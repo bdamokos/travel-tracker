@@ -1,14 +1,14 @@
 import { BudgetItem, CostTrackingData, Expense, YnabConfig, YnabImportData } from '@/app/types';
-import { dateReviver } from '@/app/lib/jsonDateReviver';
-
-type EntityWithId = { id: string };
-
-export type CollectionDelta<T extends EntityWithId> = {
-  added?: T[];
-  updated?: Array<Partial<T> & Pick<T, 'id'>>;
-  removedIds?: string[];
-  order?: string[];
-};
+import {
+  CollectionDelta,
+  applyCollectionDelta,
+  cloneSerializable,
+  createCollectionDelta,
+  hasCollectionChanges,
+  isCollectionDeltaShape,
+  isRecord,
+  serialize
+} from '@/app/lib/collectionDelta';
 
 export type CostDataDelta = {
   tripTitle?: string;
@@ -24,64 +24,11 @@ export type CostDataDelta = {
   ynabConfig?: YnabConfig;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isDateLike = (value: unknown): value is Date | string =>
+  value instanceof Date || typeof value === 'string';
 
-const isValidId = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0;
-
-const withDateSerialization = (_key: string, value: unknown): unknown =>
-  value instanceof Date ? value.toISOString() : value;
-
-const serialize = (value: unknown): string => JSON.stringify(value, withDateSerialization) ?? 'null';
-
-const cloneSerializable = <T>(value: T): T => {
-  if (typeof globalThis.structuredClone === 'function') {
-    return globalThis.structuredClone(value);
-  }
-  return JSON.parse(serialize(value), dateReviver) as T;
-};
-
-const hasCollectionChanges = <T extends EntityWithId>(delta?: CollectionDelta<T>): boolean => {
-  if (!delta) return false;
-
-  const added = Array.isArray(delta.added) ? delta.added.length : 0;
-  const updated = Array.isArray(delta.updated) ? delta.updated.length : 0;
-  const removed = Array.isArray(delta.removedIds) ? delta.removedIds.length : 0;
-  const order = Array.isArray(delta.order) ? delta.order.length : 0;
-
-  return added > 0 || updated > 0 || removed > 0 || order > 0;
-};
-
-const createCollectionDelta = <T extends EntityWithId>(
-  previous: T[],
-  current: T[]
-): CollectionDelta<T> | undefined => {
-  const previousMap = new Map(previous.map((item) => [item.id, item]));
-  const currentMap = new Map(current.map((item) => [item.id, item]));
-
-  const added = current.filter((item) => !previousMap.has(item.id));
-  const updated = current.filter((item) => {
-    const previousItem = previousMap.get(item.id);
-    if (!previousItem) return false;
-    return serialize(previousItem) !== serialize(item);
-  });
-  const removedIds = previous.filter((item) => !currentMap.has(item.id)).map((item) => item.id);
-
-  const previousOrder = previous.map((item) => item.id);
-  const currentOrder = current.map((item) => item.id);
-  const orderChanged =
-    previousOrder.length !== currentOrder.length ||
-    previousOrder.some((id, index) => id !== currentOrder[index]);
-
-  const delta: CollectionDelta<T> = {};
-  if (added.length > 0) delta.added = cloneSerializable(added);
-  if (updated.length > 0) delta.updated = cloneSerializable(updated);
-  if (removedIds.length > 0) delta.removedIds = removedIds;
-  if (orderChanged) delta.order = currentOrder;
-
-  return hasCollectionChanges(delta) ? delta : undefined;
-};
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
 
 export const isCostDataDeltaEmpty = (delta: CostDataDelta | null | undefined): boolean => {
   if (!delta) return true;
@@ -157,86 +104,6 @@ export const createCostDataDelta = (
   return isCostDataDeltaEmpty(delta) ? null : delta;
 };
 
-const applyCollectionDelta = <T extends EntityWithId>(
-  existing: T[],
-  delta?: CollectionDelta<T>
-): T[] => {
-  const merged = existing.map((item) => cloneSerializable(item));
-
-  if (!delta) {
-    return merged;
-  }
-
-  const indexById = new Map(merged.map((item, index) => [item.id, index]));
-
-  if (Array.isArray(delta.added)) {
-    for (const candidate of delta.added) {
-      if (!candidate || !isValidId(candidate.id)) continue;
-
-      const id = candidate.id;
-      const next = cloneSerializable(candidate);
-      const existingIndex = indexById.get(id);
-
-      if (existingIndex === undefined) {
-        indexById.set(id, merged.push(next as T) - 1);
-      } else {
-        merged[existingIndex] = {
-          ...merged[existingIndex],
-          ...next
-        } as T;
-      }
-    }
-  }
-
-  if (Array.isArray(delta.updated)) {
-    for (const candidate of delta.updated) {
-      if (!candidate || !isValidId(candidate.id)) continue;
-
-      const id = candidate.id;
-      const existingIndex = indexById.get(id);
-      if (existingIndex === undefined) continue;
-
-      const next = cloneSerializable(candidate);
-      merged[existingIndex] = {
-        ...merged[existingIndex],
-        ...next
-      } as T;
-    }
-  }
-
-  let filtered = merged;
-  if (Array.isArray(delta.removedIds) && delta.removedIds.length > 0) {
-    const removed = new Set(delta.removedIds.filter(isValidId));
-    if (removed.size > 0) {
-      filtered = merged.filter((item) => !removed.has(item.id));
-    }
-  }
-
-  if (Array.isArray(delta.order) && delta.order.length > 0) {
-    const byId = new Map(filtered.map((item) => [item.id, item]));
-    const seen = new Set<string>();
-    const reordered: T[] = [];
-
-    for (const id of delta.order) {
-      if (!isValidId(id)) continue;
-      const item = byId.get(id);
-      if (!item || seen.has(id)) continue;
-      reordered.push(item);
-      seen.add(id);
-    }
-
-    for (const item of filtered) {
-      if (!seen.has(item.id)) {
-        reordered.push(item);
-      }
-    }
-
-    return reordered;
-  }
-
-  return filtered;
-};
-
 export const applyCostDataDelta = (
   base: CostTrackingData,
   delta: CostDataDelta
@@ -286,19 +153,15 @@ export const applyCostDataDelta = (
   return next;
 };
 
-const isCollectionDeltaShape = (value: unknown): value is CollectionDelta<EntityWithId> => {
-  if (!isRecord(value)) return false;
-
-  if (value.added !== undefined && !Array.isArray(value.added)) return false;
-  if (value.updated !== undefined && !Array.isArray(value.updated)) return false;
-  if (value.removedIds !== undefined && !Array.isArray(value.removedIds)) return false;
-  if (value.order !== undefined && !Array.isArray(value.order)) return false;
-
-  return true;
-};
-
 export const isCostDataDelta = (value: unknown): value is CostDataDelta => {
   if (!isRecord(value)) return false;
+
+  if (value.tripTitle !== undefined && typeof value.tripTitle !== 'string') return false;
+  if (value.tripStartDate !== undefined && !isDateLike(value.tripStartDate)) return false;
+  if (value.tripEndDate !== undefined && !isDateLike(value.tripEndDate)) return false;
+  if (value.overallBudget !== undefined && !isFiniteNumber(value.overallBudget)) return false;
+  if (value.reservedBudget !== undefined && !isFiniteNumber(value.reservedBudget)) return false;
+  if (value.currency !== undefined && typeof value.currency !== 'string') return false;
 
   if (value.countryBudgets !== undefined && !isCollectionDeltaShape(value.countryBudgets)) {
     return false;
@@ -308,7 +171,10 @@ export const isCostDataDelta = (value: unknown): value is CostDataDelta => {
     return false;
   }
 
-  if (value.customCategories !== undefined && !Array.isArray(value.customCategories)) {
+  if (
+    value.customCategories !== undefined &&
+    (!Array.isArray(value.customCategories) || value.customCategories.some((category) => typeof category !== 'string'))
+  ) {
     return false;
   }
 
