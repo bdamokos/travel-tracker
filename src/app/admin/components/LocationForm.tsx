@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import AccessibleDatePicker from './AccessibleDatePicker';
 import CostTrackingLinksManager from '@/app/admin/components/CostTrackingLinksManager';
 import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
-import { formatDuration } from '@/app/lib/durationUtils';
+import { calculateDurationInDays, formatDuration } from '@/app/lib/durationUtils';
 import { Location, CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
@@ -58,11 +58,20 @@ export default function LocationForm({
     // Handle end date and calculate duration
     const startDateStr = data.date as string;
     const endDateStr = data.endDate as string || undefined;
-    const startDate = parseDateAsLocalDay(startDateStr) || getTodayLocalDay();
+    const startDate = parseDateAsLocalDay(startDateStr);
+    if (!startDate) {
+      throw new Error('Please provide a valid arrival date.');
+    }
+
     const endDate = endDateStr ? (parseDateAsLocalDay(endDateStr) || undefined) : undefined;
-    const duration = endDate && startDate ? 
-      Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 
-      undefined;
+    if (endDateStr && !endDate) {
+      throw new Error('Please provide a valid departure date.');
+    }
+
+    const duration = endDate ? calculateDurationInDays(startDate, endDate) : undefined;
+    if (endDate && (!duration || duration <= 0)) {
+      throw new Error('Departure date cannot be before arrival date.');
+    }
     
     const wikipediaRef = typeof data.wikipediaRef === 'string' ? data.wikipediaRef.trim() : '';
 
@@ -183,8 +192,26 @@ export default function LocationForm({
             name="date"
             required
             className="w-full"
-            defaultValue={parseDateAsLocalDay(currentLocation.date)}
-            onChange={(val) => val && setCurrentLocation((prev: Partial<Location>) => ({ ...prev, date: val as Date }))}
+            value={parseDateAsLocalDay(currentLocation.date)}
+            onChange={(arrivalDate) =>
+              setCurrentLocation((prev: Partial<Location>) => {
+                if (!arrivalDate) {
+                  return prev;
+                }
+
+                const normalizedArrival = parseDateAsLocalDay(arrivalDate);
+                const normalizedEndDate = parseDateAsLocalDay(prev.endDate);
+                const duration = normalizedArrival && normalizedEndDate
+                  ? calculateDurationInDays(normalizedArrival, normalizedEndDate)
+                  : undefined;
+
+                return {
+                  ...prev,
+                  date: normalizedArrival || arrivalDate,
+                  duration: duration && duration > 0 ? duration : undefined
+                };
+              })
+            }
             data-testid="location-date"
           />
         </div>
@@ -197,14 +224,20 @@ export default function LocationForm({
             id="location-end-date"
             name="endDate"
             className="w-full"
-            defaultValue={parseDateAsLocalDay(currentLocation.endDate)}
+            value={parseDateAsLocalDay(currentLocation.endDate)}
             onChange={(endDate) => {
               setCurrentLocation((prev: Partial<Location>) => {
-                const start = parseDateAsLocalDay(prev.date) || undefined;
-                const duration = endDate && start ?
-                  Math.ceil(((endDate as Date).getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1 :
-                  undefined;
-                return { ...prev, endDate: (endDate as Date) || undefined, duration };
+                const start = parseDateAsLocalDay(prev.date);
+                const normalizedEndDate = parseDateAsLocalDay(endDate);
+                const duration = normalizedEndDate && start
+                  ? calculateDurationInDays(start, normalizedEndDate)
+                  : undefined;
+
+                return {
+                  ...prev,
+                  endDate: normalizedEndDate || undefined,
+                  duration: duration && duration > 0 ? duration : undefined
+                };
               });
             }}
           />

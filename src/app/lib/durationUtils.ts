@@ -1,4 +1,5 @@
 import { Location, Transportation } from '@/app/types';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 // Interface for TravelRoute from TravelDataForm
 interface TravelRoute {
@@ -13,16 +14,36 @@ interface TravelRoute {
   notes?: string;
 }
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function toUtcDayTimestamp(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getLocalDayDifference(
+  startDate: string | Date,
+  endDate: string | Date
+): number | null {
+  const start = parseDateAsLocalDay(startDate);
+  const end = parseDateAsLocalDay(endDate);
+
+  if (!start || !end) {
+    return null;
+  }
+
+  return Math.round((toUtcDayTimestamp(end) - toUtcDayTimestamp(start)) / MS_PER_DAY);
+}
+
 /**
  * Calculate the duration in days between two dates (inclusive)
  * Returns the number of days staying (including both start and end dates)
  */
 export function calculateDurationInDays(startDate: string | Date, endDate: string | Date): number {
-  const start = startDate instanceof Date ? startDate : new Date(startDate);
-  const end = endDate instanceof Date ? endDate : new Date(endDate);
-  const diffTime = Math.abs(end.getTime() - start.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  return diffDays;
+  const diffDays = getLocalDayDifference(startDate, endDate);
+  if (diffDays === null || diffDays < 0) {
+    return 0;
+  }
+  return diffDays + 1;
 }
 
 /**
@@ -30,11 +51,11 @@ export function calculateDurationInDays(startDate: string | Date, endDate: strin
  * Same date = 0 nights, consecutive dates = 1 night, etc.
  */
 export function calculateNights(startDate: string | Date, endDate: string | Date): number {
-  const start = startDate instanceof Date ? startDate : new Date(startDate);
-  const end = endDate instanceof Date ? endDate : new Date(endDate);
-  const diffTime = Math.abs(end.getTime() - start.getTime());
-  const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return nights;
+  const diffDays = getLocalDayDifference(startDate, endDate);
+  if (diffDays === null || diffDays < 0) {
+    return 0;
+  }
+  return diffDays;
 }
 
 /**
@@ -74,9 +95,14 @@ export function calculateSmartDurations(
   });
 
   // Sort locations by date to process them in chronological order
-  const sortedLocations = [...locations].sort((a, b) => 
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  const sortedLocations = [...locations].sort((a, b) => {
+    const aDate = parseDateAsLocalDay(a.date);
+    const bDate = parseDateAsLocalDay(b.date);
+    if (!aDate && !bDate) return 0;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.getTime() - bDate.getTime();
+  });
 
   return sortedLocations.map((location, index) => {
     // Skip if endDate is manually set (preserve manual input)
@@ -104,8 +130,8 @@ export function calculateSmartDurations(
     if (outboundRoute && outboundRoute.departureTime) {
       // Extract date from departure time (assuming format includes date)
       const departureDate = outboundRoute.departureTime.split('T')[0] || outboundRoute.departureTime;
-      suggestedEndDate = new Date(departureDate);
-      suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
+      suggestedEndDate = parseDateAsLocalDay(departureDate) || undefined;
+      suggestedDuration = suggestedEndDate ? calculateDurationInDays(location.date, suggestedEndDate) : undefined;
     }
 
     // Method 2: Look at the next location's arrival
@@ -121,14 +147,17 @@ export function calculateSmartDurations(
 
       if (routeToNext && routeToNext.departureTime) {
         const departureDate = routeToNext.departureTime.split('T')[0] || routeToNext.departureTime;
-        suggestedEndDate = new Date(departureDate);
-        suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
+        suggestedEndDate = parseDateAsLocalDay(departureDate) || undefined;
+        suggestedDuration = suggestedEndDate ? calculateDurationInDays(location.date, suggestedEndDate) : undefined;
       } else {
         // Fallback: use the day before next location's date
-        const dayBefore = new Date(nextLocation.date);
-        dayBefore.setDate(dayBefore.getDate() - 1);
-        suggestedEndDate = dayBefore;
-        suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
+        const nextDate = parseDateAsLocalDay(nextLocation.date);
+        if (nextDate) {
+          const dayBefore = new Date(nextDate);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          suggestedEndDate = dayBefore;
+          suggestedDuration = calculateDurationInDays(location.date, suggestedEndDate);
+        }
       }
     }
 
