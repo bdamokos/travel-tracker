@@ -4,6 +4,7 @@ import { filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { applyTravelDataDelta, isTravelDataDelta, isTravelDataDeltaEmpty } from '@/app/lib/travelDataDelta';
+import { dateReviver } from '@/app/lib/jsonDateReviver';
 import type { TravelData } from '@/app/types';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -241,7 +242,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
-    const updateRequest = await request.json();
+    const updateRequest = JSON.parse(await request.text(), dateReviver);
     
     // Handle autosave delta updates
     if (updateRequest.deltaUpdate !== undefined) {
