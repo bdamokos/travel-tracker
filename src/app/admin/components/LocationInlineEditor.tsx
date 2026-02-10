@@ -94,7 +94,11 @@ export default function LocationInlineEditor({
     const endDateObj = endDate ? (parseDateAsLocalDay(endDate) || undefined) : undefined;
     const startDate = parseDateAsLocalDay(formData.date);
     const duration = endDateObj && startDate ?
-      Math.ceil((endDateObj.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 :
+      Math.floor(
+        (Date.UTC(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate()) -
+          Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())) /
+          (1000 * 60 * 60 * 24)
+      ) + 1 :
       undefined;
     
     setFormData(prev => ({ ...prev, endDate: endDateObj, duration }));

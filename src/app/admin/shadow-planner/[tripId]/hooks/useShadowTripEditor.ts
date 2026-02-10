@@ -9,7 +9,7 @@ import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { generateRoutePoints } from '@/app/lib/routeUtils';
 import { REAL_LOCATION_MARKER } from '@/app/lib/shadowConstants'; // Fixed: removed unused SHADOW_LOCATION_PREFIX import
-import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
+import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 type ShadowRoutePayload = {
   id?: string;
@@ -258,12 +258,12 @@ export function useShadowTripEditor(tripId: string) {
               routes: shadowTravelData.routes.map(route => ({
                 ...route,
                 type: route.transportType,
-                departureTime: formatLocalDateInput(route.date),
+                departureTime: route.date?.toISOString(),
                 privateNotes: route.privateNotes,
                 subRoutes: route.subRoutes?.map(segment => ({
                   ...segment,
                   type: segment.transportType,
-                  departureTime: formatLocalDateInput(segment.date),
+                  departureTime: segment.date?.toISOString(),
                   privateNotes: segment.privateNotes,
                   fromCoordinates: segment.fromCoords,
                   toCoordinates: segment.toCoords
@@ -310,7 +310,7 @@ export function useShadowTripEditor(tripId: string) {
               from: route.from,
               to: route.to,
               type: route.transportType,
-              departureTime: formatLocalDateInput(route.date),
+              departureTime: route.date?.toISOString(),
               privateNotes: route.privateNotes,
               fromCoordinates: route.fromCoords,
               toCoordinates: route.toCoords,
@@ -322,7 +322,7 @@ export function useShadowTripEditor(tripId: string) {
                 from: segment.from,
                 to: segment.to,
                 type: segment.transportType,
-                departureTime: formatLocalDateInput(segment.date),
+                departureTime: segment.date?.toISOString(),
                 privateNotes: segment.privateNotes,
                 fromCoordinates: segment.fromCoords,
                 toCoordinates: segment.toCoords,

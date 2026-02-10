@@ -47,7 +47,17 @@ export function parseDateAsLocalDay(value: Date | string | undefined | null): Da
     const month = Number(dateOnlyMatch[2]);
     const day = Number(dateOnlyMatch[3]);
     const localDate = toLocalDate(year, month, day);
-    return isValidDate(localDate) ? localDate : null;
+    if (!isValidDate(localDate)) {
+      return null;
+    }
+    if (
+      localDate.getFullYear() !== year ||
+      localDate.getMonth() + 1 !== month ||
+      localDate.getDate() !== day
+    ) {
+      return null;
+    }
+    return localDate;
   }
 
   const parsed = new Date(trimmed);

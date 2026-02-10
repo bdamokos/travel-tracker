@@ -791,7 +791,16 @@ export default function CashTransactionManager({
             </h6>
             <ul className="space-y-1 text-xs text-yellow-900 dark:text-yellow-100">
               {allocations
-                .sort((a, b) => getLocalDateSortValue(b.date) - getLocalDateSortValue(a.date))
+                .sort((a, b) => {
+                  const aValue = getLocalDateSortValue(a.date);
+                  const bValue = getLocalDateSortValue(b.date);
+                  const aMissing = aValue === Number.MAX_SAFE_INTEGER;
+                  const bMissing = bValue === Number.MAX_SAFE_INTEGER;
+                  if (aMissing && bMissing) return 0;
+                  if (aMissing) return 1;
+                  if (bMissing) return -1;
+                  return bValue - aValue;
+                })
                 .map(allocation => {
                   if (!isCashAllocation(allocation)) {
                     return null;
