@@ -178,6 +178,7 @@ export function useTripEditor(tripId: string | null) {
         transportType: routeTransportType,
         date: route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date(),
         duration: route.duration,
+        distanceOverride: route.distanceOverride,
         notes: route.notes || '',
         privateNotes: route.privateNotes,
         costTrackingLinks: route.costTrackingLinks || [],
@@ -195,6 +196,7 @@ export function useTripEditor(tripId: string | null) {
             ? (segment.date instanceof Date ? segment.date : new Date(segment.date))
             : (route.date ? (route.date instanceof Date ? route.date : new Date(route.date)) : new Date()),
           duration: segment.duration,
+          distanceOverride: segment.distanceOverride,
           notes: segment.notes || '',
           privateNotes: segment.privateNotes,
           costTrackingLinks: segment.costTrackingLinks || [],

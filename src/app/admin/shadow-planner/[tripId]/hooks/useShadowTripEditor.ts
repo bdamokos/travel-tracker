@@ -26,6 +26,7 @@ type ShadowRoutePayload = {
   routePoints?: [number, number][];
   costTrackingLinks?: Array<{ expenseId: string; description?: string }>;
   privateNotes?: string;
+  distanceOverride?: number;
 };
 
 export function useShadowTripEditor(tripId: string) {
@@ -217,6 +218,7 @@ export function useShadowTripEditor(tripId: string) {
               toCoords: route.toCoords || [0, 0],
               from: `${REAL_LOCATION_MARKER} ${route.from}`, // Mark real routes
               to: `${REAL_LOCATION_MARKER} ${route.to}`,
+              distanceOverride: route.distanceOverride,
               isReadOnly: true
             })),
             ...shadowRoutes.map((route: ShadowRoutePayload) => ({
@@ -230,8 +232,10 @@ export function useShadowTripEditor(tripId: string) {
                 transportType: segment.type || segment.transportType,
                 date: new Date(segment.departureTime || segment.date || new Date()),
                 fromCoords: segment.fromCoords || segment.fromCoordinates || [0, 0],
-                toCoords: segment.toCoords || segment.toCoordinates || [0, 0]
+                toCoords: segment.toCoords || segment.toCoordinates || [0, 0],
+                distanceOverride: segment.distanceOverride
               })),
+              distanceOverride: route.distanceOverride,
               isReadOnly: false
             }))
           ]
@@ -311,6 +315,7 @@ export function useShadowTripEditor(tripId: string) {
               toCoordinates: route.toCoords,
               routePoints: route.routePoints,
               costTrackingLinks: route.costTrackingLinks || [],
+              distanceOverride: route.distanceOverride,
               subRoutes: route.subRoutes?.map(segment => ({
                 id: segment.id,
                 from: segment.from,
@@ -322,6 +327,7 @@ export function useShadowTripEditor(tripId: string) {
                 toCoordinates: segment.toCoords,
                 routePoints: segment.routePoints,
                 costTrackingLinks: segment.costTrackingLinks || [],
+                distanceOverride: segment.distanceOverride,
                 useManualRoutePoints: segment.useManualRoutePoints,
                 isReturn: segment.isReturn,
                 isReadOnly: segment.isReadOnly

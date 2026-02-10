@@ -107,6 +107,7 @@ export interface TravelRouteSegment {
   transportType: TransportationType;
   date: Date;
   duration?: string;
+  distanceOverride?: number;
   notes?: string;
   // Private fields (admin only)
   privateNotes?: string;

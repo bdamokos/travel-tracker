@@ -3,6 +3,7 @@ type RouteSegmentLike = {
   to?: string;
   fromCoords?: [number, number];
   toCoords?: [number, number];
+  distanceOverride?: number;
 };
 
 export type CompositeRouteLike = RouteSegmentLike & {
