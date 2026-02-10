@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMapUrl } from '@/app/lib/domains';
 import { calculateSmartDurations } from '@/app/lib/durationUtils';
 import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelRouteSegment, TravelData, Transportation, Accommodation } from '@/app/types';
@@ -11,6 +11,7 @@ import { generateRoutePoints, getCompositeTransportType } from '@/app/lib/routeU
 import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
+import { createTravelDataDelta, isTravelDataDeltaEmpty, snapshotTravelData } from '@/app/lib/travelDataDelta';
 
 interface ExistingTrip {
   id: string;
@@ -53,6 +54,7 @@ export function useTripEditor(tripId: string | null) {
   });
   const [costData, setCostData] = useState<CostTrackingData | null>(null);
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
+  const lastSavedTravelDataRef = useRef<TravelData | null>(null);
   
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
@@ -247,6 +249,7 @@ export function useTripEditor(tripId: string | null) {
         const rawTripData = await response.json();
         const tripData = migrateOldFormat(rawTripData);
         setTravelData(tripData);
+        lastSavedTravelDataRef.current = snapshotTravelData(tripData);
 
         // Load cost data for this trip
         const costResponse = await fetch(`/api/cost-tracking?id=${tripId}`);
@@ -312,10 +315,79 @@ export function useTripEditor(tripId: string | null) {
   }, [tripId, loadTripForEditing, loadExistingTrips]);
 
   const autoSaveTravelData = useCallback(async () => {
-    try {
+    const saveFullTravelData = async (): Promise<{ success: boolean; savedId?: string }> => {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
-      
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(travelData),
+      });
+
+      if (!response.ok) {
+        let errorDetails = '';
+        try {
+          const errorBody = await response.text();
+          errorDetails = errorBody;
+        } catch {
+          errorDetails = '';
+        }
+        console.error('Auto-save (full) failed:', response.status, errorDetails);
+        return { success: false };
+      }
+
+      const result = await response.json();
+      const savedId: string | undefined = result.id;
+
+      if (mode === 'create' && savedId) {
+        setTravelData(prev => ({ ...prev, id: savedId }));
+        setMode('edit');
+      }
+
+      return { success: true, savedId };
+    };
+
+    const saveDeltaTravelData = async (): Promise<boolean> => {
+      if (mode !== 'edit' || !travelData.id || !lastSavedTravelDataRef.current) {
+        return false;
+      }
+
+      const delta = createTravelDataDelta(lastSavedTravelDataRef.current, travelData);
+      if (!delta || isTravelDataDeltaEmpty(delta)) {
+        return true;
+      }
+
+      try {
+        const response = await fetch(`/api/travel-data?id=${travelData.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ deltaUpdate: delta }),
+        });
+
+        if (!response.ok) {
+          let errorDetails = '';
+          try {
+            errorDetails = await response.text();
+          } catch {
+            errorDetails = '';
+          }
+          console.warn('Auto-save (delta) failed, will fallback to full save:', response.status, errorDetails);
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.warn('Auto-save (delta) error, will fallback to full save:', error);
+        return false;
+      }
+    };
+
+    try {
       const debugAutoSave = process.env.NEXT_PUBLIC_DEBUG_AUTOSAVE === 'true';
       if (debugAutoSave) {
         console.log(`[autoSaveTravelData] Saving ${travelData.routes.length} routes`);
@@ -327,34 +399,28 @@ export function useTripEditor(tripId: string | null) {
           );
         });
       }
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(travelData),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        // Update ID if creating new trip
-        if (mode === 'create' && result.id) {
-          setTravelData(prev => ({ ...prev, id: result.id }));
-          setMode('edit');
+
+      if (mode === 'edit' && travelData.id && lastSavedTravelDataRef.current) {
+        const deltaSaved = await saveDeltaTravelData();
+        if (deltaSaved) {
+          lastSavedTravelDataRef.current = snapshotTravelData(travelData);
+          return true;
         }
-        return true;
-      } else {
-        let errorDetails = '';
-        try {
-          const errorBody = await response.text();
-          errorDetails = errorBody;
-        } catch {
-          errorDetails = '';
-        }
-        console.error('Auto-save failed:', response.status, errorDetails);
-        return false;
       }
+
+      const fullSave = await saveFullTravelData();
+      if (!fullSave.success) return false;
+
+      if (fullSave.savedId && fullSave.savedId !== travelData.id) {
+        lastSavedTravelDataRef.current = snapshotTravelData({
+          ...travelData,
+          id: fullSave.savedId
+        });
+      } else {
+        lastSavedTravelDataRef.current = snapshotTravelData(travelData);
+      }
+
+      return true;
     } catch (error) {
       console.error('Auto-save error:', error);
       return false;
@@ -748,6 +814,10 @@ export function useTripEditor(tripId: string | null) {
       if (response.ok) {
         const result = await response.json();
         setHasUnsavedChanges(false); // Mark as saved
+        const savedId: string | undefined = result.id;
+        lastSavedTravelDataRef.current = snapshotTravelData(
+          savedId && savedId !== travelData.id ? { ...travelData, id: savedId } : travelData
+        );
         
         // Use the proper helper function and open the map
         const mapUrl = getMapUrl(result.id);

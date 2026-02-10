@@ -1,11 +1,12 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { CostTrackingData, ExistingTrip } from '@/app/types';
 import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEditor';
 import { getTodayLocalDay } from '@/app/lib/localDateUtils';
+import { createCostDataDelta, isCostDataDeltaEmpty, snapshotCostData } from '@/app/lib/costDataDelta';
 
 export default function CostTrackingPage() {
   const params = useParams();
@@ -35,6 +36,7 @@ export default function CostTrackingPage() {
   });
 
   const [selectedTrip, setSelectedTrip] = useState<ExistingTrip | null>(null);
+  const lastSavedCostDataRef = useRef<CostTrackingData | null>(null);
 
   // Check admin access
   useEffect(() => {
@@ -99,6 +101,7 @@ export default function CostTrackingPage() {
           };
           
           setCostData(migratedData);
+          lastSavedCostDataRef.current = snapshotCostData(migratedData);
           setHasUnsavedChanges(false);
         } else {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -128,16 +131,79 @@ export default function CostTrackingPage() {
       return false;
     }
 
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(costData),
-    });
-    
-    return response.ok;
+    const saveFullCostData = async (): Promise<boolean> => {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(costData),
+      });
+
+      if (!response.ok) {
+        let errorDetails = '';
+        try {
+          errorDetails = await response.text();
+        } catch {
+          errorDetails = '';
+        }
+        console.error('Auto-save (full) failed:', response.status, errorDetails);
+        return false;
+      }
+
+      return true;
+    };
+
+    const saveDeltaCostData = async (): Promise<boolean> => {
+      if (!lastSavedCostDataRef.current) {
+        return false;
+      }
+
+      const delta = createCostDataDelta(lastSavedCostDataRef.current, costData);
+      if (!delta || isCostDataDeltaEmpty(delta)) {
+        return true;
+      }
+
+      try {
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+        const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ deltaUpdate: delta }),
+        });
+
+        if (!response.ok) {
+          let errorDetails = '';
+          try {
+            errorDetails = await response.text();
+          } catch {
+            errorDetails = '';
+          }
+          console.warn('Auto-save (delta) failed, will fallback to full save:', response.status, errorDetails);
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.warn('Auto-save (delta) error, will fallback to full save:', error);
+        return false;
+      }
+    };
+
+    const deltaSaved = await saveDeltaCostData();
+    if (deltaSaved) {
+      lastSavedCostDataRef.current = snapshotCostData(costData);
+      return true;
+    }
+
+    const fullSaved = await saveFullCostData();
+    if (fullSaved) {
+      lastSavedCostDataRef.current = snapshotCostData(costData);
+    }
+    return fullSaved;
   }, [costData, isNewCostTracker]);
 
   // Auto-save effect for edit mode
@@ -196,6 +262,7 @@ export default function CostTrackingPage() {
       if (response.ok) {
         const savedData = await response.json();
         setHasUnsavedChanges(false);
+        lastSavedCostDataRef.current = snapshotCostData(costData);
         alert('Cost tracking data saved successfully!');
         
         if (isNewCostTracker) {

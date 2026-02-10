@@ -5,9 +5,9 @@ import AccessibleDatePicker from '@/app/admin/components/AccessibleDatePicker';
 import CostTrackingLinksManager from '@/app/admin/components/CostTrackingLinksManager';
 import LocationAccommodationsManager from '@/app/admin/components/LocationAccommodationsManager';
 import { Location, CostTrackingData } from '@/app/types';
-import { formatDuration } from '@/app/lib/durationUtils';
+import { calculateDurationInDays, formatDuration } from '@/app/lib/durationUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
-import { formatLocalDateInput, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface LocationInlineEditorProps {
   location: Location;
@@ -90,18 +90,21 @@ export default function LocationInlineEditor({
     }
   };
 
-  const handleEndDateChange = (endDate: string) => {
-    const endDateObj = endDate ? (parseDateAsLocalDay(endDate) || undefined) : undefined;
-    const startDate = parseDateAsLocalDay(formData.date);
-    const duration = endDateObj && startDate ?
-      Math.floor(
-        (Date.UTC(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate()) -
-          Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())) /
-          (1000 * 60 * 60 * 24)
-      ) + 1 :
-      undefined;
-    
-    setFormData(prev => ({ ...prev, endDate: endDateObj, duration }));
+  const handleEndDateChange = (endDate: Date | null) => {
+    const endDateObj = parseDateAsLocalDay(endDate) || undefined;
+
+    setFormData(prev => {
+      const startDate = parseDateAsLocalDay(prev.date);
+      const duration = endDateObj && startDate
+        ? calculateDurationInDays(startDate, endDateObj)
+        : undefined;
+
+      return {
+        ...prev,
+        endDate: endDateObj,
+        duration: duration && duration > 0 ? duration : undefined
+      };
+    });
   };
 
   return (
@@ -141,7 +144,25 @@ export default function LocationInlineEditor({
             <AccessibleDatePicker
               id={arrivalDateInputId}
               value={parseDateAsLocalDay(formData.date)}
-              onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
+              onChange={(arrivalDate) =>
+                setFormData(prev => {
+                  if (!arrivalDate) {
+                    return prev;
+                  }
+
+                  const normalizedStartDate = parseDateAsLocalDay(arrivalDate);
+                  const normalizedEndDate = parseDateAsLocalDay(prev.endDate);
+                  const duration = normalizedStartDate && normalizedEndDate
+                    ? calculateDurationInDays(normalizedStartDate, normalizedEndDate)
+                    : undefined;
+
+                  return {
+                    ...prev,
+                    date: normalizedStartDate || arrivalDate,
+                    duration: duration && duration > 0 ? duration : undefined
+                  };
+                })
+              }
               required
               aria-labelledby={arrivalDateLabelId}
               className="text-sm"
@@ -154,7 +175,7 @@ export default function LocationInlineEditor({
             <AccessibleDatePicker
               id={departureDateInputId}
               value={parseDateAsLocalDay(formData.endDate)}
-              onChange={(endDate) => handleEndDateChange(formatLocalDateInput(endDate))}
+              onChange={(endDate) => handleEndDateChange(endDate)}
               aria-labelledby={departureDateLabelId}
               className="text-sm"
             />

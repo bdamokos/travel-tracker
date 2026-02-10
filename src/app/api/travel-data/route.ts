@@ -3,6 +3,10 @@ import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '@/a
 import { filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
+import { applyTravelDataDelta, isTravelDataDelta, isTravelDataDeltaEmpty } from '@/app/lib/travelDataDelta';
+import { dateReviver } from '@/app/lib/jsonDateReviver';
+import type { TravelData } from '@/app/types';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
 
@@ -238,8 +242,75 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
-    const updateRequest = await request.json();
+    const updateRequest = JSON.parse(await request.text(), dateReviver);
     
+    // Handle autosave delta updates
+    if (updateRequest.deltaUpdate !== undefined) {
+      const delta = updateRequest.deltaUpdate;
+      if (!isTravelDataDelta(delta)) {
+        return NextResponse.json(
+          { error: 'Invalid delta payload' },
+          { status: 400 }
+        );
+      }
+
+      if (isTravelDataDeltaEmpty(delta)) {
+        return NextResponse.json({
+          success: true,
+          message: 'No delta changes to apply'
+        });
+      }
+
+      const unifiedData = await loadUnifiedTripData(id);
+      if (!unifiedData) {
+        return NextResponse.json(
+          { error: 'Travel data not found' },
+          { status: 404 }
+        );
+      }
+
+      const baseTravelData = {
+        id: unifiedData.id,
+        title: unifiedData.title,
+        description: unifiedData.description,
+        startDate: parseDateAsLocalDay(unifiedData.startDate) ?? new Date(),
+        endDate: parseDateAsLocalDay(unifiedData.endDate) ?? new Date(),
+        instagramUsername: unifiedData.travelData?.instagramUsername,
+        locations: unifiedData.travelData?.locations || [],
+        routes: (unifiedData.travelData?.routes || []) as unknown as TravelData['routes']
+      } as TravelData;
+
+      // Defensive merge: apply only explicit add/update/remove operations from the delta.
+      // Missing keys never imply deletion.
+      // Accommodations are intentionally excluded here because they are managed by dedicated
+      // accommodation endpoints and not part of TravelDataDelta.
+      const merged = applyTravelDataDelta(baseTravelData, delta);
+
+      const { routes, error } = normalizeCompositeRoutes(merged.routes as unknown as RoutePayload[]);
+      if (error) {
+        return NextResponse.json(
+          { error },
+          { status: 400 }
+        );
+      }
+
+      await updateTravelData(id, {
+        id,
+        title: merged.title,
+        description: merged.description,
+        startDate: merged.startDate,
+        endDate: merged.endDate,
+        instagramUsername: merged.instagramUsername,
+        locations: merged.locations,
+        routes
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Delta applied successfully'
+      });
+    }
+
     // Handle batch route point updates
     if (updateRequest.batchRouteUpdate) {
       const updates = updateRequest.batchRouteUpdate as Array<{routeId: string, routePoints: [number, number][]}>;
