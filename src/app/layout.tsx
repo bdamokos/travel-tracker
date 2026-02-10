@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
 import IframeAccessibilityFixer from './components/IframeAccessibilityFixer';
+import ServiceWorkerRegistration from './components/ServiceWorkerRegistration';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,6 +29,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <IframeAccessibilityFixer />
+        <ServiceWorkerRegistration />
         <main>
           <ErrorBoundary>
             {children}
