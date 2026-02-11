@@ -227,7 +227,7 @@ export function useTripEditor(tripId: string | null) {
   const loadExistingTrips = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/travel-data/list');
+      const response = await fetch('/api/travel-data/list', { cache: 'no-store' });
       if (response.ok) {
         const trips = await response.json();
         setExistingTrips(trips);
@@ -244,7 +244,7 @@ export function useTripEditor(tripId: string | null) {
   const loadTripForEditing = useCallback(async (tripId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/travel-data?id=${tripId}`);
+      const response = await fetch(`/api/travel-data?id=${tripId}`, { cache: 'no-store' });
       if (response.ok) {
         const rawTripData = await response.json();
         const tripData = migrateOldFormat(rawTripData);
@@ -252,7 +252,7 @@ export function useTripEditor(tripId: string | null) {
         lastSavedTravelDataRef.current = snapshotTravelData(tripData);
 
         // Load cost data for this trip
-        const costResponse = await fetch(`/api/cost-tracking?id=${tripId}`);
+        const costResponse = await fetch(`/api/cost-tracking?id=${tripId}`, { cache: 'no-store' });
         if (costResponse.ok) {
           const costData = await costResponse.json();
           setCostData(costData);

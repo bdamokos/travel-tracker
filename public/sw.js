@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -60,6 +60,15 @@ const trimCache = async (cacheName, maxItems) => {
   }
 
   await Promise.all(keys.slice(0, itemsToDelete).map((key) => cache.delete(key)));
+};
+
+const isDataRequest = (url) =>
+  url.origin === self.location.origin && DATA_PATHS.some((path) => url.pathname.startsWith(path));
+
+const clearDataCache = async () => {
+  const cache = await caches.open(DATA_CACHE);
+  const keys = await cache.keys();
+  await Promise.all(keys.map((key) => cache.delete(key)));
 };
 
 self.addEventListener('activate', (event) => {
@@ -150,20 +159,32 @@ const staleWhileRevalidate = async (request, cacheName) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  const url = new URL(request.url);
+
+  if (isDataRequest(url) && request.method !== 'GET') {
+    event.respondWith(
+      (async () => {
+        try {
+          return await fetch(request);
+        } finally {
+          await clearDataCache();
+        }
+      })()
+    );
+    return;
+  }
 
   if (request.method !== 'GET') {
     return;
   }
-
-  const url = new URL(request.url);
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, APP_SHELL_CACHE));
     return;
   }
 
-  if (url.origin === self.location.origin && DATA_PATHS.some((path) => url.pathname.startsWith(path))) {
-    event.respondWith(staleWhileRevalidate(request, DATA_CACHE));
+  if (isDataRequest(url)) {
+    event.respondWith(networkFirst(request, DATA_CACHE));
     return;
   }
 

@@ -42,7 +42,7 @@ export default function CostTrackingPage() {
   useEffect(() => {
     const checkAdminAccess = async () => {
       try {
-        const response = await fetch('/api/admin-check');
+        const response = await fetch('/api/admin-check', { cache: 'no-store' });
         if (response.ok) {
           setIsAuthorized(true);
         } else {
@@ -64,7 +64,7 @@ export default function CostTrackingPage() {
     const loadExistingTrips = async () => {
       try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        const response = await fetch(`${baseUrl}/api/travel-data/list`);
+        const response = await fetch(`${baseUrl}/api/travel-data/list`, { cache: 'no-store' });
         if (response.ok) {
           const trips = await response.json();
           setExistingTrips(trips);
@@ -86,7 +86,7 @@ export default function CostTrackingPage() {
     if (!isNewCostTracker && costId && isAuthorized) {
       try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-        const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costId}`);
+        const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costId}`, { cache: 'no-store' });
         
         if (response.ok) {
           const data = await response.json();

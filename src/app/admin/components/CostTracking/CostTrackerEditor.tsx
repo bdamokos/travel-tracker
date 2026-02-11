@@ -167,7 +167,7 @@ export default function CostTrackerEditor({
     }
     try {
       // Fetch trip data to provide to the lookup service
-      const response = await fetch(`/api/travel-data?id=${tripId}`);
+      const response = await fetch(`/api/travel-data?id=${tripId}`, { cache: 'no-store' });
       if (response.ok) {
         const tripData = await response.json();
         setTripLocations(tripData.locations ?? []);
