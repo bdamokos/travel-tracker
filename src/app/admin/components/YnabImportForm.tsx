@@ -1423,6 +1423,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
                               onReferenceChange={(link) => handleTravelLinkChange(transactionId, link)}
                               initialValue={selection?.travelLinkInfo}
                               transactionDate={txn.date}
+                              showMostLikelyQuickLink={true}
                               className="w-72"
                             />
                           </div>

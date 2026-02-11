@@ -78,6 +78,7 @@ interface TravelItemSelectorProps {
   initialValue?: TravelLinkInfo;
   transactionDate?: Date | string | null;
   transactionDates?: Array<Date | string | null>;
+  showMostLikelyQuickLink?: boolean;
 }
 
 export default function TravelItemSelector({
@@ -87,7 +88,8 @@ export default function TravelItemSelector({
   className = '',
   initialValue,
   transactionDate,
-  transactionDates
+  transactionDates,
+  showMostLikelyQuickLink = false
 }: TravelItemSelectorProps) {
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -435,6 +437,82 @@ export default function TravelItemSelector({
     ];
   }, [itemsForSelectedType, normalizedTransactionDates, selectedType, travelItems]);
 
+  const mostLikelyCandidate = useMemo(() => {
+    if (!normalizedTransactionDates.length || travelItems.length === 0) {
+      return undefined;
+    }
+
+    const transactionTimestamps = normalizedTransactionDates
+      .map(dateValue => getLocalDateSortValue(dateValue))
+      .filter(timestamp => Number.isFinite(timestamp));
+
+    if (!transactionTimestamps.length) {
+      return undefined;
+    }
+
+    const typePriority: Record<TravelItem['type'], number> = {
+      location: 0,
+      accommodation: 1,
+      route: 2
+    };
+
+    const candidates = travelItems
+      .map(item => {
+        const normalizedDate = normalizeDateString(item.date);
+        if (!normalizedDate) {
+          return null;
+        }
+
+        const itemTimestamp = getLocalDateSortValue(normalizedDate);
+        if (!Number.isFinite(itemTimestamp)) {
+          return null;
+        }
+
+        const nearestDays = transactionTimestamps.reduce((minimum, transactionTimestamp) => {
+          const diffDays = Math.round(Math.abs(itemTimestamp - transactionTimestamp) / MS_PER_DAY);
+          return Math.min(minimum, diffDays);
+        }, Number.POSITIVE_INFINITY);
+
+        return {
+          item,
+          nearestDays,
+          typeRank: typePriority[item.type],
+          itemTimestamp
+        };
+      })
+      .filter((candidate): candidate is {
+        item: TravelItem;
+        nearestDays: number;
+        typeRank: number;
+        itemTimestamp: number;
+      } => candidate !== null);
+
+    if (!candidates.length) {
+      return undefined;
+    }
+
+    candidates.sort((a, b) => {
+      if (a.nearestDays !== b.nearestDays) {
+        return a.nearestDays - b.nearestDays;
+      }
+      if (a.typeRank !== b.typeRank) {
+        return a.typeRank - b.typeRank;
+      }
+      if (a.itemTimestamp !== b.itemTimestamp) {
+        return a.itemTimestamp - b.itemTimestamp;
+      }
+      return a.item.name.localeCompare(b.item.name);
+    });
+
+    return candidates[0];
+  }, [normalizedTransactionDates, travelItems]);
+
+  const isMostLikelySelected = Boolean(
+    mostLikelyCandidate &&
+      selectedType === mostLikelyCandidate.item.type &&
+      selectedItem === mostLikelyCandidate.item.id
+  );
+
   const handleTypeChange = (type: string) => {
     setSelectedType(type as 'location' | 'accommodation' | 'route' | '');
     setSelectedItem('');
@@ -504,6 +582,19 @@ export default function TravelItemSelector({
     setReloadToken((prev) => prev + 1);
   };
 
+  const handleUseMostLikely = () => {
+    if (!mostLikelyCandidate) {
+      return;
+    }
+
+    const nextType = mostLikelyCandidate.item.type;
+    const nextItemId = mostLikelyCandidate.item.id;
+
+    setSelectedType(nextType);
+    setSelectedItem(nextItemId);
+    updateReference(nextType, nextItemId, description);
+  };
+
   return (
     <div className={`space-y-3 ${className}`}>
       {loadError && (
@@ -528,6 +619,24 @@ export default function TravelItemSelector({
         <label htmlFor={`${id}-travel-type`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Link to Travel Item (Optional)
         </label>
+        {showMostLikelyQuickLink && mostLikelyCandidate && (
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={handleUseMostLikely}
+              disabled={loading || isMostLikelySelected}
+              className="text-xs text-blue-700 hover:text-blue-800 hover:underline disabled:text-green-700 disabled:no-underline dark:text-blue-300 dark:hover:text-blue-200 dark:disabled:text-green-300"
+            >
+              {isMostLikelySelected
+                ? `Most likely match selected: ${mostLikelyCandidate.item.name}`
+                : `Use most likely match: ${mostLikelyCandidate.item.name} (${mostLikelyCandidate.item.type}${
+                    mostLikelyCandidate.nearestDays === 0
+                      ? ', matching date'
+                      : `, ${mostLikelyCandidate.nearestDays} day${mostLikelyCandidate.nearestDays === 1 ? '' : 's'} away`
+                  })`}
+            </button>
+          </div>
+        )}
         <AriaSelect
           id={`${id}-travel-type`}
           value={selectedType}
