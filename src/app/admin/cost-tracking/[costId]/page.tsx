@@ -7,6 +7,9 @@ import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEditor';
 import { getTodayLocalDay } from '@/app/lib/localDateUtils';
 import { createCostDataDelta, isCostDataDeltaEmpty, snapshotCostData } from '@/app/lib/costDataDelta';
+import { formatOfflineConflictMessage, queueCostDelta, syncOfflineDeltaQueue } from '@/app/lib/offlineDeltaSync';
+
+const normalizeCostId = (id: string): string => id.replace(/^(cost-)+/, '');
 
 export default function CostTrackingPage() {
   const params = useParams();
@@ -131,17 +134,47 @@ export default function CostTrackingPage() {
       return false;
     }
 
-    const saveFullCostData = async (): Promise<boolean> => {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(costData),
+    const tryQueueOfflineDelta = (): boolean => {
+      if (!lastSavedCostDataRef.current || !costData.id) {
+        return false;
+      }
+
+      const queued = queueCostDelta({
+        id: costData.id,
+        baseSnapshot: lastSavedCostDataRef.current,
+        pendingSnapshot: costData
       });
 
+      if (queued.queued) {
+        console.warn('Auto-save queued offline cost delta for later sync:', costData.id);
+        return true;
+      }
+
+      return false;
+    };
+
+    const saveFullCostData = async (): Promise<boolean> => {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      let response: Response;
+      try {
+        response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(costData),
+        });
+      } catch (error) {
+        console.warn('Auto-save (full) network failure, queuing offline delta:', error);
+        return tryQueueOfflineDelta();
+      }
+
       if (!response.ok) {
+        const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
+        if (shouldQueue) {
+          return tryQueueOfflineDelta();
+        }
+
         let errorDetails = '';
         try {
           errorDetails = await response.text();
@@ -176,6 +209,11 @@ export default function CostTrackingPage() {
         });
 
         if (!response.ok) {
+          const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
+          if (shouldQueue) {
+            return tryQueueOfflineDelta();
+          }
+
           let errorDetails = '';
           try {
             errorDetails = await response.text();
@@ -188,8 +226,8 @@ export default function CostTrackingPage() {
 
         return true;
       } catch (error) {
-        console.warn('Auto-save (delta) error, will fallback to full save:', error);
-        return false;
+        console.warn('Auto-save (delta) network error, queuing offline delta:', error);
+        return tryQueueOfflineDelta();
       }
     };
 
@@ -205,6 +243,40 @@ export default function CostTrackingPage() {
     }
     return fullSaved;
   }, [costData, isNewCostTracker]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const activeCostId = costData.id || costId;
+    if (!activeCostId) {
+      return;
+    }
+
+    const handleSync = async () => {
+      await syncOfflineDeltaQueue({
+        onConflict: (conflict) => {
+          if (conflict.kind !== 'cost') {
+            return;
+          }
+
+          if (normalizeCostId(conflict.id) !== normalizeCostId(activeCostId)) {
+            return;
+          }
+
+          alert(formatOfflineConflictMessage(conflict));
+        }
+      });
+    };
+
+    void handleSync();
+    window.addEventListener('online', handleSync);
+
+    return () => {
+      window.removeEventListener('online', handleSync);
+    };
+  }, [costData.id, costId]);
 
   // Auto-save effect for edit mode
   useEffect(() => {

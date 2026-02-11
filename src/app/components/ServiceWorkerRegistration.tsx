@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { formatOfflineConflictMessage, syncOfflineDeltaQueue } from '@/app/lib/offlineDeltaSync';
 
 const SERVICE_WORKER_PATH = '/sw.js';
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
@@ -68,6 +69,12 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onOnline = (): void => {
+      void syncOfflineDeltaQueue({
+        onConflict: (conflict) => {
+          window.alert(formatOfflineConflictMessage(conflict));
+        }
+      });
+
       if (!registration) {
         return;
       }
@@ -137,6 +144,12 @@ export default function ServiceWorkerRegistration(): null {
         notifyUpdateAvailable();
         requestUpdateActivation();
       }
+
+      void syncOfflineDeltaQueue({
+        onConflict: (conflict) => {
+          window.alert(formatOfflineConflictMessage(conflict));
+        }
+      });
     };
 
     void registerServiceWorker();

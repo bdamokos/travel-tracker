@@ -12,6 +12,7 @@ import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import { createTravelDataDelta, isTravelDataDeltaEmpty, snapshotTravelData } from '@/app/lib/travelDataDelta';
+import { formatOfflineConflictMessage, queueTravelDelta, syncOfflineDeltaQueue } from '@/app/lib/offlineDeltaSync';
 
 interface ExistingTrip {
   id: string;
@@ -315,19 +316,52 @@ export function useTripEditor(tripId: string | null) {
   }, [tripId, loadTripForEditing, loadExistingTrips]);
 
   const autoSaveTravelData = useCallback(async () => {
+    const tryQueueOfflineDelta = (): boolean => {
+      if (mode !== 'edit' || !travelData.id || !lastSavedTravelDataRef.current) {
+        return false;
+      }
+
+      const queued = queueTravelDelta({
+        id: travelData.id,
+        baseSnapshot: lastSavedTravelDataRef.current,
+        pendingSnapshot: travelData
+      });
+
+      if (queued.queued) {
+        console.warn('Auto-save queued offline travel delta for later sync:', travelData.id);
+        return true;
+      }
+
+      return false;
+    };
+
     const saveFullTravelData = async (): Promise<{ success: boolean; savedId?: string }> => {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(travelData),
-      });
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(travelData),
+        });
+      } catch (error) {
+        console.warn('Auto-save (full) network failure, queuing offline delta:', error);
+        if (tryQueueOfflineDelta()) {
+          return { success: true, savedId: travelData.id };
+        }
+        return { success: false };
+      }
 
       if (!response.ok) {
+        const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
+        if (shouldQueue && tryQueueOfflineDelta()) {
+          return { success: true, savedId: travelData.id };
+        }
+
         let errorDetails = '';
         try {
           const errorBody = await response.text();
@@ -370,6 +404,11 @@ export function useTripEditor(tripId: string | null) {
         });
 
         if (!response.ok) {
+          const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
+          if (shouldQueue) {
+            return tryQueueOfflineDelta();
+          }
+
           let errorDetails = '';
           try {
             errorDetails = await response.text();
@@ -382,8 +421,8 @@ export function useTripEditor(tripId: string | null) {
 
         return true;
       } catch (error) {
-        console.warn('Auto-save (delta) error, will fallback to full save:', error);
-        return false;
+        console.warn('Auto-save (delta) network error, queuing offline delta:', error);
+        return tryQueueOfflineDelta();
       }
     };
 
@@ -426,6 +465,36 @@ export function useTripEditor(tripId: string | null) {
       return false;
     }
   }, [mode, travelData]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const activeTripId = travelData.id || tripId;
+    if (!activeTripId) {
+      return;
+    }
+
+    const handleSync = async () => {
+      await syncOfflineDeltaQueue({
+        onConflict: (conflict) => {
+          if (conflict.kind !== 'travel' || conflict.id !== activeTripId) {
+            return;
+          }
+
+          alert(formatOfflineConflictMessage(conflict));
+        }
+      });
+    };
+
+    void handleSync();
+    window.addEventListener('online', handleSync);
+
+    return () => {
+      window.removeEventListener('online', handleSync);
+    };
+  }, [tripId, travelData.id]);
 
   // Auto-save effect for edit mode (debounced)
   useEffect(() => {
