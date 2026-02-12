@@ -1,4 +1,4 @@
-import { getMarkerLegendSvgMarkup } from '@/app/lib/mapIconUtils';
+import { createCountMarkerIcon, getMarkerLegendSvgMarkup } from '@/app/lib/mapIconUtils';
 
 describe('getMarkerLegendSvgMarkup', () => {
   it('renders past marker legend SVG with expected tone styling', () => {
@@ -26,3 +26,30 @@ describe('getMarkerLegendSvgMarkup', () => {
   });
 });
 
+
+
+describe('createCountMarkerIcon badge variants', () => {
+  const leaflet = {
+    divIcon: jest.fn((options: unknown) => options),
+  } as unknown as typeof import('leaflet');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders cluster badges with the cluster badge class', () => {
+    createCountMarkerIcon(leaflet, 3, 'present', 9, { label: 'Cluster marker', badgeVariant: 'cluster' });
+
+    expect(leaflet.divIcon).toHaveBeenCalledTimes(1);
+    const [{ html }] = (leaflet.divIcon as jest.Mock).mock.calls[0] as [{ html: string }];
+    expect(html).toContain('travel-marker-count-badge-cluster');
+  });
+
+  it('renders visit badges with the visit badge class', () => {
+    createCountMarkerIcon(leaflet, 4, 'future', 7, { label: 'Visited four times', badgeVariant: 'visit' });
+
+    expect(leaflet.divIcon).toHaveBeenCalledTimes(1);
+    const [{ html }] = (leaflet.divIcon as jest.Mock).mock.calls[0] as [{ html: string }];
+    expect(html).toContain('travel-marker-count-badge-visit');
+  });
+});

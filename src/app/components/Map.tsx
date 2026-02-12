@@ -887,7 +887,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 <Marker
                   key={`group-${group.key}`}
                   position={group.center}
-                  icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label, dataKey: group.key })}
+                  icon={createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label, dataKey: group.key, badgeVariant: 'cluster' })}
                   keyboard={false}
                   eventHandlers={{
                     click: onActivate,
@@ -970,6 +970,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 label: collapseLabel,
                 dataKey: `collapse-${group.key}`,
                 className: 'travel-marker-collapse',
+                badgeVariant: 'cluster',
               });
               const collapseKeyHandlers = getMarkerKeyHandlers(`collapse-${group.key}`, collapseHandler);
 
