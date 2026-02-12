@@ -165,3 +165,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - `TravelItemSelector` supports an optional quick-link action (`showMostLikelyQuickLink`) that auto-selects the nearest dated travel item (preferring locations on tied day distance), while retaining manual dropdown selection for overrides.
 - Nearest-day ranking in `TravelItemSelector` quick-link logic depends on `MS_PER_DAY`; keep this constant defined in the component when refactoring date distance calculations.
 - `createCountMarkerIcon` now supports `badgeVariant` (`cluster`/`visit`) so repeat-visit count badges can stay visually distinct from cluster/spiderfy count badges while preserving counts during group expand/collapse transitions.
+- In `EmbeddableMap`, use shared group-item icon selection for both normal and expanded (spiderfied) states so multi-visit locations keep their `visit` badge when groups are expanded/collapsed.
