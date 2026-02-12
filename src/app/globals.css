@@ -94,6 +94,34 @@ body {
   opacity: var(--travel-marker-debug-buckets, 0);
 }
 
+
+.travel-marker-count-badge {
+  position: absolute;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 2px solid white;
+  pointer-events: none;
+}
+
+.travel-marker-count-badge-cluster {
+  right: -6px;
+  top: -6px;
+  border-radius: 9999px;
+  background: #ef4444;
+}
+
+.travel-marker-count-badge-visit {
+  left: -7px;
+  bottom: 6px;
+  border-radius: 6px;
+  background: #7c3aed;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+}
+
 .travel-marker-interactive {
   display: inline-flex;
   align-items: center;

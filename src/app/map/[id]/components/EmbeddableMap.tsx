@@ -894,6 +894,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         icon: createCountMarkerIcon(L, state.group.items.length, collapseTone, collapseDistanceBucket, {
           label: collapseLabel,
           className: 'travel-marker-collapse',
+          badgeVariant: 'cluster',
         }),
         keyboard: false,
       }).addTo(locationMarkersLayer);
@@ -946,7 +947,11 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const singleDays = temporalInfos.filter(info => info.status === singleTone).map(info => info.days);
           const singleBucket = getMarkerDistanceBucket(singleDays.length > 0 ? Math.min(...singleDays) : 0);
           const icon = location.visits.length > 1
-            ? createCountMarkerIcon(L, location.visits.length, singleTone, singleBucket, { label, highlighted: isHighlighted })
+            ? createCountMarkerIcon(L, location.visits.length, singleTone, singleBucket, {
+              label,
+              highlighted: isHighlighted,
+              badgeVariant: 'visit',
+            })
             : getMarkerIcon(location, isHighlighted, label, labelKey);
           if (icon) {
             markerOptions.icon = icon;
@@ -966,7 +971,10 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         );
         const label = `Group of ${group.items.length} locations. Activate to expand.`;
         const groupMarker = L.marker(group.center, {
-          icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label }),
+          icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, {
+            label,
+            badgeVariant: 'cluster',
+          }),
           keyboard: false,
         }).addTo(locationMarkersLayer);
         registerMarkerElement(group.key, label, groupMarker);
