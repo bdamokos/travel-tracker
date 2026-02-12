@@ -7,9 +7,13 @@ import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEditor';
 import { getTodayLocalDay } from '@/app/lib/localDateUtils';
 import { createCostDataDelta, isCostDataDeltaEmpty, snapshotCostData } from '@/app/lib/costDataDelta';
-import { formatOfflineConflictMessage, queueCostDelta, syncOfflineDeltaQueue } from '@/app/lib/offlineDeltaSync';
-
-const normalizeCostId = (id: string): string => id.replace(/^(cost-)+/, '');
+import {
+  formatOfflineConflictMessage,
+  hasPendingOfflineDeltaForCostId,
+  normalizeCostEntryId,
+  queueCostDelta,
+  syncOfflineDeltaQueue
+} from '@/app/lib/offlineDeltaSync';
 
 export default function CostTrackingPage() {
   const params = useParams();
@@ -134,9 +138,15 @@ export default function CostTrackingPage() {
       return false;
     }
 
-    const tryQueueOfflineDelta = (): boolean => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine && hasPendingOfflineDeltaForCostId(costData.id)) {
+      return false;
+    }
+
+    type SaveAttemptResult = 'persisted' | 'queued' | 'failed';
+
+    const tryQueueOfflineDelta = (): SaveAttemptResult => {
       if (!lastSavedCostDataRef.current || !costData.id) {
-        return false;
+        return 'failed';
       }
 
       const queued = queueCostDelta({
@@ -147,13 +157,13 @@ export default function CostTrackingPage() {
 
       if (queued.queued) {
         console.warn('Auto-save queued offline cost delta for later sync:', costData.id);
-        return true;
+        return 'queued';
       }
 
-      return false;
+      return 'failed';
     };
 
-    const saveFullCostData = async (): Promise<boolean> => {
+    const saveFullCostData = async (): Promise<SaveAttemptResult> => {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       let response: Response;
       try {
@@ -182,20 +192,20 @@ export default function CostTrackingPage() {
           errorDetails = '';
         }
         console.error('Auto-save (full) failed:', response.status, errorDetails);
-        return false;
+        return 'failed';
       }
 
-      return true;
+      return 'persisted';
     };
 
-    const saveDeltaCostData = async (): Promise<boolean> => {
+    const saveDeltaCostData = async (): Promise<SaveAttemptResult> => {
       if (!lastSavedCostDataRef.current) {
-        return false;
+        return 'failed';
       }
 
       const delta = createCostDataDelta(lastSavedCostDataRef.current, costData);
       if (!delta || isCostDataDeltaEmpty(delta)) {
-        return true;
+        return 'persisted';
       }
 
       try {
@@ -221,27 +231,32 @@ export default function CostTrackingPage() {
             errorDetails = '';
           }
           console.warn('Auto-save (delta) failed, will fallback to full save:', response.status, errorDetails);
-          return false;
+          return 'failed';
         }
 
-        return true;
+        return 'persisted';
       } catch (error) {
         console.warn('Auto-save (delta) network error, queuing offline delta:', error);
         return tryQueueOfflineDelta();
       }
     };
 
-    const deltaSaved = await saveDeltaCostData();
-    if (deltaSaved) {
+    const deltaSaveResult = await saveDeltaCostData();
+    if (deltaSaveResult === 'persisted') {
+      lastSavedCostDataRef.current = snapshotCostData(costData);
+      return true;
+    }
+    if (deltaSaveResult === 'queued') {
+      return false;
+    }
+
+    const fullSaveResult = await saveFullCostData();
+    if (fullSaveResult === 'persisted') {
       lastSavedCostDataRef.current = snapshotCostData(costData);
       return true;
     }
 
-    const fullSaved = await saveFullCostData();
-    if (fullSaved) {
-      lastSavedCostDataRef.current = snapshotCostData(costData);
-    }
-    return fullSaved;
+    return false;
   }, [costData, isNewCostTracker]);
 
   useEffect(() => {
@@ -261,7 +276,7 @@ export default function CostTrackingPage() {
             return;
           }
 
-          if (normalizeCostId(conflict.id) !== normalizeCostId(activeCostId)) {
+          if (normalizeCostEntryId(conflict.id) !== normalizeCostEntryId(activeCostId)) {
             return;
           }
 

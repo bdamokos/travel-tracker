@@ -12,7 +12,12 @@ import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import { createTravelDataDelta, isTravelDataDeltaEmpty, snapshotTravelData } from '@/app/lib/travelDataDelta';
-import { formatOfflineConflictMessage, queueTravelDelta, syncOfflineDeltaQueue } from '@/app/lib/offlineDeltaSync';
+import {
+  formatOfflineConflictMessage,
+  hasPendingOfflineDeltaForTravelId,
+  queueTravelDelta,
+  syncOfflineDeltaQueue
+} from '@/app/lib/offlineDeltaSync';
 
 interface ExistingTrip {
   id: string;
@@ -316,9 +321,21 @@ export function useTripEditor(tripId: string | null) {
   }, [tripId, loadTripForEditing, loadExistingTrips]);
 
   const autoSaveTravelData = useCallback(async () => {
-    const tryQueueOfflineDelta = (): boolean => {
+    type SaveAttemptResult = 'persisted' | 'queued' | 'failed';
+
+    if (
+      mode === 'edit' &&
+      travelData.id &&
+      typeof navigator !== 'undefined' &&
+      !navigator.onLine &&
+      hasPendingOfflineDeltaForTravelId(travelData.id)
+    ) {
+      return false;
+    }
+
+    const tryQueueOfflineDelta = (): SaveAttemptResult => {
       if (mode !== 'edit' || !travelData.id || !lastSavedTravelDataRef.current) {
-        return false;
+        return 'failed';
       }
 
       const queued = queueTravelDelta({
@@ -329,13 +346,13 @@ export function useTripEditor(tripId: string | null) {
 
       if (queued.queued) {
         console.warn('Auto-save queued offline travel delta for later sync:', travelData.id);
-        return true;
+        return 'queued';
       }
 
-      return false;
+      return 'failed';
     };
 
-    const saveFullTravelData = async (): Promise<{ success: boolean; savedId?: string }> => {
+    const saveFullTravelData = async (): Promise<{ state: SaveAttemptResult; savedId?: string }> => {
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const url = mode === 'edit' ? `/api/travel-data?id=${travelData.id}` : '/api/travel-data';
 
@@ -350,16 +367,15 @@ export function useTripEditor(tripId: string | null) {
         });
       } catch (error) {
         console.warn('Auto-save (full) network failure, queuing offline delta:', error);
-        if (tryQueueOfflineDelta()) {
-          return { success: true, savedId: travelData.id };
-        }
-        return { success: false };
+        const queuedState = tryQueueOfflineDelta();
+        return { state: queuedState, savedId: queuedState === 'queued' ? travelData.id : undefined };
       }
 
       if (!response.ok) {
         const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
-        if (shouldQueue && tryQueueOfflineDelta()) {
-          return { success: true, savedId: travelData.id };
+        if (shouldQueue) {
+          const queuedState = tryQueueOfflineDelta();
+          return { state: queuedState, savedId: queuedState === 'queued' ? travelData.id : undefined };
         }
 
         let errorDetails = '';
@@ -370,7 +386,7 @@ export function useTripEditor(tripId: string | null) {
           errorDetails = '';
         }
         console.error('Auto-save (full) failed:', response.status, errorDetails);
-        return { success: false };
+        return { state: 'failed' };
       }
 
       const result = await response.json();
@@ -381,17 +397,17 @@ export function useTripEditor(tripId: string | null) {
         setMode('edit');
       }
 
-      return { success: true, savedId };
+      return { state: 'persisted', savedId };
     };
 
-    const saveDeltaTravelData = async (): Promise<boolean> => {
+    const saveDeltaTravelData = async (): Promise<SaveAttemptResult> => {
       if (mode !== 'edit' || !travelData.id || !lastSavedTravelDataRef.current) {
-        return false;
+        return 'failed';
       }
 
       const delta = createTravelDataDelta(lastSavedTravelDataRef.current, travelData);
       if (!delta || isTravelDataDeltaEmpty(delta)) {
-        return true;
+        return 'persisted';
       }
 
       try {
@@ -416,10 +432,10 @@ export function useTripEditor(tripId: string | null) {
             errorDetails = '';
           }
           console.warn('Auto-save (delta) failed, will fallback to full save:', response.status, errorDetails);
-          return false;
+          return 'failed';
         }
 
-        return true;
+        return 'persisted';
       } catch (error) {
         console.warn('Auto-save (delta) network error, queuing offline delta:', error);
         return tryQueueOfflineDelta();
@@ -440,15 +456,20 @@ export function useTripEditor(tripId: string | null) {
       }
 
       if (mode === 'edit' && travelData.id && lastSavedTravelDataRef.current) {
-        const deltaSaved = await saveDeltaTravelData();
-        if (deltaSaved) {
+        const deltaSaveResult = await saveDeltaTravelData();
+        if (deltaSaveResult === 'persisted') {
           lastSavedTravelDataRef.current = snapshotTravelData(travelData);
           return true;
+        }
+        if (deltaSaveResult === 'queued') {
+          return false;
         }
       }
 
       const fullSave = await saveFullTravelData();
-      if (!fullSave.success) return false;
+      if (fullSave.state !== 'persisted') {
+        return false;
+      }
 
       if (fullSave.savedId && fullSave.savedId !== travelData.id) {
         lastSavedTravelDataRef.current = snapshotTravelData({

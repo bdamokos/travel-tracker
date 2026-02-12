@@ -4,7 +4,7 @@ import {
   snapshotCostData,
   type CostDataDelta
 } from '@/app/lib/costDataDelta';
-import { cloneSerializable } from '@/app/lib/collectionDelta';
+import { cloneSerializable, isRecord } from '@/app/lib/collectionDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
 import {
   createTravelDataDelta,
@@ -100,12 +100,10 @@ type SyncOfflineDeltaQueueOptions = {
 };
 
 let inFlightSync: Promise<OfflineDeltaSyncSummary> | null = null;
+let syncSubscribers: SyncOfflineDeltaQueueOptions[] = [];
 
 const canUseStorage = (): boolean =>
   typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isOfflineQueueStatus = (value: unknown): value is OfflineQueueStatus =>
   value === 'pending' || value === 'conflict';
@@ -145,6 +143,15 @@ const parseStoredEntries = (raw: unknown): OfflineQueueEntry[] => {
     if (!isOfflineQueueStatus(entry.status)) {
       return false;
     }
+
+    if (!isRecord(entry.baseSnapshot) || !isRecord(entry.pendingSnapshot)) {
+      return false;
+    }
+
+    if (!isRecord(entry.delta)) {
+      return false;
+    }
+
     return true;
   });
 };
@@ -230,7 +237,7 @@ const toCostDeltaComparable = (
 const getPendingCount = (entries: OfflineQueueEntry[]): number =>
   entries.filter((entry) => entry.status === 'pending').length;
 
-const normalizeCostEntryId = (id: string): string => id.replace(/^(cost-)+/, '');
+export const normalizeCostEntryId = (id: string): string => id.replace(/^(cost-)+/, '');
 
 export const getOfflineQueueEntries = (): OfflineQueueEntry[] => {
   return readQueue().map((entry) => cloneSerializable(entry));
@@ -287,8 +294,11 @@ export const queueCostDelta = ({ id, baseSnapshot, pendingSnapshot }: QueueCostD
     return { queued: false, pendingCount: 0 };
   }
 
+  const normalizedId = normalizeCostEntryId(id);
   const queue = readQueue();
-  const existingIndex = queue.findIndex((entry) => entry.kind === 'cost' && entry.id === id);
+  const existingIndex = queue.findIndex(
+    (entry) => entry.kind === 'cost' && normalizeCostEntryId(entry.id) === normalizedId
+  );
   const now = new Date().toISOString();
 
   const canonicalBase = existingIndex >= 0 && queue[existingIndex].kind === 'cost'
@@ -307,7 +317,7 @@ export const queueCostDelta = ({ id, baseSnapshot, pendingSnapshot }: QueueCostD
 
   const nextEntry: OfflineCostQueueEntry = {
     kind: 'cost',
-    id,
+    id: normalizedId,
     baseSnapshot: canonicalBase,
     pendingSnapshot: canonicalPending,
     delta: mergedDelta,
@@ -345,17 +355,18 @@ export const formatOfflineConflictMessage = (conflict: OfflineDeltaConflict): st
 const syncTravelEntry = async (
   entry: OfflineTravelQueueEntry
 ): Promise<{ status: 'synced' | 'conflict' | 'failed'; conflict?: OfflineDeltaConflict }> => {
-  const response = await fetch(`/api/travel-data?id=${encodeURIComponent(entry.id)}`, { cache: 'no-store' });
-  if (!response.ok) {
-    return { status: 'failed' };
-  }
+  const coreResult = await syncEntryCore({
+    id: entry.id,
+    fetchUrl: `/api/travel-data?id=${encodeURIComponent(entry.id)}`,
+    patchUrl: `/api/travel-data?id=${encodeURIComponent(entry.id)}`,
+    baseSnapshot: entry.baseSnapshot,
+    pendingDelta: entry.delta,
+    toComparable: toTravelDeltaComparable,
+    createDelta: createTravelDataDelta,
+    isDeltaEmpty: isTravelDataDeltaEmpty
+  });
 
-  const serverRaw = (await response.json()) as Partial<TravelData>;
-  const baseComparable = toTravelDeltaComparable(entry.baseSnapshot, entry.baseSnapshot);
-  const serverComparable = toTravelDeltaComparable(serverRaw, entry.baseSnapshot);
-  const serverDelta = createTravelDataDelta(baseComparable, serverComparable);
-
-  if (serverDelta && !isTravelDataDeltaEmpty(serverDelta)) {
+  if (coreResult.status === 'conflict') {
     return {
       status: 'conflict',
       conflict: {
@@ -363,40 +374,29 @@ const syncTravelEntry = async (
         id: entry.id,
         queuedAt: entry.queuedAt,
         pendingDelta: cloneSerializable(entry.delta),
-        serverDelta
+        serverDelta: coreResult.serverDelta as TravelDataDelta | null
       }
     };
   }
 
-  const patchResponse = await fetch(`/api/travel-data?id=${encodeURIComponent(entry.id)}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ deltaUpdate: entry.delta })
-  });
-
-  if (!patchResponse.ok) {
-    return { status: 'failed' };
-  }
-
-  return { status: 'synced' };
+  return coreResult;
 };
 
 const syncCostEntry = async (
   entry: OfflineCostQueueEntry
 ): Promise<{ status: 'synced' | 'conflict' | 'failed'; conflict?: OfflineDeltaConflict }> => {
-  const response = await fetch(`/api/cost-tracking?id=${encodeURIComponent(entry.id)}`, { cache: 'no-store' });
-  if (!response.ok) {
-    return { status: 'failed' };
-  }
+  const coreResult = await syncEntryCore({
+    id: entry.id,
+    fetchUrl: `/api/cost-tracking?id=${encodeURIComponent(entry.id)}`,
+    patchUrl: `/api/cost-tracking?id=${encodeURIComponent(entry.id)}`,
+    baseSnapshot: entry.baseSnapshot,
+    pendingDelta: entry.delta,
+    toComparable: toCostDeltaComparable,
+    createDelta: createCostDataDelta,
+    isDeltaEmpty: isCostDataDeltaEmpty
+  });
 
-  const serverRaw = (await response.json()) as Partial<CostTrackingData>;
-  const baseComparable = toCostDeltaComparable(entry.baseSnapshot, entry.baseSnapshot);
-  const serverComparable = toCostDeltaComparable(serverRaw, entry.baseSnapshot);
-  const serverDelta = createCostDataDelta(baseComparable, serverComparable);
-
-  if (serverDelta && !isCostDataDeltaEmpty(serverDelta)) {
+  if (coreResult.status === 'conflict') {
     return {
       status: 'conflict',
       conflict: {
@@ -404,17 +404,60 @@ const syncCostEntry = async (
         id: entry.id,
         queuedAt: entry.queuedAt,
         pendingDelta: cloneSerializable(entry.delta),
-        serverDelta
+        serverDelta: coreResult.serverDelta as CostDataDelta | null
       }
     };
   }
 
-  const patchResponse = await fetch(`/api/cost-tracking?id=${encodeURIComponent(entry.id)}`, {
+  return coreResult;
+};
+
+type SyncEntryCoreParams<TSnapshot, TDelta> = {
+  id: string;
+  fetchUrl: string;
+  patchUrl: string;
+  baseSnapshot: TSnapshot;
+  pendingDelta: TDelta;
+  toComparable: (candidate: Partial<TSnapshot>, fallback: TSnapshot) => TSnapshot;
+  createDelta: (previous: TSnapshot, current: TSnapshot) => TDelta | null;
+  isDeltaEmpty: (delta: TDelta | null | undefined) => boolean;
+};
+
+const syncEntryCore = async <TSnapshot, TDelta>({
+  fetchUrl,
+  patchUrl,
+  baseSnapshot,
+  pendingDelta,
+  toComparable,
+  createDelta,
+  isDeltaEmpty
+}: SyncEntryCoreParams<TSnapshot, TDelta>): Promise<{
+  status: 'synced' | 'conflict' | 'failed';
+  serverDelta?: TDelta | null;
+}> => {
+  const response = await fetch(fetchUrl, { cache: 'no-store' });
+  if (!response.ok) {
+    return { status: 'failed' };
+  }
+
+  const serverRaw = (await response.json()) as Partial<TSnapshot>;
+  const baseComparable = toComparable(baseSnapshot, baseSnapshot);
+  const serverComparable = toComparable(serverRaw, baseSnapshot);
+  const serverDelta = createDelta(baseComparable, serverComparable);
+
+  if (serverDelta && !isDeltaEmpty(serverDelta)) {
+    return {
+      status: 'conflict',
+      serverDelta
+    };
+  }
+
+  const patchResponse = await fetch(patchUrl, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ deltaUpdate: entry.delta })
+    body: JSON.stringify({ deltaUpdate: pendingDelta })
   });
 
   if (!patchResponse.ok) {
@@ -529,14 +572,36 @@ export const syncOfflineDeltaQueue = async (
   options: SyncOfflineDeltaQueueOptions = {}
 ): Promise<OfflineDeltaSyncSummary> => {
   if (inFlightSync) {
+    syncSubscribers.push(options);
     return inFlightSync;
   }
 
-  inFlightSync = runSyncOfflineDeltaQueue(options);
+  syncSubscribers = [options];
+
+  const mergedOptions: SyncOfflineDeltaQueueOptions = {
+    onConflict: (conflict) => {
+      syncSubscribers.forEach((subscriber) => {
+        subscriber.onConflict?.(conflict);
+      });
+    },
+    onSynced: (entry) => {
+      syncSubscribers.forEach((subscriber) => {
+        subscriber.onSynced?.(entry);
+      });
+    },
+    onError: (entry, error) => {
+      syncSubscribers.forEach((subscriber) => {
+        subscriber.onError?.(entry, error);
+      });
+    }
+  };
+
+  inFlightSync = runSyncOfflineDeltaQueue(mergedOptions);
   try {
     return await inFlightSync;
   } finally {
     inFlightSync = null;
+    syncSubscribers = [];
   }
 };
 

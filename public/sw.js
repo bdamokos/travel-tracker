@@ -5,9 +5,8 @@ const DATA_CACHE = `data-${CACHE_VERSION}`;
 const TILE_CACHE = `tiles-${CACHE_VERSION}`;
 const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 
-const APP_SHELL_URLS = ['/', '/maps', '/manifest.json'];
+const APP_SHELL_URLS = ['/', '/manifest.json'];
 const APP_ROUTE_URLS = [
-  '/',
   '/maps',
   '/admin',
   '/admin/edit/new',
@@ -15,12 +14,11 @@ const APP_ROUTE_URLS = [
   '/calendars',
   '/demo/accessible-date-picker',
   '/demo/accessible-modal',
-  '/demo/ynab-import-form',
-  '/manifest.json'
+  '/demo/ynab-import-form'
 ];
-const DATA_PATHS = ['/api/travel-data', '/api/cost-tracking'];
 const TILE_HOST = 'tile.openstreetmap.org';
 const TILE_CACHE_LIMIT = 500;
+const MAX_DYNAMIC_PRECACHE_ROUTES = 200;
 const CRITICAL_APP_SHELL_URLS = new Set(['/']);
 const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 <html lang="en">
@@ -59,10 +57,13 @@ const trimCache = async (cacheName, maxItems) => {
   await Promise.all(keys.slice(0, itemsToDelete).map((key) => cache.delete(key)));
 };
 
-const isDataRequest = (url) =>
-  url.origin === self.location.origin && DATA_PATHS.some((path) => url.pathname.startsWith(path));
-
 const isApiRequest = (url) => url.origin === self.location.origin && url.pathname.startsWith('/api/');
+const isStaticAssetRequest = (url) =>
+  url.origin === self.location.origin &&
+  (url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/_next/image') ||
+    url.pathname.startsWith('/icon-') ||
+    url.pathname === '/manifest.json');
 
 const clearDataCache = async () => {
   const cache = await caches.open(DATA_CACHE);
@@ -89,6 +90,13 @@ const preCacheRoutes = async () => {
 const preCacheKnownDynamicRoutes = async () => {
   const cache = await caches.open(APP_SHELL_CACHE);
   const routeUrls = new Set();
+  const addRouteUrl = (url) => {
+    if (routeUrls.size >= MAX_DYNAMIC_PRECACHE_ROUTES) {
+      return;
+    }
+
+    routeUrls.add(url);
+  };
 
   try {
     const tripsResponse = await fetch('/api/travel-data/list', { cache: 'no-store' });
@@ -100,10 +108,10 @@ const preCacheKnownDynamicRoutes = async () => {
             return;
           }
 
-          routeUrls.add(`/map/${trip.id}`);
-          routeUrls.add(`/embed/${trip.id}`);
-          routeUrls.add(`/calendars/${trip.id}`);
-          routeUrls.add(`/admin/edit/${trip.id}`);
+          addRouteUrl(`/map/${trip.id}`);
+          addRouteUrl(`/embed/${trip.id}`);
+          addRouteUrl(`/calendars/${trip.id}`);
+          addRouteUrl(`/admin/edit/${trip.id}`);
         });
       }
     }
@@ -120,7 +128,7 @@ const preCacheKnownDynamicRoutes = async () => {
           if (!entry || typeof entry.id !== 'string' || entry.id.length === 0) {
             return;
           }
-          routeUrls.add(`/admin/cost-tracking/${entry.id}`);
+          addRouteUrl(`/admin/cost-tracking/${entry.id}`);
         });
       }
     }
@@ -253,11 +261,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isDataRequest(url)) {
-    event.respondWith(networkFirst(request, DATA_CACHE));
-    return;
-  }
-
   if (isApiRequest(url)) {
     event.respondWith(networkFirst(request, DATA_CACHE));
     return;
@@ -268,17 +271,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (
-    url.origin === self.location.origin &&
-    (url.pathname.startsWith('/_next/static/') ||
-      url.pathname.startsWith('/icon-') ||
-      url.pathname === '/manifest.json')
-  ) {
-    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
-    return;
-  }
-
-  if (url.origin === self.location.origin) {
+  if (isStaticAssetRequest(url)) {
     event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
   }
 });

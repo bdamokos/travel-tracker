@@ -69,12 +69,6 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onOnline = (): void => {
-      void syncOfflineDeltaQueue({
-        onConflict: (conflict) => {
-          window.alert(formatOfflineConflictMessage(conflict));
-        }
-      });
-
       if (!registration) {
         return;
       }

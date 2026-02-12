@@ -71,7 +71,7 @@ export default function OfflineDeltaBanner() {
     if (summary.conflicts > 0) {
       return {
         visible: true,
-        className: 'bg-red-100 border-red-300 text-red-900',
+        className: 'bg-red-100 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200',
         message:
           `${summary.conflicts} offline change set(s) could not be synced because server data changed. ` +
           'Review the conflict popup(s); those local deltas will not auto-apply.'
@@ -82,7 +82,7 @@ export default function OfflineDeltaBanner() {
       const offlinePrefix = isOnline ? '' : 'You are offline. ';
       return {
         visible: true,
-        className: 'bg-amber-100 border-amber-300 text-amber-900',
+        className: 'bg-amber-100 border-amber-300 text-amber-900 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-200',
         message:
           `${offlinePrefix}${summary.pending} offline change set(s) are pending. ` +
           'An automatic sync will run when connectivity is available; if server data changed, conflicts will be shown.'
