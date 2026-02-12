@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -61,6 +61,20 @@ const isCacheableResponse = (response) => {
   return !cacheControl.includes('no-store');
 };
 
+
+const purgeRedirectResponsesFromCache = async (cacheName) => {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+
+  await Promise.all(
+    keys.map(async (key) => {
+      const response = await cache.match(key);
+      if (isRedirectResponse(response)) {
+        await cache.delete(key);
+      }
+    })
+  );
+};
 const trimCache = async (cacheName, maxItems) => {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
@@ -199,6 +213,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)))
       )
+      .then(() => Promise.all(ACTIVE_CACHES.map((cacheName) => purgeRedirectResponsesFromCache(cacheName))))
       .then(() => trimCache(TILE_CACHE, TILE_CACHE_LIMIT))
       .then(() => self.clients.claim())
   );

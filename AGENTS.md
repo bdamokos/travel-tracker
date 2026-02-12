@@ -166,3 +166,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Nearest-day ranking in `TravelItemSelector` quick-link logic depends on `MS_PER_DAY`; keep this constant defined in the component when refactoring date distance calculations.
 - Service worker navigation/cache writes should ignore redirect responses; caching redirected documents can cause Safari offline loads to fail with "Response served by service worker has redirections".
 - When service worker cache-safety rules change (for example excluding redirect responses), bump `CACHE_VERSION` in `public/sw.js` to evict previously stored incompatible entries.
+- Service worker `activate` should defensively purge redirect responses from all active caches so legacy or manually inserted redirect entries cannot trigger Safari offline navigation errors.
