@@ -166,3 +166,5 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Nearest-day ranking in `TravelItemSelector` quick-link logic depends on `MS_PER_DAY`; keep this constant defined in the component when refactoring date distance calculations.
 
 - In Codex/CI-like environments, Turbopack may fail `next/font/google` fetches with TLS errors; set `experimental.turbopackUseSystemTlsCerts = true` in `next.config.js` to use system certs during build.
+
+- Avoid top-level imports of Node-only modules in `instrumentation.ts`; use runtime-gated dynamic imports inside `register()` so Edge compilation doesn't traverse Node-only dependency graphs.
