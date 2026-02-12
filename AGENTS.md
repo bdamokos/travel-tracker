@@ -165,3 +165,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - `TravelItemSelector` supports an optional quick-link action (`showMostLikelyQuickLink`) that auto-selects the nearest dated travel item (preferring locations on tied day distance), while retaining manual dropdown selection for overrides.
 - Nearest-day ranking in `TravelItemSelector` quick-link logic depends on `MS_PER_DAY`; keep this constant defined in the component when refactoring date distance calculations.
 - Service worker navigation/cache writes should ignore redirect responses; caching redirected documents can cause Safari offline loads to fail with "Response served by service worker has redirections".
+- When service worker cache-safety rules change (for example excluding redirect responses), bump `CACHE_VERSION` in `public/sw.js` to evict previously stored incompatible entries.
