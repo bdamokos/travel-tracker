@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v6';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -32,6 +32,22 @@ const OFFLINE_NAVIGATION_HTML = `<!doctype html>
   </body>
 </html>`;
 
+const isRedirectResponse = (response) => {
+  if (!response) {
+    return false;
+  }
+
+  if (response.type === 'opaqueredirect') {
+    return true;
+  }
+
+  if (response.redirected) {
+    return true;
+  }
+
+  return response.status >= 300 && response.status < 400;
+};
+
 const isCacheableResponse = (response) => {
   if (!response || !response.ok) {
     return false;
@@ -45,6 +61,20 @@ const isCacheableResponse = (response) => {
   return !cacheControl.includes('no-store');
 };
 
+
+const purgeRedirectResponsesFromCache = async (cacheName) => {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+
+  await Promise.all(
+    keys.map(async (key) => {
+      const response = await cache.match(key);
+      if (isRedirectResponse(response)) {
+        await cache.delete(key);
+      }
+    })
+  );
+};
 const trimCache = async (cacheName, maxItems) => {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
@@ -73,7 +103,16 @@ const clearDataCache = async () => {
 
 const preCacheAppShell = async () => {
   const cache = await caches.open(APP_SHELL_CACHE);
-  const preCacheResults = await Promise.allSettled(APP_SHELL_URLS.map((url) => cache.add(url)));
+  const preCacheResults = await Promise.allSettled(
+    APP_SHELL_URLS.map(async (url) => {
+      const response = await fetch(url);
+      if (!isCacheableResponse(response) || isRedirectResponse(response)) {
+        throw new Error(`Unable to pre-cache app shell URL: ${url}`);
+      }
+
+      await cache.put(url, response.clone());
+    })
+  );
 
   preCacheResults.forEach((result, index) => {
     if (result.status === 'rejected' && CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
@@ -84,7 +123,16 @@ const preCacheAppShell = async () => {
 
 const preCacheRoutes = async () => {
   const cache = await caches.open(APP_SHELL_CACHE);
-  await Promise.allSettled(APP_ROUTE_URLS.map((url) => cache.add(url)));
+  await Promise.allSettled(
+    APP_ROUTE_URLS.map(async (url) => {
+      const response = await fetch(url);
+      if (!isCacheableResponse(response) || isRedirectResponse(response)) {
+        return;
+      }
+
+      await cache.put(url, response.clone());
+    })
+  );
 };
 
 const preCacheKnownDynamicRoutes = async () => {
@@ -140,7 +188,16 @@ const preCacheKnownDynamicRoutes = async () => {
     return;
   }
 
-  await Promise.allSettled(Array.from(routeUrls).map((url) => cache.add(url)));
+  await Promise.allSettled(
+    Array.from(routeUrls).map(async (url) => {
+      const response = await fetch(url);
+      if (!isCacheableResponse(response) || isRedirectResponse(response)) {
+        return;
+      }
+
+      await cache.put(url, response.clone());
+    })
+  );
 };
 
 self.addEventListener('install', (event) => {
@@ -156,6 +213,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)))
       )
+      .then(() => Promise.all(ACTIVE_CACHES.map((cacheName) => purgeRedirectResponsesFromCache(cacheName))))
       .then(() => trimCache(TILE_CACHE, TILE_CACHE_LIMIT))
       .then(() => self.clients.claim())
   );
@@ -167,20 +225,20 @@ const networkFirst = async (request, cacheName) => {
   try {
     const response = await fetch(request);
 
-    if (isCacheableResponse(response)) {
+    if (isCacheableResponse(response) && !isRedirectResponse(response)) {
       await cache.put(request, response.clone());
     }
 
     return response;
   } catch {
     const cachedRequestMatch = await cache.match(request);
-    if (cachedRequestMatch) {
+    if (cachedRequestMatch && !isRedirectResponse(cachedRequestMatch)) {
       return cachedRequestMatch;
     }
 
     if (request.mode === 'navigate') {
       const shellFallback = await cache.match('/');
-      if (shellFallback) {
+      if (shellFallback && !isRedirectResponse(shellFallback)) {
         return shellFallback;
       }
 
@@ -205,7 +263,7 @@ const staleWhileRevalidate = async (request, cacheName) => {
 
   const networkPromise = fetch(request)
     .then(async (response) => {
-      if (isCacheableResponse(response)) {
+      if (isCacheableResponse(response) && !isRedirectResponse(response)) {
         await cache.put(request, response.clone());
 
         if (cacheName === TILE_CACHE) {
@@ -219,7 +277,7 @@ const staleWhileRevalidate = async (request, cacheName) => {
     })
     .catch(() => null);
 
-  if (cached) {
+  if (cached && !isRedirectResponse(cached)) {
     return cached;
   }
 
