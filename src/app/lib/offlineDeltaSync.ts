@@ -18,6 +18,9 @@ import type { CostTrackingData, TravelData } from '@/app/types';
 
 const STORAGE_KEY = 'travel-tracker-offline-delta-queue-v1';
 export const OFFLINE_DELTA_QUEUE_EVENT = 'travel-tracker-offline-delta-queue-changed';
+const DEFAULT_LOCAL_STORAGE_BUDGET_BYTES = 5 * 1024 * 1024;
+const LOCAL_STORAGE_WARNING_RATIO = 0.8;
+const LOCAL_STORAGE_CRITICAL_RATIO = 0.95;
 
 type OfflineQueueStatus = 'pending' | 'conflict';
 
@@ -103,6 +106,7 @@ type SyncOfflineDeltaQueueOptions = {
 
 let inFlightSync: Promise<OfflineDeltaSyncSummary> | null = null;
 let syncSubscribers: SyncOfflineDeltaQueueOptions[] = [];
+let lastStorageWarningLevel: 'none' | 'warning' | 'critical' = 'none';
 
 const canUseStorage = (): boolean =>
   typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -118,6 +122,116 @@ const normalizeTimestampField = (value: unknown): string | null => {
     return value.toISOString();
   }
   return null;
+};
+
+const estimateSerializedBytes = (serialized: string): number => {
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(serialized).length;
+  }
+  return serialized.length * 2;
+};
+
+const formatByteSize = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
+
+const getStorageWarningLevel = (usageRatio: number): 'none' | 'warning' | 'critical' => {
+  if (usageRatio >= LOCAL_STORAGE_CRITICAL_RATIO) {
+    return 'critical';
+  }
+  if (usageRatio >= LOCAL_STORAGE_WARNING_RATIO) {
+    return 'warning';
+  }
+  return 'none';
+};
+
+const maybeWarnStorageUsage = ({
+  usageRatio,
+  projectedBytes,
+  quotaBytes,
+  entryCount,
+  source
+}: {
+  usageRatio: number;
+  projectedBytes: number;
+  quotaBytes: number;
+  entryCount: number;
+  source: 'fallback' | 'navigator.storage';
+}): void => {
+  const warningLevel = getStorageWarningLevel(usageRatio);
+  if (warningLevel === 'none') {
+    lastStorageWarningLevel = 'none';
+    return;
+  }
+
+  const shouldLog =
+    warningLevel === 'critical' ||
+    lastStorageWarningLevel !== warningLevel;
+  if (!shouldLog) {
+    return;
+  }
+
+  lastStorageWarningLevel = warningLevel;
+
+  const log = warningLevel === 'critical' ? console.error : console.warn;
+  log(
+    `[offlineDeltaSync] localStorage usage is ${Math.round(usageRatio * 100)}% (${formatByteSize(projectedBytes)} / ${formatByteSize(quotaBytes)}).`,
+    {
+      entryCount,
+      source,
+      storageKey: STORAGE_KEY
+    }
+  );
+};
+
+const monitorLocalStorageUsage = (
+  nextSerializedQueue: string,
+  previousSerializedQueue: string | null,
+  entryCount: number
+): void => {
+  const nextBytes = estimateSerializedBytes(nextSerializedQueue);
+  const fallbackProjectedBytes = nextBytes;
+  maybeWarnStorageUsage({
+    usageRatio: fallbackProjectedBytes / DEFAULT_LOCAL_STORAGE_BUDGET_BYTES,
+    projectedBytes: fallbackProjectedBytes,
+    quotaBytes: DEFAULT_LOCAL_STORAGE_BUDGET_BYTES,
+    entryCount,
+    source: 'fallback'
+  });
+
+  if (typeof navigator === 'undefined' || typeof navigator.storage?.estimate !== 'function') {
+    return;
+  }
+
+  const previousBytes = previousSerializedQueue ? estimateSerializedBytes(previousSerializedQueue) : 0;
+
+  void navigator.storage
+    .estimate()
+    .then((estimate) => {
+      if (typeof estimate.quota !== 'number' || !Number.isFinite(estimate.quota) || estimate.quota <= 0) {
+        return;
+      }
+
+      const currentUsage = typeof estimate.usage === 'number' && Number.isFinite(estimate.usage) ? estimate.usage : 0;
+      const projectedUsageBytes = Math.max(0, currentUsage - previousBytes) + nextBytes;
+
+      maybeWarnStorageUsage({
+        usageRatio: projectedUsageBytes / estimate.quota,
+        projectedBytes: projectedUsageBytes,
+        quotaBytes: estimate.quota,
+        entryCount,
+        source: 'navigator.storage'
+      });
+    })
+    .catch(() => {
+      // Best-effort monitoring only.
+    });
+};
+
+const isQuotaExceededError = (error: unknown): boolean => {
+  if (!(error instanceof DOMException)) {
+    return false;
+  }
+
+  return error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED';
 };
 
 const summarizeQueue = (entries: OfflineQueueEntry[]): OfflineQueueSummary => {
@@ -211,15 +325,32 @@ const writeQueue = (entries: OfflineQueueEntry[]): void => {
     return;
   }
 
+  let serializedEntries: string | null = null;
+
   try {
+    const previousSerializedQueue = window.localStorage.getItem(STORAGE_KEY);
+
     if (entries.length === 0) {
       window.localStorage.removeItem(STORAGE_KEY);
+      lastStorageWarningLevel = 'none';
       emitQueueChanged(entries);
       return;
     }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+
+    serializedEntries = JSON.stringify(entries);
+    monitorLocalStorageUsage(serializedEntries, previousSerializedQueue, entries.length);
+    window.localStorage.setItem(STORAGE_KEY, serializedEntries);
     emitQueueChanged(entries);
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      const approximatePayloadBytes = serializedEntries ? estimateSerializedBytes(serializedEntries) : 0;
+      console.error('Failed to write offline delta queue: localStorage quota exceeded.', {
+        entryCount: entries.length,
+        approximatePayloadBytes,
+        storageKey: STORAGE_KEY
+      });
+      return;
+    }
     console.error('Failed to write offline delta queue:', error);
   }
 };
