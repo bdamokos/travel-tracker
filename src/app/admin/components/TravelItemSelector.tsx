@@ -30,6 +30,8 @@ const normalizeDateString = (dateValue?: string | Date | null) => {
   return formatted || null;
 };
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 const formatItemLabel = (item: TravelItem) => {
   const dateLabel = item.date ? item.date : 'Date not set';
 
