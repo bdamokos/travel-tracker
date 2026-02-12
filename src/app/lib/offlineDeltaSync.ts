@@ -1,5 +1,6 @@
 import {
   createCostDataDelta,
+  isCostDataDelta,
   isCostDataDeltaEmpty,
   snapshotCostData,
   type CostDataDelta
@@ -8,6 +9,7 @@ import { cloneSerializable, isRecord } from '@/app/lib/collectionDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
 import {
   createTravelDataDelta,
+  isTravelDataDelta,
   isTravelDataDeltaEmpty,
   snapshotTravelData,
   type TravelDataDelta
@@ -108,6 +110,16 @@ const canUseStorage = (): boolean =>
 const isOfflineQueueStatus = (value: unknown): value is OfflineQueueStatus =>
   value === 'pending' || value === 'conflict';
 
+const normalizeTimestampField = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return null;
+};
+
 const summarizeQueue = (entries: OfflineQueueEntry[]): OfflineQueueSummary => {
   const pending = entries.filter((entry) => entry.status === 'pending').length;
   const conflicts = entries.filter((entry) => entry.status === 'conflict').length;
@@ -144,6 +156,22 @@ const parseStoredEntries = (raw: unknown): OfflineQueueEntry[] => {
       return false;
     }
 
+    const queuedAt = normalizeTimestampField(entry.queuedAt);
+    const updatedAt = normalizeTimestampField(entry.updatedAt);
+    if (!queuedAt || !updatedAt) {
+      return false;
+    }
+    entry.queuedAt = queuedAt;
+    entry.updatedAt = updatedAt;
+
+    if (entry.conflictDetectedAt !== undefined) {
+      const normalizedConflictDetectedAt = normalizeTimestampField(entry.conflictDetectedAt);
+      if (!normalizedConflictDetectedAt) {
+        return false;
+      }
+      entry.conflictDetectedAt = normalizedConflictDetectedAt;
+    }
+
     if (!isRecord(entry.baseSnapshot) || !isRecord(entry.pendingSnapshot)) {
       return false;
     }
@@ -152,7 +180,11 @@ const parseStoredEntries = (raw: unknown): OfflineQueueEntry[] => {
       return false;
     }
 
-    return true;
+    if (entry.kind === 'travel') {
+      return isTravelDataDelta(entry.delta);
+    }
+
+    return isCostDataDelta(entry.delta);
   });
 };
 
@@ -205,7 +237,9 @@ const toTravelDeltaComparable = (
     instagramUsername: candidate.instagramUsername ?? fallback.instagramUsername,
     locations: Array.isArray(candidate.locations) ? candidate.locations : fallback.locations,
     routes: Array.isArray(candidate.routes) ? candidate.routes : fallback.routes,
-    accommodations: []
+    accommodations: Array.isArray(candidate.accommodations)
+      ? candidate.accommodations
+      : fallback.accommodations
   };
 };
 
