@@ -1,25 +1,40 @@
 'use client';
 
 import { useState, useEffect, useId, useMemo } from 'react';
-import { Location, Transportation, Accommodation } from '@/app/types';
+import { Location, Accommodation } from '@/app/types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
 import AriaSelect from '@/app/admin/components/AriaSelect';
 import { buildSideTripMap } from '@/app/lib/sideTripUtils';
 import { formatLocalDateInput, getLocalDateSortValue } from '@/app/lib/localDateUtils';
+import { resolveTravelItemDate, resolveTravelItemTransportType } from '@/app/admin/components/travelItemSelectorUtils';
 
 interface TravelItem {
   id: string;
   type: 'location' | 'accommodation' | 'route';
   name: string;
   description: string;
-  date?: string; // Optional since some items (like routes without departureTime) may not have a date
+  date?: string; // Optional since some items may not have a valid date source
   tripTitle: string;
   locationName?: string; // For accommodations
   baseLocationId?: string;
   parentRouteId?: string; // For route segments (subRoutes)
   parentRouteName?: string; // For displaying hierarchy
 }
+
+type TravelItemRouteSegment = {
+  id: string;
+  from: string;
+  to: string;
+  date?: Date | string | null;
+  departureTime?: string | null;
+  transportType?: string | null;
+  type?: string | null;
+};
+
+type TravelItemRoute = TravelItemRouteSegment & {
+  subRoutes?: TravelItemRouteSegment[];
+};
 
 const normalizeDateString = (dateValue?: string | Date | null) => {
   if (!dateValue) {
@@ -184,9 +199,9 @@ export default function TravelItemSelector({
         
         // Add routes and their sub-routes
         if (tripData.routes) {
-          tripData.routes.forEach((route: Transportation) => {
-            // Extract date from departureTime if available (Transportation doesn't have a date field)
-            const routeDate = route.departureTime ? formatLocalDateInput(route.departureTime) : undefined;
+          tripData.routes.forEach((route: TravelItemRoute) => {
+            const routeDate = resolveTravelItemDate(route);
+            const routeTransportType = resolveTravelItemTransportType(route);
             const routeName = `${route.from} → ${route.to}`;
 
             // Add parent route
@@ -194,7 +209,7 @@ export default function TravelItemSelector({
               id: route.id,
               type: 'route',
               name: routeName,
-              description: `${route.type} transport`,
+              description: `${routeTransportType} transport`,
               date: routeDate,
               tripTitle: tripData.title
             });
@@ -202,14 +217,14 @@ export default function TravelItemSelector({
             // Add sub-routes if they exist
             if (route.subRoutes && route.subRoutes.length > 0) {
               route.subRoutes.forEach((subRoute) => {
-                // Extract date from subRoute's departureTime if available, otherwise use parent route's date
-                const subRouteDate = subRoute.departureTime ? formatLocalDateInput(subRoute.departureTime) : routeDate;
+                const subRouteDate = resolveTravelItemDate(subRoute) ?? routeDate;
+                const subRouteTransportType = resolveTravelItemTransportType(subRoute, routeTransportType);
 
                 allItems.push({
                   id: subRoute.id,
                   type: 'route',
                   name: `${subRoute.from} → ${subRoute.to}`,
-                  description: `${subRoute.type} transport (segment)`,
+                  description: `${subRouteTransportType} transport (segment)`,
                   date: subRouteDate,
                   tripTitle: tripData.title,
                   parentRouteId: route.id,
