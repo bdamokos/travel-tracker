@@ -1,14 +1,24 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
 const TILE_CACHE = `tiles-${CACHE_VERSION}`;
 const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 
-const APP_SHELL_URLS = ['/', '/maps', '/manifest.json'];
-const DATA_PATHS = ['/api/travel-data', '/api/cost-tracking'];
+const APP_SHELL_URLS = ['/', '/manifest.json'];
+const APP_ROUTE_URLS = [
+  '/maps',
+  '/admin',
+  '/admin/edit/new',
+  '/admin/cost-tracking/new',
+  '/calendars',
+  '/demo/accessible-date-picker',
+  '/demo/accessible-modal',
+  '/demo/ynab-import-form'
+];
 const TILE_HOST = 'tile.openstreetmap.org';
 const TILE_CACHE_LIMIT = 500;
+const MAX_DYNAMIC_PRECACHE_ROUTES = 200;
 const CRITICAL_APP_SHELL_URLS = new Set(['/']);
 const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 <html lang="en">
@@ -35,21 +45,6 @@ const isCacheableResponse = (response) => {
   return !cacheControl.includes('no-store');
 };
 
-self.addEventListener('install', (event) => {
-  const preCacheAppShell = async () => {
-    const cache = await caches.open(APP_SHELL_CACHE);
-    const preCacheResults = await Promise.allSettled(APP_SHELL_URLS.map((url) => cache.add(url)));
-
-    preCacheResults.forEach((result, index) => {
-      if (result.status === 'rejected' && CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
-        throw result.reason;
-      }
-    });
-  };
-
-  event.waitUntil(preCacheAppShell().then(() => self.skipWaiting()));
-});
-
 const trimCache = async (cacheName, maxItems) => {
   const cache = await caches.open(cacheName);
   const keys = await cache.keys();
@@ -62,14 +57,97 @@ const trimCache = async (cacheName, maxItems) => {
   await Promise.all(keys.slice(0, itemsToDelete).map((key) => cache.delete(key)));
 };
 
-const isDataRequest = (url) =>
-  url.origin === self.location.origin && DATA_PATHS.some((path) => url.pathname.startsWith(path));
+const isApiRequest = (url) => url.origin === self.location.origin && url.pathname.startsWith('/api/');
+const isStaticAssetRequest = (url) =>
+  url.origin === self.location.origin &&
+  (url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/_next/image') ||
+    url.pathname.startsWith('/icon-') ||
+    url.pathname === '/manifest.json');
 
 const clearDataCache = async () => {
   const cache = await caches.open(DATA_CACHE);
   const keys = await cache.keys();
   await Promise.all(keys.map((key) => cache.delete(key)));
 };
+
+const preCacheAppShell = async () => {
+  const cache = await caches.open(APP_SHELL_CACHE);
+  const preCacheResults = await Promise.allSettled(APP_SHELL_URLS.map((url) => cache.add(url)));
+
+  preCacheResults.forEach((result, index) => {
+    if (result.status === 'rejected' && CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
+      throw result.reason;
+    }
+  });
+};
+
+const preCacheRoutes = async () => {
+  const cache = await caches.open(APP_SHELL_CACHE);
+  await Promise.allSettled(APP_ROUTE_URLS.map((url) => cache.add(url)));
+};
+
+const preCacheKnownDynamicRoutes = async () => {
+  const cache = await caches.open(APP_SHELL_CACHE);
+  const routeUrls = new Set();
+  const addRouteUrl = (url) => {
+    if (routeUrls.size >= MAX_DYNAMIC_PRECACHE_ROUTES) {
+      return;
+    }
+
+    routeUrls.add(url);
+  };
+
+  try {
+    const tripsResponse = await fetch('/api/travel-data/list', { cache: 'no-store' });
+    if (tripsResponse.ok) {
+      const trips = await tripsResponse.json();
+      if (Array.isArray(trips)) {
+        trips.forEach((trip) => {
+          if (!trip || typeof trip.id !== 'string' || trip.id.length === 0) {
+            return;
+          }
+
+          addRouteUrl(`/map/${trip.id}`);
+          addRouteUrl(`/embed/${trip.id}`);
+          addRouteUrl(`/calendars/${trip.id}`);
+          addRouteUrl(`/admin/edit/${trip.id}`);
+        });
+      }
+    }
+  } catch {
+    // Best effort. Ignore offline/authorization errors during pre-cache.
+  }
+
+  try {
+    const costResponse = await fetch('/api/cost-tracking/list', { cache: 'no-store' });
+    if (costResponse.ok) {
+      const costEntries = await costResponse.json();
+      if (Array.isArray(costEntries)) {
+        costEntries.forEach((entry) => {
+          if (!entry || typeof entry.id !== 'string' || entry.id.length === 0) {
+            return;
+          }
+          addRouteUrl(`/admin/cost-tracking/${entry.id}`);
+        });
+      }
+    }
+  } catch {
+    // Best effort. Ignore offline/authorization errors during pre-cache.
+  }
+
+  if (routeUrls.size === 0) {
+    return;
+  }
+
+  await Promise.allSettled(Array.from(routeUrls).map((url) => cache.add(url)));
+};
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    Promise.all([preCacheAppShell(), preCacheRoutes(), preCacheKnownDynamicRoutes()]).then(() => self.skipWaiting())
+  );
+});
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -161,7 +239,7 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  if (isDataRequest(url) && request.method !== 'GET') {
+  if (isApiRequest(url) && request.method !== 'GET') {
     event.respondWith(
       (async () => {
         try {
@@ -183,7 +261,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isDataRequest(url)) {
+  if (isApiRequest(url)) {
     event.respondWith(networkFirst(request, DATA_CACHE));
     return;
   }
@@ -193,12 +271,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (
-    url.origin === self.location.origin &&
-    (url.pathname.startsWith('/_next/static/') ||
-      url.pathname.startsWith('/icon-') ||
-      url.pathname === '/manifest.json')
-  ) {
+  if (isStaticAssetRequest(url)) {
     event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
   }
 });

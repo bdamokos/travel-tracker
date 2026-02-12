@@ -7,6 +7,13 @@ import { EXPENSE_CATEGORIES } from '@/app/lib/costUtils';
 import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEditor';
 import { getTodayLocalDay } from '@/app/lib/localDateUtils';
 import { createCostDataDelta, isCostDataDeltaEmpty, snapshotCostData } from '@/app/lib/costDataDelta';
+import {
+  formatOfflineConflictMessage,
+  hasPendingOfflineDeltaForCostId,
+  normalizeCostEntryId,
+  queueCostDelta,
+  syncOfflineDeltaQueue
+} from '@/app/lib/offlineDeltaSync';
 
 export default function CostTrackingPage() {
   const params = useParams();
@@ -131,17 +138,53 @@ export default function CostTrackingPage() {
       return false;
     }
 
-    const saveFullCostData = async (): Promise<boolean> => {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(costData),
+    if (typeof navigator !== 'undefined' && !navigator.onLine && hasPendingOfflineDeltaForCostId(costData.id)) {
+      return false;
+    }
+
+    type SaveAttemptResult = 'persisted' | 'queued' | 'failed';
+
+    const tryQueueOfflineDelta = (): SaveAttemptResult => {
+      if (!lastSavedCostDataRef.current || !costData.id) {
+        return 'failed';
+      }
+
+      const queued = queueCostDelta({
+        id: costData.id,
+        baseSnapshot: lastSavedCostDataRef.current,
+        pendingSnapshot: costData
       });
 
+      if (queued.queued) {
+        console.warn('Auto-save queued offline cost delta for later sync:', costData.id);
+        return 'queued';
+      }
+
+      return 'failed';
+    };
+
+    const saveFullCostData = async (): Promise<SaveAttemptResult> => {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      let response: Response;
+      try {
+        response = await fetch(`${baseUrl}/api/cost-tracking?id=${costData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(costData),
+        });
+      } catch (error) {
+        console.warn('Auto-save (full) network failure, queuing offline delta:', error);
+        return tryQueueOfflineDelta();
+      }
+
       if (!response.ok) {
+        const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
+        if (shouldQueue) {
+          return tryQueueOfflineDelta();
+        }
+
         let errorDetails = '';
         try {
           errorDetails = await response.text();
@@ -149,20 +192,20 @@ export default function CostTrackingPage() {
           errorDetails = '';
         }
         console.error('Auto-save (full) failed:', response.status, errorDetails);
-        return false;
+        return 'failed';
       }
 
-      return true;
+      return 'persisted';
     };
 
-    const saveDeltaCostData = async (): Promise<boolean> => {
+    const saveDeltaCostData = async (): Promise<SaveAttemptResult> => {
       if (!lastSavedCostDataRef.current) {
-        return false;
+        return 'failed';
       }
 
       const delta = createCostDataDelta(lastSavedCostDataRef.current, costData);
       if (!delta || isCostDataDeltaEmpty(delta)) {
-        return true;
+        return 'persisted';
       }
 
       try {
@@ -176,6 +219,11 @@ export default function CostTrackingPage() {
         });
 
         if (!response.ok) {
+          const shouldQueue = response.status === 503 || (typeof navigator !== 'undefined' && !navigator.onLine);
+          if (shouldQueue) {
+            return tryQueueOfflineDelta();
+          }
+
           let errorDetails = '';
           try {
             errorDetails = await response.text();
@@ -183,28 +231,67 @@ export default function CostTrackingPage() {
             errorDetails = '';
           }
           console.warn('Auto-save (delta) failed, will fallback to full save:', response.status, errorDetails);
-          return false;
+          return 'failed';
         }
 
-        return true;
+        return 'persisted';
       } catch (error) {
-        console.warn('Auto-save (delta) error, will fallback to full save:', error);
-        return false;
+        console.warn('Auto-save (delta) network error, queuing offline delta:', error);
+        return tryQueueOfflineDelta();
       }
     };
 
-    const deltaSaved = await saveDeltaCostData();
-    if (deltaSaved) {
+    const deltaSaveResult = await saveDeltaCostData();
+    if (deltaSaveResult === 'persisted') {
+      lastSavedCostDataRef.current = snapshotCostData(costData);
+      return true;
+    }
+    if (deltaSaveResult === 'queued') {
+      return false;
+    }
+
+    const fullSaveResult = await saveFullCostData();
+    if (fullSaveResult === 'persisted') {
       lastSavedCostDataRef.current = snapshotCostData(costData);
       return true;
     }
 
-    const fullSaved = await saveFullCostData();
-    if (fullSaved) {
-      lastSavedCostDataRef.current = snapshotCostData(costData);
-    }
-    return fullSaved;
+    return false;
   }, [costData, isNewCostTracker]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const activeCostId = costData.id || costId;
+    if (!activeCostId) {
+      return;
+    }
+
+    const handleSync = async () => {
+      await syncOfflineDeltaQueue({
+        onConflict: (conflict) => {
+          if (conflict.kind !== 'cost') {
+            return;
+          }
+
+          if (normalizeCostEntryId(conflict.id) !== normalizeCostEntryId(activeCostId)) {
+            return;
+          }
+
+          alert(formatOfflineConflictMessage(conflict));
+        }
+      });
+    };
+
+    void handleSync();
+    window.addEventListener('online', handleSync);
+
+    return () => {
+      window.removeEventListener('online', handleSync);
+    };
+  }, [costData.id, costId]);
 
   // Auto-save effect for edit mode
   useEffect(() => {

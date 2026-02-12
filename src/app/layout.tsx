@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
 import IframeAccessibilityFixer from './components/IframeAccessibilityFixer';
+import OfflineDeltaBanner from './components/OfflineDeltaBanner';
 import ServiceWorkerRegistration from './components/ServiceWorkerRegistration';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <IframeAccessibilityFixer />
         <ServiceWorkerRegistration />
+        <OfflineDeltaBanner />
         <main>
           <ErrorBoundary>
             {children}
