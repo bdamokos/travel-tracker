@@ -68,6 +68,9 @@ const nextConfig = {
       },
     ];
   },
+  experimental: {
+    turbopackUseSystemTlsCerts: true,
+  },
   typescript: {
     // Only fail build on type errors, not linting issues
     ignoreBuildErrors: false,
