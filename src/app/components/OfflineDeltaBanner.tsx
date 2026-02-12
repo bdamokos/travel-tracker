@@ -25,7 +25,7 @@ const isQueueSummary = (value: unknown): value is OfflineQueueSummary => {
   );
 };
 
-export default function OfflineDeltaBanner(): JSX.Element | null {
+export default function OfflineDeltaBanner() {
   const [summary, setSummary] = useState<OfflineQueueSummary>(ZERO_SUMMARY);
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator === 'undefined' ? true : navigator.onLine);
 
@@ -106,4 +106,3 @@ export default function OfflineDeltaBanner(): JSX.Element | null {
     </div>
   );
 }
-
