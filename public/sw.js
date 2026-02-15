@@ -31,6 +31,9 @@ const OFFLINE_NAVIGATION_HTML = `<!doctype html>
     <p>You're offline, and this page is not cached yet.</p>
   </body>
 </html>`;
+const MAX_PRECACHE_REDIRECTS = 3;
+
+const isHttpRedirectStatus = (status) => status >= 300 && status < 400;
 
 const isRedirectResponse = (response) => {
   if (!response) {
@@ -45,7 +48,7 @@ const isRedirectResponse = (response) => {
     return true;
   }
 
-  return response.status >= 300 && response.status < 400;
+  return isHttpRedirectStatus(response.status);
 };
 
 const isCacheableResponse = (response) => {
@@ -101,15 +104,40 @@ const clearDataCache = async () => {
   await Promise.all(keys.map((key) => cache.delete(key)));
 };
 
+const resolvePreCacheResponse = async (url) => {
+  let requestUrl = new URL(url, self.location.origin).toString();
+
+  for (let redirectCount = 0; redirectCount <= MAX_PRECACHE_REDIRECTS; redirectCount += 1) {
+    const response = await fetch(requestUrl, { redirect: 'manual' });
+    if (isCacheableResponse(response) && !isRedirectResponse(response)) {
+      return response;
+    }
+
+    if (!isHttpRedirectStatus(response.status)) {
+      break;
+    }
+
+    const location = response.headers.get('Location');
+    if (!location) {
+      break;
+    }
+
+    const nextUrl = new URL(location, requestUrl);
+    if (nextUrl.origin !== self.location.origin) {
+      break;
+    }
+
+    requestUrl = nextUrl.toString();
+  }
+
+  throw new Error(`Unable to resolve pre-cache URL: ${url}`);
+};
+
 const preCacheAppShell = async () => {
   const cache = await caches.open(APP_SHELL_CACHE);
   const preCacheResults = await Promise.allSettled(
     APP_SHELL_URLS.map(async (url) => {
-      const response = await fetch(url);
-      if (!isCacheableResponse(response) || isRedirectResponse(response)) {
-        throw new Error(`Unable to pre-cache app shell URL: ${url}`);
-      }
-
+      const response = await resolvePreCacheResponse(url);
       await cache.put(url, response.clone());
     })
   );

@@ -167,3 +167,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Service worker navigation/cache writes should ignore redirect responses; caching redirected documents can cause Safari offline loads to fail with "Response served by service worker has redirections".
 - When service worker cache-safety rules change (for example excluding redirect responses), bump `CACHE_VERSION` in `public/sw.js` to evict previously stored incompatible entries.
 - Service worker `activate` should defensively purge redirect responses from all active caches so legacy or manually inserted redirect entries cannot trigger Safari offline navigation errors.
+- Critical app-shell precache entries (notably `'/'`) may still resolve through server redirects; pre-cache should follow same-origin `Location` hops manually and cache the final non-redirect response under the original key so install does not fail.
