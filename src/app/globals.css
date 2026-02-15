@@ -42,6 +42,9 @@
   --travel-marker-debug-buckets: 0;
   --travel-marker-focus-ring-color: #2563eb;
   --travel-marker-focus-ring-secondary: #fff;
+  --travel-marker-badge-cluster-bg: #ef4444;
+  --travel-marker-badge-visit-bg: #7c3aed;
+  --travel-marker-badge-visit-shadow-color: rgb(15 23 42 / 35%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -111,15 +114,15 @@ body {
   right: -6px;
   top: -6px;
   border-radius: 9999px;
-  background: #ef4444;
+  background: var(--travel-marker-badge-cluster-bg);
 }
 
 .travel-marker-count-badge-visit {
   left: -7px;
   bottom: 6px;
   border-radius: 6px;
-  background: #7c3aed;
-  box-shadow: 0 1px 3px rgb(15 23 42 / 35%);
+  background: var(--travel-marker-badge-visit-bg);
+  box-shadow: 0 1px 3px var(--travel-marker-badge-visit-shadow-color);
 }
 
 .travel-marker-interactive {

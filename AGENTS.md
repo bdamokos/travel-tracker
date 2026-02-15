@@ -167,3 +167,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - `createCountMarkerIcon` now supports `badgeVariant` (`cluster`/`visit`) so repeat-visit count badges can stay visually distinct from cluster/spiderfy count badges while preserving counts during group expand/collapse transitions.
 - In `EmbeddableMap`, use shared group-item icon selection for both normal and expanded (spiderfied) states so multi-visit locations keep their `visit` badge when groups are expanded/collapsed.
 - For CSS lint compatibility, prefer modern color notation (e.g., `rgb(15 23 42 / 35%)`) over legacy `rgba(...)` in new marker styling rules.
+- Marker badge colors and visit shadow are now defined as `:root` CSS variables in `globals.css`; new badge styling should use those variables instead of hardcoded literals.
