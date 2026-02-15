@@ -164,7 +164,9 @@ As you go, document new learnings, discoveries, important structural decisions i
 - Integration test global setup (`jest.integration.setup.js`) starts `next dev`; Next may auto-rewrite `tsconfig.json` (for example forcing `compilerOptions.jsx` to `preserve`) via TypeScript setup verification, so test runs can dirty `tsconfig.json` if it diverges from Next-required defaults.
 - `TravelItemSelector` supports an optional quick-link action (`showMostLikelyQuickLink`) that auto-selects the nearest dated travel item (preferring locations on tied day distance), while retaining manual dropdown selection for overrides.
 - Nearest-day ranking in `TravelItemSelector` quick-link logic depends on `MS_PER_DAY`; keep this constant defined in the component when refactoring date distance calculations.
-
+- `createCountMarkerIcon` now supports `badgeVariant` (`cluster`/`visit`) so repeat-visit count badges can stay visually distinct from cluster/spiderfy count badges while preserving counts during group expand/collapse transitions.
+- In `EmbeddableMap`, use shared group-item icon selection for both normal and expanded (spiderfied) states so multi-visit locations keep their `visit` badge when groups are expanded/collapsed.
+- For CSS lint compatibility, prefer modern color notation (e.g., `rgb(15 23 42 / 35%)`) over legacy `rgba(...)` in new marker styling rules.
+- Marker badge colors and visit shadow are now defined as `:root` CSS variables in `globals.css`; new badge styling should use those variables instead of hardcoded literals.
 - In Codex/CI-like environments, Turbopack may fail `next/font/google` fetches with TLS errors; set `experimental.turbopackUseSystemTlsCerts = true` in `next.config.js` to use system certs during build.
-
 - Avoid top-level imports of Node-only modules in `instrumentation.ts`; use runtime-gated dynamic imports inside `register()` so Edge compilation doesn't traverse Node-only dependency graphs.

@@ -50,6 +50,7 @@ type MarkerAccessibility = {
 
 type CountMarkerIconOptions = MarkerAccessibility & {
   highlighted?: boolean;
+  badgeVariant?: 'cluster' | 'visit';
 };
 
 export const escapeAttribute = (value: string) =>
@@ -341,6 +342,7 @@ export const createCountMarkerIcon = (
   const badgeSize = 16;
   const normalizedBucket = normalizeDistanceBucket(distanceBucket);
   const highlighted = options?.highlighted ?? false;
+  const badgeVariant = options?.badgeVariant ?? 'cluster';
   const accessibility: MarkerAccessibility | undefined = options
     ? {
       label: options.label,
@@ -363,11 +365,7 @@ export const createCountMarkerIcon = (
         position: relative;
         filter: ${markerShadows[tone]} saturate(var(--travel-marker-saturation, 1))${highlightedFilter};
       " data-travel-marker-tone="${tone}" data-travel-marker-bucket="${normalizedBucket}">${getMarkerSvgMarkup(tone)}</div>
-      <div aria-hidden="true" style="
-        position: absolute; right: -6px; top: -6px; width: ${badgeSize}px; height: ${badgeSize}px;
-        background: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-        font-size: 10px; font-weight: 700; border: 2px solid white;
-      ">${count}</div>
+      <div aria-hidden="true" class="travel-marker-count-badge travel-marker-count-badge-${badgeVariant}" style="width: ${badgeSize}px; height: ${badgeSize}px;">${count}</div>
     </div>
   `;
 

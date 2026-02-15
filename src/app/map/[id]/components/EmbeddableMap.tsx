@@ -569,6 +569,28 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
       return icon;
     };
 
+    const getGroupItemMarkerIcon = (
+      location: GroupItem,
+      isHighlighted: boolean,
+      label: string,
+      labelKey: string
+    ): import('leaflet').Icon | import('leaflet').DivIcon | undefined => {
+      if (location.visits.length <= 1) {
+        return getMarkerIcon(location, isHighlighted, label, labelKey);
+      }
+
+      const temporalInfos = location.visits.map(visit => getLocationTemporalDistanceDays(visit));
+      const visitTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
+      const visitDays = temporalInfos.filter(info => info.status === visitTone).map(info => info.days);
+      const visitBucket = getMarkerDistanceBucket(visitDays.length > 0 ? Math.min(...visitDays) : 0);
+
+      return createCountMarkerIcon(L, location.visits.length, visitTone, visitBucket, {
+        label,
+        highlighted: isHighlighted,
+        badgeVariant: 'visit',
+      });
+    };
+
     const getLocationLabelData = (location: GroupItem) => {
       const firstVisit = location.visits[0];
       const lastVisit = location.visits[location.visits.length - 1];
@@ -872,7 +894,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         const isHighlighted = !!closestLocation && location.visits.some(visit => visit.id === closestLocation.id);
         const { label, labelKey } = getLocationLabelData(location);
         const markerOptions: L.MarkerOptions = { keyboard: false };
-        const icon = getMarkerIcon(location, isHighlighted, label, labelKey);
+        const icon = getGroupItemMarkerIcon(location, isHighlighted, label, labelKey);
         if (icon) {
           markerOptions.icon = icon;
         }
@@ -894,6 +916,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         icon: createCountMarkerIcon(L, state.group.items.length, collapseTone, collapseDistanceBucket, {
           label: collapseLabel,
           className: 'travel-marker-collapse',
+          badgeVariant: 'cluster',
         }),
         keyboard: false,
       }).addTo(locationMarkersLayer);
@@ -941,13 +964,7 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
           const isHighlighted = !!closestLocation && location.visits.some(visit => visit.id === closestLocation.id);
           const { label, labelKey } = getLocationLabelData(location);
           const markerOptions: L.MarkerOptions = { keyboard: false };
-          const temporalInfos = location.visits.map(visit => getLocationTemporalDistanceDays(visit));
-          const singleTone = getDominantMarkerTone(temporalInfos.map(info => info.status));
-          const singleDays = temporalInfos.filter(info => info.status === singleTone).map(info => info.days);
-          const singleBucket = getMarkerDistanceBucket(singleDays.length > 0 ? Math.min(...singleDays) : 0);
-          const icon = location.visits.length > 1
-            ? createCountMarkerIcon(L, location.visits.length, singleTone, singleBucket, { label, highlighted: isHighlighted })
-            : getMarkerIcon(location, isHighlighted, label, labelKey);
+          const icon = getGroupItemMarkerIcon(location, isHighlighted, label, labelKey);
           if (icon) {
             markerOptions.icon = icon;
           }
@@ -966,7 +983,10 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         );
         const label = `Group of ${group.items.length} locations. Activate to expand.`;
         const groupMarker = L.marker(group.center, {
-          icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, { label }),
+          icon: createCountMarkerIcon(L, group.items.length, groupTone, groupDistanceBucket, {
+            label,
+            badgeVariant: 'cluster',
+          }),
           keyboard: false,
         }).addTo(locationMarkersLayer);
         registerMarkerElement(group.key, label, groupMarker);

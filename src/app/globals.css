@@ -42,6 +42,9 @@
   --travel-marker-debug-buckets: 0;
   --travel-marker-focus-ring-color: #2563eb;
   --travel-marker-focus-ring-secondary: #fff;
+  --travel-marker-badge-cluster-bg: #ef4444;
+  --travel-marker-badge-visit-bg: #7c3aed;
+  --travel-marker-badge-visit-shadow-color: rgb(15 23 42 / 35%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -83,7 +86,7 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 9999px;
-  background: rgba(17, 24, 39, 0.8);
+  background: rgb(17 24 39 / 80%);
   color: white;
   display: flex;
   align-items: center;
@@ -92,6 +95,34 @@ body {
   font-weight: 700;
   pointer-events: none;
   opacity: var(--travel-marker-debug-buckets, 0);
+}
+
+
+.travel-marker-count-badge {
+  position: absolute;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 2px solid white;
+  pointer-events: none;
+}
+
+.travel-marker-count-badge-cluster {
+  right: -6px;
+  top: -6px;
+  border-radius: 9999px;
+  background: var(--travel-marker-badge-cluster-bg);
+}
+
+.travel-marker-count-badge-visit {
+  left: -7px;
+  bottom: 6px;
+  border-radius: 6px;
+  background: var(--travel-marker-badge-visit-bg);
+  box-shadow: 0 1px 3px var(--travel-marker-badge-visit-shadow-color);
 }
 
 .travel-marker-interactive {
@@ -264,7 +295,7 @@ body {
 .leaflet-control-layers {
   background: white !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%) !important;
   padding: 8px 12px !important;
   max-width: 280px !important;
 }
