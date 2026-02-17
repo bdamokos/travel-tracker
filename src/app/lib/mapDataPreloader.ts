@@ -150,7 +150,7 @@ export async function precalculateMapDynamicData(targets?: LocationEnrichmentTar
     const weatherKey = buildWeatherKey(normalized);
     if (!weatherKeys.has(weatherKey)) {
       weatherKeys.add(weatherKey);
-      tasks.push(weatherService.getWeatherForLocation(normalized));
+      tasks.push(weatherService.getWeatherForLocation(normalized, { preferCache: true }));
     }
 
     if (!tasks.length) continue;

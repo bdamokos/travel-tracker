@@ -63,6 +63,7 @@ describe('mapDataPreloader', () => {
 
     expect(mockWikipedia).toHaveBeenCalledTimes(1);
     expect(mockWeather).toHaveBeenCalledTimes(1);
+    expect(mockWeather).toHaveBeenCalledWith(expect.objectContaining({ id: 'loc-1' }), { preferCache: true });
   });
 
   it('deduplicates repeated locations for warm-up keys', async () => {
@@ -88,5 +89,7 @@ describe('mapDataPreloader', () => {
     expect(mockWikipedia).toHaveBeenCalledTimes(1);
     // Weather is keyed by name+coordinates+date range; repeated same range dedupes, different stay dates warm separately.
     expect(mockWeather).toHaveBeenCalledTimes(2);
+    expect(mockWeather).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 'loc-a' }), { preferCache: true });
+    expect(mockWeather).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 'loc-c' }), { preferCache: true });
   });
 });

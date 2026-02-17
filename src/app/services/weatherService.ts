@@ -655,7 +655,10 @@ async function computeHistoricalAverage(
 }
 
 class WeatherService {
-  async getWeatherForLocation(location: Location): Promise<WeatherSummary> {
+  async getWeatherForLocation(
+    location: Location,
+    options?: { preferCache?: boolean }
+  ): Promise<WeatherSummary> {
     const start = location.date ? new Date(location.date) : new Date();
     const end = location.endDate ? new Date(location.endDate) : start;
     const clampedStart = start;
@@ -663,6 +666,7 @@ class WeatherService {
     const startISO = toISODate(clampedStart);
     const endISO = toISODate(clampedEnd);
     const key = buildCacheKey(location.coordinates, startISO, endISO);
+    const preferCache = options?.preferCache === true;
 
     const cached = await readCache(key);
     const now = new Date();
@@ -680,6 +684,14 @@ class WeatherService {
       if (missingDates.length > 0) reasons.push('missing-dates');
       const forecastRefreshNeeded = needsForecastRefresh(cached.summary);
       if (forecastRefreshNeeded) reasons.push('needs-forecast');
+
+      if (preferCache && hasData) {
+        log('cache:prefer-hit', { key, count: cached.summary.dailyWeather.length });
+        return {
+          ...cached.summary,
+          summary: summarize(cached.summary.dailyWeather)
+        };
+      }
 
       if (hasData && isTodayValid && missingDates.length === 0 && !forecastRefreshNeeded && hasMetadata) {
         log('cache:hit', { key, count: cached.summary.dailyWeather.length });
