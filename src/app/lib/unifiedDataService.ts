@@ -5,8 +5,8 @@
  * both travel and cost data, while maintaining backwards compatibility
  */
 
-import { readFile, writeFile, readdir, unlink, access, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { readFile, writeFile, readdir, unlink, access, mkdir, rename } from 'fs/promises';
+import { basename, dirname, join } from 'path';
 import {
   UnifiedTripData,
   isUnifiedFormat,
@@ -23,6 +23,7 @@ import { ConflictError, NotFoundError, ValidationError } from './errors';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');
+const saveQueues = new Map<string, Promise<void>>();
 
 type DeletionBackupKind = 'trip' | 'cost';
 
@@ -32,6 +33,66 @@ async function ensureBackupDir() {
   } catch {
     await mkdir(getBackupDirPath(), { recursive: true });
   }
+}
+
+function getCorruptionCutoffPosition(rawContent: string, error: unknown): number | null {
+  if (error instanceof Error) {
+    const positionMatch = error.message.match(/position (\d+)/);
+    if (positionMatch) {
+      const parsed = Number.parseInt(positionMatch[1], 10);
+      if (Number.isFinite(parsed) && parsed > 0 && parsed <= rawContent.length) {
+        return parsed;
+      }
+    }
+  }
+
+  const firstNull = rawContent.indexOf('\u0000');
+  if (firstNull > 0) {
+    return firstNull;
+  }
+
+  return null;
+}
+
+async function recoverCorruptedUnifiedTripFile(
+  tripId: string,
+  filePath: string,
+  fileContent: Buffer,
+  parseError: unknown
+): Promise<UnifiedTripData | null> {
+  const rawContent = fileContent.toString('utf-8');
+  const cutoff = getCorruptionCutoffPosition(rawContent, parseError);
+  if (!cutoff) {
+    return null;
+  }
+
+  const candidateContent = rawContent.slice(0, cutoff).trimEnd();
+  if (!candidateContent) {
+    return null;
+  }
+
+  let parsedCandidate: unknown;
+  try {
+    parsedCandidate = JSON.parse(candidateContent);
+  } catch {
+    return null;
+  }
+
+  if (!isUnifiedFormat(parsedCandidate)) {
+    return null;
+  }
+
+  const recoveredData = migrateToLatestSchema(parsedCandidate);
+
+  await ensureBackupDir();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = getBackupFilePath(`corrupted-trip-${tripId}-${timestamp}.json.corrupt`);
+  await writeFile(backupPath, fileContent);
+
+  await saveUnifiedTripData(recoveredData);
+  console.warn('Recovered corrupted trip file %s (backup: %s)', filePath, backupPath);
+
+  return recoveredData;
 }
 
 function clearCostLinksFromTransportation(transportation?: Transportation): Transportation | undefined {
@@ -380,8 +441,25 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
   try {
     // Load unified file
     const unifiedFilePath = getUnifiedTripFilePath(tripId);
-    const unifiedContent = await readFile(unifiedFilePath, 'utf-8');
-    const parsed = JSON.parse(unifiedContent, dateReviver);
+    const unifiedContent = await readFile(unifiedFilePath);
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(unifiedContent.toString('utf-8'), dateReviver);
+    } catch (parseError) {
+      const recoveredData = await recoverCorruptedUnifiedTripFile(
+        tripId,
+        unifiedFilePath,
+        unifiedContent,
+        parseError
+      );
+
+      if (recoveredData) {
+        return recoveredData;
+      }
+
+      throw parseError;
+    }
 
     if (isUnifiedFormat(parsed)) {
       // Apply latest schema migration
@@ -407,7 +485,39 @@ export async function loadUnifiedTripData(tripId: string): Promise<UnifiedTripDa
  */
 export async function saveUnifiedTripData(data: UnifiedTripData): Promise<void> {
   const filePath = getUnifiedTripFilePath(data.id);
-  await writeFile(filePath, JSON.stringify(data, null, 2));
+  const content = JSON.stringify(data, null, 2);
+
+  const previousSave = saveQueues.get(filePath) ?? Promise.resolve();
+  const queuedSave = previousSave
+    .catch(() => undefined)
+    .then(async () => {
+      const tempFilePath = join(
+        dirname(filePath),
+        `.${basename(filePath)}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`
+      );
+
+      try {
+        await writeFile(tempFilePath, content, 'utf-8');
+        await rename(tempFilePath, filePath);
+      } catch (error) {
+        try {
+          await unlink(tempFilePath);
+        } catch {
+          // Ignore cleanup failures; primary error handling happens below.
+        }
+        throw error;
+      }
+    });
+
+  saveQueues.set(filePath, queuedSave);
+
+  try {
+    await queuedSave;
+  } finally {
+    if (saveQueues.get(filePath) === queuedSave) {
+      saveQueues.delete(filePath);
+    }
+  }
 }
 
 /**
