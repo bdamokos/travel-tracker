@@ -1,43 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import {
+  buildInstagramCookieHeaderFromEnv,
+  extractInstagramProfileSummary,
+  isValidInstagramUsername,
+  normalizeInstagramUsername,
+  payloadRequiresInstagramLogin,
+} from '@/app/lib/instagramImportUtils';
 
-type InstagramPostSummary = {
-  id: string;
-  shortcode: string;
-  caption: string;
-  displayUrl: string;
-  takenAt: number | null;
-};
-
-const instagramResponseSchema = z.object({
-  data: z.object({
-    user: z.object({
-      username: z.string().optional(),
-      full_name: z.string().optional(),
-      edge_owner_to_timeline_media: z.object({
-        edges: z.array(
-          z.object({
-            node: z.object({
-              id: z.string(),
-              shortcode: z.string(),
-              display_url: z.string().optional().default(''),
-              taken_at_timestamp: z.number().optional().nullable(),
-              edge_media_to_caption: z.object({
-                edges: z.array(
-                  z.object({
-                    node: z.object({
-                      text: z.string().optional().default('')
-                    })
-                  })
-                ).optional().default([])
-              }).optional().default({ edges: [] })
-            })
-          })
-        )
-      })
-    })
-  })
-});
+const DEFAULT_INSTAGRAM_APP_ID = '936619743392459';
+const MAX_IMPORTED_POSTS = 40;
+const INSTAGRAM_PROFILE_ENDPOINTS = [
+  'https://www.instagram.com/api/v1/users/web_profile_info/?username=',
+  'https://i.instagram.com/api/v1/users/web_profile_info/?username=',
+] as const;
 
 const INSTAGRAM_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
@@ -45,65 +20,165 @@ const INSTAGRAM_HEADERS = {
   'X-Requested-With': 'XMLHttpRequest'
 };
 
+const getInstagramPayloadFailureMessage = (payload: unknown): string | null => {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    return null;
+  }
+
+  const statusValue = 'status' in payload ? payload.status : undefined;
+  const status = typeof statusValue === 'string' ? statusValue.toLowerCase() : '';
+  if (status !== 'fail' && status !== 'error') {
+    return null;
+  }
+
+  const messageValue = 'message' in payload ? payload.message : undefined;
+  if (typeof messageValue === 'string' && messageValue.trim()) {
+    return messageValue;
+  }
+
+  return 'Instagram payload reported a failure';
+};
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const username = searchParams.get('username');
-  const instagramAppId = process.env.INSTAGRAM_APP_ID;
+  const rawUsername = searchParams.get('username') ?? '';
+  const username = normalizeInstagramUsername(rawUsername);
+  const instagramAppId = process.env.INSTAGRAM_APP_ID?.trim() || DEFAULT_INSTAGRAM_APP_ID;
+  const cookieHeader = buildInstagramCookieHeaderFromEnv();
+  const usePrivateCache = Boolean(cookieHeader);
 
   if (!username) {
     return NextResponse.json({ error: 'Username is required' }, { status: 400 });
   }
 
-  if (!instagramAppId) {
-    return NextResponse.json({ error: 'Instagram app ID is not configured' }, { status: 500 });
+  if (!isValidInstagramUsername(username)) {
+    return NextResponse.json(
+      { error: 'Invalid Instagram username format' },
+      { status: 400 }
+    );
   }
 
   try {
-    const response = await fetch(
-      `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,
-      {
+    let sawNotFound = false;
+    let sawRateLimit = false;
+    let sawLoginRequirement = false;
+
+    for (const endpointPrefix of INSTAGRAM_PROFILE_ENDPOINTS) {
+      const endpoint = `${endpointPrefix}${encodeURIComponent(username)}`;
+      const fetchOptions: RequestInit & { next?: { revalidate: number } } = {
         headers: {
           ...INSTAGRAM_HEADERS,
           'X-IG-App-ID': instagramAppId,
-          Referer: `https://www.instagram.com/${username}/`
+          Referer: `https://www.instagram.com/${username}/`,
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
         },
-        next: { revalidate: 600 }
-      }
-    );
+      };
 
-    if (!response.ok) {
+      if (usePrivateCache) {
+        fetchOptions.cache = 'no-store';
+      } else {
+        fetchOptions.next = { revalidate: 600 };
+      }
+
+      let response: Response;
+      try {
+        response = await fetch(endpoint, fetchOptions);
+      } catch (endpointError) {
+        console.error('Error fetching Instagram endpoint:', endpoint, endpointError);
+        continue;
+      }
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          sawNotFound = true;
+        }
+        if (response.status === 429) {
+          sawRateLimit = true;
+        }
+        if (response.status === 401 || response.status === 403) {
+          sawLoginRequirement = true;
+        }
+        continue;
+      }
+
+      const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+      if (!contentType.includes('json')) {
+        continue;
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing Instagram payload:', endpoint, parseError);
+        continue;
+      }
+
+      if (payloadRequiresInstagramLogin(payload)) {
+        sawLoginRequirement = true;
+        continue;
+      }
+
+      const payloadFailureMessage = getInstagramPayloadFailureMessage(payload);
+      if (payloadFailureMessage) {
+        const normalizedFailureMessage = payloadFailureMessage.toLowerCase();
+        if (
+          normalizedFailureMessage.includes('rate limit') ||
+          normalizedFailureMessage.includes('too many') ||
+          normalizedFailureMessage.includes('wait')
+        ) {
+          sawRateLimit = true;
+        }
+        continue;
+      }
+
+      const summary = extractInstagramProfileSummary(payload, username);
+      if (!summary) {
+        continue;
+      }
+
       return NextResponse.json(
-        { error: 'Failed to fetch Instagram profile', status: response.status },
-        { status: response.status }
+        {
+          username: summary.username || username,
+          fullName: summary.fullName || '',
+          posts: summary.posts.slice(0, MAX_IMPORTED_POSTS)
+        },
+        {
+          headers: {
+            'Cache-Control': usePrivateCache
+              ? 'private, no-store'
+              : 'public, s-maxage=600, stale-while-revalidate=300'
+          }
+        }
       );
     }
 
-    const payload = instagramResponseSchema.parse(await response.json());
-    const edges = payload.data.user.edge_owner_to_timeline_media.edges;
-    const posts: InstagramPostSummary[] = edges
-      .map((edge) => {
-        const caption = edge.node.edge_media_to_caption.edges[0]?.node.text ?? '';
-        return {
-          id: edge.node.id,
-          shortcode: edge.node.shortcode,
-          caption,
-          displayUrl: edge.node.display_url || '',
-          takenAt: edge.node.taken_at_timestamp ?? null
-        };
-      })
-      .filter((post: InstagramPostSummary) => post.id && post.shortcode);
+    if (sawLoginRequirement) {
+      return NextResponse.json(
+        {
+          error: 'Instagram is requiring a logged-in session. Configure INSTAGRAM_SESSIONID (and optionally INSTAGRAM_CSRFTOKEN / INSTAGRAM_DS_USER_ID).'
+        },
+        { status: 403 }
+      );
+    }
+
+    if (sawRateLimit) {
+      return NextResponse.json(
+        { error: 'Instagram temporarily rate-limited profile requests. Try again shortly.' },
+        { status: 429 }
+      );
+    }
+
+    if (sawNotFound) {
+      return NextResponse.json(
+        { error: 'Instagram profile not found or not publicly accessible.' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(
-      {
-        username: payload.data.user.username || username,
-        fullName: payload.data.user.full_name || '',
-        posts
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=300'
-        }
-      }
+      { error: 'Failed to fetch Instagram profile from available endpoints' },
+      { status: 502 }
     );
   } catch (error) {
     console.error('Error fetching Instagram profile:', error);

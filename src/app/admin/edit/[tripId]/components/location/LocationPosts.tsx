@@ -22,6 +22,31 @@ type InstagramImportPost = {
   displayUrl: string;
 };
 
+const isInstagramImportPost = (value: unknown): value is InstagramImportPost => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<InstagramImportPost>;
+  return typeof candidate.id === 'string' && typeof candidate.shortcode === 'string';
+};
+
+const getInstagramErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const payload = await response.json() as { error?: unknown; message?: unknown };
+    if (typeof payload.error === 'string' && payload.error.trim()) {
+      return payload.error;
+    }
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      return payload.message;
+    }
+  } catch {
+    // Ignore invalid JSON responses and fall back to status-based message.
+  }
+
+  return `Unable to load posts (status ${response.status}).`;
+};
+
 interface MediaPostItemProps {
   post: { id: string; url: string; caption?: string };
   onUpdate: MediaPostUpdateHandler;
@@ -322,14 +347,20 @@ export default function LocationPosts({
     try {
       const response = await fetch(`/api/instagram?username=${encodeURIComponent(instagramUsername)}`);
       if (!response.ok) {
-        setInstagramError(`Unable to load posts (status ${response.status}).`);
+        setInstagramError(await getInstagramErrorMessage(response));
         setInstagramPosts([]);
         return;
       }
 
-      const payload = await response.json();
-      const posts = (payload?.posts as InstagramImportPost[]) || [];
+      const payload = await response.json() as { posts?: unknown };
+      const posts = Array.isArray(payload.posts)
+        ? payload.posts.filter(isInstagramImportPost)
+        : [];
+
       setInstagramPosts(posts);
+      if (posts.length === 0) {
+        setInstagramError(`No visible posts found for @${instagramUsername}.`);
+      }
     } catch (error) {
       console.error('Failed to load Instagram posts:', error);
       setInstagramError('Unable to load Instagram posts.');
