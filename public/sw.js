@@ -78,7 +78,11 @@ const cloneResponseForCache = async (response) => {
 };
 
 const purgeRedirectResponsesFromCache = async (cacheName) => {
-  const cache = await caches.open(cacheName);
+  const cache = await openCacheSafely(cacheName);
+  if (!cache) {
+    return;
+  }
+
   const keys = await cache.keys();
 
   await Promise.all(
@@ -91,7 +95,11 @@ const purgeRedirectResponsesFromCache = async (cacheName) => {
   );
 };
 const trimCache = async (cacheName, maxItems) => {
-  const cache = await caches.open(cacheName);
+  const cache = await openCacheSafely(cacheName);
+  if (!cache) {
+    return;
+  }
+
   const keys = await cache.keys();
   const itemsToDelete = keys.length - maxItems;
 
@@ -110,8 +118,21 @@ const isStaticAssetRequest = (url) =>
     url.pathname.startsWith('/icon-') ||
     url.pathname === '/manifest.json');
 
+const openCacheSafely = async (cacheName) => {
+  try {
+    return await caches.open(cacheName);
+  } catch (error) {
+    console.warn(`[sw] Unable to open cache "${cacheName}".`, error);
+    return null;
+  }
+};
+
 const clearDataCache = async () => {
-  const cache = await caches.open(DATA_CACHE);
+  const cache = await openCacheSafely(DATA_CACHE);
+  if (!cache) {
+    return;
+  }
+
   const keys = await cache.keys();
   await Promise.all(keys.map((key) => cache.delete(key)));
 };
@@ -274,26 +295,34 @@ self.addEventListener('activate', (event) => {
 });
 
 const networkFirst = async (request, cacheName) => {
-  const cache = await caches.open(cacheName);
+  const cache = await openCacheSafely(cacheName);
 
   try {
     const response = await fetch(request);
 
-    if (isCacheableResponse(response) && !isRedirectResponse(response)) {
-      await cache.put(request, response.clone());
+    if (cache && isCacheableResponse(response) && !isRedirectResponse(response)) {
+      try {
+        await cache.put(request, response.clone());
+      } catch (error) {
+        console.warn(`[sw] Failed to cache network-first response for ${request.url}.`, error);
+      }
     }
 
     return response;
   } catch {
-    const cachedRequestMatch = await cache.match(request);
-    if (cachedRequestMatch && !isRedirectResponse(cachedRequestMatch)) {
-      return cachedRequestMatch;
+    if (cache) {
+      const cachedRequestMatch = await cache.match(request);
+      if (cachedRequestMatch && !isRedirectResponse(cachedRequestMatch)) {
+        return cachedRequestMatch;
+      }
     }
 
     if (request.mode === 'navigate') {
-      const shellFallback = await cache.match('/');
-      if (shellFallback && !isRedirectResponse(shellFallback)) {
-        return shellFallback;
+      if (cache) {
+        const shellFallback = await cache.match('/');
+        if (shellFallback && !isRedirectResponse(shellFallback)) {
+          return shellFallback;
+        }
       }
 
       return new Response(OFFLINE_NAVIGATION_HTML, {
@@ -312,18 +341,22 @@ const networkFirst = async (request, cacheName) => {
 };
 
 const staleWhileRevalidate = async (request, cacheName) => {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
+  const cache = await openCacheSafely(cacheName);
+  const cached = cache ? await cache.match(request) : null;
 
   const networkPromise = fetch(request)
     .then(async (response) => {
-      if (isCacheableResponse(response) && !isRedirectResponse(response)) {
-        await cache.put(request, response.clone());
+      if (cache && isCacheableResponse(response) && !isRedirectResponse(response)) {
+        try {
+          await cache.put(request, response.clone());
+        } catch (error) {
+          console.warn(`[sw] Failed to cache stale-while-revalidate response for ${request.url}.`, error);
+        }
 
         if (cacheName === TILE_CACHE) {
           await trimCache(TILE_CACHE, TILE_CACHE_LIMIT);
         }
-      } else if (cacheName === DATA_CACHE) {
+      } else if (cache && cacheName === DATA_CACHE) {
         await cache.delete(request);
       }
 
