@@ -41,6 +41,7 @@ const TIKTOK_ICON_MARKUP = getTikTokIconMarkup({
 
 interface EmbeddableMapProps {
   travelData: MapTravelData;
+  debug?: boolean;
 }
 
 const escapeHTML = (value: string) =>
@@ -213,6 +214,53 @@ const generatePopupHTML = (locationGroup: MergedLocationVisit, wikipediaData?: {
   return popupContent;
 };
 
+const generateRouteDebugPopupHTML = (params: {
+  parentRouteId: string;
+  parentRouteType: string;
+  segmentId: string;
+  segmentType: string;
+  from: string;
+  to: string;
+  pointsCount: number;
+  pointSource: 'segment-routePoints' | 'endpoint-fallback';
+  firstPoint?: [number, number];
+  lastPoint?: [number, number];
+  date?: string;
+}) => {
+  const isDarkMode = typeof window !== 'undefined'
+    && window.matchMedia
+    && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const popupStyles = isDarkMode
+    ? 'background-color: #111827; color: #f9fafb; border: 1px solid #374151;'
+    : 'background-color: white; color: #111827; border: 1px solid #d1d5db;';
+
+  const sourceLabel = params.pointSource === 'segment-routePoints'
+    ? 'segment routePoints'
+    : 'from/to fallback';
+  const firstPoint = params.firstPoint
+    ? `${params.firstPoint[0].toFixed(6)}, ${params.firstPoint[1].toFixed(6)}`
+    : 'n/a';
+  const lastPoint = params.lastPoint
+    ? `${params.lastPoint[0].toFixed(6)}, ${params.lastPoint[1].toFixed(6)}`
+    : 'n/a';
+
+  return `
+    <div style="padding: 10px; min-width: 280px; max-width: 420px; border-radius: 8px; ${popupStyles} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <h4 style="font-weight: 700; font-size: 14px; margin-bottom: 8px;">Route Segment Debug</h4>
+      <div style="font-size: 12px; line-height: 1.5;">
+        <div><strong>Parent route:</strong> ${escapeHTML(params.parentRouteId)} (${escapeHTML(params.parentRouteType)})</div>
+        <div><strong>Segment:</strong> ${escapeHTML(params.segmentId)} (${escapeHTML(params.segmentType)})</div>
+        <div><strong>From/To:</strong> ${escapeHTML(params.from)} → ${escapeHTML(params.to)}</div>
+        ${params.date ? `<div><strong>Date:</strong> ${escapeHTML(params.date)}</div>` : ''}
+        <div><strong>Points:</strong> ${params.pointsCount}</div>
+        <div><strong>Point source:</strong> ${escapeHTML(sourceLabel)}</div>
+        <div><strong>First point:</strong> ${escapeHTML(firstPoint)}</div>
+        <div><strong>Last point:</strong> ${escapeHTML(lastPoint)}</div>
+      </div>
+    </div>
+  `;
+};
+
 const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
 const MAP_PAN_STEP_PIXELS = 80;
@@ -303,7 +351,7 @@ const generateLocationsLegendLabel = (): string => {
   `;
 };
 
-const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
+const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData, debug = false }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const collapsedByUserRef = useRef<Set<string>>(new Set());
@@ -334,10 +382,24 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
   useEffect(() => {
     console.log(`[EmbeddableMap] Received travel data for trip ${travelData.id} with ${travelData.routes.length} routes`);
     travelData.routes.forEach((route, index) => {
-      const routePointsCount = route.routePoints ? route.routePoints.length : 0;
-      console.log(`[EmbeddableMap] Received route ${index} (${route.id}): ${routePointsCount} route points`);
+      const parentRoutePoints = route.routePoints?.length || 0;
+      const leafSegments = getLeafMapRouteSegments(route);
+      const leafSegmentPoints = leafSegments.reduce(
+        (sum, segment) => sum + resolveMapRouteSegmentPoints(segment).length,
+        0
+      );
+      const leafSegmentsWithOwnPoints = leafSegments.filter(segment => (segment.routePoints?.length || 0) > 0).length;
+      const summary = `[EmbeddableMap] Received route ${index} (${route.id}): parent points=${parentRoutePoints}, leaf segments=${leafSegments.length}, leaf points=${leafSegmentPoints}, segments-with-routePoints=${leafSegmentsWithOwnPoints}`;
+      if (debug) {
+        const leafDetails = leafSegments
+          .map(segment => `${segment.id}:${segment.transportType}:${resolveMapRouteSegmentPoints(segment).length}`)
+          .join(' | ');
+        console.log(`${summary} [${leafDetails}]`);
+      } else {
+        console.log(summary);
+      }
     });
-  }, [travelData.id, travelData.routes]);
+  }, [debug, travelData.id, travelData.routes]);
 
   const updateFocusAnnouncement = useCallback((key: string) => {
     const label = markerLabelRef.current.get(key);
@@ -1063,12 +1125,38 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
         }
         usedTransportTypes.add(transportKey);
 
-        L.polyline(routePoints, {
+        const polyline = L.polyline(routePoints, {
           color: routeStyle.color,
           weight: routeStyle.weight,
           opacity: routeStyle.opacity,
           dashArray: routeStyle.dashArray
         }).addTo(layerGroup);
+
+        if (debug) {
+          polyline.on('click', (event) => {
+            const pointSource = (segment.routePoints?.length || 0) > 0
+              ? 'segment-routePoints'
+              : 'endpoint-fallback';
+            const debugPopup = generateRouteDebugPopupHTML({
+              parentRouteId: route.id,
+              parentRouteType: route.transportType,
+              segmentId: segment.id,
+              segmentType: segment.transportType,
+              from: segment.from,
+              to: segment.to,
+              date: segment.date,
+              pointsCount: routePoints.length,
+              pointSource,
+              firstPoint: routePoints[0],
+              lastPoint: routePoints[routePoints.length - 1]
+            });
+
+            L.popup({ maxWidth: 440 })
+              .setLatLng(event.latlng)
+              .setContent(debugPopup)
+              .openOn(map);
+          });
+        }
       });
     });
 

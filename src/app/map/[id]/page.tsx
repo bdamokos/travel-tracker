@@ -191,10 +191,20 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-export default async function MapPage({ params }: { 
+export default async function MapPage({
+  params,
+  searchParams
+}: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ debug?: string | string[] }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
+
+  const debugParam = resolvedSearchParams?.debug;
+  const isDebugMode = Array.isArray(debugParam)
+    ? debugParam.some(value => value !== '0' && value.toLowerCase() !== 'false')
+    : typeof debugParam === 'string' && debugParam !== '0' && debugParam.toLowerCase() !== 'false';
   
   // Check if this is admin mode based on domain
   const headersList = await headers();
@@ -271,7 +281,7 @@ export default async function MapPage({ params }: {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
           <div style={{ height: '600px' }}>
-            <EmbeddableMap travelData={travelData} />
+            <EmbeddableMap travelData={travelData} debug={isDebugMode} />
           </div>
         </div>
         
