@@ -1,25 +1,15 @@
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
 const TILE_CACHE = `tiles-${CACHE_VERSION}`;
 const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 
-const APP_SHELL_URLS = ['/', '/manifest.json'];
-const APP_ROUTE_URLS = [
-  '/maps',
-  '/admin',
-  '/admin/edit/new',
-  '/admin/cost-tracking/new',
-  '/calendars',
-  '/demo/accessible-date-picker',
-  '/demo/accessible-modal',
-  '/demo/ynab-import-form'
-];
+const APP_SHELL_URLS = ['/maps', '/admin', '/manifest.json'];
+const NAVIGATION_FALLBACK_URLS = ['/maps', '/admin', '/'];
 const TILE_HOST = 'tile.openstreetmap.org';
 const TILE_CACHE_LIMIT = 500;
-const MAX_DYNAMIC_PRECACHE_ROUTES = 200;
-const CRITICAL_APP_SHELL_URLS = new Set(['/']);
+const CRITICAL_APP_SHELL_URLS = new Set(['/maps']);
 const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -32,6 +22,7 @@ const OFFLINE_NAVIGATION_HTML = `<!doctype html>
   </body>
 </html>`;
 const MAX_PRECACHE_REDIRECTS = 3;
+const PRECACHE_FETCH_TIMEOUT_MS = 10_000;
 
 const isHttpRedirectStatus = (status) => status >= 300 && status < 400;
 
@@ -77,6 +68,36 @@ const cloneResponseForCache = async (response) => {
   });
 };
 
+const toRuntimeSafeResponse = async (response) => {
+  if (!response) {
+    return null;
+  }
+
+  if (response.type === 'opaqueredirect' || isHttpRedirectStatus(response.status)) {
+    return null;
+  }
+
+  if (response.redirected) {
+    return cloneResponseForCache(response);
+  }
+
+  return response;
+};
+
+const fetchWithTimeout = async (input, init = {}, timeoutMs = PRECACHE_FETCH_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const purgeRedirectResponsesFromCache = async (cacheName) => {
   const cache = await openCacheSafely(cacheName);
   if (!cache) {
@@ -111,6 +132,8 @@ const trimCache = async (cacheName, maxItems) => {
 };
 
 const isApiRequest = (url) => url.origin === self.location.origin && url.pathname.startsWith('/api/');
+const isNextChunkRequest = (url) =>
+  url.origin === self.location.origin && url.pathname.startsWith('/_next/static/chunks/');
 const isStaticAssetRequest = (url) =>
   url.origin === self.location.origin &&
   (url.pathname.startsWith('/_next/static/') ||
@@ -141,13 +164,13 @@ const resolvePreCacheResponse = async (url) => {
   let requestUrl = new URL(url, self.location.origin).toString();
 
   for (let redirectCount = 0; redirectCount <= MAX_PRECACHE_REDIRECTS; redirectCount += 1) {
-    const response = await fetch(requestUrl, { redirect: 'manual' });
+    const response = await fetchWithTimeout(requestUrl, { redirect: 'manual' });
     if (isCacheableResponse(response) && !isRedirectResponse(response)) {
       return response;
     }
 
     if (response.type === 'opaqueredirect') {
-      const followedResponse = await fetch(requestUrl, { redirect: 'follow' });
+      const followedResponse = await fetchWithTimeout(requestUrl, { redirect: 'follow' });
       if (!isCacheableResponse(followedResponse)) {
         break;
       }
@@ -181,7 +204,11 @@ const resolvePreCacheResponse = async (url) => {
 };
 
 const preCacheAppShell = async () => {
-  const cache = await caches.open(APP_SHELL_CACHE);
+  const cache = await openCacheSafely(APP_SHELL_CACHE);
+  if (!cache) {
+    return;
+  }
+
   const preCacheResults = await Promise.allSettled(
     APP_SHELL_URLS.map(async (url) => {
       const response = await resolvePreCacheResponse(url);
@@ -196,88 +223,13 @@ const preCacheAppShell = async () => {
   });
 };
 
-const preCacheRoutes = async () => {
-  const cache = await caches.open(APP_SHELL_CACHE);
-  await Promise.allSettled(
-    APP_ROUTE_URLS.map(async (url) => {
-      const response = await fetch(url);
-      if (!isCacheableResponse(response) || isRedirectResponse(response)) {
-        return;
-      }
-
-      await cache.put(url, response.clone());
-    })
-  );
-};
-
-const preCacheKnownDynamicRoutes = async () => {
-  const cache = await caches.open(APP_SHELL_CACHE);
-  const routeUrls = new Set();
-  const addRouteUrl = (url) => {
-    if (routeUrls.size >= MAX_DYNAMIC_PRECACHE_ROUTES) {
-      return;
-    }
-
-    routeUrls.add(url);
-  };
-
-  try {
-    const tripsResponse = await fetch('/api/travel-data/list', { cache: 'no-store' });
-    if (tripsResponse.ok) {
-      const trips = await tripsResponse.json();
-      if (Array.isArray(trips)) {
-        trips.forEach((trip) => {
-          if (!trip || typeof trip.id !== 'string' || trip.id.length === 0) {
-            return;
-          }
-
-          addRouteUrl(`/map/${trip.id}`);
-          addRouteUrl(`/embed/${trip.id}`);
-          addRouteUrl(`/calendars/${trip.id}`);
-          addRouteUrl(`/admin/edit/${trip.id}`);
-        });
-      }
-    }
-  } catch {
-    // Best effort. Ignore offline/authorization errors during pre-cache.
-  }
-
-  try {
-    const costResponse = await fetch('/api/cost-tracking/list', { cache: 'no-store' });
-    if (costResponse.ok) {
-      const costEntries = await costResponse.json();
-      if (Array.isArray(costEntries)) {
-        costEntries.forEach((entry) => {
-          if (!entry || typeof entry.id !== 'string' || entry.id.length === 0) {
-            return;
-          }
-          addRouteUrl(`/admin/cost-tracking/${entry.id}`);
-        });
-      }
-    }
-  } catch {
-    // Best effort. Ignore offline/authorization errors during pre-cache.
-  }
-
-  if (routeUrls.size === 0) {
-    return;
-  }
-
-  await Promise.allSettled(
-    Array.from(routeUrls).map(async (url) => {
-      const response = await fetch(url);
-      if (!isCacheableResponse(response) || isRedirectResponse(response)) {
-        return;
-      }
-
-      await cache.put(url, response.clone());
-    })
-  );
-};
-
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    Promise.all([preCacheAppShell(), preCacheRoutes(), preCacheKnownDynamicRoutes()]).then(() => self.skipWaiting())
+    preCacheAppShell()
+      .catch((error) => {
+        console.warn('[sw] App shell pre-cache failed. Continuing without blocking activation.', error);
+      })
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -294,13 +246,53 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const networkFirst = async (request, cacheName) => {
+const getCachedNonRedirectResponse = async (cache, request) => {
+  if (!cache) {
+    return null;
+  }
+
+  const cachedResponse = await cache.match(request);
+  if (!cachedResponse || isRedirectResponse(cachedResponse)) {
+    return null;
+  }
+
+  return cachedResponse;
+};
+
+const getNavigationFallbackResponse = async (cache) => {
+  if (!cache) {
+    return null;
+  }
+
+  for (const fallbackUrl of NAVIGATION_FALLBACK_URLS) {
+    const fallback = await getCachedNonRedirectResponse(cache, fallbackUrl);
+    if (fallback) {
+      return fallback;
+    }
+  }
+
+  return null;
+};
+
+const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = false } = {}) => {
   const cache = await openCacheSafely(cacheName);
 
   try {
-    const response = await fetch(request);
+    const networkResponse = await fetch(request);
+    const response = await toRuntimeSafeResponse(networkResponse);
 
-    if (cache && isCacheableResponse(response) && !isRedirectResponse(response)) {
+    if (!response) {
+      throw new Error(`[sw] Redirect response blocked for ${request.url}`);
+    }
+
+    if (fallbackToCacheOnHttpError && !response.ok) {
+      const cachedHttpFallback = await getCachedNonRedirectResponse(cache, request);
+      if (cachedHttpFallback) {
+        return cachedHttpFallback;
+      }
+    }
+
+    if (cache && isCacheableResponse(response)) {
       try {
         await cache.put(request, response.clone());
       } catch (error) {
@@ -310,19 +302,15 @@ const networkFirst = async (request, cacheName) => {
 
     return response;
   } catch {
-    if (cache) {
-      const cachedRequestMatch = await cache.match(request);
-      if (cachedRequestMatch && !isRedirectResponse(cachedRequestMatch)) {
-        return cachedRequestMatch;
-      }
+    const cachedRequestMatch = await getCachedNonRedirectResponse(cache, request);
+    if (cachedRequestMatch) {
+      return cachedRequestMatch;
     }
 
     if (request.mode === 'navigate') {
-      if (cache) {
-        const shellFallback = await cache.match('/');
-        if (shellFallback && !isRedirectResponse(shellFallback)) {
-          return shellFallback;
-        }
+      const shellFallback = await getNavigationFallbackResponse(cache);
+      if (shellFallback) {
+        return shellFallback;
       }
 
       return new Response(OFFLINE_NAVIGATION_HTML, {
@@ -342,11 +330,16 @@ const networkFirst = async (request, cacheName) => {
 
 const staleWhileRevalidate = async (request, cacheName) => {
   const cache = await openCacheSafely(cacheName);
-  const cached = cache ? await cache.match(request) : null;
+  const cached = await getCachedNonRedirectResponse(cache, request);
 
   const networkPromise = fetch(request)
-    .then(async (response) => {
-      if (cache && isCacheableResponse(response) && !isRedirectResponse(response)) {
+    .then(async (networkResponse) => {
+      const response = await toRuntimeSafeResponse(networkResponse);
+      if (!response) {
+        return null;
+      }
+
+      if (cache && isCacheableResponse(response)) {
         try {
           await cache.put(request, response.clone());
         } catch (error) {
@@ -364,7 +357,7 @@ const staleWhileRevalidate = async (request, cacheName) => {
     })
     .catch(() => null);
 
-  if (cached && !isRedirectResponse(cached)) {
+  if (cached) {
     return cached;
   }
 
@@ -413,6 +406,11 @@ self.addEventListener('fetch', (event) => {
 
   if (url.hostname === TILE_HOST) {
     event.respondWith(staleWhileRevalidate(request, TILE_CACHE));
+    return;
+  }
+
+  if (isNextChunkRequest(url)) {
+    event.respondWith(networkFirst(request, STATIC_CACHE, { fallbackToCacheOnHttpError: true }));
     return;
   }
 
