@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -64,6 +64,18 @@ const isCacheableResponse = (response) => {
   return !cacheControl.includes('no-store');
 };
 
+const cloneResponseForCache = async (response) => {
+  if (!response.redirected) {
+    return response;
+  }
+
+  const responseBody = await response.arrayBuffer();
+  return new Response(responseBody, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: new Headers(response.headers),
+  });
+};
 
 const purgeRedirectResponsesFromCache = async (cacheName) => {
   const cache = await caches.open(cacheName);
@@ -111,6 +123,20 @@ const resolvePreCacheResponse = async (url) => {
     const response = await fetch(requestUrl, { redirect: 'manual' });
     if (isCacheableResponse(response) && !isRedirectResponse(response)) {
       return response;
+    }
+
+    if (response.type === 'opaqueredirect') {
+      const followedResponse = await fetch(requestUrl, { redirect: 'follow' });
+      if (!isCacheableResponse(followedResponse)) {
+        break;
+      }
+
+      const finalUrl = new URL(followedResponse.url || requestUrl, requestUrl);
+      if (finalUrl.origin !== self.location.origin) {
+        break;
+      }
+
+      return cloneResponseForCache(followedResponse);
     }
 
     if (!isHttpRedirectStatus(response.status)) {
