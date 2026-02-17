@@ -47,8 +47,6 @@ const EARTH_RADIUS_METERS = 6371000;
 const SEARCH_PADDING_DEGREES = [0.08, 0.2, 0.5];
 const MAX_SNAP_DISTANCE_METERS = 30000;
 const FETCH_TIMEOUT_MS = 18000;
-const SIMPLIFY_TOLERANCE_METERS = 20;
-const MAX_ROUTE_POINTS = 600;
 
 const DEFAULT_OVERPASS_ENDPOINTS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
@@ -386,87 +384,6 @@ const ensureEndpoints = (
   return points;
 };
 
-const pointToSegmentDistanceMeters = (
-  point: Coordinate,
-  segmentStart: Coordinate,
-  segmentEnd: Coordinate
-): number => {
-  const [pointLat, pointLon] = point;
-  const [startLat, startLon] = segmentStart;
-  const [endLat, endLon] = segmentEnd;
-
-  const scale = Math.cos(toRadians((startLat + endLat + pointLat) / 3));
-  const pointX = pointLon * scale;
-  const startX = startLon * scale;
-  const endX = endLon * scale;
-
-  const pointY = pointLat;
-  const startY = startLat;
-  const endY = endLat;
-
-  const dx = endX - startX;
-  const dy = endY - startY;
-
-  if (dx === 0 && dy === 0) {
-    return haversineDistanceMeters(point, segmentStart);
-  }
-
-  const t = Math.max(0, Math.min(1, ((pointX - startX) * dx + (pointY - startY) * dy) / (dx * dx + dy * dy)));
-  const projected: Coordinate = [startY + t * dy, (startX + t * dx) / scale];
-  return haversineDistanceMeters(point, projected);
-};
-
-const simplifyPolyline = (points: Coordinate[], toleranceMeters: number): Coordinate[] => {
-  if (points.length <= 2) {
-    return points;
-  }
-
-  const keep = new Array(points.length).fill(false);
-  keep[0] = true;
-  keep[points.length - 1] = true;
-
-  const stack: Array<[number, number]> = [[0, points.length - 1]];
-
-  while (stack.length > 0) {
-    const [startIndex, endIndex] = stack.pop()!;
-    let maxDistance = -1;
-    let splitIndex = -1;
-
-    for (let index = startIndex + 1; index < endIndex; index += 1) {
-      const distance = pointToSegmentDistanceMeters(points[index], points[startIndex], points[endIndex]);
-      if (distance > maxDistance) {
-        maxDistance = distance;
-        splitIndex = index;
-      }
-    }
-
-    if (maxDistance > toleranceMeters && splitIndex !== -1) {
-      keep[splitIndex] = true;
-      stack.push([startIndex, splitIndex], [splitIndex, endIndex]);
-    }
-  }
-
-  return points.filter((_, index) => keep[index]);
-};
-
-const downsamplePath = (points: Coordinate[], maxPoints: number): Coordinate[] => {
-  if (points.length <= maxPoints) {
-    return points;
-  }
-
-  const sampled: Coordinate[] = [];
-  const stride = (points.length - 1) / (maxPoints - 1);
-
-  for (let index = 0; index < maxPoints; index += 1) {
-    const sourceIndex = Math.round(index * stride);
-    sampled.push(points[sourceIndex]);
-  }
-
-  sampled[0] = points[0];
-  sampled[sampled.length - 1] = points[points.length - 1];
-  return sampled;
-};
-
 export const generateRailRoutePoints = async (
   fromCoordinates: Coordinate,
   toCoordinates: Coordinate,
@@ -509,9 +426,7 @@ export const generateRailRoutePoints = async (
         continue;
       }
 
-      const simplified = simplifyPolyline(pathPoints, SIMPLIFY_TOLERANCE_METERS);
-      const withEndpoints = ensureEndpoints(fromCoordinates, toCoordinates, simplified);
-      return downsamplePath(withEndpoints, MAX_ROUTE_POINTS);
+      return ensureEndpoints(fromCoordinates, toCoordinates, pathPoints);
     } catch (error) {
       console.warn('[railRouting] Failed to generate OSM rail route:', error);
     }
