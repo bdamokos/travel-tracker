@@ -751,12 +751,36 @@ class WeatherService {
 
   async getWeatherForDate(coords: [number, number], date: Date): Promise<WeatherData> {
     const dayISO = toISODate(date);
+    const dayAsLocalDate = parseISO(dayISO);
+    const [lat, lon] = coords;
+    const location: Location = {
+      id: `${lat.toFixed(4)},${lon.toFixed(4)}`,
+      name: 'Location',
+      coordinates: coords,
+      date: dayAsLocalDate,
+      endDate: dayAsLocalDate
+    } as Location;
+
+    // Reuse the same cache and refresh policy as range requests so prewarmed
+    // data is available to the single-day endpoint.
+    const summary = await this.getWeatherForLocation(location);
+    const cached = summary.dailyWeather.find(item => item.date === dayISO) ?? summary.dailyWeather[0];
+    if (cached) {
+      return cached;
+    }
+
     let list = await fetchOpenMeteoRangeSmart(coords, dayISO, dayISO);
     if (list.length === 0) {
       log('fallback:histAvg:single', { coords, dayISO });
       list = await computeHistoricalAverage(coords, dayISO, dayISO, 10);
     }
-    return list[0];
+
+    const direct = list[0];
+    if (direct) {
+      return direct;
+    }
+
+    throw new Error(`No weather data available for ${dayISO}`);
   }
 
   async getWeatherForecast(coords: [number, number], days: number): Promise<WeatherData[]> {

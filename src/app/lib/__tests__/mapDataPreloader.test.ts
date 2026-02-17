@@ -14,7 +14,8 @@ jest.mock('@/app/services/wikipediaService', () => ({
 
 jest.mock('@/app/services/weatherService', () => ({
   weatherService: {
-    getWeatherForLocation: jest.fn()
+    getWeatherForLocation: jest.fn(),
+    getWeatherForDate: jest.fn()
   }
 }));
 
@@ -46,11 +47,41 @@ function makeWeatherSummary(): WeatherSummary {
 describe('mapDataPreloader', () => {
   const mockWikipedia = wikipediaService.getLocationData as jest.MockedFunction<typeof wikipediaService.getLocationData>;
   const mockWeather = weatherService.getWeatherForLocation as jest.MockedFunction<typeof weatherService.getWeatherForLocation>;
+  const mockWeatherForDate = weatherService.getWeatherForDate as jest.MockedFunction<typeof weatherService.getWeatherForDate>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockWikipedia.mockResolvedValue(null);
     mockWeather.mockResolvedValue(makeWeatherSummary());
+    mockWeatherForDate.mockResolvedValue({
+      id: 'weather-1',
+      date: '2026-02-17',
+      coordinates: [47.4979, 19.0402],
+      temperature: {
+        min: null,
+        max: null,
+        average: null
+      },
+      precipitation: {
+        total: null,
+        probability: null
+      },
+      wind: {
+        speed: null,
+        direction: null
+      },
+      conditions: {
+        description: 'Unknown',
+        icon: '❓',
+        code: null,
+        cloudCover: null,
+        humidity: null
+      },
+      isHistorical: false,
+      isForecast: true,
+      dataSource: 'open-meteo',
+      fetchedAt: new Date().toISOString()
+    });
   });
 
   it('preloads both wikipedia and weather during startup warm-up', async () => {
@@ -64,6 +95,7 @@ describe('mapDataPreloader', () => {
     expect(mockWikipedia).toHaveBeenCalledTimes(1);
     expect(mockWeather).toHaveBeenCalledTimes(1);
     expect(mockWeather).toHaveBeenCalledWith(expect.objectContaining({ id: 'loc-1' }), { preferCache: true });
+    expect(mockWeatherForDate).toHaveBeenCalledTimes(1);
   });
 
   it('deduplicates repeated locations for warm-up keys', async () => {
@@ -91,5 +123,7 @@ describe('mapDataPreloader', () => {
     expect(mockWeather).toHaveBeenCalledTimes(2);
     expect(mockWeather).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 'loc-a' }), { preferCache: true });
     expect(mockWeather).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 'loc-c' }), { preferCache: true });
+    // Daily popup warm-up is keyed by coordinates + today date and dedupes across stays.
+    expect(mockWeatherForDate).toHaveBeenCalledTimes(1);
   });
 });

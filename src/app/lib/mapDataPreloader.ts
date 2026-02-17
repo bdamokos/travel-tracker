@@ -85,6 +85,11 @@ function buildWeatherKey(location: NormalizedLocation): string {
   return `${lat.toFixed(4)}_${lon.toFixed(4)}_${start}_${end}`;
 }
 
+function buildTodayWeatherKey(coords: [number, number], dayISO: string): string {
+  const [lat, lon] = coords;
+  return `${lat.toFixed(4)}_${lon.toFixed(4)}_${dayISO}_${dayISO}`;
+}
+
 export async function gatherMapLocationTargets(): Promise<LocationEnrichmentTarget[]> {
   try {
     const trips = await listAllTrips();
@@ -130,6 +135,9 @@ export async function precalculateMapDynamicData(targets?: LocationEnrichmentTar
 
   const wikipediaKeys = new Set<string>();
   const weatherKeys = new Set<string>();
+  const todayWeatherKeys = new Set<string>();
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date(`${todayISO}T00:00:00.000Z`);
 
   console.log('[MapPrecalc] Pre-calculating dynamic map data for %d location stays', resolvedTargets.length);
 
@@ -151,6 +159,12 @@ export async function precalculateMapDynamicData(targets?: LocationEnrichmentTar
     if (!weatherKeys.has(weatherKey)) {
       weatherKeys.add(weatherKey);
       tasks.push(weatherService.getWeatherForLocation(normalized, { preferCache: true }));
+    }
+
+    const todayWeatherKey = buildTodayWeatherKey(normalized.coordinates, todayISO);
+    if (!todayWeatherKeys.has(todayWeatherKey)) {
+      todayWeatherKeys.add(todayWeatherKey);
+      tasks.push(weatherService.getWeatherForDate(normalized.coordinates, todayDate));
     }
 
     if (!tasks.length) continue;
