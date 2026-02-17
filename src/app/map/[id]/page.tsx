@@ -10,7 +10,7 @@ import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import TripUpdates from '@/app/components/TripUpdates';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
-import { toMapRouteSegment } from '@/app/lib/mapRouteTransform';
+import { normalizeMapTravelData, toMapRouteSegment } from '@/app/lib/mapRouteTransform';
 
 const toMapDateString = (value?: string | Date): string | undefined => {
   if (!value) return undefined;
@@ -147,7 +147,7 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<MapT
             ]
           };
           
-          return transformedData;
+          return normalizeMapTravelData(transformedData);
         }
       } catch {
         console.log('Shadow data not available, falling back to regular data');
@@ -162,7 +162,8 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<MapT
       return null;
     }
     
-    return await response.json();
+    const rawTravelData = await response.json();
+    return normalizeMapTravelData(rawTravelData);
   } catch (error) {
     console.error('Error fetching travel data:', error);
     return null;

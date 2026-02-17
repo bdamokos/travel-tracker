@@ -1,4 +1,4 @@
-import { toMapRouteSegment } from '@/app/lib/mapRouteTransform';
+import { normalizeMapTravelData, toMapRouteSegment } from '@/app/lib/mapRouteTransform';
 
 describe('toMapRouteSegment', () => {
   it('prefers modern transportType and coords over legacy fields', () => {
@@ -61,5 +61,54 @@ describe('toMapRouteSegment', () => {
     expect(defaultMapped.transportType).toBe('other');
     expect(defaultMapped.fromCoords).toEqual([0, 0]);
     expect(defaultMapped.toCoords).toEqual([0, 0]);
+  });
+});
+
+describe('normalizeMapTravelData', () => {
+  it('normalizes dates and forces route segment transport precedence for map rendering', () => {
+    const normalized = normalizeMapTravelData({
+      id: 'trip-1',
+      title: 'Trip',
+      description: '',
+      startDate: new Date('2026-02-01T00:00:00.000Z'),
+      endDate: '2026-02-10T00:00:00.000Z',
+      createdAt: new Date('2026-02-15T12:00:00.000Z'),
+      locations: [
+        {
+          id: 'loc-1',
+          name: 'A',
+          coordinates: [10, 20],
+          date: new Date('2026-02-02T00:00:00.000Z'),
+          endDate: '2026-02-03T00:00:00.000Z'
+        }
+      ],
+      routes: [
+        {
+          id: 'route-1',
+          from: 'A',
+          to: 'B',
+          type: 'bus',
+          transportType: 'boat',
+          fromCoordinates: [10, 20],
+          toCoordinates: [11, 21],
+          subRoutes: [
+            {
+              id: 'segment-1',
+              from: 'A',
+              to: 'B',
+              type: 'bus',
+              transportType: 'boat',
+              fromCoordinates: [10, 20],
+              toCoordinates: [11, 21]
+            }
+          ]
+        }
+      ]
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    expect(normalized.startDate).toBe('2026-02-01T00:00:00.000Z');
+    expect(normalized.locations[0].date).toBe('2026-02-02T00:00:00.000Z');
+    expect(normalized.routes[0].transportType).toBe('boat');
+    expect(normalized.routes[0].subRoutes?.[0].transportType).toBe('boat');
   });
 });

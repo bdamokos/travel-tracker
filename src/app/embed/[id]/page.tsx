@@ -8,6 +8,7 @@ import { formatUtcDate } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import type { MapTravelData } from '@/app/types';
+import { normalizeMapTravelData } from '@/app/lib/mapRouteTransform';
 
 
 async function getTravelData(id: string): Promise<MapTravelData | null> {
@@ -35,7 +36,7 @@ async function getTravelData(id: string): Promise<MapTravelData | null> {
 
     const filteredData = filterTravelDataForServer(travelData, null);
 
-    return filteredData as unknown as MapTravelData;
+    return normalizeMapTravelData(filteredData as unknown as MapTravelData);
   } catch (error) {
     console.error('Error fetching travel data:', error);
     return null;
