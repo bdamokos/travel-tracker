@@ -213,10 +213,10 @@ export function useShadowTripEditor(tripId: string) {
           routes: [
             ...realRoutes.map((route: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
               ...route,
-              transportType: route.type || route.transportType,
+              transportType: route.transportType || route.type,
               date: parseDateAsLocalDay(route.departureTime || route.date) || getTodayLocalDay(),
-              fromCoords: route.fromCoords || [0, 0],
-              toCoords: route.toCoords || [0, 0],
+              fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
+              toCoords: route.toCoords || route.toCoordinates || [0, 0],
               from: `${REAL_LOCATION_MARKER} ${route.from}`, // Mark real routes
               to: `${REAL_LOCATION_MARKER} ${route.to}`,
               distanceOverride: route.distanceOverride,
@@ -224,13 +224,13 @@ export function useShadowTripEditor(tripId: string) {
             })),
             ...shadowRoutes.map((route: ShadowRoutePayload) => ({
               ...route,
-              transportType: route.type || route.transportType,
+              transportType: route.transportType || route.type,
               date: parseDateAsLocalDay(route.departureTime || route.date) || getTodayLocalDay(),
               fromCoords: route.fromCoords || route.fromCoordinates || [0, 0],
               toCoords: route.toCoords || route.toCoordinates || [0, 0],
               subRoutes: route.subRoutes?.map((segment: ShadowRoutePayload) => ({
                 ...segment,
-                transportType: segment.type || segment.transportType,
+                transportType: segment.transportType || segment.type,
                 date: parseDateAsLocalDay(segment.departureTime || segment.date) || getTodayLocalDay(),
                 fromCoords: segment.fromCoords || segment.fromCoordinates || [0, 0],
                 toCoords: segment.toCoords || segment.toCoordinates || [0, 0],

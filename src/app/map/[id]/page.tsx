@@ -4,46 +4,13 @@ import { headers } from 'next/headers';
 import { getDomainConfig } from '@/app/lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
 import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
-import { Location, Transportation, MapRouteSegment, type MapTravelData } from '@/app/types';
+import { Location, Transportation, type MapTravelData } from '@/app/types';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import TripUpdates from '@/app/components/TripUpdates';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
-
-const toRouteSegment = (route: Transportation): MapRouteSegment => {
-  const fromCoords = (route as Transportation & { fromCoords?: [number, number] }).fromCoords || route.fromCoordinates;
-  const toCoords = (route as Transportation & { toCoords?: [number, number] }).toCoords || route.toCoordinates;
-
-  if (!fromCoords || !toCoords) {
-    console.warn(`[toRouteSegment] Missing coordinates for route ${route.id}`);
-  }
-
-  return {
-    id: route.id,
-    from: route.from,
-    to: route.to,
-    fromCoords: fromCoords || [0, 0],
-    toCoords: toCoords || [0, 0],
-    transportType: route.type,
-    date: route.departureTime || '',
-    duration: '',
-    notes: route.privateNotes || '',
-    routePoints: route.routePoints,
-    subRoutes: route.subRoutes?.map(segment => ({
-      id: segment.id,
-      from: segment.from,
-      to: segment.to,
-      fromCoords: segment.fromCoordinates || [0, 0],
-      toCoords: segment.toCoordinates || [0, 0],
-      transportType: segment.type,
-      date: segment.departureTime || '',
-      duration: '',
-      notes: segment.privateNotes || '',
-      routePoints: segment.routePoints
-    }))
-  };
-};
+import { toMapRouteSegment } from '@/app/lib/mapRouteTransform';
 
 const toMapDateString = (value?: string | Date): string | undefined => {
   if (!value) return undefined;
@@ -163,9 +130,9 @@ async function getTravelData(id: string, isAdmin: boolean = false): Promise<MapT
             ],
             // Merge real routes with shadow routes
             routes: [
-              ...(shadowData.travelData?.routes || []).map((route: Transportation) => toRouteSegment(route)),
+              ...(shadowData.travelData?.routes || []).map((route: Transportation) => toMapRouteSegment(route)),
               ...filteredShadowRoutes.map((route: Transportation) => {
-                const baseRoute = toRouteSegment(route);
+                const baseRoute = toMapRouteSegment(route);
                 return {
                   ...baseRoute,
                   from: `${SHADOW_LOCATION_PREFIX} ${route.from}`,
