@@ -23,6 +23,7 @@ const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 </html>`;
 const MAX_PRECACHE_REDIRECTS = 3;
 const PRECACHE_FETCH_TIMEOUT_MS = 10_000;
+const CACHE_WARMUP_HEADER = 'x-travel-tracker-precache';
 
 const isHttpRedirectStatus = (status) => status >= 300 && status < 400;
 
@@ -131,7 +132,15 @@ const trimCache = async (cacheName, maxItems) => {
   await Promise.all(keys.slice(0, itemsToDelete).map((key) => cache.delete(key)));
 };
 
-const isApiRequest = (url) => url.origin === self.location.origin && url.pathname.startsWith('/api/');
+const isDataRequest = (url) =>
+  url.origin === self.location.origin &&
+  (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/api/'));
+const isAppRouteRequest = (url) =>
+  url.origin === self.location.origin &&
+  !isDataRequest(url) &&
+  !url.pathname.startsWith('/_next/') &&
+  !url.pathname.startsWith('/icon-') &&
+  url.pathname !== '/manifest.json';
 const isNextChunkRequest = (url) =>
   url.origin === self.location.origin && url.pathname.startsWith('/_next/static/chunks/');
 const isStaticAssetRequest = (url) =>
@@ -376,8 +385,9 @@ const staleWhileRevalidate = async (request, cacheName) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
+  const isWarmupRequest = request.headers.get(CACHE_WARMUP_HEADER) === '1';
 
-  if (isApiRequest(url) && request.method !== 'GET') {
+  if (isDataRequest(url) && request.method !== 'GET') {
     event.respondWith(
       (async () => {
         try {
@@ -394,12 +404,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (isWarmupRequest && isAppRouteRequest(url)) {
+    event.respondWith(networkFirst(request, APP_SHELL_CACHE, { fallbackToCacheOnHttpError: true }));
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, APP_SHELL_CACHE));
     return;
   }
 
-  if (isApiRequest(url)) {
+  if (isDataRequest(url)) {
     event.respondWith(networkFirst(request, DATA_CACHE));
     return;
   }

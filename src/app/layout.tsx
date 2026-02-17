@@ -4,6 +4,7 @@ import './globals.css';
 import ErrorBoundary from './components/ErrorBoundary';
 import IframeAccessibilityFixer from './components/IframeAccessibilityFixer';
 import OfflineDeltaBanner from './components/OfflineDeltaBanner';
+import OfflineReadyToast from './components/OfflineReadyToast';
 import ServiceWorkerRegistration from './components/ServiceWorkerRegistration';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -32,6 +33,7 @@ export default function RootLayout({
         <IframeAccessibilityFixer />
         <ServiceWorkerRegistration />
         <OfflineDeltaBanner />
+        <OfflineReadyToast />
         <main>
           <ErrorBoundary>
             {children}
