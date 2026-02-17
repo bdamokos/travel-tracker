@@ -50,3 +50,4 @@ test-data/*
 .vscode/
 deploy/backups/*
 scripts/*
+.codex/*
