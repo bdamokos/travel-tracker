@@ -23,7 +23,12 @@ const LEGACY_FETCHED_AT = '1970-01-01T00:00:00.000Z';
 const DATA_DIR = path.join(getDataDir(), 'weather');
 
 const RATE_LIMIT_MS = 1000; // 1 req/sec conservative
+const RATE_LIMIT_BASE_BACKOFF_MS = 2000;
+const RATE_LIMIT_MAX_BACKOFF_MS = 60_000;
+const RATE_LIMIT_MAX_RETRIES = 4;
 let lastRequestTime = 0;
+let rateLimitBackoffUntil = 0;
+let rateLimitQueue: Promise<void> = Promise.resolve();
 
 const OPEN_METEO_ARCHIVE_MIN_DATE = new Date(Date.UTC(2016, 0, 1));
 
@@ -42,6 +47,68 @@ function log(...args: unknown[]) {
 
 function toISODate(date: Date): string {
   return formatISO(date, { representation: 'date' });
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return;
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function parseRetryAfterMs(raw: string | null, nowMs: number): number | null {
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, Math.ceil(seconds * 1000));
+  }
+  const retryAt = Date.parse(raw);
+  if (Number.isFinite(retryAt)) {
+    return Math.max(0, retryAt - nowMs);
+  }
+  return null;
+}
+
+function parseRateLimitResetMs(raw: string | null, nowMs: number): number | null {
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (parsed > 1_000_000_000_000) {
+    return Math.max(0, Math.ceil(parsed - nowMs));
+  }
+  if (parsed > 1_000_000_000) {
+    return Math.max(0, Math.ceil(parsed * 1000 - nowMs));
+  }
+  return Math.max(0, Math.ceil(parsed * 1000));
+}
+
+function getRateLimitHeaderDelayMs(headers: Headers, status: number, nowMs: number): { waitMs: number; source: string } | null {
+  const retryAfterMs = parseRetryAfterMs(headers.get('retry-after'), nowMs);
+  if (retryAfterMs != null) {
+    return { waitMs: retryAfterMs, source: 'retry-after' };
+  }
+
+  const remainingRaw = headers.get('ratelimit-remaining') ?? headers.get('x-ratelimit-remaining');
+  const remaining = remainingRaw == null ? null : Number(remainingRaw);
+  const shouldUseReset = status === 429 || (Number.isFinite(remaining) && (remaining as number) <= 0);
+  if (!shouldUseReset) return null;
+
+  const rateLimitResetRaw = headers.get('ratelimit-reset');
+  const xRateLimitResetRaw = headers.get('x-ratelimit-reset');
+  const resetRaw = rateLimitResetRaw ?? xRateLimitResetRaw;
+  const resetMs = parseRateLimitResetMs(resetRaw, nowMs);
+  if (resetMs == null) return null;
+
+  return {
+    waitMs: resetMs,
+    source: rateLimitResetRaw != null ? 'ratelimit-reset' : 'x-ratelimit-reset'
+  };
+}
+
+function calculateFallbackBackoffMs(attempt: number): number {
+  const exponential = Math.min(RATE_LIMIT_MAX_BACKOFF_MS, RATE_LIMIT_BASE_BACKOFF_MS * (2 ** attempt));
+  const jitter = Math.floor(Math.random() * 250);
+  return exponential + jitter;
 }
 
 // intentionally unused for now; keep helper ready for future range clamping
@@ -87,12 +154,73 @@ function openMeteoIconAndDesc(code: number | null): { icon: string; description:
 }
 
 async function rateLimitedFetch(url: string): Promise<Response> {
-  const now = Date.now();
-  const wait = Math.max(0, RATE_LIMIT_MS - (now - lastRequestTime));
-  if (wait > 0) await new Promise(r => setTimeout(r, wait));
-  lastRequestTime = Date.now();
-  log('HTTP GET', url);
-  return fetch(url, { headers: { 'Accept': 'application/json' } });
+  const previous = rateLimitQueue;
+  let releaseQueue: (() => void) | null = null;
+  rateLimitQueue = new Promise<void>(resolve => {
+    releaseQueue = resolve;
+  });
+
+  await previous;
+  try {
+    for (let attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++) {
+      const now = Date.now();
+      const waitForSpacing = Math.max(0, RATE_LIMIT_MS - (now - lastRequestTime));
+      const waitForBackoff = Math.max(0, rateLimitBackoffUntil - now);
+      const waitMs = Math.max(waitForSpacing, waitForBackoff);
+      if (waitMs > 0) {
+        await sleep(waitMs);
+      }
+
+      lastRequestTime = Date.now();
+      log('HTTP GET', url);
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const responseTime = Date.now();
+      const headerHint = getRateLimitHeaderDelayMs(response.headers, response.status, responseTime);
+
+      if (response.status !== 429) {
+        if (headerHint && headerHint.waitMs > 0) {
+          rateLimitBackoffUntil = Math.max(rateLimitBackoffUntil, responseTime + headerHint.waitMs);
+          log('rateLimitedFetch:header-backoff', {
+            status: response.status,
+            waitMs: headerHint.waitMs,
+            source: headerHint.source
+          });
+        }
+        return response;
+      }
+
+      const fallbackMs = calculateFallbackBackoffMs(attempt);
+      const waitOn429Ms = Math.max(RATE_LIMIT_MS, headerHint?.waitMs ?? 0, fallbackMs);
+      rateLimitBackoffUntil = Math.max(rateLimitBackoffUntil, responseTime + waitOn429Ms);
+      log('rateLimitedFetch:429-backoff', {
+        status: response.status,
+        attempt: attempt + 1,
+        maxAttempts: RATE_LIMIT_MAX_RETRIES + 1,
+        waitMs: waitOn429Ms,
+        source: headerHint?.source ?? 'fallback',
+        retryAfter: response.headers.get('retry-after') ?? undefined,
+        rateLimitReset: response.headers.get('ratelimit-reset') ?? response.headers.get('x-ratelimit-reset') ?? undefined
+      });
+
+      if (attempt >= RATE_LIMIT_MAX_RETRIES) {
+        return response;
+      }
+
+      await sleep(waitOn429Ms);
+    }
+
+    throw new Error('Unexpected rateLimitedFetch loop completion');
+  } finally {
+    if (releaseQueue) {
+      releaseQueue();
+    }
+  }
+}
+
+function resetRateLimitStateForTests(): void {
+  lastRequestTime = 0;
+  rateLimitBackoffUntil = 0;
+  rateLimitQueue = Promise.resolve();
 }
 
 async function readCache(key: string): Promise<CacheEntry | null> {
@@ -608,5 +736,13 @@ class WeatherService {
     return fetchOpenMeteoRangeSmart(coords, toISODate(start), toISODate(end));
   }
 }
+
+export const weatherServiceTestUtils = {
+  rateLimitedFetch,
+  parseRetryAfterMs,
+  parseRateLimitResetMs,
+  getRateLimitHeaderDelayMs,
+  resetRateLimitStateForTests
+};
 
 export const weatherService = new WeatherService();
