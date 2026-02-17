@@ -26,6 +26,7 @@ const RATE_LIMIT_MS = 1000; // 1 req/sec conservative
 const RATE_LIMIT_BASE_BACKOFF_MS = 2000;
 const RATE_LIMIT_MAX_BACKOFF_MS = 60_000;
 const RATE_LIMIT_MAX_RETRIES = 4;
+const HISTORICAL_AVERAGE_FORECAST_REFRESH_MS = 6 * 60 * 60 * 1000;
 let lastRequestTime = 0;
 let rateLimitBackoffUntil = 0;
 let rateLimitQueue: Promise<void> = Promise.resolve();
@@ -335,7 +336,17 @@ function needsForecastRefresh(summary: WeatherSummary): boolean {
   const horizonISO = toISODate(addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), 16));
   return summary.dailyWeather.some(d => {
     if (d.dataSource !== 'historical-average') return false;
-    return d.date >= todayISO && d.date <= horizonISO;
+    if (d.date < todayISO || d.date > horizonISO) return false;
+
+    if (d.expiresAt) {
+      const expires = parseISO(d.expiresAt);
+      if (isValid(expires) && !isAfter(expires, today)) return true;
+    }
+
+    if (!d.fetchedAt) return true;
+    const fetchedAt = parseISO(d.fetchedAt);
+    if (!isValid(fetchedAt)) return true;
+    return today.getTime() - fetchedAt.getTime() >= HISTORICAL_AVERAGE_FORECAST_REFRESH_MS;
   });
 }
 
@@ -611,8 +622,10 @@ async function computeHistoricalAverage(
     const isFuture = isAfter(td, today);
     let expiresAt: string | undefined;
     if (isFuture) {
-      const expiryDate = addDays(td, -15);
-      expiresAt = isAfter(expiryDate, today) ? expiryDate.toISOString() : new Date().toISOString();
+      const expSecs = expirationForDate(td, today);
+      if (expSecs !== Infinity) {
+        expiresAt = new Date(Date.now() + expSecs * 1000).toISOString();
+      }
     }
     const w: WeatherData = {
       id: `${lat.toFixed(4)}_${lon.toFixed(4)}_${dateStr}`,
@@ -746,6 +759,7 @@ export const weatherServiceTestUtils = {
   parseRetryAfterMs,
   parseRateLimitResetMs,
   getRateLimitHeaderDelayMs,
+  needsForecastRefresh,
   resetRateLimitStateForTests
 };
 
