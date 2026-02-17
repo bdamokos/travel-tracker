@@ -56,6 +56,14 @@ async function sleep(ms: number): Promise<void> {
   });
 }
 
+function createRateLimitGate(): { promise: Promise<void>; release: () => void } {
+  let release = () => {};
+  const promise = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  return { promise, release };
+}
+
 function parseRetryAfterMs(raw: string | null, nowMs: number): number | null {
   if (!raw) return null;
   const seconds = Number(raw);
@@ -155,10 +163,8 @@ function openMeteoIconAndDesc(code: number | null): { icon: string; description:
 
 async function rateLimitedFetch(url: string): Promise<Response> {
   const previous = rateLimitQueue;
-  let releaseQueue: (() => void) | null = null;
-  rateLimitQueue = new Promise<void>(resolve => {
-    releaseQueue = resolve;
-  });
+  const gate = createRateLimitGate();
+  rateLimitQueue = gate.promise;
 
   await previous;
   try {
@@ -211,9 +217,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 
     throw new Error('Unexpected rateLimitedFetch loop completion');
   } finally {
-    if (releaseQueue) {
-      releaseQueue();
-    }
+    gate.release();
   }
 }
 
