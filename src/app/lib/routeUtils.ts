@@ -1,4 +1,5 @@
 import { Transportation } from '@/app/types';
+import { generateRailRoutePoints } from '@/app/lib/railRouting';
 
 // Transportation configuration with styles and metadata
 export const transportationConfig: Record<Transportation['type'], {
@@ -328,6 +329,20 @@ const getOSRMProfile = (type: Transportation['type']): 'car' | 'bike' | 'foot' =
   }
 };
 
+const getLandRouteWithFallback = async (
+  type: Transportation['type'],
+  fromCoordinates: [number, number],
+  toCoordinates: [number, number]
+): Promise<[number, number][]> => {
+  try {
+    const profile = getOSRMProfile(type);
+    return await getOSRMRoute(fromCoordinates, toCoordinates, profile);
+  } catch (error) {
+    console.warn('Failed to get land route, using straight line:', error);
+    return [fromCoordinates, toCoordinates];
+  }
+};
+
 type RouteSegmentLike = {
   routePoints?: [number, number][];
   fromCoordinates?: [number, number];
@@ -429,6 +444,18 @@ export const generateRoutePoints = async (
       break;
     case 'train':
     case 'metro':
+      // Prefer rail-network routing for train/metro paths.
+      try {
+        const railRoutePoints = await generateRailRoutePoints(fromCoordinates, toCoordinates, type);
+        if (railRoutePoints?.length) {
+          routePoints = railRoutePoints;
+          break;
+        }
+      } catch (error) {
+        console.warn('Failed to get rail route, falling back to OSRM:', error);
+      }
+      routePoints = await getLandRouteWithFallback(type, fromCoordinates, toCoordinates);
+      break;
     case 'bus':
     case 'shuttle':
     case 'car':
@@ -437,14 +464,7 @@ export const generateRoutePoints = async (
     case 'multimodal':
     case 'other':
     default:
-      // For land routes, try to get realistic routing from OSRM
-      try {
-        const profile = getOSRMProfile(type);
-        routePoints = await getOSRMRoute(fromCoordinates, toCoordinates, profile);
-      } catch (error) {
-        console.warn('Failed to get land route, using straight line:', error);
-        routePoints = [fromCoordinates, toCoordinates];
-      }
+      routePoints = await getLandRouteWithFallback(type, fromCoordinates, toCoordinates);
       break;
   }
   
