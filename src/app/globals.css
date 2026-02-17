@@ -294,10 +294,10 @@ body {
 /* Layer control legend styling */
 .leaflet-control-layers {
   background: white !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 15%) !important;
-  padding: 8px 12px !important;
-  max-width: 280px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 28%) !important;
+  padding: 10px 14px !important;
+  max-width: 320px !important;
 }
 
 .leaflet-control-layers-list {
@@ -313,15 +313,24 @@ body {
 .leaflet-control-layers-overlays label {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  padding: 4px 0 !important;
+  gap: 10px !important;
+  padding: 5px 0 !important;
   cursor: pointer !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
 }
 
 .leaflet-control-layers-overlays label span {
   display: flex;
   align-items: center;
+}
+
+.leaflet-control-layers-overlays label input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #2563eb;
 }
 
 .leaflet-control-layers-separator {
@@ -332,13 +341,13 @@ body {
 /* Dark mode layer control */
 @media (prefers-color-scheme: dark) {
   .leaflet-control-layers {
-    background: #374151 !important;
+    background: #334155 !important;
     color: #f9fafb !important;
-    border: 1px solid #4b5563 !important;
+    border: 1px solid #475569 !important;
   }
 
   .leaflet-control-layers-separator {
-    border-top-color: #4b5563 !important;
+    border-top-color: #64748b !important;
   }
 
   .leaflet-control-layers-overlays label {

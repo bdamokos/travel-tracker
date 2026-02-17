@@ -217,25 +217,47 @@ const GROUP_PIXEL_THRESHOLD = 36;
 const SPIDER_PIXEL_RADIUS = 24;
 const MAP_PAN_STEP_PIXELS = 80;
 
+type TransportLegendStyle = {
+  color: string;
+  weight: number;
+  opacity: number;
+  dashArray?: string;
+};
+
+const TRANSPORT_LEGEND_ORDER: Array<keyof typeof transportationConfig> = [
+  'plane',
+  'train',
+  'car',
+  'bus',
+  'shuttle',
+  'metro',
+  'ferry',
+  'boat',
+  'bike',
+  'walk',
+  'multimodal',
+  'other',
+];
+
 // Generate legend HTML for a route layer with transport styling
 const generateRouteLegendLabel = (
   transportType: string,
-  color: string,
-  dashArray?: string
+  style: TransportLegendStyle
 ): string => {
-  // Create SVG line pattern for the legend
-  const strokeDasharray = dashArray || 'none';
+  const legendWeight = Math.min(Math.max(style.weight, 3), 6);
+  const strokeOpacity = Math.max(style.opacity, 0.85);
   return `
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <svg width="24" height="12" style="flex-shrink: 0;">
-        <line x1="0" y1="6" x2="24" y2="6"
-          stroke="${color}"
-          stroke-width="3"
-          stroke-dasharray="${strokeDasharray === 'none' ? '' : strokeDasharray}"
+    <div style="display: flex; align-items: center; gap: 8px; min-height: 22px;">
+      <svg width="34" height="12" style="flex-shrink: 0; overflow: visible;">
+        <line x1="1" y1="6" x2="33" y2="6"
+          stroke="${style.color}"
+          stroke-opacity="${strokeOpacity}"
+          stroke-width="${legendWeight}"
+          stroke-dasharray="${style.dashArray ?? ''}"
           stroke-linecap="round"
         />
       </svg>
-      <span>${transportType}</span>
+      <span style="font-weight: 500;">${transportType}</span>
     </div>
   `;
 };
@@ -1124,14 +1146,23 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData }) => {
     const overlays: Record<string, L.LayerGroup> = {};
 
     // Add route layers with legend labels
-    usedTransportTypes.forEach(transportType => {
+    const orderedTransportTypes = [
+      ...TRANSPORT_LEGEND_ORDER.filter(transportType => usedTransportTypes.has(transportType)),
+      ...Array.from(usedTransportTypes).filter(transportType => !TRANSPORT_LEGEND_ORDER.includes(transportType)),
+    ];
+
+    orderedTransportTypes.forEach(transportType => {
       const layerGroup = routeLayersByType.get(transportType);
       if (layerGroup) {
         const config = transportationConfig[transportType];
         const legendLabel = generateRouteLegendLabel(
           config.description,
-          config.color,
-          config.dashArray
+          {
+            color: config.color,
+            weight: config.weight,
+            opacity: config.opacity,
+            dashArray: config.dashArray,
+          }
         );
         overlays[legendLabel] = layerGroup;
       }

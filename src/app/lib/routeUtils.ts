@@ -10,83 +10,85 @@ export const transportationConfig: Record<Transportation['type'], {
   description: string;
 }> = {
   walk: {
-    color: '#4CAF50',     // Green
+    color: '#15803D',     // Forest green
     weight: 3,
-    opacity: 0.8,
-    dashArray: '5, 5',    // Dashed line for walking
+    opacity: 0.9,
+    dashArray: '2, 8',    // Dotted line for walking
     description: 'Walking'
   },
   bike: {
-    color: '#8BC34A',     // Light Green
+    color: '#65A30D',     // Lime green
     weight: 3,
-    opacity: 0.8,
-    dashArray: '5, 3',    // Small dashed line for bike
+    opacity: 0.9,
+    dashArray: '7, 4',    // Short dashed line for bike
     description: 'Bicycle'
   },
   car: {
-    color: '#FF9800',     // Orange
+    color: '#D97706',     // Amber
     weight: 4,
-    opacity: 0.8,
+    opacity: 0.95,
     description: 'Car'
   },
   bus: {
-    color: '#2196F3',     // Blue
+    color: '#2563EB',     // Strong blue
     weight: 4,
-    opacity: 0.8,
+    opacity: 0.95,
     description: 'Bus'
   },
   shuttle: {
-    color: '#3B82F6',     // Blue (slightly different from bus)
+    color: '#7C3AED',     // Violet
     weight: 4,
-    opacity: 0.8,
+    opacity: 0.95,
+    dashArray: '8, 4, 2, 4', // Dash-dot to separate from bus
     description: 'Shuttle (shared)'
   },
   train: {
-    color: '#F44336',     // Red
+    color: '#DC2626',     // Red
     weight: 5,
-    opacity: 0.8,
-    dashArray: '10, 5',   // Dashed line for train
+    opacity: 0.95,
+    dashArray: '12, 6',   // Long dashed line for train
     description: 'Train'
   },
   metro: {
-    color: '#E91E63',     // Pink
+    color: '#DB2777',     // Pink
     weight: 4,
-    opacity: 0.9,
-    dashArray: '3, 3',    // Short dashed line for metro
+    opacity: 0.95,
+    dashArray: '4, 5',    // Tight dashed line for metro
     description: 'Metro/Subway'
   },
   plane: {
-    color: '#9C27B0',     // Purple
-    weight: 3,
-    opacity: 0.6,
-    dashArray: '10, 10',  // Dotted line for plane
+    color: '#C026D3',     // Magenta
+    weight: 4,
+    opacity: 0.95,
+    dashArray: '2, 9',    // Sparse dotted line for flights
     description: 'Airplane'
   },
   ferry: {
-    color: '#03A9F4',     // Light Blue
+    color: '#0284C7',     // Sky blue
     weight: 4,
-    opacity: 0.7,
-    dashArray: '15, 5',   // Dashed line for ferry
+    opacity: 0.95,
+    dashArray: '16, 7',   // Long dashed line for ferry
     description: 'Ferry'
   },
   boat: {
-    color: '#00BCD4',     // Cyan
+    color: '#0F766E',     // Teal
     weight: 4,
-    opacity: 0.7,
-    dashArray: '20, 5',   // Long dashed line for boat
+    opacity: 0.95,
+    dashArray: '1, 8',    // Dotted line for boats
     description: 'Boat'
   },
   multimodal: {
-    color: '#0F766E',     // Teal
+    color: '#334155',     // Slate
     weight: 4,
-    opacity: 0.8,
-    dashArray: '8, 4',    // Distinct dashed line for multimodal
+    opacity: 0.95,
+    dashArray: '10, 4, 3, 4', // Hybrid dash pattern
     description: 'Multimodal'
   },
   other: {
-    color: '#607D8B',     // Grey Blue
+    color: '#6B7280',     // Neutral gray
     weight: 3,
-    opacity: 0.7,
+    opacity: 0.9,
+    dashArray: '6, 6',
     description: 'Other'
   }
 };
