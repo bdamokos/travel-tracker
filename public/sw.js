@@ -1,15 +1,17 @@
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
 const TILE_CACHE = `tiles-${CACHE_VERSION}`;
 const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 
-const APP_SHELL_URLS = ['/maps', '/admin', '/manifest.json'];
-const NAVIGATION_FALLBACK_URLS = ['/maps', '/admin', '/'];
+const APP_SHELL_URLS = ['/maps', '/admin', '/admin?tab=travel', '/admin?tab=cost', '/manifest.json'];
+const ADMIN_NAVIGATION_FALLBACK_URLS = ['/admin', '/admin?tab=travel', '/admin?tab=cost', '/'];
+const PUBLIC_NAVIGATION_FALLBACK_URLS = ['/maps', '/'];
+const DEFAULT_NAVIGATION_FALLBACK_URLS = ['/', '/admin', '/maps'];
 const TILE_HOST = 'tile.openstreetmap.org';
 const TILE_CACHE_LIMIT = 500;
-const CRITICAL_APP_SHELL_URLS = new Set(['/maps']);
+const CRITICAL_APP_SHELL_URLS = new Set(['/maps', '/admin']);
 const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -268,12 +270,29 @@ const getCachedNonRedirectResponse = async (cache, request) => {
   return cachedResponse;
 };
 
-const getNavigationFallbackResponse = async (cache) => {
+const getNavigationFallbackUrls = (pathname) => {
+  if (pathname.startsWith('/admin')) {
+    return ADMIN_NAVIGATION_FALLBACK_URLS;
+  }
+
+  if (
+    pathname.startsWith('/maps') ||
+    pathname.startsWith('/map/') ||
+    pathname.startsWith('/embed/') ||
+    pathname.startsWith('/calendars')
+  ) {
+    return PUBLIC_NAVIGATION_FALLBACK_URLS;
+  }
+
+  return DEFAULT_NAVIGATION_FALLBACK_URLS;
+};
+
+const getNavigationFallbackResponse = async (cache, requestUrl) => {
   if (!cache) {
     return null;
   }
 
-  for (const fallbackUrl of NAVIGATION_FALLBACK_URLS) {
+  for (const fallbackUrl of getNavigationFallbackUrls(requestUrl.pathname)) {
     const fallback = await getCachedNonRedirectResponse(cache, fallbackUrl);
     if (fallback) {
       return fallback;
@@ -317,7 +336,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
     }
 
     if (request.mode === 'navigate') {
-      const shellFallback = await getNavigationFallbackResponse(cache);
+      const shellFallback = await getNavigationFallbackResponse(cache, new URL(request.url));
       if (shellFallback) {
         return shellFallback;
       }
