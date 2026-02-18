@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -405,6 +405,13 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   const isWarmupRequest = request.headers.get(CACHE_WARMUP_HEADER) === '1';
+  const isSameOriginRequest = url.origin === self.location.origin;
+
+  // Never intercept cross-origin requests (except OSM tiles).
+  // This prevents the service worker from hijacking navigations to other *.bdamokos.org subdomains.
+  if (!isSameOriginRequest && url.hostname !== TILE_HOST) {
+    return;
+  }
 
   if (isDataRequest(url) && request.method !== 'GET') {
     event.respondWith(
