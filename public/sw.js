@@ -247,7 +247,7 @@ const dataCachePrefixGroups = [
   },
   {
     matcher: (pathname) => pathname.startsWith('/api/cost-tracking'),
-    prefixes: ['/api/cost-tracking'],
+    prefixes: ['/api/cost-tracking', '/api/travel-data', '/admin/api/accommodations'],
   },
 ];
 
@@ -365,12 +365,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const getCachedNonRedirectResponse = async (cache, request, { ignoreSearch = false } = {}) => {
+const getCachedNonRedirectResponse = async (cache, request, matchOptions = undefined) => {
   if (!cache) {
     return null;
   }
 
-  const cachedResponse = await cache.match(request, { ignoreSearch });
+  const cachedResponse = await cache.match(request, matchOptions);
   if (!cachedResponse || isRedirectResponse(cachedResponse)) {
     return null;
   }
@@ -410,7 +410,8 @@ const getNavigationFallbackResponse = async (requestUrl) => {
   }
 
   for (const fallbackUrl of getNavigationFallbackUrls(requestUrl.pathname)) {
-    const fallback = await getCachedNonRedirectResponse(cache, fallbackUrl, { ignoreSearch: true });
+    const fallbackMatchOptions = fallbackUrl.includes('?') ? undefined : { ignoreSearch: true };
+    const fallback = await getCachedNonRedirectResponse(cache, fallbackUrl, fallbackMatchOptions);
     if (fallback) {
       return fallback;
     }
@@ -421,7 +422,6 @@ const getNavigationFallbackResponse = async (requestUrl) => {
 
 const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = false } = {}) => {
   const cache = await openCacheSafely(cacheName);
-  const shouldIgnoreSearchInCacheLookup = request.mode === 'navigate';
 
   try {
     const networkResponse = await fetch(request);
@@ -432,9 +432,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
     }
 
     if (fallbackToCacheOnHttpError && !response.ok) {
-      const cachedHttpFallback = await getCachedNonRedirectResponse(cache, request, {
-        ignoreSearch: shouldIgnoreSearchInCacheLookup,
-      });
+      const cachedHttpFallback = await getCachedNonRedirectResponse(cache, request);
       if (cachedHttpFallback) {
         return cachedHttpFallback;
       }
@@ -457,9 +455,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
 
     return response;
   } catch {
-    const cachedRequestMatch = await getCachedNonRedirectResponse(cache, request, {
-      ignoreSearch: shouldIgnoreSearchInCacheLookup,
-    });
+    const cachedRequestMatch = await getCachedNonRedirectResponse(cache, request);
     if (cachedRequestMatch) {
       return cachedRequestMatch;
     }
