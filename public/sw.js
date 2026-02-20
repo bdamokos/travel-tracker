@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -71,6 +71,10 @@ const isCacheableResponse = (response) => {
     return false;
   }
 
+  if (response.redirected) {
+    return false;
+  }
+
   if (response.type !== 'basic' && response.type !== 'cors') {
     return false;
   }
@@ -116,10 +120,6 @@ const toRuntimeSafeResponse = async (response) => {
 
   if (response.type === 'opaqueredirect' || isHttpRedirectStatus(response.status)) {
     return null;
-  }
-
-  if (response.redirected) {
-    return cloneResponseForCache(response);
   }
 
   return response;

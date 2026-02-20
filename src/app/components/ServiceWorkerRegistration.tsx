@@ -263,6 +263,7 @@ export default function ServiceWorkerRegistration(): null {
     let currentInstallingWorker: ServiceWorker | null = null;
     let installingStateChangeHandler: (() => void) | null = null;
     let offlineWarmupInFlight: Promise<void> | null = null;
+    let shouldReloadForControllerChange = false;
     let isUnmounted = false;
 
     const activateWaitingWorker = (): void => {
@@ -270,6 +271,7 @@ export default function ServiceWorkerRegistration(): null {
         return;
       }
 
+      shouldReloadForControllerChange = true;
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     };
 
@@ -353,10 +355,11 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onControllerChange = (): void => {
-      if (hasRefreshedForNewWorker) {
+      if (!shouldReloadForControllerChange || hasRefreshedForNewWorker) {
         return;
       }
 
+      shouldReloadForControllerChange = false;
       hasRefreshedForNewWorker = true;
 
       if (isDocumentDirty()) {
