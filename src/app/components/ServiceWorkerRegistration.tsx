@@ -11,14 +11,19 @@ import {
 } from '@/app/lib/serviceWorkerEvents';
 
 const SERVICE_WORKER_PATH = '/sw.js';
+const SERVICE_WORKER_CACHE_VERSION = 'v12';
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const OFFLINE_CACHE_WARMUP_SESSION_KEY = 'travel-tracker-offline-cache-warmup-v1';
 const OFFLINE_CACHE_WARMUP_HEADER = 'x-travel-tracker-precache';
+const SERVICE_WORKER_LEGACY_RESET_KEY = `travel-tracker-sw-legacy-reset-${SERVICE_WORKER_CACHE_VERSION}`;
 const OFFLINE_CACHE_WARMUP_CONCURRENCY = 6;
 const OFFLINE_CACHE_WARMUP_MAX_TRIPS = 30;
 const OFFLINE_CACHE_WARMUP_MAX_COST_ENTRIES = 30;
 const OFFLINE_CACHE_WARMUP_MAX_ROUTE_URLS = 320;
 const OFFLINE_CACHE_WARMUP_MAX_DATA_URLS = 320;
+const SERVICE_WORKER_CACHE_PREFIXES = ['app-shell-', 'static-', 'data-', 'tiles-'] as const;
+
+type WarmUrlResult = 'warmed' | 'retryable-failure' | 'skipped';
 
 type GenericRecord = Record<string, unknown>;
 
@@ -170,7 +175,11 @@ const fetchJsonArray = async (url: string): Promise<unknown[]> => {
   }
 };
 
-const warmUrl = async (url: string): Promise<boolean> => {
+const isRetryableWarmupStatus = (status: number): boolean => {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+};
+
+const warmUrl = async (url: string): Promise<WarmUrlResult> => {
   try {
     const response = await fetch(url, {
       cache: 'no-store',
@@ -179,9 +188,17 @@ const warmUrl = async (url: string): Promise<boolean> => {
       },
     });
 
-    return response.ok;
+    if (response.ok) {
+      return 'warmed';
+    }
+
+    if (isRetryableWarmupStatus(response.status)) {
+      return 'retryable-failure';
+    }
+
+    return 'skipped';
   } catch {
-    return false;
+    return 'retryable-failure';
   }
 };
 
@@ -206,10 +223,10 @@ const warmUrlsWithConcurrency = async (urls: string[]): Promise<{ warmed: number
           break;
         }
 
-        const cached = await warmUrl(urls[index]);
-        if (cached) {
+        const warmResult = await warmUrl(urls[index]);
+        if (warmResult === 'warmed') {
           warmed += 1;
-        } else {
+        } else if (warmResult === 'retryable-failure') {
           failed += 1;
         }
       }
@@ -227,6 +244,75 @@ const warmUrlsWithConcurrency = async (urls: string[]): Promise<{ warmed: number
     },
     { warmed: 0, failed: 0 }
   );
+};
+
+const isLegacyServiceWorkerCache = (cacheName: string): boolean => {
+  return SERVICE_WORKER_CACHE_PREFIXES.some((prefix) => {
+    if (!cacheName.startsWith(prefix)) {
+      return false;
+    }
+
+    return cacheName !== `${prefix}${SERVICE_WORKER_CACHE_VERSION}`;
+  });
+};
+
+const resetLegacyServiceWorkerState = async (): Promise<boolean> => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('caches' in window)) {
+    return false;
+  }
+
+  let hasResetMarker = false;
+  try {
+    hasResetMarker = window.localStorage.getItem(SERVICE_WORKER_LEGACY_RESET_KEY) === 'done';
+  } catch {
+    return false;
+  }
+
+  if (hasResetMarker) {
+    return false;
+  }
+
+  const cacheNames = await caches.keys();
+  const legacyCacheNames = cacheNames.filter((cacheName) => isLegacyServiceWorkerCache(cacheName));
+
+  if (legacyCacheNames.length === 0) {
+    try {
+      window.localStorage.setItem(SERVICE_WORKER_LEGACY_RESET_KEY, 'done');
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  const registrations = await navigator.serviceWorker.getRegistrations();
+
+  await Promise.all(
+    registrations.map(async (existingRegistration) => {
+      try {
+        await existingRegistration.unregister();
+      } catch {
+        // Ignore unregister failures and continue.
+      }
+    })
+  );
+
+  await Promise.all(
+    legacyCacheNames.map(async (cacheName) => {
+      try {
+        await caches.delete(cacheName);
+      } catch {
+        // Ignore cache deletion failures and continue.
+      }
+    })
+  );
+
+  try {
+    window.localStorage.setItem(SERVICE_WORKER_LEGACY_RESET_KEY, 'done');
+  } catch {
+    return false;
+  }
+
+  return true;
 };
 
 const isDocumentDirty = (): boolean => {
@@ -380,6 +466,10 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onFocus = (): void => {
+      if (registration && navigator.onLine) {
+        void registration.update();
+      }
+
       void runOfflineCacheWarmup();
     };
 
@@ -456,7 +546,17 @@ export default function ServiceWorkerRegistration(): null {
       void runOfflineCacheWarmup();
     };
 
-    void registerServiceWorker();
+    const initializeServiceWorker = async (): Promise<void> => {
+      const didResetLegacyState = await resetLegacyServiceWorkerState();
+      if (didResetLegacyState) {
+        window.location.reload();
+        return;
+      }
+
+      await registerServiceWorker();
+    };
+
+    void initializeServiceWorker();
 
     const updateInterval = window.setInterval(() => {
       if (!registration || !navigator.onLine) {
