@@ -31,8 +31,8 @@ const PRECACHE_FETCH_TIMEOUT_MS = 10_000;
 const CACHE_WARMUP_HEADER = 'x-travel-tracker-precache';
 const OFFLINE_TILE_PNG_BYTES = new Uint8Array([
   137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
-  0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 255, 255, 63, 0, 5, 254,
-  2, 254, 167, 53, 129, 132, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+  0, 0, 31, 21, 196, 137, 0, 0, 0, 11, 73, 68, 65, 84, 120, 156, 99, 96, 0, 2, 0, 0, 5, 0, 1, 122,
+  94, 171, 63, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
 ]);
 
 let tileTrimInFlight = null;
@@ -187,13 +187,15 @@ const trimCache = async (cacheName, maxItems) => {
 };
 
 const scheduleTileCacheTrim = async () => {
-  const now = Date.now();
-
   if (tileTrimInFlight) {
     await tileTrimInFlight;
+  }
+
+  if (tileTrimInFlight) {
     return;
   }
 
+  const now = Date.now();
   if (now - lastTileTrimAt < TILE_TRIM_MIN_INTERVAL_MS) {
     return;
   }
@@ -337,15 +339,20 @@ const preCacheAppShell = async () => {
     })
   );
 
+  let criticalError = null;
   preCacheResults.forEach((result, index) => {
     if (result.status === 'rejected') {
       if (CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
-        throw result.reason;
+        criticalError = criticalError || result.reason;
       }
 
-      console.warn(`[sw] Non-critical app shell URL failed to pre-cache: ${APP_SHELL_URLS[index]}.`, result.reason);
+      console.warn(`[sw] App shell URL failed to pre-cache: ${APP_SHELL_URLS[index]}.`, result.reason);
     }
   });
+
+  if (criticalError) {
+    throw criticalError;
+  }
 };
 
 self.addEventListener('install', (event) => {
