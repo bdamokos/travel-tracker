@@ -1,17 +1,20 @@
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
 const TILE_CACHE = `tiles-${CACHE_VERSION}`;
 const ACTIVE_CACHES = [APP_SHELL_CACHE, STATIC_CACHE, DATA_CACHE, TILE_CACHE];
 
-const APP_SHELL_URLS = ['/maps', '/admin', '/admin?tab=travel', '/admin?tab=cost', '/manifest.json'];
-const ADMIN_NAVIGATION_FALLBACK_URLS = ['/admin', '/admin?tab=travel', '/admin?tab=cost', '/'];
+const APP_SHELL_URLS = ['/', '/maps', '/admin', '/admin?tab=travel', '/admin?tab=cost'];
+const ADMIN_NAVIGATION_FALLBACK_URLS = ['/admin', '/admin?tab=cost', '/admin?tab=travel', '/'];
+const ADMIN_COST_NAVIGATION_FALLBACK_URLS = ['/admin?tab=cost', '/admin', '/'];
+const ADMIN_TRAVEL_NAVIGATION_FALLBACK_URLS = ['/admin?tab=travel', '/admin', '/'];
 const PUBLIC_NAVIGATION_FALLBACK_URLS = ['/maps', '/'];
 const DEFAULT_NAVIGATION_FALLBACK_URLS = ['/', '/admin', '/maps'];
 const TILE_HOST = 'tile.openstreetmap.org';
 const TILE_CACHE_LIMIT = 500;
-const CRITICAL_APP_SHELL_URLS = new Set(['/maps', '/admin']);
+const TILE_TRIM_MIN_INTERVAL_MS = 60_000;
+const CRITICAL_APP_SHELL_URLS = new Set(['/', '/maps', '/admin']);
 const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 <html lang="en">
   <head>
@@ -26,8 +29,26 @@ const OFFLINE_NAVIGATION_HTML = `<!doctype html>
 const MAX_PRECACHE_REDIRECTS = 3;
 const PRECACHE_FETCH_TIMEOUT_MS = 10_000;
 const CACHE_WARMUP_HEADER = 'x-travel-tracker-precache';
+const OFFLINE_TILE_PNG_BYTES = new Uint8Array([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
+  0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 255, 255, 63, 0, 5, 254,
+  2, 254, 167, 53, 129, 132, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+]);
+
+let tileTrimInFlight = null;
+let lastTileTrimAt = 0;
+
+const openCacheSafely = async (cacheName) => {
+  try {
+    return await caches.open(cacheName);
+  } catch (error) {
+    console.warn(`[sw] Unable to open cache "${cacheName}".`, error);
+    return null;
+  }
+};
 
 const isHttpRedirectStatus = (status) => status >= 300 && status < 400;
+const isTileHost = (hostname) => hostname === TILE_HOST || hostname.endsWith(`.${TILE_HOST}`);
 
 const isRedirectResponse = (response) => {
   if (!response) {
@@ -58,16 +79,33 @@ const isCacheableResponse = (response) => {
   return !cacheControl.includes('no-store');
 };
 
+const isCacheableTileResponse = (response) => {
+  if (!response) {
+    return false;
+  }
+
+  if (response.type === 'opaque') {
+    return true;
+  }
+
+  return isCacheableResponse(response);
+};
+
 const cloneResponseForCache = async (response) => {
   if (!response.redirected) {
     return response;
   }
 
   const responseBody = await response.arrayBuffer();
+  const responseHeaders = new Headers(response.headers);
+  if (response.url) {
+    responseHeaders.set('X-Travel-Tracker-Original-Url', response.url);
+  }
+
   return new Response(responseBody, {
     status: response.status,
     statusText: response.statusText,
-    headers: new Headers(response.headers),
+    headers: responseHeaders,
   });
 };
 
@@ -86,6 +124,15 @@ const toRuntimeSafeResponse = async (response) => {
 
   return response;
 };
+
+const createOfflineTileResponse = () =>
+  new Response(OFFLINE_TILE_PNG_BYTES, {
+    status: 200,
+    headers: {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'no-store',
+    },
+  });
 
 const fetchWithTimeout = async (input, init = {}, timeoutMs = PRECACHE_FETCH_TIMEOUT_MS) => {
   const controller = new AbortController();
@@ -111,13 +158,18 @@ const purgeRedirectResponsesFromCache = async (cacheName) => {
 
   await Promise.all(
     keys.map(async (key) => {
-      const response = await cache.match(key);
-      if (isRedirectResponse(response)) {
-        await cache.delete(key);
+      try {
+        const response = await cache.match(key);
+        if (isRedirectResponse(response)) {
+          await cache.delete(key);
+        }
+      } catch (error) {
+        console.warn(`[sw] Failed to inspect cached response for ${key.url}.`, error);
       }
     })
   );
 };
+
 const trimCache = async (cacheName, maxItems) => {
   const cache = await openCacheSafely(cacheName);
   if (!cache) {
@@ -132,6 +184,30 @@ const trimCache = async (cacheName, maxItems) => {
   }
 
   await Promise.all(keys.slice(0, itemsToDelete).map((key) => cache.delete(key)));
+};
+
+const scheduleTileCacheTrim = async () => {
+  const now = Date.now();
+
+  if (tileTrimInFlight) {
+    await tileTrimInFlight;
+    return;
+  }
+
+  if (now - lastTileTrimAt < TILE_TRIM_MIN_INTERVAL_MS) {
+    return;
+  }
+
+  lastTileTrimAt = now;
+  tileTrimInFlight = trimCache(TILE_CACHE, TILE_CACHE_LIMIT)
+    .catch((error) => {
+      console.warn('[sw] Failed to trim tile cache.', error);
+    })
+    .finally(() => {
+      tileTrimInFlight = null;
+    });
+
+  await tileTrimInFlight;
 };
 
 const isDataRequest = (url) =>
@@ -149,17 +225,9 @@ const isStaticAssetRequest = (url) =>
   url.origin === self.location.origin &&
   (url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/_next/image') ||
+    url.pathname.startsWith('/images/') ||
     url.pathname.startsWith('/icon-') ||
     url.pathname === '/manifest.json');
-
-const openCacheSafely = async (cacheName) => {
-  try {
-    return await caches.open(cacheName);
-  } catch (error) {
-    console.warn(`[sw] Unable to open cache "${cacheName}".`, error);
-    return null;
-  }
-};
 
 const clearDataCache = async () => {
   const cache = await openCacheSafely(DATA_CACHE);
@@ -169,6 +237,48 @@ const clearDataCache = async () => {
 
   const keys = await cache.keys();
   await Promise.all(keys.map((key) => cache.delete(key)));
+};
+
+const dataCachePrefixGroups = [
+  {
+    matcher: (pathname) =>
+      pathname.startsWith('/api/travel-data') || pathname.startsWith('/admin/api/accommodations'),
+    prefixes: ['/api/travel-data', '/admin/api/accommodations'],
+  },
+  {
+    matcher: (pathname) => pathname.startsWith('/api/cost-tracking'),
+    prefixes: ['/api/cost-tracking'],
+  },
+];
+
+const invalidateDataCacheForMutation = async (requestUrl) => {
+  const cache = await openCacheSafely(DATA_CACHE);
+  if (!cache) {
+    return;
+  }
+
+  const matchingGroup = dataCachePrefixGroups.find((group) => group.matcher(requestUrl.pathname));
+  if (!matchingGroup) {
+    await clearDataCache();
+    return;
+  }
+
+  const keys = await cache.keys();
+  await Promise.all(
+    keys.map(async (key) => {
+      let cachedUrl;
+
+      try {
+        cachedUrl = new URL(key.url);
+      } catch {
+        return;
+      }
+
+      if (matchingGroup.prefixes.some((prefix) => cachedUrl.pathname.startsWith(prefix))) {
+        await cache.delete(key);
+      }
+    })
+  );
 };
 
 const resolvePreCacheResponse = async (url) => {
@@ -228,20 +338,18 @@ const preCacheAppShell = async () => {
   );
 
   preCacheResults.forEach((result, index) => {
-    if (result.status === 'rejected' && CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
-      throw result.reason;
+    if (result.status === 'rejected') {
+      if (CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
+        throw result.reason;
+      }
+
+      console.warn(`[sw] Non-critical app shell URL failed to pre-cache: ${APP_SHELL_URLS[index]}.`, result.reason);
     }
   });
 };
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    preCacheAppShell()
-      .catch((error) => {
-        console.warn('[sw] App shell pre-cache failed. Continuing without blocking activation.', error);
-      })
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(preCacheAppShell().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -252,17 +360,17 @@ self.addEventListener('activate', (event) => {
         Promise.all(keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)))
       )
       .then(() => Promise.all(ACTIVE_CACHES.map((cacheName) => purgeRedirectResponsesFromCache(cacheName))))
-      .then(() => trimCache(TILE_CACHE, TILE_CACHE_LIMIT))
+      .then(() => scheduleTileCacheTrim())
       .then(() => self.clients.claim())
   );
 });
 
-const getCachedNonRedirectResponse = async (cache, request) => {
+const getCachedNonRedirectResponse = async (cache, request, { ignoreSearch = false } = {}) => {
   if (!cache) {
     return null;
   }
 
-  const cachedResponse = await cache.match(request);
+  const cachedResponse = await cache.match(request, { ignoreSearch });
   if (!cachedResponse || isRedirectResponse(cachedResponse)) {
     return null;
   }
@@ -271,6 +379,14 @@ const getCachedNonRedirectResponse = async (cache, request) => {
 };
 
 const getNavigationFallbackUrls = (pathname) => {
+  if (pathname.startsWith('/admin/cost-tracking')) {
+    return ADMIN_COST_NAVIGATION_FALLBACK_URLS;
+  }
+
+  if (pathname.startsWith('/admin/edit')) {
+    return ADMIN_TRAVEL_NAVIGATION_FALLBACK_URLS;
+  }
+
   if (pathname.startsWith('/admin')) {
     return ADMIN_NAVIGATION_FALLBACK_URLS;
   }
@@ -287,13 +403,14 @@ const getNavigationFallbackUrls = (pathname) => {
   return DEFAULT_NAVIGATION_FALLBACK_URLS;
 };
 
-const getNavigationFallbackResponse = async (cache, requestUrl) => {
+const getNavigationFallbackResponse = async (requestUrl) => {
+  const cache = await openCacheSafely(APP_SHELL_CACHE);
   if (!cache) {
     return null;
   }
 
   for (const fallbackUrl of getNavigationFallbackUrls(requestUrl.pathname)) {
-    const fallback = await getCachedNonRedirectResponse(cache, fallbackUrl);
+    const fallback = await getCachedNonRedirectResponse(cache, fallbackUrl, { ignoreSearch: true });
     if (fallback) {
       return fallback;
     }
@@ -304,6 +421,7 @@ const getNavigationFallbackResponse = async (cache, requestUrl) => {
 
 const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = false } = {}) => {
   const cache = await openCacheSafely(cacheName);
+  const shouldIgnoreSearchInCacheLookup = request.mode === 'navigate';
 
   try {
     const networkResponse = await fetch(request);
@@ -314,9 +432,18 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
     }
 
     if (fallbackToCacheOnHttpError && !response.ok) {
-      const cachedHttpFallback = await getCachedNonRedirectResponse(cache, request);
+      const cachedHttpFallback = await getCachedNonRedirectResponse(cache, request, {
+        ignoreSearch: shouldIgnoreSearchInCacheLookup,
+      });
       if (cachedHttpFallback) {
         return cachedHttpFallback;
+      }
+
+      if (request.mode === 'navigate') {
+        const shellFallback = await getNavigationFallbackResponse(new URL(request.url));
+        if (shellFallback) {
+          return shellFallback;
+        }
       }
     }
 
@@ -330,13 +457,15 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
 
     return response;
   } catch {
-    const cachedRequestMatch = await getCachedNonRedirectResponse(cache, request);
+    const cachedRequestMatch = await getCachedNonRedirectResponse(cache, request, {
+      ignoreSearch: shouldIgnoreSearchInCacheLookup,
+    });
     if (cachedRequestMatch) {
       return cachedRequestMatch;
     }
 
     if (request.mode === 'navigate') {
-      const shellFallback = await getNavigationFallbackResponse(cache, new URL(request.url));
+      const shellFallback = await getNavigationFallbackResponse(new URL(request.url));
       if (shellFallback) {
         return shellFallback;
       }
@@ -356,34 +485,46 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
   }
 };
 
-const staleWhileRevalidate = async (request, cacheName) => {
-  const cache = await openCacheSafely(cacheName);
-  const cached = await getCachedNonRedirectResponse(cache, request);
+const staleWhileRevalidate = async (event, request, cacheName, { isTileRequest = false } = {}) => {
+  const cachePromise = openCacheSafely(cacheName);
+  const shouldCacheResponse = isTileRequest ? isCacheableTileResponse : isCacheableResponse;
 
-  const networkPromise = fetch(request)
-    .then(async (networkResponse) => {
+  const networkPromise = (async () => {
+    const cache = await cachePromise;
+
+    try {
+      const networkResponse = await fetch(request);
       const response = await toRuntimeSafeResponse(networkResponse);
       if (!response) {
         return null;
       }
 
-      if (cache && isCacheableResponse(response)) {
+      if (cache && shouldCacheResponse(response)) {
         try {
           await cache.put(request, response.clone());
         } catch (error) {
           console.warn(`[sw] Failed to cache stale-while-revalidate response for ${request.url}.`, error);
         }
 
-        if (cacheName === TILE_CACHE) {
-          await trimCache(TILE_CACHE, TILE_CACHE_LIMIT);
+        if (isTileRequest) {
+          await scheduleTileCacheTrim();
         }
-      } else if (cache && cacheName === DATA_CACHE) {
-        await cache.delete(request);
       }
 
       return response;
-    })
-    .catch(() => null);
+    } catch {
+      return null;
+    }
+  })();
+
+  event.waitUntil(
+    networkPromise
+      .then(() => undefined)
+      .catch(() => undefined)
+  );
+
+  const cache = await cachePromise;
+  const cached = await getCachedNonRedirectResponse(cache, request);
 
   if (cached) {
     return cached;
@@ -392,6 +533,10 @@ const staleWhileRevalidate = async (request, cacheName) => {
   const networkResponse = await networkPromise;
   if (networkResponse) {
     return networkResponse;
+  }
+
+  if (isTileRequest) {
+    return createOfflineTileResponse();
   }
 
   return new Response('Offline and no cached copy is available.', {
@@ -409,19 +554,24 @@ self.addEventListener('fetch', (event) => {
 
   // Never intercept cross-origin requests (except OSM tiles).
   // This prevents the service worker from hijacking navigations to other *.bdamokos.org subdomains.
-  if (!isSameOriginRequest && url.hostname !== TILE_HOST) {
+  if (!isSameOriginRequest && !isTileHost(url.hostname)) {
     return;
   }
 
   if (isDataRequest(url) && request.method !== 'GET') {
-    event.respondWith(
-      (async () => {
-        try {
-          return await fetch(request);
-        } finally {
-          await clearDataCache();
-        }
-      })()
+    const networkPromise = fetch(request);
+
+    event.respondWith(networkPromise);
+    event.waitUntil(
+      networkPromise
+        .then(async (response) => {
+          if (!response.ok) {
+            return;
+          }
+
+          await invalidateDataCacheForMutation(url);
+        })
+        .catch(() => undefined)
     );
     return;
   }
@@ -436,7 +586,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request, APP_SHELL_CACHE));
+    event.respondWith(networkFirst(request, APP_SHELL_CACHE, { fallbackToCacheOnHttpError: true }));
     return;
   }
 
@@ -445,18 +595,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.hostname === TILE_HOST) {
-    event.respondWith(staleWhileRevalidate(request, TILE_CACHE));
+  if (isTileHost(url.hostname)) {
+    event.respondWith(staleWhileRevalidate(event, request, TILE_CACHE, { isTileRequest: true }));
     return;
   }
 
   if (isNextChunkRequest(url)) {
-    event.respondWith(networkFirst(request, STATIC_CACHE, { fallbackToCacheOnHttpError: true }));
+    event.respondWith(staleWhileRevalidate(event, request, STATIC_CACHE));
     return;
   }
 
   if (isStaticAssetRequest(url)) {
-    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
+    event.respondWith(staleWhileRevalidate(event, request, STATIC_CACHE));
+    return;
   }
 });
 
