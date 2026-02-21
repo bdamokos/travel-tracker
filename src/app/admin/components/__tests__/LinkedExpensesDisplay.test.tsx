@@ -123,6 +123,7 @@ describe('LinkedExpensesDisplay', () => {
 
     await waitFor(() => {
       expect(screen.getByText('💰 Linked Expenses (2)')).toBeInTheDocument();
+      expect(screen.getByText('Total: EUR 150.00')).toBeInTheDocument();
       expect(screen.getByText('Restaurant dinner')).toBeInTheDocument();
       expect(screen.getByText('Train ticket')).toBeInTheDocument();
       expect(screen.getByText('EUR 100.00')).toBeInTheDocument();
@@ -163,6 +164,7 @@ describe('LinkedExpensesDisplay', () => {
 
     await waitFor(() => {
       expect(screen.getByText('💰 Linked Expenses (1)')).toBeInTheDocument();
+      expect(screen.getByText('Total: EUR 100.00')).toBeInTheDocument();
       expect(screen.getByText('Restaurant dinner')).toBeInTheDocument();
     });
   });
@@ -226,6 +228,7 @@ describe('LinkedExpensesDisplay', () => {
 
     await waitFor(() => {
       expect(screen.getByText('💰 Linked Expenses (1)')).toBeInTheDocument();
+      expect(screen.getByText('Total: EUR 50.00')).toBeInTheDocument();
       expect(screen.getByText('Restaurant dinner')).toBeInTheDocument();
       expect(screen.getByText('EUR 50.00')).toBeInTheDocument();
     });

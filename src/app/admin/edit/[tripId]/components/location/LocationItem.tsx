@@ -105,8 +105,6 @@ export default function LocationItem({
                   onDelete={onLocationDelete}
                   onViewPosts={onViewPosts}
                   showAccommodations={false}
-                  linkedExpenses={[]}
-                  tripId={tripId}
                   frameless
                   showHeaderDetails={false}
                 />

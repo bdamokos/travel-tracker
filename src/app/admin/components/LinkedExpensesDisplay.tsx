@@ -60,6 +60,42 @@ export default function LinkedExpensesDisplay({
     .filter(expense => relevantLinks.some(link => link.expenseId === expense.id))
     .sort((a, b) => getLocalDateSortValue(a.date) - getLocalDateSortValue(b.date));
 
+  const linkedExpenseRows = linkedExpenses.map(expense => {
+    const allLinksForExpense = allLinksByExpenseId.get(expense.id) || [];
+    const relevantForExpense = relevantLinksByExpenseId.get(expense.id) || [];
+
+    const allocatedAmount = relevantForExpense.reduce(
+      (sum, link) => sum + calculateSplitAmount(expense.amount, link, allLinksForExpense),
+      0
+    );
+
+    const isSplit = allLinksForExpense.length > 1;
+    const showTotalHint = isSplit && Math.abs(allocatedAmount - expense.amount) > 0.0001;
+
+    const amountTitle = showTotalHint
+      ? `${formatCurrency(allocatedAmount, expense.currency)} of ${formatCurrency(expense.amount, expense.currency)}`
+      : undefined;
+
+    return {
+      expense,
+      allocatedAmount,
+      amountTitle
+    };
+  });
+
+  const totalsByCurrency = linkedExpenseRows.reduce((totals, row) => {
+    totals.set(
+      row.expense.currency,
+      (totals.get(row.expense.currency) || 0) + row.allocatedAmount
+    );
+    return totals;
+  }, new Map<string, number>());
+
+  const totalSummary = Array.from(totalsByCurrency.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, amount]) => formatCurrency(amount, currency))
+    .join(' • ');
+
   if (isLoading) {
     return (
       <div className={`text-xs text-gray-500 dark:text-gray-400 ${className}`}>
@@ -77,23 +113,11 @@ export default function LinkedExpensesDisplay({
       <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
         💰 Linked Expenses ({linkedExpenses.length})
       </div>
+      <div className="text-xs font-medium text-green-700 dark:text-green-300 mb-2">
+        Total: {totalSummary}
+      </div>
       <div className="space-y-1">
-        {linkedExpenses.map(expense => {
-          const allLinksForExpense = allLinksByExpenseId.get(expense.id) || [];
-          const relevantForExpense = relevantLinksByExpenseId.get(expense.id) || [];
-
-          const allocatedAmount = relevantForExpense.reduce(
-            (sum, link) => sum + calculateSplitAmount(expense.amount, link, allLinksForExpense),
-            0
-          );
-
-          const isSplit = allLinksForExpense.length > 1;
-          const showTotalHint = isSplit && Math.abs(allocatedAmount - expense.amount) > 0.0001;
-
-          const amountTitle = showTotalHint
-            ? `${formatCurrency(allocatedAmount, expense.currency)} of ${formatCurrency(expense.amount, expense.currency)}`
-            : undefined;
-
+        {linkedExpenseRows.map(({ expense, allocatedAmount, amountTitle }) => {
           return (
             <div key={expense.id} className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-2 py-1 rounded">
               <div className="flex items-center gap-2">

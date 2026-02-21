@@ -2,8 +2,6 @@
 
 import { Location } from '@/app/types';
 import { formatDuration } from '@/app/lib/durationUtils';
-import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
-import { useExpenses } from '@/app/hooks/useExpenses';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import { buildWikipediaReferenceUrl, parseWikipediaReference } from '@/app/lib/wikipediaUtils';
@@ -14,8 +12,6 @@ interface LocationDisplayProps {
   onDelete?: () => void;
   onViewPosts?: () => void;
   showAccommodations?: boolean;
-  linkedExpenses?: Array<{ description: string; amount: number; currency: string }>;
-  tripId?: string; // Optional for backward compatibility
   className?: string;
   frameless?: boolean;
   showHeader?: boolean;
@@ -28,8 +24,6 @@ export default function LocationDisplay({
   onDelete,
   onViewPosts,
   showAccommodations = false,
-  linkedExpenses = [],
-  tripId,
   className,
   frameless = false,
   showHeader = true,
@@ -42,22 +36,6 @@ export default function LocationDisplay({
       year: 'numeric'
     });
   };
-
-  // Use SWR hooks to get linked expenses if tripId is available
-  // Always call hooks but with fallback values to avoid conditional hook calls
-  const { expenseLinks, isLoading: linksLoading } = useExpenseLinksForTravelItem(tripId || 'no-trip', location.id);
-  const { expenses, isLoading: expensesLoading } = useExpenses(tripId || 'no-trip');
-
-  // Calculate linked expenses using SWR data when tripId is available, otherwise use prop
-  const actualLinkedExpenses = tripId && !linksLoading && !expensesLoading ?
-    (expenses || [])
-      .filter(expense => (expenseLinks || []).some(link => link.expenseId === expense.id))
-      .map(expense => ({
-        description: expense.description || 'Expense',
-        amount: expense.amount,
-        currency: expense.currency
-      })) :
-    linkedExpenses;
 
   const hasCoords = location.coordinates[0] !== 0 || location.coordinates[1] !== 0;
   const wikipediaRef = location.wikipediaRef?.trim();
@@ -174,27 +152,6 @@ export default function LocationDisplay({
                 <span className="font-medium">Departure:</span> {location.departureTime}
               </span>
             )}
-          </div>
-        )}
-
-        {/* Linked Expenses */}
-        {actualLinkedExpenses.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Linked Expenses ({actualLinkedExpenses.length})
-            </div>
-            <div className="space-y-1">
-              {actualLinkedExpenses.slice(0, 3).map((expense, index) => (
-                <div key={index} className="text-sm text-gray-600 dark:text-gray-400">
-                  {expense.description} - {expense.amount} {expense.currency}
-                </div>
-              ))}
-              {actualLinkedExpenses.length > 3 && (
-                <div className="text-xs text-gray-500 dark:text-gray-500">
-                  +{actualLinkedExpenses.length - 3} more...
-                </div>
-              )}
-            </div>
           </div>
         )}
 
