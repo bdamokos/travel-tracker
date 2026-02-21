@@ -573,16 +573,42 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const initializeServiceWorker = async (): Promise<void> => {
-      const cacheVersion = await getServiceWorkerCacheVersion();
+      let cacheVersion: string | null = null;
+      try {
+        cacheVersion = await getServiceWorkerCacheVersion();
+      } catch (error) {
+        console.warn('Service worker cache version discovery failed:', error);
+      }
+
+      if (isUnmounted) {
+        return;
+      }
+
       if (cacheVersion) {
-        const didResetLegacyState = await resetLegacyServiceWorkerState(cacheVersion);
-        if (didResetLegacyState) {
-          window.location.reload();
-          return;
+        try {
+          const didResetLegacyState = await resetLegacyServiceWorkerState(cacheVersion);
+          if (isUnmounted) {
+            return;
+          }
+
+          if (didResetLegacyState) {
+            window.location.reload();
+            return;
+          }
+        } catch (error) {
+          console.warn('Service worker legacy reset failed, continuing with registration:', error);
         }
       }
 
-      await registerServiceWorker();
+      if (isUnmounted) {
+        return;
+      }
+
+      try {
+        await registerServiceWorker();
+      } catch (error) {
+        console.warn('Service worker initialization failed while registering:', error);
+      }
     };
 
     void initializeServiceWorker();
