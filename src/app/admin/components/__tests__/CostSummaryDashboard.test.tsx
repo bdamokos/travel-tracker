@@ -79,6 +79,21 @@ describe('CostSummaryDashboard', () => {
         date: new Date('2026-02-10'),
       }),
       buildExpense({
+        id: 'expense-cash-1',
+        description: 'Cash spending (2 PEN)',
+        amount: 10,
+        notes: 'Street snacks',
+        date: new Date('2026-02-10'),
+        cashTransaction: {
+          kind: 'allocation',
+          cashTransactionId: 'expense-1',
+          localCurrency: 'PEN',
+          localAmount: 2,
+          baseAmount: 10,
+          exchangeRate: 5,
+        },
+      }),
+      buildExpense({
         id: 'expense-3',
         description: 'Planned museum ticket',
         amount: 25,
@@ -103,9 +118,11 @@ describe('CostSummaryDashboard', () => {
     await user.click(dayButtons[0]);
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('2 expenses recorded')).toBeInTheDocument();
+    expect(screen.getByText('3 expenses recorded')).toBeInTheDocument();
     expect(screen.getByText('Breakfast')).toBeInTheDocument();
     expect(screen.getByText('Metro pass')).toBeInTheDocument();
+    expect(screen.getByText('Street snacks')).toBeInTheDocument();
+    expect(screen.queryByText('Cash spending (2 PEN)')).not.toBeInTheDocument();
     expect(screen.queryByText('Planned museum ticket')).not.toBeInTheDocument();
     expect(screen.queryByText('Coffee next day')).not.toBeInTheDocument();
   });

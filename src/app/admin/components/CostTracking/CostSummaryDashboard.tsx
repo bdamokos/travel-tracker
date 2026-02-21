@@ -3,6 +3,7 @@
 import { useMemo, useState, type JSX } from 'react';
 import AccessibleModal from '@/app/admin/components/AccessibleModal';
 import { CostSummary, CostTrackingData, Expense } from '@/app/types';
+import { isCashAllocation } from '@/app/lib/cashTransactions';
 import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
 import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -17,6 +18,7 @@ type TripDayExpenseDetail = {
   expenses: Expense[];
   total: number;
 };
+const CASH_SPENDING_FALLBACK_PATTERN = /^Cash spending \([^)]*\)$/i;
 
 
 export default function CostSummaryDashboard({
@@ -525,6 +527,25 @@ export default function CostSummaryDashboard({
                 {selectedTripSpendingDetail.expenses.map(expense => {
                   const countryLabel = expense.country?.trim() ? expense.country : 'General';
                   const categoryLabel = expense.category?.trim() ? expense.category : 'Uncategorized';
+                  const trimmedDescription = expense.description?.trim() || '';
+                  const trimmedNotes = expense.notes?.trim() || '';
+                  const travelDescription = expense.travelReference?.description?.trim() || '';
+                  const isGenericCashDescription = isCashAllocation(expense) && CASH_SPENDING_FALLBACK_PATTERN.test(trimmedDescription);
+                  const displayDescription = (() => {
+                    if (!isGenericCashDescription) {
+                      return trimmedDescription || 'Untitled expense';
+                    }
+                    if (trimmedNotes) {
+                      return trimmedNotes;
+                    }
+                    if (travelDescription) {
+                      return travelDescription;
+                    }
+                    if (categoryLabel !== 'Uncategorized') {
+                      return `${categoryLabel} (cash spending)`;
+                    }
+                    return trimmedDescription || 'Cash spending';
+                  })();
                   return (
                     <li
                       key={expense.id}
@@ -533,14 +554,14 @@ export default function CostSummaryDashboard({
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {expense.description?.trim() || 'Untitled expense'}
+                            {displayDescription}
                           </p>
                           <p className="text-xs text-gray-600 dark:text-gray-400">
                             {categoryLabel} • {countryLabel}
                           </p>
-                          {expense.notes?.trim() && (
+                          {trimmedNotes && trimmedNotes !== displayDescription && (
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              {expense.notes.trim()}
+                              {trimmedNotes}
                             </p>
                           )}
                         </div>
