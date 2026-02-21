@@ -11,17 +11,16 @@ import {
 } from '@/app/lib/serviceWorkerEvents';
 
 const SERVICE_WORKER_PATH = '/sw.js';
-const SERVICE_WORKER_CACHE_VERSION = 'v12';
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const OFFLINE_CACHE_WARMUP_SESSION_KEY = 'travel-tracker-offline-cache-warmup-v1';
 const OFFLINE_CACHE_WARMUP_HEADER = 'x-travel-tracker-precache';
-const SERVICE_WORKER_LEGACY_RESET_KEY = `travel-tracker-sw-legacy-reset-${SERVICE_WORKER_CACHE_VERSION}`;
 const OFFLINE_CACHE_WARMUP_CONCURRENCY = 6;
 const OFFLINE_CACHE_WARMUP_MAX_TRIPS = 30;
 const OFFLINE_CACHE_WARMUP_MAX_COST_ENTRIES = 30;
 const OFFLINE_CACHE_WARMUP_MAX_ROUTE_URLS = 320;
 const OFFLINE_CACHE_WARMUP_MAX_DATA_URLS = 320;
 const SERVICE_WORKER_CACHE_PREFIXES = ['app-shell-', 'static-', 'data-', 'tiles-'] as const;
+const SERVICE_WORKER_CACHE_VERSION_PATTERN = /const\s+CACHE_VERSION\s*=\s*['"]([^'"]+)['"]/;
 
 type WarmUrlResult = 'warmed' | 'retryable-failure' | 'skipped';
 
@@ -246,24 +245,51 @@ const warmUrlsWithConcurrency = async (urls: string[]): Promise<{ warmed: number
   );
 };
 
-const isLegacyServiceWorkerCache = (cacheName: string): boolean => {
+const getServiceWorkerCacheVersion = async (): Promise<string | null> => {
+  try {
+    const response = await fetch(`${SERVICE_WORKER_PATH}?version-check=${Date.now()}`, {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const source = await response.text();
+    const versionMatch = source.match(SERVICE_WORKER_CACHE_VERSION_PATTERN);
+    if (!versionMatch) {
+      return null;
+    }
+
+    return versionMatch[1];
+  } catch {
+    return null;
+  }
+};
+
+const getServiceWorkerLegacyResetKey = (cacheVersion: string): string => {
+  return `travel-tracker-sw-legacy-reset-${cacheVersion}`;
+};
+
+const isLegacyServiceWorkerCache = (cacheName: string, cacheVersion: string): boolean => {
   return SERVICE_WORKER_CACHE_PREFIXES.some((prefix) => {
     if (!cacheName.startsWith(prefix)) {
       return false;
     }
 
-    return cacheName !== `${prefix}${SERVICE_WORKER_CACHE_VERSION}`;
+    return cacheName !== `${prefix}${cacheVersion}`;
   });
 };
 
-const resetLegacyServiceWorkerState = async (): Promise<boolean> => {
+const resetLegacyServiceWorkerState = async (cacheVersion: string): Promise<boolean> => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('caches' in window)) {
     return false;
   }
 
+  const resetKey = getServiceWorkerLegacyResetKey(cacheVersion);
   let hasResetMarker = false;
   try {
-    hasResetMarker = window.localStorage.getItem(SERVICE_WORKER_LEGACY_RESET_KEY) === 'done';
+    hasResetMarker = window.localStorage.getItem(resetKey) === 'done';
   } catch {
     return false;
   }
@@ -273,11 +299,11 @@ const resetLegacyServiceWorkerState = async (): Promise<boolean> => {
   }
 
   const cacheNames = await caches.keys();
-  const legacyCacheNames = cacheNames.filter((cacheName) => isLegacyServiceWorkerCache(cacheName));
+  const legacyCacheNames = cacheNames.filter((cacheName) => isLegacyServiceWorkerCache(cacheName, cacheVersion));
 
   if (legacyCacheNames.length === 0) {
     try {
-      window.localStorage.setItem(SERVICE_WORKER_LEGACY_RESET_KEY, 'done');
+      window.localStorage.setItem(resetKey, 'done');
     } catch {
       return false;
     }
@@ -307,7 +333,7 @@ const resetLegacyServiceWorkerState = async (): Promise<boolean> => {
   );
 
   try {
-    window.localStorage.setItem(SERVICE_WORKER_LEGACY_RESET_KEY, 'done');
+    window.localStorage.setItem(resetKey, 'done');
   } catch {
     return false;
   }
@@ -547,10 +573,13 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const initializeServiceWorker = async (): Promise<void> => {
-      const didResetLegacyState = await resetLegacyServiceWorkerState();
-      if (didResetLegacyState) {
-        window.location.reload();
-        return;
+      const cacheVersion = await getServiceWorkerCacheVersion();
+      if (cacheVersion) {
+        const didResetLegacyState = await resetLegacyServiceWorkerState(cacheVersion);
+        if (didResetLegacyState) {
+          window.location.reload();
+          return;
+        }
       }
 
       await registerServiceWorker();

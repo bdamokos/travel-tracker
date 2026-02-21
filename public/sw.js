@@ -339,19 +339,33 @@ const preCacheAppShell = async () => {
     })
   );
 
-  let criticalError = null;
+  const criticalErrors = [];
   preCacheResults.forEach((result, index) => {
     if (result.status === 'rejected') {
       if (CRITICAL_APP_SHELL_URLS.has(APP_SHELL_URLS[index])) {
-        criticalError = criticalError || result.reason;
+        criticalErrors.push({ url: APP_SHELL_URLS[index], reason: result.reason });
       }
 
       console.warn(`[sw] App shell URL failed to pre-cache: ${APP_SHELL_URLS[index]}.`, result.reason);
     }
   });
 
-  if (criticalError) {
-    throw criticalError;
+  if (criticalErrors.length > 0) {
+    const criticalMessage = criticalErrors
+      .map(({ url, reason }) => {
+        if (!reason) {
+          return `${url}: Unknown pre-cache failure`;
+        }
+
+        if (reason instanceof Error && reason.message) {
+          return `${url}: ${reason.message}`;
+        }
+
+        return `${url}: ${String(reason)}`;
+      })
+      .join(' | ');
+
+    throw new Error(`Critical app shell pre-cache failures: ${criticalMessage}`);
   }
 };
 
