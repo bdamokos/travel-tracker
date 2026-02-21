@@ -19,6 +19,10 @@ const OFFLINE_CACHE_WARMUP_MAX_TRIPS = 30;
 const OFFLINE_CACHE_WARMUP_MAX_COST_ENTRIES = 30;
 const OFFLINE_CACHE_WARMUP_MAX_ROUTE_URLS = 320;
 const OFFLINE_CACHE_WARMUP_MAX_DATA_URLS = 320;
+const SERVICE_WORKER_CACHE_PREFIXES = ['app-shell-', 'static-', 'data-', 'tiles-'] as const;
+const SERVICE_WORKER_CACHE_VERSION_PATTERN = /const\s+CACHE_VERSION\s*=\s*['"]([^'"]+)['"]/;
+
+type WarmUrlResult = 'warmed' | 'retryable-failure' | 'skipped';
 
 type GenericRecord = Record<string, unknown>;
 
@@ -170,7 +174,11 @@ const fetchJsonArray = async (url: string): Promise<unknown[]> => {
   }
 };
 
-const warmUrl = async (url: string): Promise<boolean> => {
+const isRetryableWarmupStatus = (status: number): boolean => {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+};
+
+const warmUrl = async (url: string): Promise<WarmUrlResult> => {
   try {
     const response = await fetch(url, {
       cache: 'no-store',
@@ -179,9 +187,17 @@ const warmUrl = async (url: string): Promise<boolean> => {
       },
     });
 
-    return response.ok;
+    if (response.ok) {
+      return 'warmed';
+    }
+
+    if (isRetryableWarmupStatus(response.status)) {
+      return 'retryable-failure';
+    }
+
+    return 'skipped';
   } catch {
-    return false;
+    return 'retryable-failure';
   }
 };
 
@@ -206,10 +222,10 @@ const warmUrlsWithConcurrency = async (urls: string[]): Promise<{ warmed: number
           break;
         }
 
-        const cached = await warmUrl(urls[index]);
-        if (cached) {
+        const warmResult = await warmUrl(urls[index]);
+        if (warmResult === 'warmed') {
           warmed += 1;
-        } else {
+        } else if (warmResult === 'retryable-failure') {
           failed += 1;
         }
       }
@@ -227,6 +243,102 @@ const warmUrlsWithConcurrency = async (urls: string[]): Promise<{ warmed: number
     },
     { warmed: 0, failed: 0 }
   );
+};
+
+const getServiceWorkerCacheVersion = async (): Promise<string | null> => {
+  try {
+    const response = await fetch(`${SERVICE_WORKER_PATH}?version-check=${Date.now()}`, {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const source = await response.text();
+    const versionMatch = source.match(SERVICE_WORKER_CACHE_VERSION_PATTERN);
+    if (!versionMatch) {
+      return null;
+    }
+
+    return versionMatch[1];
+  } catch {
+    return null;
+  }
+};
+
+const getServiceWorkerLegacyResetKey = (cacheVersion: string): string => {
+  return `travel-tracker-sw-legacy-reset-${cacheVersion}`;
+};
+
+const isLegacyServiceWorkerCache = (cacheName: string, cacheVersion: string): boolean => {
+  return SERVICE_WORKER_CACHE_PREFIXES.some((prefix) => {
+    if (!cacheName.startsWith(prefix)) {
+      return false;
+    }
+
+    return cacheName !== `${prefix}${cacheVersion}`;
+  });
+};
+
+const resetLegacyServiceWorkerState = async (cacheVersion: string): Promise<boolean> => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('caches' in window)) {
+    return false;
+  }
+
+  const resetKey = getServiceWorkerLegacyResetKey(cacheVersion);
+  let hasResetMarker = false;
+  try {
+    hasResetMarker = window.localStorage.getItem(resetKey) === 'done';
+  } catch {
+    return false;
+  }
+
+  if (hasResetMarker) {
+    return false;
+  }
+
+  const cacheNames = await caches.keys();
+  const legacyCacheNames = cacheNames.filter((cacheName) => isLegacyServiceWorkerCache(cacheName, cacheVersion));
+
+  if (legacyCacheNames.length === 0) {
+    try {
+      window.localStorage.setItem(resetKey, 'done');
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  const registrations = await navigator.serviceWorker.getRegistrations();
+
+  await Promise.all(
+    registrations.map(async (existingRegistration) => {
+      try {
+        await existingRegistration.unregister();
+      } catch {
+        // Ignore unregister failures and continue.
+      }
+    })
+  );
+
+  await Promise.all(
+    legacyCacheNames.map(async (cacheName) => {
+      try {
+        await caches.delete(cacheName);
+      } catch {
+        // Ignore cache deletion failures and continue.
+      }
+    })
+  );
+
+  try {
+    window.localStorage.setItem(resetKey, 'done');
+  } catch {
+    return false;
+  }
+
+  return true;
 };
 
 const isDocumentDirty = (): boolean => {
@@ -263,6 +375,7 @@ export default function ServiceWorkerRegistration(): null {
     let currentInstallingWorker: ServiceWorker | null = null;
     let installingStateChangeHandler: (() => void) | null = null;
     let offlineWarmupInFlight: Promise<void> | null = null;
+    let shouldReloadForControllerChange = false;
     let isUnmounted = false;
 
     const activateWaitingWorker = (): void => {
@@ -270,6 +383,7 @@ export default function ServiceWorkerRegistration(): null {
         return;
       }
 
+      shouldReloadForControllerChange = true;
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     };
 
@@ -353,10 +467,11 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onControllerChange = (): void => {
-      if (hasRefreshedForNewWorker) {
+      if (!shouldReloadForControllerChange || hasRefreshedForNewWorker) {
         return;
       }
 
+      shouldReloadForControllerChange = false;
       hasRefreshedForNewWorker = true;
 
       if (isDocumentDirty()) {
@@ -377,6 +492,10 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onFocus = (): void => {
+      if (registration && navigator.onLine) {
+        void registration.update();
+      }
+
       void runOfflineCacheWarmup();
     };
 
@@ -453,7 +572,20 @@ export default function ServiceWorkerRegistration(): null {
       void runOfflineCacheWarmup();
     };
 
-    void registerServiceWorker();
+    const initializeServiceWorker = async (): Promise<void> => {
+      const cacheVersion = await getServiceWorkerCacheVersion();
+      if (cacheVersion) {
+        const didResetLegacyState = await resetLegacyServiceWorkerState(cacheVersion);
+        if (didResetLegacyState) {
+          window.location.reload();
+          return;
+        }
+      }
+
+      await registerServiceWorker();
+    };
+
+    void initializeServiceWorker();
 
     const updateInterval = window.setInterval(() => {
       if (!registration || !navigator.onLine) {
