@@ -1,9 +1,10 @@
 'use client';
 
-import type { JSX } from 'react';
-import { CostSummary, CostTrackingData } from '@/app/types';
+import { useMemo, useState, type JSX } from 'react';
+import AccessibleModal from '@/app/admin/components/AccessibleModal';
+import { CostSummary, CostTrackingData, Expense } from '@/app/types';
 import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
-import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
+import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 interface CostSummaryDashboardProps {
   costSummary: CostSummary;
@@ -11,6 +12,11 @@ interface CostSummaryDashboardProps {
 }
 
 type TrendDirection = 'up' | 'down' | 'flat';
+type TripDayExpenseDetail = {
+  dateKey: string;
+  expenses: Expense[];
+  total: number;
+};
 
 
 export default function CostSummaryDashboard({
@@ -18,6 +24,7 @@ export default function CostSummaryDashboard({
   costData
 }: CostSummaryDashboardProps): JSX.Element {
   const today = getTodayLocalDay();
+  const [selectedTripSpendingDate, setSelectedTripSpendingDate] = useState<string | null>(null);
   const dailyBudgetLabel = (() => {
     const days = costSummary.dailyBudgetBasisDays;
     const baseLabel = costSummary.tripStatus === 'during' ? 'remaining day' : 'journey day';
@@ -42,6 +49,64 @@ export default function CostSummaryDashboard({
 
   const tripStartDate = normalizeDate(costData.tripStartDate);
   const effectiveTripEnd = getEffectiveTripEnd();
+  const tripExpensesByDay = useMemo(() => {
+    const tripStart = normalizeDate(costData.tripStartDate);
+    const tripEnd = normalizeDate(costData.tripEndDate);
+    const grouped = new Map<string, Expense[]>();
+
+    costData.expenses.forEach(expense => {
+      if (expense.expenseType !== 'actual') {
+        return;
+      }
+
+      const expenseDate = normalizeDate(expense.date);
+      if (expenseDate < tripStart || expenseDate > tripEnd) {
+        return;
+      }
+
+      const dateKey = formatLocalDateInput(expenseDate);
+      const existing = grouped.get(dateKey);
+
+      if (existing) {
+        existing.push(expense);
+        return;
+      }
+
+      grouped.set(dateKey, [expense]);
+    });
+
+    return grouped;
+  }, [costData.expenses, costData.tripEndDate, costData.tripStartDate]);
+  const selectedTripSpendingDetail = useMemo<TripDayExpenseDetail | null>(() => {
+    if (!selectedTripSpendingDate) {
+      return null;
+    }
+
+    const dayExpenses = [...(tripExpensesByDay.get(selectedTripSpendingDate) || [])]
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+
+    return {
+      dateKey: selectedTripSpendingDate,
+      expenses: dayExpenses,
+      total: dayExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    };
+  }, [selectedTripSpendingDate, tripExpensesByDay]);
+  const selectedTripSpendingLabel = useMemo(() => {
+    if (!selectedTripSpendingDetail) {
+      return '';
+    }
+
+    const date = parseDateAsLocalDay(selectedTripSpendingDetail.dateKey);
+    if (!date) {
+      return selectedTripSpendingDetail.dateKey;
+    }
+
+    return date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, [selectedTripSpendingDetail]);
 
   const getAverageForDateRange = (startDate: Date, endDate: Date) => {
     if (endDate < tripStartDate) {
@@ -228,8 +293,17 @@ export default function CostSummaryDashboard({
                       month: 'short',
                       day: 'numeric'
                     });
+                    const isSelected = selectedTripSpendingDate === entry.date;
                     return (
-                      <div key={entry.date} className="flex-1 h-full flex flex-col items-center justify-end">
+                      <button
+                        key={entry.date}
+                        type="button"
+                        onClick={() => setSelectedTripSpendingDate(entry.date)}
+                        className={`flex-1 h-full flex flex-col items-center justify-end rounded-sm bg-transparent border-0 p-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${isSelected ? 'ring-2 ring-orange-500/70 dark:ring-orange-300/70' : ''}`}
+                        aria-label={`Show expenses for ${dayLabel}`}
+                        aria-pressed={isSelected}
+                        title={`Show expenses for ${dayLabel}`}
+                      >
                         <div
                           className="w-full bg-orange-200 dark:bg-orange-900/60 rounded-t-sm overflow-hidden"
                           style={{ height: `${percentage}%`, minHeight }}
@@ -242,10 +316,13 @@ export default function CostSummaryDashboard({
                         <div className="text-[10px] text-orange-500 dark:text-orange-200">
                           {formatCurrency(entry.amount, costData.currency)}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
+                <p className="mt-2 text-[11px] text-orange-700 dark:text-orange-300">
+                  Click a day to view the expense details.
+                </p>
               </div>
             )}
           </div>
@@ -421,6 +498,64 @@ export default function CostSummaryDashboard({
           </div>
         </div>
       )}
+
+      <AccessibleModal
+        isOpen={Boolean(selectedTripSpendingDetail)}
+        onClose={() => setSelectedTripSpendingDate(null)}
+        title={selectedTripSpendingLabel ? `Expenses for ${selectedTripSpendingLabel}` : 'Daily Expenses'}
+        size="md"
+      >
+        {selectedTripSpendingDetail && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {selectedTripSpendingDetail.expenses.length} expense{selectedTripSpendingDetail.expenses.length === 1 ? '' : 's'} recorded
+              </p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {formatCurrency(selectedTripSpendingDetail.total, costData.currency)}
+              </p>
+            </div>
+
+            {selectedTripSpendingDetail.expenses.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                No actual trip expenses were recorded for this day.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {selectedTripSpendingDetail.expenses.map(expense => {
+                  const countryLabel = expense.country?.trim() ? expense.country : 'General';
+                  const categoryLabel = expense.category?.trim() ? expense.category : 'Uncategorized';
+                  return (
+                    <li
+                      key={expense.id}
+                      className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {expense.description?.trim() || 'Untitled expense'}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {categoryLabel} • {countryLabel}
+                          </p>
+                          {expense.notes?.trim() && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {expense.notes.trim()}
+                            </p>
+                          )}
+                        </div>
+                        <p className={`text-sm font-semibold ${expense.amount < 0 ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'}`}>
+                          {formatCurrency(expense.amount, costData.currency)}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </AccessibleModal>
     </div>
   );
 }
