@@ -4,7 +4,7 @@ type OsrmProfile = 'car' | 'bike' | 'foot';
 
 const DEFAULT_OSRM_BASE_URL = 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = 15_000;
-const ALLOWED_PROFILES: Set<OsrmProfile> = new Set(['car', 'bike', 'foot']);
+const ALLOWED_PROFILES: Set<OsrmProfile> = new Set<OsrmProfile>(['car', 'bike', 'foot']);
 
 const parseFinite = (value: string | null): number | null => {
   if (!value) {
