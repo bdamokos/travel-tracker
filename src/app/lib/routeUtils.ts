@@ -284,6 +284,30 @@ const getRouteCacheKey = (
   return `${type}-${from[0]},${from[1]}-${to[0]},${to[1]}`;
 };
 
+const buildDirectOSRMUrl = (
+  fromCoords: [number, number],
+  toCoords: [number, number],
+  profile: 'car' | 'bike' | 'foot'
+): string => {
+  return `https://router.project-osrm.org/route/v1/${profile}/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`;
+};
+
+const buildBrowserOSRMProxyUrl = (
+  fromCoords: [number, number],
+  toCoords: [number, number],
+  profile: 'car' | 'bike' | 'foot'
+): string => {
+  const params = new URLSearchParams({
+    profile,
+    fromLat: String(fromCoords[0]),
+    fromLng: String(fromCoords[1]),
+    toLat: String(toCoords[0]),
+    toLng: String(toCoords[1]),
+  });
+
+  return `/api/routing/osrm?${params.toString()}`;
+};
+
 // Get route from OSRM API for land transport
 const getOSRMRoute = async (
   fromCoords: [number, number],
@@ -291,7 +315,9 @@ const getOSRMRoute = async (
   profile: 'car' | 'bike' | 'foot' = 'car'
 ): Promise<[number, number][]> => {
   try {
-    const url = `https://router.project-osrm.org/route/v1/${profile}/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`;
+    const url = typeof window === 'undefined'
+      ? buildDirectOSRMUrl(fromCoords, toCoords, profile)
+      : buildBrowserOSRMProxyUrl(fromCoords, toCoords, profile);
     
     const response = await fetch(url);
     if (!response.ok) {

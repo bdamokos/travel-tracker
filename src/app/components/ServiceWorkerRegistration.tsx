@@ -363,6 +363,15 @@ const notifyOfflineReady = (detail: ServiceWorkerOfflineReadyDetail): void => {
   );
 };
 
+const isIgnorableServiceWorkerUpdateError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return error.name === 'InvalidStateError' && message.includes('newestworker') && message.includes('null');
+};
+
 export default function ServiceWorkerRegistration(): null {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -377,6 +386,21 @@ export default function ServiceWorkerRegistration(): null {
     let offlineWarmupInFlight: Promise<void> | null = null;
     let shouldReloadForControllerChange = false;
     let isUnmounted = false;
+
+    const triggerRegistrationUpdate = (reason: string): void => {
+      if (!registration || !navigator.onLine) {
+        return;
+      }
+
+      void registration.update().catch((error: unknown) => {
+        if (isIgnorableServiceWorkerUpdateError(error)) {
+          console.debug(`Service worker update skipped (${reason}):`, error);
+          return;
+        }
+
+        console.warn(`Service worker update check failed (${reason}):`, error);
+      });
+    };
 
     const activateWaitingWorker = (): void => {
       if (!waitingWorker) {
@@ -487,14 +511,12 @@ export default function ServiceWorkerRegistration(): null {
         return;
       }
 
-      void registration.update();
+      triggerRegistrationUpdate('online');
       void runOfflineCacheWarmup();
     };
 
     const onFocus = (): void => {
-      if (registration && navigator.onLine) {
-        void registration.update();
-      }
+      triggerRegistrationUpdate('focus');
 
       void runOfflineCacheWarmup();
     };
@@ -618,7 +640,7 @@ export default function ServiceWorkerRegistration(): null {
         return;
       }
 
-      void registration.update();
+      triggerRegistrationUpdate('interval');
     }, UPDATE_CHECK_INTERVAL_MS);
 
     return () => {
