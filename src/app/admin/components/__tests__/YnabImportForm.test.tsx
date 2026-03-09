@@ -1,8 +1,17 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import YnabImportForm from '@/app/admin/components/YnabImportForm';
 import { CostTrackingData } from '@/app/types';
+
+const mockTravelItemSelector = jest.fn();
+jest.mock('@/app/admin/components/TravelItemSelector', () => ({
+  __esModule: true,
+  default: (props: { tripId: string; loadExistingLink?: boolean }) => {
+    mockTravelItemSelector(props);
+    return <div data-testid="travel-item-selector">Travel item selector for {props.tripId}</div>;
+  },
+}));
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -30,6 +39,24 @@ const mockCostData: CostTrackingData = {
   createdAt: '2024-01-01T00:00:00Z'
 };
 
+const mockApiCostData: CostTrackingData = {
+  ...mockCostData,
+  ynabImportData: {
+    mappings: [
+      {
+        ynabCategory: 'Everyday: Food',
+        ynabCategoryId: 'cat-1',
+        mappingType: 'general'
+      }
+    ]
+  },
+  ynabConfig: {
+    apiKey: 'test-api-key',
+    selectedBudgetId: 'budget-1',
+    selectedBudgetName: 'Test Budget'
+  }
+};
+
 describe('YnabImportForm', () => {
   const mockOnImportComplete = jest.fn();
   const mockOnClose = jest.fn();
@@ -37,6 +64,7 @@ describe('YnabImportForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
+    mockTravelItemSelector.mockClear();
   });
 
   const navigateToFileUploadStep = () => {
@@ -172,5 +200,74 @@ describe('YnabImportForm', () => {
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByText('Choose Import Method')).toBeInTheDocument();
+  });
+
+  it('does not load existing expense links for YNAB transaction selectors', async () => {
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes('/api/ynab/categories')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            categories: [
+              {
+                id: 'cat-1',
+                name: 'Food',
+                category_group_name: 'Everyday'
+              }
+            ]
+          })
+        } as Response);
+      }
+
+      if (url.includes('/api/ynab/transactions')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            transactions: [
+              {
+                hash: 'txn-hash-1',
+                description: 'Cafe',
+                amount: 12.5,
+                date: '2024-01-02',
+                isGeneralExpense: true,
+                mappedCountry: 'General',
+                sourceIndex: 0
+              }
+            ],
+            totalCount: 1,
+            serverKnowledge: 1
+          })
+        } as Response);
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+
+    render(
+      <YnabImportForm
+        isOpen={true}
+        costData={mockApiCostData}
+        onImportComplete={mockOnImportComplete}
+        onClose={mockOnClose}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText(/load from ynab api/i));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('travel-item-selector')).toBeInTheDocument();
+    });
+
+    expect(mockTravelItemSelector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tripId: 'test-trip-id',
+        loadExistingLink: false
+      })
+    );
   });
 });

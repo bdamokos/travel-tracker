@@ -96,6 +96,7 @@ interface TravelItemSelectorProps {
   transactionDate?: Date | string | null;
   transactionDates?: Array<Date | string | null>;
   showMostLikelyQuickLink?: boolean;
+  loadExistingLink?: boolean;
 }
 
 export default function TravelItemSelector({
@@ -106,7 +107,8 @@ export default function TravelItemSelector({
   initialValue,
   transactionDate,
   transactionDates,
-  showMostLikelyQuickLink = false
+  showMostLikelyQuickLink = false,
+  loadExistingLink = true
 }: TravelItemSelectorProps) {
   const [travelItems, setTravelItems] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,7 +120,7 @@ export default function TravelItemSelector({
   const id = useId();
 
   // Use our new SWR hooks for real-time data
-  const { expenseLinks } = useExpenseLinks(tripId);
+  const { expenseLinks } = useExpenseLinks(loadExistingLink ? tripId : null);
 
   // Load current reference values using SWR data or initialValue
   useEffect(() => {
@@ -131,7 +133,7 @@ export default function TravelItemSelector({
     }
 
     // Fallback to SWR data
-    if (expenseId && expenseLinks.length > 0) {
+    if (loadExistingLink && expenseId && expenseLinks.length > 0) {
       const currentLink = expenseLinks.find(link => link.expenseId === expenseId);
       if (currentLink) {
         setSelectedType(currentLink.travelItemType);
@@ -139,7 +141,7 @@ export default function TravelItemSelector({
         setDescription(currentLink.description || '');
       }
     }
-  }, [expenseLinks, expenseId, initialValue]);
+  }, [expenseLinks, expenseId, initialValue, loadExistingLink]);
 
   // Load available travel items from current trip only
   useEffect(() => {
