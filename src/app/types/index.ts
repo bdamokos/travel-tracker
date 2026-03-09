@@ -625,4 +625,5 @@ export interface ExistingCostEntry {
   totalSpent: number;
   remainingBudget: number;
   createdAt: string;
+  costData?: CostTrackingData;
 }

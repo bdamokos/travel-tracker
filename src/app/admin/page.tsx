@@ -6,6 +6,7 @@ import TripList from './components/TripList';
 import CostTrackerList from './components/CostTracking/CostTrackerList';
 import BackupsManager from './components/Backups/BackupsManager';
 import { ExistingCostEntry } from '@/app/types';
+import { setCachedCostTracker } from '@/app/lib/costTrackerCache';
 
 function AdminPageContent() {
   const searchParams = useSearchParams();
@@ -59,9 +60,14 @@ function AdminPageContent() {
     try {
       setCostTrackingLoading(true);
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/cost-tracking/list`);
+      const response = await fetch(`${baseUrl}/api/cost-tracking/list?includeCostData=1`);
       if (response.ok) {
-        const entries = await response.json();
+        const entries = await response.json() as ExistingCostEntry[];
+        entries.forEach((entry) => {
+          if (entry.costData) {
+            setCachedCostTracker(entry.costData);
+          }
+        });
         setExistingCostEntries(entries);
       } else {
         console.error('Error loading cost entries:', response.status);

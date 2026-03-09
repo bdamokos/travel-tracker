@@ -1,9 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ExistingCostEntry } from '@/app/types';
 import { formatCurrency, formatDate } from '@/app/lib/costUtils';
+import {
+  clearCachedCostTracker,
+  hasCachedCostTracker,
+  prefetchCostTracker
+} from '@/app/lib/costTrackerCache';
 
 interface CostTrackerListProps {
   existingCostEntries: ExistingCostEntry[];
@@ -35,6 +41,7 @@ export default function CostTrackerList({
   loading,
   onRefresh,
 }: CostTrackerListProps) {
+  const router = useRouter();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -119,12 +126,38 @@ export default function CostTrackerList({
         setDeleteDialog(prev => (prev ? { ...prev, isDeleting: false, error: errorMessage } : null));
         return;
       }
+      clearCachedCostTracker(deleteDialog.costId);
       setDeleteDialog(null);
       await onRefresh();
     } catch (error) {
       console.error('Error deleting cost tracker:', error);
       setDeleteDialog(prev => (prev ? { ...prev, isDeleting: false, error: 'Network error while deleting.' } : null));
     }
+  };
+
+  const warmCostTracker = async (costId: string): Promise<void> => {
+    if (hasCachedCostTracker(costId)) {
+      return;
+    }
+
+    try {
+      await prefetchCostTracker(costId);
+    } catch (error) {
+      console.warn(`Failed to prefetch cost tracker ${costId}:`, error);
+    }
+  };
+
+  const navigateToCostTracker = async (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    costId: string
+  ): Promise<void> => {
+    if (hasCachedCostTracker(costId)) {
+      return;
+    }
+
+    event.preventDefault();
+    await warmCostTracker(costId);
+    router.push(`/admin/cost-tracking/${costId}`);
   };
 
   return (
@@ -285,6 +318,18 @@ export default function CostTrackerList({
               <div className="flex gap-2 mt-4">
                 <Link
                   href={`/admin/cost-tracking/${entry.id}`}
+                  onMouseEnter={() => {
+                    void warmCostTracker(entry.id);
+                  }}
+                  onFocus={() => {
+                    void warmCostTracker(entry.id);
+                  }}
+                  onTouchStart={() => {
+                    void warmCostTracker(entry.id);
+                  }}
+                  onClick={(event) => {
+                    void navigateToCostTracker(event, entry.id);
+                  }}
                   className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600 text-center inline-block"
                 >
                   Edit

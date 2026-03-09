@@ -1,11 +1,34 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { listAllTrips, loadUnifiedTripData } from '@/app/lib/unifiedDataService';
-import { Expense } from '@/app/types';
+import { CostTrackingData, Expense } from '@/app/types';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 
+function buildLegacyCostData(tripId: string, unifiedData: Awaited<ReturnType<typeof loadUnifiedTripData>>): CostTrackingData | null {
+  if (!unifiedData?.costData) {
+    return null;
+  }
 
-export async function GET() {
+  return {
+    id: `cost-${tripId}`,
+    tripId,
+    tripTitle: unifiedData.title,
+    tripStartDate: unifiedData.startDate as unknown as Date,
+    tripEndDate: unifiedData.endDate as unknown as Date,
+    overallBudget: unifiedData.costData.overallBudget,
+    reservedBudget: unifiedData.costData.reservedBudget || 0,
+    currency: unifiedData.costData.currency,
+    customCategories: unifiedData.costData.customCategories,
+    countryBudgets: unifiedData.costData.countryBudgets,
+    expenses: unifiedData.costData.expenses,
+    ynabImportData: unifiedData.costData.ynabImportData,
+    ynabConfig: unifiedData.costData.ynabConfig,
+    createdAt: unifiedData.createdAt,
+    updatedAt: unifiedData.updatedAt
+  };
+}
+
+export async function GET(request: NextRequest) {
   try {
     // Check if request is from admin domain
     const isAdmin = await isAdminDomain();
@@ -13,6 +36,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    const includeCostData = request.nextUrl.searchParams.get('includeCostData') === '1';
     const trips = await listAllTrips();
 
     // Get cost entries with actual data
@@ -26,6 +50,9 @@ export async function GET() {
 
             if (unifiedData?.costData) {
               const costData = unifiedData.costData;
+              const legacyCostData = includeCostData
+                ? buildLegacyCostData(trip.id, unifiedData)
+                : null;
               const reservedBudget = Math.max(0, costData.reservedBudget || 0);
               const totalBudget = costData.overallBudget || 0;
               const spendableBudget = Math.max(0, totalBudget - reservedBudget);
@@ -62,7 +89,8 @@ export async function GET() {
                 createdAt: unifiedData.createdAt,
                 updatedAt: unifiedData.updatedAt || unifiedData.createdAt,
                 // Add validation status for monitoring
-                hasValidationWarnings: !validation.isValid
+                hasValidationWarnings: !validation.isValid,
+                costData: legacyCostData ?? undefined
               };
             } else {
               // Return null if no cost data found
