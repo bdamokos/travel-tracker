@@ -12,6 +12,15 @@ describe('instagramImportUtils', () => {
       expect(normalizeInstagramUsername('https://www.instagram.com/my.user_name/?hl=en')).toBe('my.user_name');
       expect(normalizeInstagramUsername('instagram.com/my.user_name/')).toBe('my.user_name');
     });
+
+    it('rejects lookalike non-Instagram hosts', () => {
+      expect(normalizeInstagramUsername('https://evil-instagram.com/my.user_name/')).toBe(
+        'https://evil-instagram.com/my.user_name/'
+      );
+      expect(normalizeInstagramUsername('https://instagram.com.evil.test/my.user_name/')).toBe(
+        'https://instagram.com.evil.test/my.user_name/'
+      );
+    });
   });
 
   describe('isValidInstagramUsername', () => {

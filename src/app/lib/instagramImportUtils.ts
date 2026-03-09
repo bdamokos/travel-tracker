@@ -26,6 +26,11 @@ const INSTAGRAM_RESERVED_PATH_SEGMENTS = new Set([
   'explore',
   'accounts',
 ]);
+const INSTAGRAM_ALLOWED_HOSTNAMES = new Set([
+  'instagram.com',
+  'www.instagram.com',
+  'i.instagram.com',
+]);
 
 export const INSTAGRAM_USERNAME_PATTERN = /^(?=.{1,30}$)(?!.*\.\.)[A-Za-z0-9_](?:[A-Za-z0-9_.]*[A-Za-z0-9_])?$/;
 
@@ -312,7 +317,7 @@ export const normalizeInstagramUsername = (input: string): string => {
   const urlInput = withoutAt.startsWith('http') ? withoutAt : `https://${withoutAt}`;
   try {
     const parsed = new URL(urlInput);
-    if (!parsed.hostname.toLowerCase().includes('instagram.com')) {
+    if (!INSTAGRAM_ALLOWED_HOSTNAMES.has(parsed.hostname.toLowerCase())) {
       return withoutAt;
     }
     return parseFromPath(parsed.pathname);
