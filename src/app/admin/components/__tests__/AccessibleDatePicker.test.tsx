@@ -195,8 +195,7 @@ describe('AccessibleDatePicker', () => {
       const onChange = jest.fn();
       
       render(<AccessibleDatePicker {...defaultProps} isDisabled onChange={onChange} />);
-      
-      const daySegment = screen.getAllByRole('spinbutton')[1];
+
       await user.keyboard('{ArrowUp}');
       
       expect(onChange).not.toHaveBeenCalled();
@@ -259,6 +258,70 @@ describe('AccessibleDatePicker', () => {
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
+    });
+
+    it('closes calendar when a date is selected', async () => {
+      const user = userEvent.setup();
+      const onChange = jest.fn();
+
+      render(
+        <AccessibleDatePicker
+          {...defaultProps}
+          value={new Date(2024, 0, 15)}
+          onChange={onChange}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /open calendar/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Saturday, January 20, 2024' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      expect(onChange).toHaveBeenCalled();
+      const selectedDate = onChange.mock.calls.at(-1)?.[0] as Date | null;
+      expect(selectedDate).not.toBeNull();
+      expect(selectedDate?.getFullYear()).toBe(2024);
+      expect(selectedDate?.getMonth()).toBe(0);
+      expect(selectedDate?.getDate()).toBe(20);
+    });
+
+    it('selects the typed day when the calendar is open', async () => {
+      const user = userEvent.setup();
+      const onChange = jest.fn();
+
+      render(
+        <AccessibleDatePicker
+          {...defaultProps}
+          value={new Date(2024, 0, 15)}
+          onChange={onChange}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /open calendar/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+
+      screen.getByRole('button', { name: 'Monday, January 15, 2024 selected' }).focus();
+      await user.keyboard('20');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      const selectedDate = onChange.mock.calls.at(-1)?.[0] as Date | null;
+      expect(selectedDate).not.toBeNull();
+      expect(selectedDate?.getFullYear()).toBe(2024);
+      expect(selectedDate?.getMonth()).toBe(0);
+      expect(selectedDate?.getDate()).toBe(20);
     });
   });
 

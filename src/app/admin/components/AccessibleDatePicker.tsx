@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useDatePicker, useDateField, useDateSegment } from '@react-aria/datepicker';
 import { useDatePickerState, useDateFieldState, type DateFieldState } from '@react-stately/datepicker';
 import { useOverlay, useModal, DismissButton, OverlayProvider } from '@react-aria/overlays';
@@ -33,6 +33,8 @@ interface AccessibleDatePickerProps {
   'aria-labelledby'?: string;
   'aria-describedby'?: string;
 }
+
+const DAY_TYPEAHEAD_TIMEOUT_MS = 1200;
 
 // Utility functions for date conversion
 function dateToCalendarDate(date: Date | null | undefined): CalendarDate | undefined {
@@ -116,7 +118,7 @@ export default function AccessibleDatePicker({
         {state.isOpen && (
           <Popover onClose={() => state.setOpen(false)}>
             <DialogContainer dialogProps={dialogProps}>
-              <Calendar {...calendarProps} />
+              <Calendar {...calendarProps} onSelectComplete={() => state.setOpen(false)} />
             </DialogContainer>
           </Popover>
         )}
@@ -216,14 +218,143 @@ function DialogContainer({ children, dialogProps }: { children: React.ReactNode;
   );
 }
 
-function Calendar(props: AriaCalendarProps<DateValue>) {
+function getTypedDayCandidate(state: CalendarState, day: number): CalendarDate | null {
+  if (!Number.isInteger(day) || day < 1 || day > 31) {
+    return null;
+  }
+
+  const visibleMonthStart = state.visibleRange.start;
+  const candidate = visibleMonthStart.set({ day });
+
+  if (
+    candidate.year !== visibleMonthStart.year ||
+    candidate.month !== visibleMonthStart.month ||
+    candidate.day !== day ||
+    state.isCellDisabled(candidate) ||
+    state.isCellUnavailable(candidate) ||
+    state.isInvalid(candidate)
+  ) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function canContinueTypedDay(state: CalendarState, firstDigit: string): boolean {
+  if (!/^[1-3]$/.test(firstDigit)) {
+    return false;
+  }
+
+  return Array.from({ length: 10 }, (_, digit) => digit).some((digit) => {
+    const candidate = Number.parseInt(`${firstDigit}${digit}`, 10);
+    return getTypedDayCandidate(state, candidate) !== null;
+  });
+}
+
+function Calendar({
+  onSelectComplete,
+  ...props
+}: AriaCalendarProps<DateValue> & { onSelectComplete?: () => void }) {
   const { locale } = useLocale();
-  const state = useCalendarState({ ...props, locale, createCalendar });
+  const state = useCalendarState({
+    ...props,
+    locale,
+    createCalendar,
+    onChange: (newValue) => {
+      props.onChange?.(newValue);
+      onSelectComplete?.();
+    }
+  });
   const ref = useRef<HTMLDivElement>(null);
+  const typedDayBufferRef = useRef('');
+  const typedDayTimeoutRef = useRef<number | null>(null);
+  const lastTypedDayAtRef = useRef(0);
   const { calendarProps, prevButtonProps, nextButtonProps, title } = useCalendar(props, state);
 
+  const clearTypedDayBuffer = (): void => {
+    typedDayBufferRef.current = '';
+    lastTypedDayAtRef.current = 0;
+
+    if (typedDayTimeoutRef.current !== null) {
+      window.clearTimeout(typedDayTimeoutRef.current);
+      typedDayTimeoutRef.current = null;
+    }
+  };
+
+  const focusVisibleDayButton = (): void => {
+    window.requestAnimationFrame(() => {
+      ref.current?.querySelector<HTMLButtonElement>('button[tabindex="0"][role="button"], td[aria-selected="true"] button')?.focus();
+    });
+  };
+
+  const commitTypedDay = (date: CalendarDate): void => {
+    clearTypedDayBuffer();
+    state.setFocusedDate(date);
+    focusVisibleDayButton();
+    state.selectDate(date);
+  };
+
+  const handleCalendarTypeahead = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      clearTypedDayBuffer();
+      return;
+    }
+
+    if (!/^\d$/.test(event.key)) {
+      clearTypedDayBuffer();
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const now = Date.now();
+    const shouldAppend =
+      typedDayBufferRef.current.length > 0 &&
+      now - lastTypedDayAtRef.current < DAY_TYPEAHEAD_TIMEOUT_MS;
+    let nextBuffer = shouldAppend
+      ? `${typedDayBufferRef.current}${event.key}`.slice(-2)
+      : event.key;
+
+    let candidate = getTypedDayCandidate(state, Number.parseInt(nextBuffer, 10));
+    if (!candidate && nextBuffer.length > 1) {
+      nextBuffer = event.key;
+      candidate = getTypedDayCandidate(state, Number.parseInt(nextBuffer, 10));
+    }
+
+    if (!candidate) {
+      clearTypedDayBuffer();
+      return;
+    }
+
+    typedDayBufferRef.current = nextBuffer;
+    lastTypedDayAtRef.current = now;
+    state.setFocusedDate(candidate);
+    focusVisibleDayButton();
+
+    if (nextBuffer.length === 2 || !canContinueTypedDay(state, nextBuffer)) {
+      commitTypedDay(candidate);
+      return;
+    }
+
+    if (typedDayTimeoutRef.current !== null) {
+      window.clearTimeout(typedDayTimeoutRef.current);
+    }
+
+    typedDayTimeoutRef.current = window.setTimeout(() => {
+      const bufferedCandidate = getTypedDayCandidate(state, Number.parseInt(typedDayBufferRef.current, 10));
+      if (bufferedCandidate) {
+        commitTypedDay(bufferedCandidate);
+      } else {
+        clearTypedDayBuffer();
+      }
+    }, DAY_TYPEAHEAD_TIMEOUT_MS);
+  };
+
+  useEffect(() => clearTypedDayBuffer, []);
+
   return (
-    <div {...calendarProps} ref={ref} className="text-center">
+    <div {...calendarProps} ref={ref} className="text-center" onKeyDownCapture={handleCalendarTypeahead}>
       <div className="flex items-center justify-between mb-2">
         <NavButton {...prevButtonProps}>◀</NavButton>
         <h2 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
