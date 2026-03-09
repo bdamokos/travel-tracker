@@ -7,7 +7,7 @@ import { CostTrackingData } from '@/app/types';
 const mockTravelItemSelector = jest.fn();
 jest.mock('@/app/admin/components/TravelItemSelector', () => ({
   __esModule: true,
-  default: (props: { tripId: string; loadExistingLink?: boolean }) => {
+  default: (props: React.ComponentProps<typeof import('@/app/admin/components/TravelItemSelector').default>) => {
     mockTravelItemSelector(props);
     return <div data-testid="travel-item-selector">Travel item selector for {props.tripId}</div>;
   },

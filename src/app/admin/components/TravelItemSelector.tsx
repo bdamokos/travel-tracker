@@ -132,8 +132,18 @@ export default function TravelItemSelector({
       return;
     }
 
+    if (!loadExistingLink) {
+      if (selectedType || selectedItem || description) {
+        setSelectedType('');
+        setSelectedItem('');
+        setDescription('');
+        onReferenceChange(undefined);
+      }
+      return;
+    }
+
     // Fallback to SWR data
-    if (loadExistingLink && expenseId && expenseLinks.length > 0) {
+    if (expenseId && expenseLinks.length > 0) {
       const currentLink = expenseLinks.find(link => link.expenseId === expenseId);
       if (currentLink) {
         setSelectedType(currentLink.travelItemType);
@@ -141,7 +151,16 @@ export default function TravelItemSelector({
         setDescription(currentLink.description || '');
       }
     }
-  }, [expenseLinks, expenseId, initialValue, loadExistingLink]);
+  }, [
+    description,
+    expenseLinks,
+    expenseId,
+    initialValue,
+    loadExistingLink,
+    onReferenceChange,
+    selectedItem,
+    selectedType
+  ]);
 
   // Load available travel items from current trip only
   useEffect(() => {
