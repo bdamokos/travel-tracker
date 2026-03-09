@@ -726,6 +726,7 @@ export default function CashTransactionManager({
         ...prev,
         [currencyKey]: {
           ...createInitialAllocationForm(group.defaultCountry),
+          date: formState.date,
           category: formState.category,
           country: formState.country,
           travelLink: formState.travelLink,
