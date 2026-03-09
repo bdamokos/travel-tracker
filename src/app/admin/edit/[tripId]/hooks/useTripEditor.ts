@@ -12,12 +12,14 @@ import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import { createTravelDataDelta, isTravelDataDeltaEmpty, snapshotTravelData } from '@/app/lib/travelDataDelta';
+import { getCachedCostTracker, setCachedCostTracker } from '@/app/lib/costTrackerCache';
 import {
   formatOfflineConflictMessage,
   hasPendingOfflineDeltaForTravelId,
   queueTravelDelta,
   syncOfflineDeltaQueue
 } from '@/app/lib/offlineDeltaSync';
+import { getCachedTravelData, setCachedTravelData } from '@/app/lib/travelDataCache';
 
 interface ExistingTrip {
   id: string;
@@ -43,24 +45,29 @@ interface ExistingTrip {
  *          geocodeLocation, and wrappers for map URL, duration calculation, and expense-link utilities).
  */
 export function useTripEditor(tripId: string | null) {
+  const cachedTravelSnapshot = tripId ? getCachedTravelData(tripId) : null;
   const [mode, setMode] = useState<'create' | 'edit' | 'list'>('list');
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoSaving, setAutoSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [travelData, setTravelData] = useState<TravelData>({
-    title: '',
-    description: '',
-    startDate: getTodayLocalDay(),
-    endDate: getTodayLocalDay(),
-    instagramUsername: '',
-    locations: [],
-    routes: [],
-    accommodations: []
-  });
+  const [travelData, setTravelData] = useState<TravelData>(
+    cachedTravelSnapshot ?? {
+      title: '',
+      description: '',
+      startDate: getTodayLocalDay(),
+      endDate: getTodayLocalDay(),
+      instagramUsername: '',
+      locations: [],
+      routes: [],
+      accommodations: []
+    }
+  );
   const [costData, setCostData] = useState<CostTrackingData | null>(null);
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
-  const lastSavedTravelDataRef = useRef<TravelData | null>(null);
+  const lastSavedTravelDataRef = useRef<TravelData | null>(
+    cachedTravelSnapshot ? snapshotTravelData(cachedTravelSnapshot) : null
+  );
   
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
@@ -230,6 +237,48 @@ export function useTripEditor(tripId: string | null) {
     };
   }, []);
 
+  const initializeTravelLookup = useCallback((
+    currentTravelData: TravelData,
+    currentCostData: CostTrackingData | null
+  ) => {
+    if (!currentCostData) {
+      setTravelLookup(null);
+      return;
+    }
+
+    const accommodations: Accommodation[] = currentTravelData.accommodations || [];
+    const transportationRoutes = currentTravelData.routes.map(route => ({
+      id: route.id,
+      type: route.transportType,
+      from: route.from,
+      to: route.to,
+      fromCoordinates: route.fromCoords,
+      toCoordinates: route.toCoords,
+      costTrackingLinks: route.costTrackingLinks,
+      subRoutes: route.subRoutes?.map(segment => ({
+        id: segment.id,
+        type: segment.transportType,
+        from: segment.from,
+        to: segment.to,
+        fromCoordinates: segment.fromCoords,
+        toCoordinates: segment.toCoords,
+        costTrackingLinks: segment.costTrackingLinks
+      }))
+    }));
+
+    const lookup = new ExpenseTravelLookup(currentCostData.tripId, {
+      title: currentTravelData.title,
+      locations: currentTravelData.locations,
+      accommodations,
+      routes: transportationRoutes,
+      costData: {
+        expenses: currentCostData.expenses
+      }
+    });
+
+    setTravelLookup(lookup);
+  }, []);
+
   const loadExistingTrips = useCallback(async () => {
     setLoading(true);
     try {
@@ -249,6 +298,25 @@ export function useTripEditor(tripId: string | null) {
 
   const loadTripForEditing = useCallback(async (tripId: string) => {
     setLoading(true);
+    const cachedTripData = getCachedTravelData(tripId);
+    const cachedCostData = getCachedCostTracker(tripId);
+
+    if (cachedTripData) {
+      const migratedCachedTripData = migrateOldFormat(cachedTripData);
+      setTravelData(migratedCachedTripData);
+      lastSavedTravelDataRef.current = snapshotTravelData(migratedCachedTripData);
+      setMode('edit');
+      setHasUnsavedChanges(false);
+
+      if (cachedCostData) {
+        setCostData(cachedCostData);
+        initializeTravelLookup(migratedCachedTripData, cachedCostData);
+      } else {
+        setCostData(null);
+        setTravelLookup(null);
+      }
+    }
+
     try {
       const response = await fetch(`/api/travel-data?id=${tripId}`, { cache: 'no-store' });
       if (response.ok) {
@@ -256,47 +324,18 @@ export function useTripEditor(tripId: string | null) {
         const tripData = migrateOldFormat(rawTripData);
         setTravelData(tripData);
         lastSavedTravelDataRef.current = snapshotTravelData(tripData);
+        setCachedTravelData(tripData);
 
         // Load cost data for this trip
         const costResponse = await fetch(`/api/cost-tracking?id=${tripId}`, { cache: 'no-store' });
         if (costResponse.ok) {
-          const costData = await costResponse.json();
-          setCostData(costData);
-          
-          // Use accommodations from the already-fetched raw trip data (available after migration).
-          const accommodations: Accommodation[] = rawTripData.accommodations || [];
-          
-          // Initialize travel lookup with trip data
-          // Convert TravelRoute[] to Transportation[] for compatibility
-          const transportationRoutes = tripData.routes.map(route => ({
-            id: route.id,
-            type: route.transportType,
-            from: route.from,
-            to: route.to,
-            fromCoordinates: route.fromCoords,
-            toCoordinates: route.toCoords,
-            costTrackingLinks: route.costTrackingLinks,
-            subRoutes: route.subRoutes?.map(segment => ({
-              id: segment.id,
-              type: segment.transportType,
-              from: segment.from,
-              to: segment.to,
-              fromCoordinates: segment.fromCoords,
-              toCoordinates: segment.toCoords,
-              costTrackingLinks: segment.costTrackingLinks
-            }))
-          }));
-          
-          const lookup = new ExpenseTravelLookup(costData.tripId, {
-            title: tripData.title,
-            locations: tripData.locations,
-            accommodations: accommodations,
-            routes: transportationRoutes,
-            costData: {
-              expenses: costData.expenses
-            }
-          });
-          setTravelLookup(lookup);
+          const loadedCostData = await costResponse.json();
+          setCostData(loadedCostData);
+          setCachedCostTracker(loadedCostData);
+          initializeTravelLookup(tripData, loadedCostData);
+        } else if (cachedCostData) {
+          setCostData(cachedCostData);
+          initializeTravelLookup(tripData, cachedCostData);
         } else {
           setCostData(null);
           setTravelLookup(null);
@@ -304,13 +343,17 @@ export function useTripEditor(tripId: string | null) {
 
         setMode('edit');
         setHasUnsavedChanges(false); // Just loaded, no changes yet
+      } else if (!cachedTripData) {
+        console.error('Failed to load trip, status:', response.status);
       }
     } catch (error) {
-      console.error('Error loading trip:', error);
+      if (!cachedTripData) {
+        console.error('Error loading trip:', error);
+      }
     } finally {
         setLoading(false);
     }
-  }, [migrateOldFormat]);
+  }, [initializeTravelLookup, migrateOldFormat]);
 
   useEffect(() => {
     if (tripId) {
@@ -459,6 +502,7 @@ export function useTripEditor(tripId: string | null) {
         const deltaSaveResult = await saveDeltaTravelData();
         if (deltaSaveResult === 'persisted') {
           lastSavedTravelDataRef.current = snapshotTravelData(travelData);
+          setCachedTravelData(travelData);
           return true;
         }
         if (deltaSaveResult === 'queued') {
@@ -472,12 +516,15 @@ export function useTripEditor(tripId: string | null) {
       }
 
       if (fullSave.savedId && fullSave.savedId !== travelData.id) {
-        lastSavedTravelDataRef.current = snapshotTravelData({
+        const savedTravelData = {
           ...travelData,
           id: fullSave.savedId
-        });
+        };
+        lastSavedTravelDataRef.current = snapshotTravelData(savedTravelData);
+        setCachedTravelData(savedTravelData);
       } else {
         lastSavedTravelDataRef.current = snapshotTravelData(travelData);
+        setCachedTravelData(travelData);
       }
 
       return true;
@@ -905,9 +952,9 @@ export function useTripEditor(tripId: string | null) {
         const result = await response.json();
         setHasUnsavedChanges(false); // Mark as saved
         const savedId: string | undefined = result.id;
-        lastSavedTravelDataRef.current = snapshotTravelData(
-          savedId && savedId !== travelData.id ? { ...travelData, id: savedId } : travelData
-        );
+        const savedTravelData = savedId && savedId !== travelData.id ? { ...travelData, id: savedId } : travelData;
+        lastSavedTravelDataRef.current = snapshotTravelData(savedTravelData);
+        setCachedTravelData(savedTravelData);
         
         // Use the proper helper function and open the map
         const mapUrl = getMapUrl(result.id);
