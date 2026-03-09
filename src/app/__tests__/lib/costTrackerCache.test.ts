@@ -31,13 +31,14 @@ describe('costTrackerCache', () => {
     expect(normalizeCostTrackerId('cost-cost-trip-1')).toBe('trip-1');
   });
 
-  it('stores and reads cached cost tracker data by normalized id', () => {
-    const costData = buildCostData('cost-trip-1');
+  it('stores and reads cached cost tracker data, normalizing the stored id', () => {
+    const costData = buildCostData('trip-1');
+    const expectedCachedData = { ...costData, id: 'cost-trip-1' };
 
     setCachedCostTracker(costData);
 
-    expect(getCachedCostTracker('trip-1')).toEqual(costData);
-    expect(getCachedCostTracker('cost-trip-1')).toEqual(costData);
+    expect(getCachedCostTracker('trip-1')).toEqual(expectedCachedData);
+    expect(getCachedCostTracker('cost-trip-1')).toEqual(expectedCachedData);
   });
 
   it('restores cached data from sessionStorage after memory cache is cleared', () => {
@@ -51,5 +52,15 @@ describe('costTrackerCache', () => {
     );
 
     expect(getCachedCostTracker('cost-trip-1')).toEqual(costData);
+  });
+
+  it('ignores incomplete cost tracker entries without an id or trip id', () => {
+    setCachedCostTracker({
+      ...buildCostData(''),
+      tripId: ''
+    });
+
+    expect(window.sessionStorage.getItem('travel-tracker-cost-cache:cost-')).toBeNull();
+    expect(getCachedCostTracker('')).toBeNull();
   });
 });

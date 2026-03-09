@@ -117,11 +117,14 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
     }
   };
 
-  const navigateToTripEditor = async (tripId: string): Promise<void> => {
-    if (!hasCachedTravelData(tripId)) {
-      await warmTripEditor(tripId);
-    }
+  const handleTripEditorPrefetch = (tripId: string): void => {
+    void warmTripEditor(tripId);
+  };
 
+  const navigateToTripEditor = (tripId: string): void => {
+    if (!hasCachedTravelData(tripId)) {
+      handleTripEditorPrefetch(tripId);
+    }
     router.push(`/admin/edit/${tripId}`);
   };
 
@@ -258,18 +261,10 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
                 
                 <div className="flex gap-2">
                   <button
-                    onMouseEnter={() => {
-                      void warmTripEditor(trip.id);
-                    }}
-                    onFocus={() => {
-                      void warmTripEditor(trip.id);
-                    }}
-                    onTouchStart={() => {
-                      void warmTripEditor(trip.id);
-                    }}
-                    onClick={() => {
-                      void navigateToTripEditor(trip.id);
-                    }}
+                    onMouseEnter={() => handleTripEditorPrefetch(trip.id)}
+                    onFocus={() => handleTripEditorPrefetch(trip.id)}
+                    onTouchStart={() => handleTripEditorPrefetch(trip.id)}
+                    onClick={() => navigateToTripEditor(trip.id)}
                     className="flex-1 px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
                   >
                     Edit

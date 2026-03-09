@@ -20,7 +20,8 @@ function AdminPageContent() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [existingCostEntries, setExistingCostEntries] = useState<ExistingCostEntry[]>([]);
-  const [costTrackingLoading, setCostTrackingLoading] = useState(true);
+  const [costTrackingLoading, setCostTrackingLoading] = useState(false);
+  const [hasLoadedCostEntries, setHasLoadedCostEntries] = useState(false);
   const router = useRouter();
 
   // Set active tab based on URL parameter
@@ -56,19 +57,26 @@ function AdminPageContent() {
     checkAdminAccess();
   }, [router]);
 
-  const loadExistingCostEntries = async () => {
+  const loadExistingCostEntries = async (options?: { includeCostData?: boolean }) => {
     try {
       setCostTrackingLoading(true);
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/cost-tracking/list?includeCostData=1`);
+      const includeCostData = options?.includeCostData === true;
+      const url = includeCostData
+        ? `${baseUrl}/api/cost-tracking/list?includeCostData=1`
+        : `${baseUrl}/api/cost-tracking/list`;
+      const response = await fetch(url);
       if (response.ok) {
         const entries = await response.json() as ExistingCostEntry[];
-        entries.forEach((entry) => {
-          if (entry.costData) {
-            setCachedCostTracker(entry.costData);
-          }
-        });
+        if (includeCostData) {
+          entries.forEach((entry) => {
+            if (entry.costData) {
+              setCachedCostTracker(entry.costData);
+            }
+          });
+        }
         setExistingCostEntries(entries);
+        setHasLoadedCostEntries(true);
       } else {
         console.error('Error loading cost entries:', response.status);
       }
@@ -79,12 +87,12 @@ function AdminPageContent() {
     }
   };
 
-  // Load cost tracking entries when authorized
+  // Load cost tracking entries only when the cost tab is opened.
   useEffect(() => {
-    if (isAuthorized) {
-      loadExistingCostEntries();
+    if (isAuthorized && activeTab === 'cost' && !hasLoadedCostEntries) {
+      void loadExistingCostEntries({ includeCostData: true });
     }
-  }, [isAuthorized]);
+  }, [activeTab, hasLoadedCostEntries, isAuthorized]);
 
   if (loading) {
     return (
@@ -100,6 +108,9 @@ function AdminPageContent() {
   if (!isAuthorized) {
     return null; // Will redirect via useEffect
   }
+
+  const showCostTrackingLoading =
+    costTrackingLoading || (activeTab === 'cost' && !hasLoadedCostEntries);
   
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -167,8 +178,8 @@ function AdminPageContent() {
             {activeTab === 'cost' && (
               <CostTrackerList 
                 existingCostEntries={existingCostEntries}
-                loading={costTrackingLoading}
-                onRefresh={loadExistingCostEntries}
+                loading={showCostTrackingLoading}
+                onRefresh={() => loadExistingCostEntries({ includeCostData: true })}
               />
             )}
             {activeTab === 'backups' && <BackupsManager />}
