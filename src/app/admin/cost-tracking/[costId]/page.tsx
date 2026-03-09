@@ -14,6 +14,18 @@ import {
   queueCostDelta,
   syncOfflineDeltaQueue
 } from '@/app/lib/offlineDeltaSync';
+import { getCachedCostTracker, setCachedCostTracker } from '@/app/lib/costTrackerCache';
+
+function migrateCostData(costData: CostTrackingData): CostTrackingData {
+  return {
+    ...costData,
+    reservedBudget: costData.reservedBudget ?? 0,
+    expenses: costData.expenses.map((expense) => ({
+      ...expense,
+      expenseType: expense.expenseType || 'actual'
+    }))
+  };
+}
 
 export default function CostTrackingPage() {
   const params = useParams();
@@ -26,24 +38,31 @@ export default function CostTrackingPage() {
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
   const [autoSaving, setAutoSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const cachedCostData = !isNewCostTracker && costId ? getCachedCostTracker(costId) : null;
   
-  const [costData, setCostData] = useState<CostTrackingData>({
-    id: '',
-    tripId: '',
-    tripTitle: '',
-    tripStartDate: getTodayLocalDay(),
-    tripEndDate: getTodayLocalDay(),
-    overallBudget: 0,
-    reservedBudget: 0,
-    currency: 'EUR',
-    countryBudgets: [],
-    expenses: [],
-    customCategories: [...EXPENSE_CATEGORIES],
-    createdAt: '',
-  });
+  const [costData, setCostData] = useState<CostTrackingData>(() => (
+    cachedCostData
+      ? migrateCostData(cachedCostData)
+      : {
+          id: '',
+          tripId: '',
+          tripTitle: '',
+          tripStartDate: getTodayLocalDay(),
+          tripEndDate: getTodayLocalDay(),
+          overallBudget: 0,
+          reservedBudget: 0,
+          currency: 'EUR',
+          countryBudgets: [],
+          expenses: [],
+          customCategories: [...EXPENSE_CATEGORIES],
+          createdAt: '',
+        }
+  ));
 
   const [selectedTrip, setSelectedTrip] = useState<ExistingTrip | null>(null);
-  const lastSavedCostDataRef = useRef<CostTrackingData | null>(null);
+  const lastSavedCostDataRef = useRef<CostTrackingData | null>(
+    cachedCostData ? snapshotCostData(migrateCostData(cachedCostData)) : null
+  );
 
   // Check admin access
   useEffect(() => {
@@ -91,32 +110,41 @@ export default function CostTrackingPage() {
   // Function to load cost tracking data
   const loadCostData = useCallback(async () => {
     if (!isNewCostTracker && costId && isAuthorized) {
+      const cachedSnapshot = getCachedCostTracker(costId);
+      if (cachedSnapshot) {
+        const migratedCachedData = migrateCostData(cachedSnapshot);
+        setCostData(migratedCachedData);
+        lastSavedCostDataRef.current = snapshotCostData(migratedCachedData);
+        setHasUnsavedChanges(false);
+      }
+
       try {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
         const response = await fetch(`${baseUrl}/api/cost-tracking?id=${costId}`, { cache: 'no-store' });
         
         if (response.ok) {
-          const data = await response.json();
-          
-          const migratedData = {
-            ...data,
-            reservedBudget: data.reservedBudget ?? 0,
-            expenses: data.expenses.map((expense: { expenseType?: string; [key: string]: unknown }) => ({
-              ...expense,
-              expenseType: expense.expenseType || 'actual'
-            }))
-          };
+          const data = await response.json() as CostTrackingData;
+          const migratedData = migrateCostData(data);
           
           setCostData(migratedData);
           lastSavedCostDataRef.current = snapshotCostData(migratedData);
           setHasUnsavedChanges(false);
+          setCachedCostTracker(migratedData);
         } else {
+          if (cachedSnapshot) {
+            console.warn(`Falling back to cached cost tracker data for ${costId} after refresh failure.`);
+            return;
+          }
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
           console.error('Error response:', response.status, errorData);
           alert(`Error loading cost entry: ${errorData.error || 'Unknown error'}`);
           router.push('/admin');
         }
       } catch (error) {
+        if (cachedSnapshot) {
+          console.warn(`Falling back to cached cost tracker data for ${costId} after network failure.`, error);
+          return;
+        }
         console.error('Error loading cost entry:', error);
         alert('Error loading cost entry');
         router.push('/admin');
@@ -244,6 +272,7 @@ export default function CostTrackingPage() {
     const deltaSaveResult = await saveDeltaCostData();
     if (deltaSaveResult === 'persisted') {
       lastSavedCostDataRef.current = snapshotCostData(costData);
+      setCachedCostTracker(costData);
       return true;
     }
     if (deltaSaveResult === 'queued') {
@@ -253,6 +282,7 @@ export default function CostTrackingPage() {
     const fullSaveResult = await saveFullCostData();
     if (fullSaveResult === 'persisted') {
       lastSavedCostDataRef.current = snapshotCostData(costData);
+      setCachedCostTracker(costData);
       return true;
     }
 
@@ -348,8 +378,15 @@ export default function CostTrackingPage() {
       
       if (response.ok) {
         const savedData = await response.json();
+        const persistedCostData = {
+          ...costData,
+          id: isNewCostTracker ? `cost-${savedData.id}` : costData.id,
+          createdAt: savedData.data?.createdAt ?? costData.createdAt,
+          updatedAt: savedData.data?.updatedAt ?? costData.updatedAt
+        };
         setHasUnsavedChanges(false);
-        lastSavedCostDataRef.current = snapshotCostData(costData);
+        lastSavedCostDataRef.current = snapshotCostData(persistedCostData);
+        setCachedCostTracker(persistedCostData);
         alert('Cost tracking data saved successfully!');
         
         if (isNewCostTracker) {
