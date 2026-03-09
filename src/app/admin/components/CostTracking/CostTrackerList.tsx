@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ExistingCostEntry } from '@/app/types';
 import { formatCurrency, formatDate } from '@/app/lib/costUtils';
@@ -41,7 +40,6 @@ export default function CostTrackerList({
   loading,
   onRefresh,
 }: CostTrackerListProps) {
-  const router = useRouter();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -147,17 +145,26 @@ export default function CostTrackerList({
     }
   };
 
-  const navigateToCostTracker = async (
+  const handleCostTrackerPrefetch = (costId: string): void => {
+    void warmCostTracker(costId);
+  };
+
+  const handleCostTrackerClick = (
     event: React.MouseEvent<HTMLAnchorElement>,
     costId: string
-  ): Promise<void> => {
-    if (hasCachedCostTracker(costId)) {
+  ): void => {
+    const isModifiedClick =
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey;
+
+    if (isModifiedClick || hasCachedCostTracker(costId)) {
       return;
     }
 
-    event.preventDefault();
-    await warmCostTracker(costId);
-    router.push(`/admin/cost-tracking/${costId}`);
+    handleCostTrackerPrefetch(costId);
   };
 
   return (
@@ -318,18 +325,10 @@ export default function CostTrackerList({
               <div className="flex gap-2 mt-4">
                 <Link
                   href={`/admin/cost-tracking/${entry.id}`}
-                  onMouseEnter={() => {
-                    void warmCostTracker(entry.id);
-                  }}
-                  onFocus={() => {
-                    void warmCostTracker(entry.id);
-                  }}
-                  onTouchStart={() => {
-                    void warmCostTracker(entry.id);
-                  }}
-                  onClick={(event) => {
-                    void navigateToCostTracker(event, entry.id);
-                  }}
+                  onMouseEnter={() => handleCostTrackerPrefetch(entry.id)}
+                  onFocus={() => handleCostTrackerPrefetch(entry.id)}
+                  onTouchStart={() => handleCostTrackerPrefetch(entry.id)}
+                  onClick={(event) => handleCostTrackerClick(event, entry.id)}
                   className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-sm text-sm hover:bg-blue-600 text-center inline-block"
                 >
                   Edit

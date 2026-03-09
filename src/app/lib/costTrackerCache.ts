@@ -50,7 +50,12 @@ export function hasCachedCostTracker(id: string): boolean {
 }
 
 export function setCachedCostTracker(costData: CostTrackingData): void {
-  const cacheKey = getCacheKey(costData.id || costData.tripId);
+  const sourceId = costData.id || costData.tripId;
+  if (!sourceId) {
+    return;
+  }
+
+  const cacheKey = getCacheKey(sourceId);
   const normalizedCostData = {
     ...costData,
     id: cacheKey
@@ -90,7 +95,7 @@ export function clearCachedCostTracker(id: string): void {
 
 export async function prefetchCostTracker(id: string): Promise<CostTrackingData> {
   const cacheKey = getCacheKey(id);
-  const cached = getCachedCostTracker(cacheKey);
+  const cached = getCachedCostTracker(id);
   if (cached) {
     return cached;
   }
@@ -119,4 +124,3 @@ export async function prefetchCostTracker(id: string): Promise<CostTrackingData>
   inFlightRequests.set(cacheKey, request);
   return request;
 }
-

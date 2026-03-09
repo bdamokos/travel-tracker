@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatUtcDate } from '@/app/lib/dateUtils';
+import { clearCachedCostTracker } from '@/app/lib/costTrackerCache';
+import {
+  clearCachedTravelData,
+  hasCachedTravelData,
+  prefetchTravelData
+} from '@/app/lib/travelDataCache';
 
 interface ExistingTrip {
   id: string;
@@ -76,6 +82,8 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
       if (response.ok) {
         // Remove from list
         setExistingTrips(prev => prev.filter(trip => trip.id !== tripDeleteDialog.tripId));
+        clearCachedTravelData(tripDeleteDialog.tripId);
+        clearCachedCostTracker(tripDeleteDialog.tripId);
         setTripDeleteDialog(null);
       } else {
         console.error('Failed to delete trip');
@@ -95,6 +103,29 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
   // Get calendar URL - admin domain will automatically show shadow data
   const getCalendarUrl = (tripId: string) => {
     return `/calendars/${tripId}`;
+  };
+
+  const warmTripEditor = async (tripId: string): Promise<void> => {
+    if (hasCachedTravelData(tripId)) {
+      return;
+    }
+
+    try {
+      await prefetchTravelData(tripId);
+    } catch (error) {
+      console.warn(`Failed to prefetch travel data for ${tripId}:`, error);
+    }
+  };
+
+  const handleTripEditorPrefetch = (tripId: string): void => {
+    void warmTripEditor(tripId);
+  };
+
+  const navigateToTripEditor = (tripId: string): void => {
+    if (!hasCachedTravelData(tripId)) {
+      handleTripEditorPrefetch(tripId);
+    }
+    router.push(`/admin/edit/${tripId}`);
   };
 
   return (
@@ -230,7 +261,10 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
                 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => router.push(`/admin/edit/${trip.id}`)}
+                    onMouseEnter={() => handleTripEditorPrefetch(trip.id)}
+                    onFocus={() => handleTripEditorPrefetch(trip.id)}
+                    onTouchStart={() => handleTripEditorPrefetch(trip.id)}
+                    onClick={() => navigateToTripEditor(trip.id)}
                     className="flex-1 px-3 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-sm text-sm hover:bg-blue-600 dark:hover:bg-blue-700"
                   >
                     Edit
