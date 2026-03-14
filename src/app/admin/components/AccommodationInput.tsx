@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { parseAccommodationData, generateAccommodationTemplate } from '@/app/lib/privacyUtils';
 
 interface AccommodationInputProps {
@@ -8,18 +8,27 @@ interface AccommodationInputProps {
   isAccommodationPublic?: boolean;
   onAccommodationDataChange: (data: string) => void;
   onPrivacyChange: (isPublic: boolean) => void;
+  onParsedNameChange?: (name: string | null) => void;
 }
 
 export default function AccommodationInput({
   accommodationData = '',
   isAccommodationPublic = false,
   onAccommodationDataChange,
-  onPrivacyChange
+  onPrivacyChange,
+  onParsedNameChange
 }: AccommodationInputProps) {
   const [showPreview, setShowPreview] = useState(false);
   const id = useId();
   
   const parsedData = parseAccommodationData(accommodationData);
+  const parsedName = parsedData.isStructured
+    ? (parsedData.data?.name?.trim() || '')
+    : '';
+
+  useEffect(() => {
+    onParsedNameChange?.(parsedName || null);
+  }, [onParsedNameChange, parsedName]);
 
   const handleTemplateClick = () => {
     if (!accommodationData.trim()) {

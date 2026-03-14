@@ -136,7 +136,7 @@ export function useTripEditor(tripId: string | null) {
   } | null>(null);
 
   // Show notification function
-  const showNotification = (message: string, type: 'success' | 'error' | 'info') => {
+  const showNotification = useCallback((message: string, type: 'success' | 'error' | 'info') => {
     setNotification({ message, type, isVisible: true });
     
     // Auto-hide after 5 seconds
@@ -145,7 +145,7 @@ export function useTripEditor(tripId: string | null) {
       // Clear after fade animation
       setTimeout(() => setNotification(null), 300);
     }, 5000);
-  };
+  }, []);
   
   const [reassignDialog, setReassignDialog] = useState<{
     isOpen: boolean;
@@ -792,6 +792,11 @@ export function useTripEditor(tripId: string | null) {
         linkedExpenses
       });
     } else {
+      const confirmed = confirm(`Are you sure you want to delete location "${location.name}"?`);
+      if (!confirmed) {
+        return;
+      }
+
       // No linked expenses, safe to delete directly
       setTravelData(prev => ({
         ...prev,
@@ -826,6 +831,11 @@ export function useTripEditor(tripId: string | null) {
         linkedExpenses: combinedExpenses
       });
     } else {
+      const confirmed = confirm(`Are you sure you want to delete route "${route.from} → ${route.to}"?`);
+      if (!confirmed) {
+        return;
+      }
+
       // No linked expenses, safe to delete directly
       setTravelData(prev => ({
         ...prev,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { Accommodation, CostTrackingLink, CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { useAccommodations } from '@/app/hooks/useAccommodations';
@@ -66,6 +66,7 @@ export default function LocationAccommodationsManager({
     isAccommodationPublic: false,
     costTrackingLinks: []
   });
+  const lastParsedNewAccommodationNameRef = useRef('');
 
   // Get accommodations for this location
   const locationAccommodations = accommodationIds
@@ -133,11 +134,31 @@ export default function LocationAccommodationsManager({
         isAccommodationPublic: false,
         costTrackingLinks: []
       });
+      lastParsedNewAccommodationNameRef.current = '';
       setShowAddForm(false);
     } catch (error) {
       console.error('Error creating accommodation:', error);
     }
   };
+
+  const handleNewAccommodationParsedNameChange = useCallback((parsedName: string | null) => {
+    const normalizedParsedName = parsedName?.trim() || '';
+    const previousParsedName = lastParsedNewAccommodationNameRef.current;
+    lastParsedNewAccommodationNameRef.current = normalizedParsedName;
+
+    if (!normalizedParsedName) {
+      return;
+    }
+
+    setNewAccommodation(prev => {
+      const currentName = prev.name.trim();
+      if (!currentName || currentName === previousParsedName) {
+        return { ...prev, name: normalizedParsedName };
+      }
+
+      return prev;
+    });
+  }, []);
 
   const handleUpdateAccommodation = async (accommodation: Accommodation) => {
     try {
@@ -303,6 +324,7 @@ export default function LocationAccommodationsManager({
               onPrivacyChange={(isPublic) => 
                 setNewAccommodation(prev => ({ ...prev, isAccommodationPublic: isPublic }))
               }
+              onParsedNameChange={handleNewAccommodationParsedNameChange}
             />
 
             {/* Cost tracking is only available for saved accommodations */}
@@ -414,6 +436,7 @@ function EditAccommodationForm({
 }) {
   const [editData, setEditData] = useState<Accommodation>(accommodation);
   const editId = useId();
+  const lastParsedEditAccommodationNameRef = useRef('');
 
   const handleSave = () => {
     if (!editData.name.trim()) {
@@ -422,6 +445,25 @@ function EditAccommodationForm({
     }
     onSave(editData);
   };
+
+  const handleParsedNameChange = useCallback((parsedName: string | null) => {
+    const normalizedParsedName = parsedName?.trim() || '';
+    const previousParsedName = lastParsedEditAccommodationNameRef.current;
+    lastParsedEditAccommodationNameRef.current = normalizedParsedName;
+
+    if (!normalizedParsedName) {
+      return;
+    }
+
+    setEditData(prev => {
+      const currentName = prev.name.trim();
+      if (!currentName || currentName === previousParsedName) {
+        return { ...prev, name: normalizedParsedName };
+      }
+
+      return prev;
+    });
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -447,6 +489,7 @@ function EditAccommodationForm({
         onPrivacyChange={(isPublic) => 
           setEditData(prev => ({ ...prev, isAccommodationPublic: isPublic }))
         }
+        onParsedNameChange={handleParsedNameChange}
       />
 
       <CostTrackingLinksManager
