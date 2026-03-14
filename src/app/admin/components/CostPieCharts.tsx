@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts/types/polar/Pie';
-import type { TooltipProps } from 'recharts';
-import type { Payload } from 'recharts/types/component/DefaultTooltipContent';
+import type { TooltipContentProps } from 'recharts';
+import type { NameType, Payload, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { CostSummary, CountryBreakdown } from '@/app/types';
 import { formatCurrency, formatCurrencyWithRefunds, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
 import { deriveExcludedCountries } from '@/app/lib/countryInclusions';
@@ -279,23 +279,19 @@ const CostPieCharts: React.FC<CostPieChartsProps> = ({
     );
   }, [labelColor]);
 
-  type TooltipEntry = Payload<number, string> & {
-    payload: ChartData;
+  type TooltipEntry = Payload<ValueType, NameType> & {
+    payload?: ChartData;
     percent?: number;
-  };
-
-  type CustomTooltipProps = TooltipProps<number, string> & {
-    payload?: ReadonlyArray<TooltipEntry>;
   };
 
   // Custom tooltip for better formatting
   const renderTooltipContent = useCallback(
-    ({ active, payload }: CustomTooltipProps) => {
+    ({ active, payload }: TooltipContentProps<ValueType, NameType>) => {
       if (!active || !payload || payload.length === 0) {
         return null;
       }
 
-      const data = payload[0];
+      const data = payload[0] as TooltipEntry | undefined;
 
       if (typeof data?.value !== 'number') {
         return null;
