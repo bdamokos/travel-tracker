@@ -9,7 +9,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install dependencies based on the preferred package manager
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* bun.lockb* ./
 RUN --mount=type=cache,target=/root/.bun \
     bun install --frozen-lockfile
 
@@ -45,10 +45,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Create data directory for persistent storage
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
-# Remove unnecessary packages to reduce image size
-RUN apk del --no-cache \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/*
+# Clear temporary files without hitting external package indexes
+RUN rm -rf /tmp/*
 
 USER nextjs
 

@@ -72,6 +72,18 @@ DEPLOY_PATH=${DEPLOY_PATH:-/home/${PI_USER}/travel-tracker}
 KEYCHAIN_SERVICE="travel-tracker-deploy"
 KEYCHAIN_ACCOUNT="$PI_USER@$PI_HOST"
 
+# SSH connection multiplexing - reuse a single authenticated connection
+SSH_CONTROL_PATH="/tmp/ssh-deploy-${PI_USER}-${PI_HOST}"
+SSH_OPTS="-o StrictHostKeyChecking=no -o ControlMaster=auto -o ControlPath=$SSH_CONTROL_PATH -o ControlPersist=300 -o ServerAliveInterval=30 -o ServerAliveCountMax=5"
+
+# Clean up SSH control socket on exit
+cleanup_ssh() {
+    if [ -S "$SSH_CONTROL_PATH" ]; then
+        ssh -O exit -o ControlPath="$SSH_CONTROL_PATH" $PI_USER@$PI_HOST 2>/dev/null || true
+    fi
+}
+trap cleanup_ssh EXIT
+
 # Default flag values
 FOLLOW_LOGS=false
 DEPLOY_ONLY=false
@@ -186,7 +198,7 @@ test_ssh_connection() {
         return 1
     fi
     
-    if sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $PI_USER@$PI_HOST "echo 'SSH connection successful'" >/dev/null 2>&1; then
+    if sshpass -p "$PASSWORD" ssh $SSH_OPTS -o ConnectTimeout=10 $PI_USER@$PI_HOST "echo 'SSH connection successful'" >/dev/null 2>&1; then
         echo "✅ SSH connection test successful."
         return 0
     else
@@ -196,12 +208,12 @@ test_ssh_connection() {
 
 # Function to run SSH commands with password
 run_ssh() {
-    sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "$1"
+    sshpass -p "$PASSWORD" ssh $SSH_OPTS $PI_USER@$PI_HOST "$1"
 }
 
 # Function to run SCP with password
 run_scp() {
-    sshpass -p "$PASSWORD" scp -o StrictHostKeyChecking=no "$@"
+    sshpass -p "$PASSWORD" scp $SSH_OPTS "$@"
 }
 
 # Function to follow logs
@@ -211,7 +223,7 @@ follow_logs() {
     echo ""
     
     # Use -t flag for interactive terminal to properly handle Ctrl+C
-    sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -t $PI_USER@$PI_HOST "cd $DEPLOY_PATH && docker-compose -f docker-compose.prod.yml logs -f"
+    sshpass -p "$PASSWORD" ssh $SSH_OPTS -t $PI_USER@$PI_HOST "cd $DEPLOY_PATH && docker-compose -f docker-compose.prod.yml logs -f"
 }
 
 # Validate configuration
@@ -344,7 +356,7 @@ if [ -z "$REMOTE_DATA_PATH" ]; then
 fi
 
 REMOTE_DATA_PATH_ESCAPED=$(printf '%q' "$REMOTE_DATA_PATH")
-if sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"; then
+if sshpass -p "$PASSWORD" ssh $SSH_OPTS $PI_USER@$PI_HOST "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"; then
     echo "✅ Local backup saved to $LOCAL_BACKUP_FILE"
 else
     echo "❌ Failed to download remote backup."
