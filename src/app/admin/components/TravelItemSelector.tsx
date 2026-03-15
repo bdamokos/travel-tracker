@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Location, Accommodation } from '@/app/types';
 import { ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
@@ -118,6 +118,24 @@ export default function TravelItemSelector({
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [description, setDescription] = useState('');
   const id = useId();
+  const onReferenceChangeRef = useRef(onReferenceChange);
+  const selectionStateRef = useRef({
+    selectedType: '' as 'location' | 'accommodation' | 'route' | '',
+    selectedItem: '',
+    description: ''
+  });
+
+  useEffect(() => {
+    onReferenceChangeRef.current = onReferenceChange;
+  }, [onReferenceChange]);
+
+  useEffect(() => {
+    selectionStateRef.current = {
+      selectedType,
+      selectedItem,
+      description
+    };
+  }, [description, selectedItem, selectedType]);
 
   // Use our new SWR hooks for real-time data
   const { expenseLinks } = useExpenseLinks(loadExistingLink ? tripId : null);
@@ -133,11 +151,16 @@ export default function TravelItemSelector({
     }
 
     if (!loadExistingLink) {
-      if (selectedType || selectedItem || description) {
+      const hasSelection =
+        selectionStateRef.current.selectedType ||
+        selectionStateRef.current.selectedItem ||
+        selectionStateRef.current.description;
+
+      if (hasSelection) {
         setSelectedType('');
         setSelectedItem('');
         setDescription('');
-        onReferenceChange(undefined);
+        onReferenceChangeRef.current(undefined);
       }
       return;
     }
@@ -152,14 +175,10 @@ export default function TravelItemSelector({
       }
     }
   }, [
-    description,
     expenseLinks,
     expenseId,
     initialValue,
-    loadExistingLink,
-    onReferenceChange,
-    selectedItem,
-    selectedType
+    loadExistingLink
   ]);
 
   // Load available travel items from current trip only
@@ -573,7 +592,7 @@ export default function TravelItemSelector({
 
   const updateReference = (type: string, itemId: string, desc: string) => {
     if (!type || !itemId) {
-      onReferenceChange(undefined);
+      onReferenceChangeRef.current(undefined);
       return;
     }
 
@@ -591,7 +610,7 @@ export default function TravelItemSelector({
         fallbackInfo.locationName = initialValue.locationName;
       }
 
-      onReferenceChange(fallbackInfo);
+      onReferenceChangeRef.current(fallbackInfo);
       return;
     }
 
@@ -606,14 +625,14 @@ export default function TravelItemSelector({
       travelLinkInfo.locationName = selectedTravelItem.locationName;
     }
 
-    onReferenceChange(travelLinkInfo);
+    onReferenceChangeRef.current(travelLinkInfo);
   };
 
   const handleClear = () => {
     setSelectedType('');
     setSelectedItem('');
     setDescription('');
-    onReferenceChange(undefined);
+    onReferenceChangeRef.current(undefined);
   };
 
   const handleRetry = () => {

@@ -100,4 +100,46 @@ describe('TravelItemSelector', () => {
 
     expect(mockOnReferenceChange).toHaveBeenCalledWith(undefined);
   });
+
+  it('does not re-run link clearing when the parent passes a new callback identity', async () => {
+    const firstCallback = jest.fn();
+    const secondCallback = jest.fn();
+
+    const { rerender } = render(
+      <TravelItemSelector
+        expenseId="expense-1"
+        tripId="test-trip-id"
+        onReferenceChange={firstCallback}
+        loadExistingLink={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/travel-data?id=test-trip-id',
+        expect.objectContaining({ signal: expect.anything() })
+      );
+    });
+
+    expect(firstCallback).not.toHaveBeenCalled();
+
+    rerender(
+      <TravelItemSelector
+        expenseId="expense-1"
+        tripId="test-trip-id"
+        onReferenceChange={secondCallback}
+        loadExistingLink={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/travel-data?id=test-trip-id',
+        expect.objectContaining({ signal: expect.anything() })
+      );
+    });
+
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).not.toHaveBeenCalled();
+  });
 });
