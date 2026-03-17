@@ -2,10 +2,17 @@
 
 import { Expense } from '@/app/types';
 import { formatUtcDate } from '@/app/lib/dateUtils';
-import { getAllocationSegments, isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
+import {
+  getAllocationSegments,
+  getCashSourceUsages,
+  getFundingSegmentsForSource,
+  isCashAllocation,
+  isCashSource
+} from '@/app/lib/cashTransactions';
 
 interface ExpenseDisplayProps {
   expense: Expense;
+  allExpenses?: Expense[];
   onEdit: () => void;
   onDelete?: () => void;
   onMarkActual?: () => void;
@@ -14,6 +21,7 @@ interface ExpenseDisplayProps {
 
 export default function ExpenseDisplay({
   expense,
+  allExpenses,
   onEdit,
   onDelete,
   onMarkActual,
@@ -22,6 +30,10 @@ export default function ExpenseDisplay({
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
   const allocationSegments = isCashAllocationExpense ? getAllocationSegments(expense.cashTransaction) : [];
+  const fundingSegments =
+    isCashSourceExpense && allExpenses ? getFundingSegmentsForSource(allExpenses, expense) : [];
+  const sourceUsages =
+    isCashSourceExpense && allExpenses ? getCashSourceUsages(allExpenses, expense.id) : [];
   const canEdit = !isCashSourceExpense;
 
   const formatDate = (date: string | Date) => {
@@ -151,11 +163,36 @@ export default function ExpenseDisplay({
         )}
 
         {isCashSourceExpense && expense.cashTransaction && (
-          <div className="text-xs text-yellow-700 dark:text-yellow-200 mt-2">
-            💵 Cash on hand: {expense.cashTransaction.remainingBaseAmount.toFixed(2)}{' '}
-            {expense.currency} ({expense.cashTransaction.remainingLocalAmount.toFixed(2)}{' '}
-            {expense.cashTransaction.localCurrency}) remaining from{' '}
-            {expense.cashTransaction.originalBaseAmount.toFixed(2)} {expense.currency}
+          <div className="text-xs text-yellow-700 dark:text-yellow-200 mt-2 space-y-1">
+            <div>
+              💵 Cash on hand: {expense.cashTransaction.remainingBaseAmount.toFixed(2)}{' '}
+              {expense.currency} ({expense.cashTransaction.remainingLocalAmount.toFixed(2)}{' '}
+              {expense.cashTransaction.localCurrency}) remaining from{' '}
+              {expense.cashTransaction.originalBaseAmount.toFixed(2)} {expense.currency}
+            </div>
+            {fundingSegments.length > 0 && (
+              <div className="space-y-1">
+                <div>Funding deducted from earlier cash events:</div>
+                {fundingSegments.map(({ source, segment }) => (
+                  <div key={`${expense.id}-${source.id}`}>
+                    {formatDate(source.date)} • {source.description || source.category}: {segment.baseAmount.toFixed(2)}{' '}
+                    {expense.currency} ({segment.localAmount.toFixed(2)} {source.cashTransaction.localCurrency})
+                  </div>
+                ))}
+              </div>
+            )}
+            {sourceUsages.length > 0 && (
+              <div className="space-y-1">
+                <div>Deductions into later cash events:</div>
+                {sourceUsages.map(({ expense: usageExpense, segment }) => (
+                  <div key={`${expense.id}-${usageExpense.id}`}>
+                    {formatDate(usageExpense.date)} • {usageExpense.description || usageExpense.category}:{' '}
+                    {segment.baseAmount.toFixed(2)} {expense.currency} ({segment.localAmount.toFixed(2)}{' '}
+                    {expense.cashTransaction.localCurrency})
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

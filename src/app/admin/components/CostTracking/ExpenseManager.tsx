@@ -491,6 +491,7 @@ export default function ExpenseManager({
                       <div>
                         <ExpenseDisplay
                           expense={expense}
+                          allExpenses={costData.expenses}
                           onEdit={onEdit}
                           onDelete={() => deleteExpense(expense.id)}
                           onMarkActual={() => convertPlannedToActual(expense.id)}

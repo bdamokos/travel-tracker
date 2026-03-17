@@ -217,6 +217,16 @@ export interface CashAllocationResult {
   segments: CashTransactionAllocationSegment[];
 }
 
+export interface ResolvedCashFundingSegment {
+  source: Expense & { cashTransaction: CashTransactionSourceDetails };
+  segment: CashTransactionAllocationSegment;
+}
+
+export interface ResolvedCashSourceUsage {
+  expense: Expense & { cashTransaction: CashTransactionSourceDetails };
+  segment: CashTransactionAllocationSegment;
+}
+
 function getSourceCurrency(source: Expense): string {
   if (!isCashSource(source)) {
     throw new Error('Expense is not a cash source transaction.');
@@ -509,6 +519,55 @@ export function getAllocationSegments(details: CashTransactionAllocationDetails)
       baseAmount: details.baseAmount
     }
   ];
+}
+
+export function getFundingSegmentsForSource(
+  expenses: Expense[],
+  sourceExpense: Expense
+): ResolvedCashFundingSegment[] {
+  if (!isCashSource(sourceExpense)) {
+    return [];
+  }
+
+  const fundingSegments = sourceExpense.cashTransaction.fundingSegments;
+  if (!fundingSegments || fundingSegments.length === 0) {
+    return [];
+  }
+
+  return fundingSegments.flatMap(segment => {
+    const matchedExpense = expenses.find(expense => expense.id === segment.sourceExpenseId);
+    if (!matchedExpense || !isCashSource(matchedExpense)) {
+      return [];
+    }
+
+    return [{
+      source: matchedExpense,
+      segment: { ...segment }
+    }];
+  });
+}
+
+export function getCashSourceUsages(
+  expenses: Expense[],
+  sourceId: string
+): ResolvedCashSourceUsage[] {
+  return expenses.flatMap(expense => {
+    if (!isCashSource(expense)) {
+      return [];
+    }
+
+    const fundingSegments = expense.cashTransaction.fundingSegments;
+    if (!fundingSegments || fundingSegments.length === 0) {
+      return [];
+    }
+
+    return fundingSegments
+      .filter(segment => segment.sourceExpenseId === sourceId)
+      .map(segment => ({
+        expense,
+        segment: { ...segment }
+      }));
+  });
 }
 
 /**

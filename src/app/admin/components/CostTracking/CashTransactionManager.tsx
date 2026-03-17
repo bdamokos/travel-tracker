@@ -12,6 +12,8 @@ import {
   createCashSourceExpense,
   getAllocationSegments,
   getAllocationsForSource,
+  getCashSourceUsages,
+  getFundingSegmentsForSource,
   isCashAllocation,
   isCashSource,
   roundCurrency
@@ -745,6 +747,8 @@ export default function CashTransactionManager({
     if (!isCashSource(source)) return null;
 
     const allocations = getAllocationsForSource(costData.expenses, source.id);
+    const sourceUsages = getCashSourceUsages(costData.expenses, source.id);
+    const fundingSources = getFundingSegmentsForSource(costData.expenses, source);
     const { cashTransaction } = source;
     const isRefundSource = cashTransaction.sourceType === 'refund';
     const remainingLocal = cashTransaction.remainingLocalAmount;
@@ -784,6 +788,65 @@ export default function CashTransactionManager({
             <div>Country: {source.country || 'General'}</div>
           </div>
         </div>
+
+        {fundingSources.length > 0 && (
+          <div className="rounded border border-yellow-100 dark:border-yellow-800 bg-yellow-50/60 dark:bg-yellow-900/20 p-2">
+            <h6 className="text-xs font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+              Funding deducted from earlier cash events ({fundingSources.length})
+            </h6>
+            <ul className="space-y-1 text-xs text-yellow-900 dark:text-yellow-100">
+              {fundingSources.map(({ source: fundingSource, segment }) => {
+                const fundingDetails = fundingSource.cashTransaction;
+                const fundingLabel =
+                  fundingSource.description ||
+                  (fundingDetails.sourceType === 'refund' ? 'Cash refund' : 'Cash exchange');
+
+                return (
+                  <li key={`${source.id}-${fundingSource.id}`} className="flex justify-between gap-2">
+                    <span>
+                      {formatLocalDateLabel(fundingSource.date, undefined, {
+                        year: 'numeric',
+                        month: 'numeric',
+                        day: 'numeric'
+                      })}{' '}
+                      • {fundingLabel}
+                    </span>
+                    <span>
+                      {segment.baseAmount.toFixed(2)} {currency} ({segment.localAmount.toFixed(2)}{' '}
+                      {fundingDetails.localCurrency})
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {sourceUsages.length > 0 && (
+          <div className="rounded border border-yellow-100 dark:border-yellow-800 bg-yellow-50/60 dark:bg-yellow-900/20 p-2">
+            <h6 className="text-xs font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+              Deductions into later cash events ({sourceUsages.length})
+            </h6>
+            <ul className="space-y-1 text-xs text-yellow-900 dark:text-yellow-100">
+              {sourceUsages.map(({ expense: usageExpense, segment }) => (
+                <li key={`${source.id}-${usageExpense.id}`} className="flex justify-between gap-2">
+                  <span>
+                    {formatLocalDateLabel(usageExpense.date, undefined, {
+                      year: 'numeric',
+                      month: 'numeric',
+                      day: 'numeric'
+                    })}{' '}
+                    • {usageExpense.description || usageExpense.category}
+                  </span>
+                  <span>
+                    {segment.baseAmount.toFixed(2)} {currency} ({segment.localAmount.toFixed(2)}{' '}
+                    {localCurrency})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {allocations.length > 0 && (
           <div className="rounded border border-yellow-100 dark:border-yellow-800 bg-yellow-50/60 dark:bg-yellow-900/20 p-2">
