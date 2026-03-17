@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import {
+  discardOfflineConflictEntries,
   getOfflineQueueEntries,
   queueCostDelta,
   queueTravelDelta,
@@ -157,5 +158,31 @@ describe('offlineDeltaSync', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toContain('/api/cost-tracking?id=');
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'PATCH' });
+  });
+
+  it('discards conflicted queue entries when requested', async () => {
+    const base = makeTravelData();
+    const pending = makeTravelData({ title: 'Offline Title Change' });
+    const serverChanged = makeTravelData({ description: 'Server changed while offline' });
+
+    queueTravelDelta({
+      id: base.id || 'trip-1',
+      baseSnapshot: base,
+      pendingSnapshot: pending
+    });
+
+    const fetchMock = jest.fn().mockResolvedValueOnce(makeResponse(serverChanged));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await syncOfflineDeltaQueue();
+    expect(getOfflineQueueEntries()).toHaveLength(1);
+
+    const result = discardOfflineConflictEntries();
+
+    expect(result).toMatchObject({
+      removed: 1,
+      remainingConflicts: 0
+    });
+    expect(getOfflineQueueEntries()).toHaveLength(0);
   });
 });

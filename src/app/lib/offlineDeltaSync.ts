@@ -410,6 +410,33 @@ export const getOfflineQueueEntries = (): OfflineQueueEntry[] => {
 
 export const getOfflineQueueSummary = (): OfflineQueueSummary => summarizeQueue(readQueue());
 
+export const discardOfflineConflictEntries = (
+  predicate?: (entry: OfflineQueueEntry) => boolean
+): { removed: number; remainingConflicts: number } => {
+  const queue = readQueue();
+  const nextQueue = queue.filter((entry) => {
+    if (entry.status !== 'conflict') {
+      return true;
+    }
+
+    if (predicate) {
+      return !predicate(entry);
+    }
+
+    return false;
+  });
+
+  const removed = queue.length - nextQueue.length;
+  if (removed > 0) {
+    writeQueue(nextQueue);
+  }
+
+  return {
+    removed,
+    remainingConflicts: nextQueue.filter((entry) => entry.status === 'conflict').length
+  };
+};
+
 export const queueTravelDelta = ({ id, baseSnapshot, pendingSnapshot }: QueueTravelDeltaInput): QueueDeltaResult => {
   if (!id) {
     return { queued: false, pendingCount: 0 };
