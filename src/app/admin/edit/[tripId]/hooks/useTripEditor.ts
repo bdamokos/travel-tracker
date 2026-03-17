@@ -68,6 +68,18 @@ export function useTripEditor(tripId: string | null) {
   const lastSavedTravelDataRef = useRef<TravelData | null>(
     cachedTravelSnapshot ? snapshotTravelData(cachedTravelSnapshot) : null
   );
+  const currentTravelDataRef = useRef<TravelData>(
+    cachedTravelSnapshot ?? {
+      title: '',
+      description: '',
+      startDate: getTodayLocalDay(),
+      endDate: getTodayLocalDay(),
+      instagramUsername: '',
+      locations: [],
+      routes: [],
+      accommodations: []
+    }
+  );
   
   const [currentLocation, setCurrentLocation] = useState<Partial<Location>>({
     name: '',
@@ -356,6 +368,10 @@ export function useTripEditor(tripId: string | null) {
   }, [initializeTravelLookup, migrateOldFormat]);
 
   useEffect(() => {
+    currentTravelDataRef.current = travelData;
+  }, [travelData]);
+
+  useEffect(() => {
     if (tripId) {
         loadTripForEditing(tripId);
     } else {
@@ -552,6 +568,22 @@ export function useTripEditor(tripId: string | null) {
           }
 
           alert(formatOfflineConflictMessage(conflict));
+        },
+        onSynced: (entry) => {
+          if (entry.kind !== 'travel' || entry.id !== activeTripId) {
+            return;
+          }
+
+          const syncedSnapshot = snapshotTravelData(entry.pendingSnapshot);
+          lastSavedTravelDataRef.current = syncedSnapshot;
+          setCachedTravelData(syncedSnapshot);
+
+          const currentSnapshot = snapshotTravelData(currentTravelDataRef.current);
+          const hasRemainingLocalChanges = !isTravelDataDeltaEmpty(
+            createTravelDataDelta(syncedSnapshot, currentSnapshot)
+          );
+
+          setHasUnsavedChanges(hasRemainingLocalChanges);
         }
       });
     };

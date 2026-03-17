@@ -230,13 +230,10 @@ export default function RouteManager({
       year: 'numeric'
     });
 
-  const handleRouteCollapseToggle = (routeId: string, isOpen: boolean) => {
+  const toggleRouteCollapsed = (routeId: string) => {
     setCollapsedRoutes(prev => {
-      const nextValue = !isOpen;
-      if (prev[routeId] === nextValue) {
-        return prev;
-      }
-      return { ...prev, [routeId]: nextValue };
+      const currentValue = prev[routeId] ?? true;
+      return { ...prev, [routeId]: !currentValue };
     });
   };
 
@@ -405,12 +402,14 @@ export default function RouteManager({
                         const isCollapsed = collapsedRoutes[routeData.id] ?? true;
 
                         return (
-                          <details
-                            open={!isCollapsed}
-                            onToggle={(event) => handleRouteCollapseToggle(routeData.id, event.currentTarget.open)}
-                            className="border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow"
-                          >
-                            <summary className="flex items-center gap-3 cursor-pointer px-4 py-3 select-none [&::-webkit-details-marker]:hidden">
+                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                            <button
+                              type="button"
+                              aria-expanded={!isCollapsed}
+                              aria-controls={`route-panel-${routeData.id}`}
+                              onClick={() => toggleRouteCollapsed(routeData.id)}
+                              className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                            >
                               <span
                                 aria-hidden="true"
                                 className={`text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
@@ -441,10 +440,13 @@ export default function RouteManager({
                                   </span>
                                 )}
                               </div>
-                            </summary>
+                            </button>
 
                             {!isCollapsed && (
-                              <div className="border-t border-gray-200 dark:border-gray-700 px-4 pb-4 pt-4">
+                              <div
+                                id={`route-panel-${routeData.id}`}
+                                className="border-t border-gray-200 dark:border-gray-700 px-4 pb-4 pt-4"
+                              >
                                 <RouteDisplay
                                   route={routeData}
                                   onEdit={onEdit}
@@ -460,7 +462,7 @@ export default function RouteManager({
                                 />
                               </div>
                             )}
-                          </details>
+                          </div>
                         );
                       }}
                     </InPlaceEditor>

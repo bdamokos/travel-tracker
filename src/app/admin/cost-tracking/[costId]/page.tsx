@@ -63,8 +63,13 @@ export default function CostTrackingPage() {
   const lastSavedCostDataRef = useRef<CostTrackingData | null>(
     cachedCostData ? snapshotCostData(migrateCostData(cachedCostData)) : null
   );
+  const currentCostDataRef = useRef<CostTrackingData>(costData);
 
   // Check admin access
+  useEffect(() => {
+    currentCostDataRef.current = costData;
+  }, [costData]);
+
   useEffect(() => {
     const checkAdminAccess = async () => {
       try {
@@ -311,6 +316,26 @@ export default function CostTrackingPage() {
           }
 
           alert(formatOfflineConflictMessage(conflict));
+        },
+        onSynced: (entry) => {
+          if (entry.kind !== 'cost') {
+            return;
+          }
+
+          if (normalizeCostEntryId(entry.id) !== normalizeCostEntryId(activeCostId)) {
+            return;
+          }
+
+          const syncedSnapshot = snapshotCostData(entry.pendingSnapshot);
+          lastSavedCostDataRef.current = syncedSnapshot;
+          setCachedCostTracker(syncedSnapshot);
+
+          const currentSnapshot = snapshotCostData(currentCostDataRef.current);
+          const hasRemainingLocalChanges = !isCostDataDeltaEmpty(
+            createCostDataDelta(syncedSnapshot, currentSnapshot)
+          );
+
+          setHasUnsavedChanges(hasRemainingLocalChanges);
         }
       });
     };

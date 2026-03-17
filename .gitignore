@@ -51,3 +51,7 @@ test-data/*
 deploy/backups/*
 scripts/*
 .codex/*
+.playwright-cli/
+output/
+.swc/
+.worktrees/

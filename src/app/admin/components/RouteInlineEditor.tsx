@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Transportation, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { transportationTypes, transportationLabels, getCompositeTransportType } from '@/app/lib/routeUtils';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
@@ -57,6 +57,33 @@ export default function RouteInlineEditor({
     to: false
   });
   const refreshTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const routeDateValue = useMemo(
+    () => parseDateAsLocalDay(formData.date),
+    [formData.date]
+  );
+  const locationChoiceOptions = useMemo(
+    () => locationOptions.map(location => ({ value: location.name, label: location.name })),
+    [locationOptions]
+  );
+
+  const areCoordsEqual = (
+    left?: [number, number],
+    right?: [number, number]
+  ): boolean => (left?.[0] ?? null) === (right?.[0] ?? null) && (left?.[1] ?? null) === (right?.[1] ?? null);
+
+  const areDatesEquivalent = (
+    left: Date | string | undefined,
+    right: Date | null
+  ): boolean => {
+    const leftDate = parseDateAsLocalDay(left);
+    const rightDate = parseDateAsLocalDay(right);
+
+    if (!leftDate || !rightDate) {
+      return leftDate === rightDate;
+    }
+
+    return leftDate.getTime() === rightDate.getTime();
+  };
 
   const transportSelectId = `${idPrefix}-transport-type`;
   const dateLabelId = `${idPrefix}-date-label`;
@@ -327,12 +354,21 @@ export default function RouteInlineEditor({
     const locationMatch = locationOptions.find(loc => loc.name === value);
     const coords = locationMatch?.coordinates || [0, 0];
 
-    setFormData(prev => ({
-      ...prev,
-      ...(field === 'from' ? { from: value, fromCoords: coords } : { to: value, toCoords: coords })
-    }));
+    setFormData(prev => {
+      const previousValue = field === 'from' ? prev.from : prev.to;
+      const previousCoords = field === 'from' ? prev.fromCoords : prev.toCoords;
 
-    setRouteCoordOverrides(prev => ({ ...prev, [field]: false }));
+      if (previousValue === value && areCoordsEqual(previousCoords, coords)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        ...(field === 'from' ? { from: value, fromCoords: coords } : { to: value, toCoords: coords })
+      };
+    });
+
+    setRouteCoordOverrides(prev => (prev[field] ? { ...prev, [field]: false } : prev));
   };
 
   const addSubRoute = () => {
@@ -676,8 +712,18 @@ export default function RouteInlineEditor({
             </span>
             <AccessibleDatePicker
               id={datePickerId}
-              value={parseDateAsLocalDay(formData.date)}
-              onChange={(d) => d && setFormData(prev => ({ ...prev, date: d }))}
+              value={routeDateValue}
+              onChange={(d) => {
+                if (!d) {
+                  return;
+                }
+
+                setFormData(prev => (
+                  areDatesEquivalent(prev.date, d)
+                    ? prev
+                    : { ...prev, date: d }
+                ));
+              }}
               required
               aria-labelledby={dateLabelId}
               className="text-sm"
@@ -705,7 +751,7 @@ export default function RouteInlineEditor({
                 value={formData.from}
                 onChange={(value) => handleRouteLocationChange('from', value)}
                 className="w-full px-2 py-1 text-sm"
-                options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
+                options={locationChoiceOptions}
                 placeholder="Paris"
                 required
                 allowsCustomValue={true}
@@ -730,7 +776,7 @@ export default function RouteInlineEditor({
                 value={formData.to}
                 onChange={(value) => handleRouteLocationChange('to', value)}
                 className="w-full px-2 py-1 text-sm"
-                options={locationOptions.map(location => ({ value: location.name, label: location.name }))}
+                options={locationChoiceOptions}
                 placeholder="London"
                 required
                 allowsCustomValue={true}

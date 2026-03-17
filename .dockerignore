@@ -15,6 +15,9 @@ out
 .idea
 *.swp
 *.swo
+.claude
+.codex
+.serena
 
 # OS files
 .DS_Store
@@ -40,6 +43,8 @@ pids
 *.pid
 *.seed
 *.pid.lock
+data
+output
 
 # Coverage directory used by tools like istanbul
 coverage
@@ -47,6 +52,10 @@ coverage
 # Temporary folders
 tmp
 temp 
+.playwright-cli
+.swc
+tsconfig.tsbuildinfo
+AGENTS.md
 deploy/backups/*
 scripts/*
 .worktrees/*
