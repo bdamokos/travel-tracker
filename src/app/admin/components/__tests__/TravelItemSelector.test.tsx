@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TravelItemSelector from '@/app/admin/components/TravelItemSelector';
 import { useExpenseLinks } from '@/app/hooks/useExpenseLinks';
@@ -22,7 +22,14 @@ describe('TravelItemSelector', () => {
       ok: true,
       json: async () => ({
         title: 'Test Trip',
-        locations: [],
+        locations: [
+          {
+            id: 'location-1',
+            name: 'Paris',
+            notes: '',
+            date: '2024-01-02'
+          }
+        ],
         routes: [],
         accommodations: []
       })
@@ -141,5 +148,31 @@ describe('TravelItemSelector', () => {
 
     expect(firstCallback).not.toHaveBeenCalled();
     expect(secondCallback).not.toHaveBeenCalled();
+  });
+
+  it('keeps the selected type when loadExistingLink is false', async () => {
+    render(
+      <TravelItemSelector
+        expenseId="expense-1"
+        tripId="test-trip-id"
+        onReferenceChange={mockOnReferenceChange}
+        loadExistingLink={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/travel-data?id=test-trip-id',
+        expect.objectContaining({ signal: expect.anything() })
+      );
+    });
+
+    const typeSelect = screen.getByLabelText('Link to Travel Item (Optional)');
+    fireEvent.change(typeSelect, { target: { value: 'location' } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Link to Travel Item (Optional)')).toHaveValue('location');
+      expect(screen.getByLabelText('Location')).toBeInTheDocument();
+    });
   });
 });

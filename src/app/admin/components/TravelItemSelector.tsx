@@ -139,6 +139,7 @@ export default function TravelItemSelector({
 
   // Use our new SWR hooks for real-time data
   const { expenseLinks } = useExpenseLinks(loadExistingLink ? tripId : null);
+  const expenseLinksForHydration = loadExistingLink ? expenseLinks : null;
 
   // Load current reference values using SWR data or initialValue
   useEffect(() => {
@@ -166,8 +167,8 @@ export default function TravelItemSelector({
     }
 
     // Fallback to SWR data
-    if (expenseId && expenseLinks.length > 0) {
-      const currentLink = expenseLinks.find(link => link.expenseId === expenseId);
+    if (expenseId && expenseLinksForHydration && expenseLinksForHydration.length > 0) {
+      const currentLink = expenseLinksForHydration.find(link => link.expenseId === expenseId);
       if (currentLink) {
         setSelectedType(currentLink.travelItemType);
         setSelectedItem(currentLink.travelItemId);
@@ -175,7 +176,7 @@ export default function TravelItemSelector({
       }
     }
   }, [
-    expenseLinks,
+    expenseLinksForHydration,
     expenseId,
     initialValue,
     loadExistingLink
