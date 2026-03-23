@@ -19,10 +19,15 @@ const OFFLINE_CACHE_WARMUP_MAX_TRIPS = 30;
 const OFFLINE_CACHE_WARMUP_MAX_COST_ENTRIES = 30;
 const OFFLINE_CACHE_WARMUP_MAX_ROUTE_URLS = 320;
 const OFFLINE_CACHE_WARMUP_MAX_DATA_URLS = 320;
+const OFFLINE_CACHE_WARMUP_MAX_ASSET_URLS = 640;
 const SERVICE_WORKER_CACHE_PREFIXES = ['app-shell-', 'static-', 'data-', 'tiles-'] as const;
 const SERVICE_WORKER_CACHE_VERSION_PATTERN = /const\s+CACHE_VERSION\s*=\s*['"]([^'"]+)['"]/;
 
 type WarmUrlResult = 'warmed' | 'retryable-failure' | 'skipped';
+type WarmRouteResult = {
+  assetUrls: string[];
+  result: WarmUrlResult;
+};
 
 type GenericRecord = Record<string, unknown>;
 
@@ -178,6 +183,47 @@ const isRetryableWarmupStatus = (status: number): boolean => {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 };
 
+const extractWarmupAssetUrls = (html: string, baseUrl: string): string[] => {
+  if (typeof DOMParser === 'undefined') {
+    return [];
+  }
+
+  try {
+    const resolvedBaseUrl = new URL(baseUrl, window.location.origin).toString();
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    const assetUrls = new Set<string>();
+    const elements = document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[href], script[src]');
+
+    elements.forEach((element) => {
+      const rawUrl = element instanceof HTMLLinkElement ? element.href : element.src;
+      if (!rawUrl) {
+        return;
+      }
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(rawUrl, resolvedBaseUrl);
+      } catch {
+        return;
+      }
+
+      if (parsedUrl.origin !== window.location.origin) {
+        return;
+      }
+
+      if (!parsedUrl.pathname.startsWith('/_next/static/')) {
+        return;
+      }
+
+      assetUrls.add(parsedUrl.toString());
+    });
+
+    return Array.from(assetUrls).slice(0, OFFLINE_CACHE_WARMUP_MAX_ASSET_URLS);
+  } catch {
+    return [];
+  }
+};
+
 const warmUrl = async (url: string): Promise<WarmUrlResult> => {
   try {
     const response = await fetch(url, {
@@ -199,6 +245,89 @@ const warmUrl = async (url: string): Promise<WarmUrlResult> => {
   } catch {
     return 'retryable-failure';
   }
+};
+
+const warmRouteUrl = async (url: string): Promise<WarmRouteResult> => {
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        [OFFLINE_CACHE_WARMUP_HEADER]: '1',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        assetUrls: [],
+        result: isRetryableWarmupStatus(response.status) ? 'retryable-failure' : 'skipped',
+      };
+    }
+
+    const html = await response.text();
+    return {
+      assetUrls: extractWarmupAssetUrls(html, url),
+      result: 'warmed',
+    };
+  } catch {
+    return {
+      assetUrls: [],
+      result: 'retryable-failure',
+    };
+  }
+};
+
+const warmRouteUrlsWithConcurrency = async (
+  urls: string[]
+): Promise<{ assetUrls: string[]; failed: number; warmed: number }> => {
+  if (urls.length === 0) {
+    return { assetUrls: [], warmed: 0, failed: 0 };
+  }
+
+  const workerCount = Math.min(OFFLINE_CACHE_WARMUP_CONCURRENCY, urls.length);
+  let cursor = 0;
+
+  const workerResults = await Promise.all(
+    Array.from({ length: workerCount }).map(async () => {
+      let warmed = 0;
+      let failed = 0;
+      const assetUrls = new Set<string>();
+
+      while (true) {
+        const index = cursor;
+        cursor += 1;
+
+        if (index >= urls.length) {
+          break;
+        }
+
+        const warmResult = await warmRouteUrl(urls[index]);
+        if (warmResult.result === 'warmed') {
+          warmed += 1;
+          warmResult.assetUrls.forEach((assetUrl) => assetUrls.add(assetUrl));
+        } else if (warmResult.result === 'retryable-failure') {
+          failed += 1;
+        }
+      }
+
+      return { assetUrls, warmed, failed };
+    })
+  );
+
+  const combinedAssetUrls = new Set<string>();
+  workerResults.forEach((workerResult) => {
+    workerResult.assetUrls.forEach((assetUrl) => combinedAssetUrls.add(assetUrl));
+  });
+
+  return workerResults.reduce(
+    (accumulator, workerResult) => {
+      return {
+        assetUrls: Array.from(combinedAssetUrls).slice(0, OFFLINE_CACHE_WARMUP_MAX_ASSET_URLS),
+        warmed: accumulator.warmed + workerResult.warmed,
+        failed: accumulator.failed + workerResult.failed,
+      };
+    },
+    { assetUrls: Array.from(combinedAssetUrls).slice(0, OFFLINE_CACHE_WARMUP_MAX_ASSET_URLS), warmed: 0, failed: 0 }
+  );
 };
 
 const warmUrlsWithConcurrency = async (urls: string[]): Promise<{ warmed: number; failed: number }> => {
@@ -455,10 +584,11 @@ export default function ServiceWorkerRegistration(): null {
         costListParsed.tripIds.forEach((tripId) => tripIds.add(tripId));
 
         const warmupTargets = buildWarmupTargets(Array.from(tripIds), costListParsed.costEntryIds);
-        const routeWarmupResult = await warmUrlsWithConcurrency(warmupTargets.routeUrls);
+        const routeWarmupResult = await warmRouteUrlsWithConcurrency(warmupTargets.routeUrls);
+        const assetWarmupResult = await warmUrlsWithConcurrency(routeWarmupResult.assetUrls);
         const dataWarmupResult = await warmUrlsWithConcurrency(warmupTargets.dataUrls);
         const totalWarmedCount = routeWarmupResult.warmed + dataWarmupResult.warmed;
-        const totalFailedCount = routeWarmupResult.failed + dataWarmupResult.failed;
+        const totalFailedCount = routeWarmupResult.failed + dataWarmupResult.failed + assetWarmupResult.failed;
 
         if (totalWarmedCount === 0) {
           return;
