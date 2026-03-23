@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -83,6 +83,18 @@ const isCacheableResponse = (response) => {
   return !cacheControl.includes('no-store');
 };
 
+const isCacheableAppShellResponse = (response) => {
+  if (!response || !response.ok) {
+    return false;
+  }
+
+  if (response.redirected) {
+    return false;
+  }
+
+  return response.type === 'basic' || response.type === 'cors' || response.type === 'default';
+};
+
 const isCacheableTileResponse = (response) => {
   if (!response) {
     return false;
@@ -95,15 +107,29 @@ const isCacheableTileResponse = (response) => {
   return isCacheableResponse(response);
 };
 
-const cloneResponseForCache = async (response) => {
-  if (!response.redirected) {
+const isPreCacheFollowResponseCacheable = (response) => {
+  if (!response || !response.ok) {
+    return false;
+  }
+
+  return response.type === 'basic' || response.type === 'cors';
+};
+
+const cloneResponseForCache = async (response, { originalUrl } = {}) => {
+  const responseUrl = response.url || null;
+  const normalizedOriginalUrl = typeof originalUrl === 'string' ? originalUrl : null;
+  const shouldCloneResponse =
+    response.redirected ||
+    (normalizedOriginalUrl !== null && responseUrl !== null && responseUrl !== normalizedOriginalUrl);
+
+  if (!shouldCloneResponse) {
     return response;
   }
 
   const responseBody = await response.arrayBuffer();
   const responseHeaders = new Headers(response.headers);
-  if (response.url) {
-    responseHeaders.set('X-Travel-Tracker-Original-Url', response.url);
+  if (responseUrl) {
+    responseHeaders.set('X-Travel-Tracker-Original-Url', responseUrl);
   }
 
   return new Response(responseBody, {
@@ -284,17 +310,18 @@ const invalidateDataCacheForMutation = async (requestUrl) => {
 };
 
 const resolvePreCacheResponse = async (url) => {
-  let requestUrl = new URL(url, self.location.origin).toString();
+  const cacheKeyUrl = new URL(url, self.location.origin).toString();
+  let requestUrl = cacheKeyUrl;
 
   for (let redirectCount = 0; redirectCount <= MAX_PRECACHE_REDIRECTS; redirectCount += 1) {
     const response = await fetchWithTimeout(requestUrl, { redirect: 'manual' });
     if (isCacheableResponse(response) && !isRedirectResponse(response)) {
-      return response;
+      return cloneResponseForCache(response, { originalUrl: cacheKeyUrl });
     }
 
     if (response.type === 'opaqueredirect') {
       const followedResponse = await fetchWithTimeout(requestUrl, { redirect: 'follow' });
-      if (!isCacheableResponse(followedResponse)) {
+      if (!isPreCacheFollowResponseCacheable(followedResponse)) {
         break;
       }
 
@@ -303,7 +330,7 @@ const resolvePreCacheResponse = async (url) => {
         break;
       }
 
-      return cloneResponseForCache(followedResponse);
+      return cloneResponseForCache(followedResponse, { originalUrl: cacheKeyUrl });
     }
 
     if (!isHttpRedirectStatus(response.status)) {
@@ -443,6 +470,11 @@ const getNavigationFallbackResponse = async (requestUrl) => {
 
 const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = false } = {}) => {
   const cache = await openCacheSafely(cacheName);
+  const requestUrl = new URL(request.url);
+  const shouldCacheResponse =
+    cacheName === APP_SHELL_CACHE && isAppRouteRequest(requestUrl)
+      ? isCacheableAppShellResponse
+      : isCacheableResponse;
 
   try {
     const networkResponse = await fetch(request);
@@ -466,7 +498,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
       }
     }
 
-    if (cache && isCacheableResponse(response)) {
+    if (cache && shouldCacheResponse(response)) {
       try {
         await cache.put(request, response.clone());
       } catch (error) {

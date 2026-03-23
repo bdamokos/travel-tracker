@@ -7,6 +7,7 @@ import {
 } from '@/app/lib/costDataDelta';
 import { cloneSerializable, isRecord } from '@/app/lib/collectionDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
+import { normalizeTravelDataForOfflineComparison } from '@/app/lib/normalizeTravelDataForOfflineComparison';
 import {
   createTravelDataDelta,
   isTravelDataDelta,
@@ -360,17 +361,17 @@ const toTravelDeltaComparable = (
   fallback: TravelData
 ): TravelData => {
   return {
-    id: candidate.id || fallback.id,
+    id: candidate.id ?? fallback.id,
     title: candidate.title ?? fallback.title,
     description: candidate.description ?? fallback.description,
     startDate: (candidate.startDate ?? fallback.startDate) as TravelData['startDate'],
     endDate: (candidate.endDate ?? fallback.endDate) as TravelData['endDate'],
-    instagramUsername: candidate.instagramUsername ?? fallback.instagramUsername,
-    locations: Array.isArray(candidate.locations) ? candidate.locations : fallback.locations,
-    routes: Array.isArray(candidate.routes) ? candidate.routes : fallback.routes,
+    instagramUsername: candidate.instagramUsername ?? fallback.instagramUsername ?? '',
+    locations: (Array.isArray(candidate.locations) ? candidate.locations : fallback.locations) as TravelData['locations'],
+    routes: (Array.isArray(candidate.routes) ? candidate.routes : fallback.routes) as TravelData['routes'],
     accommodations: Array.isArray(candidate.accommodations)
       ? candidate.accommodations
-      : fallback.accommodations
+      : (fallback.accommodations ?? [])
   };
 };
 
@@ -401,6 +402,44 @@ const toCostDeltaComparable = (
 
 const getPendingCount = (entries: OfflineQueueEntry[]): number =>
   entries.filter((entry) => entry.status === 'pending').length;
+
+const propagateSyncedTravelSnapshotToPendingCostEntries = (
+  queue: OfflineQueueEntry[],
+  syncedTravelEntry: OfflineTravelQueueEntry
+): void => {
+  const syncedTravelId = syncedTravelEntry.id;
+  const syncedSnapshot = syncedTravelEntry.pendingSnapshot;
+
+  queue.forEach((entry, index) => {
+    if (entry.kind !== 'cost' || entry.status !== 'pending') {
+      return;
+    }
+
+    if (normalizeCostEntryId(entry.baseSnapshot.tripId) !== normalizeCostEntryId(syncedTravelId)) {
+      return;
+    }
+
+    const nextBaseSnapshot: CostTrackingData = {
+      ...entry.baseSnapshot,
+      tripTitle: syncedSnapshot.title,
+      tripStartDate: syncedSnapshot.startDate as CostTrackingData['tripStartDate'],
+      tripEndDate: syncedSnapshot.endDate as CostTrackingData['tripEndDate']
+    };
+
+    const nextPendingSnapshot: CostTrackingData = {
+      ...entry.pendingSnapshot,
+      tripTitle: syncedSnapshot.title,
+      tripStartDate: syncedSnapshot.startDate as CostTrackingData['tripStartDate'],
+      tripEndDate: syncedSnapshot.endDate as CostTrackingData['tripEndDate']
+    };
+
+    queue[index] = {
+      ...entry,
+      baseSnapshot: nextBaseSnapshot,
+      pendingSnapshot: nextPendingSnapshot
+    };
+  });
+};
 
 export const normalizeCostEntryId = (id: string): string => id.replace(/^(cost-)+/, '');
 
@@ -553,6 +592,7 @@ const syncTravelEntry = async (
     patchUrl: `/api/travel-data?id=${encodeURIComponent(entry.id)}`,
     baseSnapshot: entry.baseSnapshot,
     pendingDelta: entry.delta,
+    normalizeSnapshot: normalizeTravelDataForOfflineComparison,
     toComparable: toTravelDeltaComparable,
     createDelta: createTravelDataDelta,
     isDeltaEmpty: isTravelDataDeltaEmpty
@@ -610,6 +650,7 @@ type SyncEntryCoreParams<TSnapshot, TDelta> = {
   patchUrl: string;
   baseSnapshot: TSnapshot;
   pendingDelta: TDelta;
+  normalizeSnapshot?: (candidate: Partial<TSnapshot>) => Partial<TSnapshot>;
   toComparable: (candidate: Partial<TSnapshot>, fallback: TSnapshot) => TSnapshot;
   createDelta: (previous: TSnapshot, current: TSnapshot) => TDelta | null;
   isDeltaEmpty: (delta: TDelta | null | undefined) => boolean;
@@ -620,6 +661,7 @@ const syncEntryCore = async <TSnapshot, TDelta>({
   patchUrl,
   baseSnapshot,
   pendingDelta,
+  normalizeSnapshot,
   toComparable,
   createDelta,
   isDeltaEmpty
@@ -633,8 +675,12 @@ const syncEntryCore = async <TSnapshot, TDelta>({
   }
 
   const serverRaw = (await response.json()) as Partial<TSnapshot>;
-  const baseComparable = toComparable(baseSnapshot, baseSnapshot);
-  const serverComparable = toComparable(serverRaw, baseSnapshot);
+  const normalizedBaseSnapshot = normalizeSnapshot
+    ? normalizeSnapshot(baseSnapshot as Partial<TSnapshot>)
+    : (baseSnapshot as Partial<TSnapshot>);
+  const baseComparable = toComparable(normalizedBaseSnapshot, baseSnapshot);
+  const normalizedServerSnapshot = normalizeSnapshot ? normalizeSnapshot(serverRaw) : serverRaw;
+  const serverComparable = toComparable(normalizedServerSnapshot, baseComparable);
   const serverDelta = createDelta(baseComparable, serverComparable);
 
   if (serverDelta && !isDeltaEmpty(serverDelta)) {
@@ -704,6 +750,9 @@ const runSyncOfflineDeltaQueue = async (
         synced += 1;
         changed = true;
         options.onSynced?.(entry);
+        if (entry.kind === 'travel') {
+          propagateSyncedTravelSnapshotToPendingCostEntries(queue, entry);
+        }
         queue.splice(index, 1);
         index -= 1;
         continue;

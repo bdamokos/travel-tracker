@@ -491,6 +491,8 @@ export default function ServiceWorkerRegistration(): null {
     };
 
     const onControllerChange = (): void => {
+      void runOfflineCacheWarmup();
+
       if (!shouldReloadForControllerChange || hasRefreshedForNewWorker) {
         return;
       }
