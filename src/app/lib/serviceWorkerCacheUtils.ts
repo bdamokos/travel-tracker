@@ -1,3 +1,5 @@
+// These helpers mirror the equivalents in public/sw.js so they can be unit tested in Jest.
+// Keep both copies in sync when changing service worker cache behavior.
 export const isHttpRedirectStatus = (status: number): boolean => status >= 300 && status < 400;
 
 export const isRedirectResponse = (response: Response | null | undefined): boolean => {
@@ -29,7 +31,7 @@ export const isCacheableResponse = (response: Response | null | undefined): bool
     return false;
   }
 
-  const cacheControl = response.headers.get('Cache-Control') || '';
+  const cacheControl = (response.headers.get('Cache-Control') || '').toLowerCase();
   return !cacheControl.includes('no-store');
 };
 

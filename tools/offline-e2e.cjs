@@ -38,6 +38,53 @@ const waitForOnline = async (page) => {
   await page.waitForFunction(() => navigator.onLine === true, undefined, { timeout: 10000 });
 };
 
+const waitForSyncCompletion = async (
+  page,
+  { tripId, expectedTravelTitle, expectedBudget, timeoutMs = 30000, pollIntervalMs = 500 }
+) => {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const state = await page.evaluate(async (id) => {
+      const queue = JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]');
+      const [travel, cost] = await Promise.all([
+        fetch(`/api/travel-data?id=${id}`, { cache: 'no-store' }).then((response) => response.json()),
+        fetch(`/api/cost-tracking?id=${id}`, { cache: 'no-store' }).then((response) => response.json())
+      ]);
+
+      return {
+        queue,
+        travelTitle: travel.title,
+        overallBudget: Number(cost.overallBudget)
+      };
+    }, tripId);
+
+    if (
+      state.queue.length === 0 &&
+      state.travelTitle === expectedTravelTitle &&
+      Number(state.overallBudget) === Number(expectedBudget)
+    ) {
+      return state;
+    }
+
+    await page.waitForTimeout(pollIntervalMs);
+  }
+
+  return page.evaluate(async (id) => {
+    const queue = JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]');
+    const [travel, cost] = await Promise.all([
+      fetch(`/api/travel-data?id=${id}`, { cache: 'no-store' }).then((response) => response.json()),
+      fetch(`/api/cost-tracking?id=${id}`, { cache: 'no-store' }).then((response) => response.json())
+    ]);
+
+    return {
+      queue,
+      travelTitle: travel.title,
+      overallBudget: Number(cost.overallBudget)
+    };
+  }, tripId);
+};
+
 async function main() {
   const tripId = fs.readFileSync(tripIdFile, 'utf8').trim();
   const launchOptions = {
@@ -48,207 +95,264 @@ async function main() {
     launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ baseURL });
-  const page = await context.newPage();
+  let browser;
+  let context;
+  let page;
+  let tripPage;
+  let costPage;
 
-  page.on('console', (msg) => {
-    console.log(`[browser:${msg.type()}] ${msg.text()}`);
-  });
-
-  page.on('pageerror', (error) => {
-    console.log(`[pageerror] ${error.stack || error}`);
-  });
-
-  const [initialTravelSnapshot, initialCostSnapshot] = await Promise.all([
-    fetch(`${baseURL}/api/travel-data?id=${tripId}`, { cache: 'no-store' }).then((response) => response.json()),
-    fetch(`${baseURL}/api/cost-tracking?id=${tripId}`, { cache: 'no-store' }).then((response) => response.json()),
-  ]);
-  const runSuffix = Date.now().toString(36);
-  const initialTravelTitle = initialTravelSnapshot.title;
-  const initialCostTitle = initialCostSnapshot.tripTitle;
-  const initialCostEntryId = initialCostSnapshot.id;
-
-  console.log('Opening admin cost tab to register the service worker and warm offline caches...');
-  await page.goto('/admin?tab=cost', { waitUntil: 'domcontentloaded' });
-  await ensureText(page, 'Travel Tracker Admin');
-  await waitForOfflineReady(page);
-
-  const offlineReadyDetail = await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) || 'null'), offlineReadyKey);
-  console.log('offlineReadyDetail', offlineReadyDetail);
-  assert(offlineReadyDetail?.warmedRouteCount > 0, 'Expected offline warmup to cache route documents.');
-  assert(offlineReadyDetail?.warmedDataCount > 0, 'Expected offline warmup to cache API/data documents.');
-
-  const serviceWorkerState = await page.evaluate(async () => {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    return {
-      registrationCount: registrations.length,
-      hasActiveWorker: registrations.some((registration) => Boolean(registration.active)),
-      hasController: Boolean(navigator.serviceWorker.controller)
-    };
-  });
-  console.log('serviceWorkerState', serviceWorkerState);
-  assert(serviceWorkerState.registrationCount > 0, 'Expected at least one service worker registration.');
-  assert(serviceWorkerState.hasActiveWorker, 'Expected an active service worker.');
-  assert(serviceWorkerState.hasController, 'Expected navigator.serviceWorker.controller to exist.');
-
-  console.log('Opening editor pages online before switching offline...');
-  const tripPage = await context.newPage();
-  await tripPage.goto(`/admin/edit/${tripId}?section=trip`, { waitUntil: 'domcontentloaded' });
-  await ensureText(tripPage, 'Edit Travel Map');
-  await tripPage.waitForFunction(
-    (expectedTitle) => {
-      const input = document.querySelector('#journey-title');
-      return input instanceof HTMLInputElement && input.value === expectedTitle;
-    },
-    initialTravelTitle,
-    { timeout: 30000 }
-  );
-
-  const costPage = await context.newPage();
-  await costPage.goto(`/admin/cost-tracking/${encodeURIComponent(initialCostEntryId)}`, { waitUntil: 'domcontentloaded' });
-  await ensureText(costPage, 'Edit Cost Tracker');
-  await costPage.waitForFunction(
-    (expectedBudget) => {
-      const input = document.querySelector('#overall-budget');
-      return input instanceof HTMLInputElement && Number(input.value || 0) === Number(expectedBudget);
-    },
-    Number(initialCostSnapshot.overallBudget || 0),
-    { timeout: 30000 }
-  );
-
-  console.log('Switching the browser offline...');
-  await context.setOffline(true);
-
-  console.log('Editing the trip while offline to verify queued delta sync...');
-  await tripPage.bringToFront();
-  const currentTripPageTitle = await tripPage.inputValue('#journey-title');
-  const nextTravelTitle = `${currentTripPageTitle} [${runSuffix}]`;
-  await tripPage.fill('#journey-title', nextTravelTitle);
-  await tripPage.waitForTimeout(12000);
-
-  const offlineQueueAfterTripEdit = await tripPage.evaluate(() => {
-    const raw = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
-    return raw ? JSON.parse(raw) : [];
-  });
-  console.log(
-    'offlineQueueAfterTripEdit',
-    offlineQueueAfterTripEdit.map((entry) => ({ kind: entry.kind, id: entry.id, status: entry.status }))
-  );
-  assert(
-    offlineQueueAfterTripEdit.some((entry) => entry.kind === 'travel' && entry.id && entry.status === 'pending'),
-    'Expected a pending travel offline delta queue entry.'
-  );
-
-  console.log('Editing the cost tracker while offline to verify queued delta sync...');
-  await costPage.bringToFront();
-  const currentOverallBudget = Number(await costPage.inputValue('#overall-budget'));
-  const nextOverallBudget = currentOverallBudget + 17;
-  await costPage.fill('#overall-budget', String(nextOverallBudget));
-  await costPage.waitForTimeout(12000);
-
-  const offlineQueueAfterCostEdit = await costPage.evaluate(() => {
-    const raw = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
-    return raw ? JSON.parse(raw) : [];
-  });
-  console.log(
-    'offlineQueueAfterCostEdit',
-    offlineQueueAfterCostEdit.map((entry) => ({ kind: entry.kind, id: entry.id, status: entry.status }))
-  );
-  assert(
-    offlineQueueAfterCostEdit.some(
-      (entry) =>
-        entry.kind === 'cost' &&
-        (entry.id === initialCostEntryId || entry.id === tripId || entry.id === `cost-${tripId}`) &&
-        entry.status === 'pending'
-    ),
-    'Expected a pending cost offline delta queue entry.'
-  );
-
-  console.log('Verifying cached navigation routes while offline...');
-  const offlineRoutes = [
-    ['/admin', 'Travel Tracker Admin'],
-    ['/admin?tab=cost', 'Travel Tracker Admin'],
-    ['/maps', 'Travel Maps'],
-    [`/map/${tripId}`, initialTravelTitle],
-    [`/admin/edit/${tripId}?section=trip`, 'Edit Travel Map'],
-  ];
-
-  for (const [path, expectedText] of offlineRoutes) {
-    const routePage = await context.newPage();
-    await routePage.goto(path, { waitUntil: 'domcontentloaded' });
-    await ensureText(routePage, expectedText);
-    console.log(`Offline route ok: ${path}`);
-    await routePage.close();
-  }
-
-  console.log('Verifying cached API reads while offline...');
-  const offlineApiResult = await page.evaluate(async (id) => {
-    const travelList = await fetch('/api/travel-data/list').then(async (response) => ({
-      ok: response.ok,
-      status: response.status,
-      length: (await response.json()).length,
-    }));
-    const travel = await fetch(`/api/travel-data?id=${id}`).then(async (response) => ({
-      ok: response.ok,
-      status: response.status,
-      title: (await response.json()).title,
-    }));
-    const cost = await fetch(`/api/cost-tracking?id=${id}`).then(async (response) => ({
-      ok: response.ok,
-      status: response.status,
-      tripTitle: (await response.json()).tripTitle,
-    }));
-
-    return { travelList, travel, cost };
-  }, tripId);
-  console.log('offlineApiResult', offlineApiResult);
-  assert.equal(offlineApiResult.travelList.ok, true);
-  assert.equal(offlineApiResult.travel.ok, true);
-  assert.equal(offlineApiResult.cost.ok, true);
-  assert.equal(offlineApiResult.travel.title, initialTravelTitle);
-  assert.equal(offlineApiResult.cost.tripTitle, initialCostTitle);
-
-  console.log('Restoring connectivity and waiting for queued deltas to sync...');
-  await costPage.bringToFront();
-  await context.setOffline(false);
-  await waitForOnline(page);
-  await waitForOnline(tripPage);
-  await waitForOnline(costPage);
-  await page.evaluate(() => window.dispatchEvent(new Event('online')));
-  await tripPage.evaluate(() => window.dispatchEvent(new Event('online')));
-  await costPage.evaluate(() => window.dispatchEvent(new Event('online')));
   try {
-    await costPage.waitForFunction(
-      () => JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]').length === 0,
+    browser = await chromium.launch(launchOptions);
+    context = await browser.newContext({ baseURL });
+    page = await context.newPage();
+
+    page.on('console', (msg) => {
+      console.log(`[browser:${msg.type()}] ${msg.text()}`);
+    });
+
+    page.on('pageerror', (error) => {
+      console.log(`[pageerror] ${error.stack || error}`);
+    });
+
+    const [initialTravelSnapshot, initialCostSnapshot] = await Promise.all([
+      fetch(`${baseURL}/api/travel-data?id=${tripId}`, { cache: 'no-store' }).then((response) => response.json()),
+      fetch(`${baseURL}/api/cost-tracking?id=${tripId}`, { cache: 'no-store' }).then((response) => response.json()),
+    ]);
+    const runSuffix = Date.now().toString(36);
+    const initialTravelTitle = initialTravelSnapshot.title;
+    const initialCostTitle = initialCostSnapshot.tripTitle;
+    const initialCostEntryId = initialCostSnapshot.id;
+
+    console.log('Opening admin cost tab to register the service worker and warm offline caches...');
+    await page.goto('/admin?tab=cost', { waitUntil: 'domcontentloaded' });
+    await ensureText(page, 'Travel Tracker Admin');
+    await waitForOfflineReady(page);
+
+    const offlineReadyDetail = await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) || 'null'), offlineReadyKey);
+    console.log('offlineReadyDetail', offlineReadyDetail);
+    assert(offlineReadyDetail?.warmedRouteCount > 0, 'Expected offline warmup to cache route documents.');
+    assert(offlineReadyDetail?.warmedDataCount > 0, 'Expected offline warmup to cache API/data documents.');
+
+    const serviceWorkerState = await page.evaluate(async () => {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      return {
+        registrationCount: registrations.length,
+        hasActiveWorker: registrations.some((registration) => Boolean(registration.active)),
+        hasController: Boolean(navigator.serviceWorker.controller)
+      };
+    });
+    console.log('serviceWorkerState', serviceWorkerState);
+    assert(serviceWorkerState.registrationCount > 0, 'Expected at least one service worker registration.');
+    assert(serviceWorkerState.hasActiveWorker, 'Expected an active service worker.');
+    assert(serviceWorkerState.hasController, 'Expected navigator.serviceWorker.controller to exist.');
+
+    console.log('Opening editor pages online before switching offline...');
+    tripPage = await context.newPage();
+    await tripPage.goto(`/admin/edit/${tripId}?section=trip`, { waitUntil: 'domcontentloaded' });
+    await ensureText(tripPage, 'Edit Travel Map');
+    await tripPage.waitForFunction(
+      (expectedTitle) => {
+        const input = document.querySelector('#journey-title');
+        return input instanceof HTMLInputElement && input.value === expectedTitle;
+      },
+      initialTravelTitle,
       { timeout: 30000 }
     );
-  } catch (error) {
-    const queueState = await costPage.evaluate(() => JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]'));
-    console.log('queueStateAfterReconnectTimeout', queueState);
-    throw error;
+
+    costPage = await context.newPage();
+    await costPage.goto(`/admin/cost-tracking/${encodeURIComponent(initialCostEntryId)}`, { waitUntil: 'domcontentloaded' });
+    await ensureText(costPage, 'Edit Cost Tracker');
+    await costPage.waitForFunction(
+      (expectedBudget) => {
+        const input = document.querySelector('#overall-budget');
+        return input instanceof HTMLInputElement && Number(input.value || 0) === Number(expectedBudget);
+      },
+      Number(initialCostSnapshot.overallBudget || 0),
+      { timeout: 30000 }
+    );
+
+    console.log('Switching the browser offline...');
+    await context.setOffline(true);
+
+    console.log('Editing the trip while offline to verify queued delta sync...');
+    await tripPage.bringToFront();
+    const currentTripPageTitle = await tripPage.inputValue('#journey-title');
+    const nextTravelTitle = `${currentTripPageTitle} [${runSuffix}]`;
+    await tripPage.fill('#journey-title', nextTravelTitle);
+    try {
+      await tripPage.waitForFunction(
+        (expectedId) => {
+          const raw = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
+          const queue = raw ? JSON.parse(raw) : [];
+          return queue.some((entry) => entry.kind === 'travel' && entry.id === expectedId && entry.status === 'pending');
+        },
+        tripId,
+        { timeout: 30000 }
+      );
+    } catch (error) {
+      const queueState = await tripPage.evaluate(() => JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]'));
+      console.log('travelQueueStateAfterTimeout', queueState);
+      throw error;
+    }
+
+    const offlineQueueAfterTripEdit = await tripPage.evaluate(() => {
+      const raw = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
+      return raw ? JSON.parse(raw) : [];
+    });
+    console.log(
+      'offlineQueueAfterTripEdit',
+      offlineQueueAfterTripEdit.map((entry) => ({ kind: entry.kind, id: entry.id, status: entry.status }))
+    );
+    assert(
+      offlineQueueAfterTripEdit.some((entry) => entry.kind === 'travel' && entry.id && entry.status === 'pending'),
+      'Expected a pending travel offline delta queue entry.'
+    );
+
+    console.log('Editing the cost tracker while offline to verify queued delta sync...');
+    await costPage.bringToFront();
+    const currentOverallBudget = Number(await costPage.inputValue('#overall-budget'));
+    const nextOverallBudget = currentOverallBudget + 17;
+    await costPage.fill('#overall-budget', String(nextOverallBudget));
+    try {
+      await costPage.waitForFunction(
+        ({ expectedId, expectedTripId }) => {
+          const raw = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
+          const queue = raw ? JSON.parse(raw) : [];
+          return queue.some(
+            (entry) =>
+              entry.kind === 'cost' &&
+              (entry.id === expectedId || entry.id === expectedTripId || entry.id === `cost-${expectedTripId}`) &&
+              entry.status === 'pending'
+          );
+        },
+        { expectedId: initialCostEntryId, expectedTripId: tripId },
+        { timeout: 30000 }
+      );
+    } catch (error) {
+      const queueState = await costPage.evaluate(() => JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]'));
+      console.log('costQueueStateAfterTimeout', queueState);
+      throw error;
+    }
+
+    const offlineQueueAfterCostEdit = await costPage.evaluate(() => {
+      const raw = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
+      return raw ? JSON.parse(raw) : [];
+    });
+    console.log(
+      'offlineQueueAfterCostEdit',
+      offlineQueueAfterCostEdit.map((entry) => ({ kind: entry.kind, id: entry.id, status: entry.status }))
+    );
+    assert(
+      offlineQueueAfterCostEdit.some(
+        (entry) =>
+          entry.kind === 'cost' &&
+          (entry.id === initialCostEntryId || entry.id === tripId || entry.id === `cost-${tripId}`) &&
+          entry.status === 'pending'
+      ),
+      'Expected a pending cost offline delta queue entry.'
+    );
+
+    console.log('Verifying cached navigation routes while offline...');
+    const offlineRoutes = [
+      ['/admin', 'Travel Tracker Admin'],
+      ['/admin?tab=cost', 'Travel Tracker Admin'],
+      ['/maps', 'Travel Maps'],
+      [`/map/${tripId}`, initialTravelTitle],
+      [`/admin/edit/${tripId}?section=trip`, 'Edit Travel Map'],
+    ];
+
+    for (const [path, expectedText] of offlineRoutes) {
+      const routePage = await context.newPage();
+      await routePage.goto(path, { waitUntil: 'domcontentloaded' });
+      await ensureText(routePage, expectedText);
+      console.log(`Offline route ok: ${path}`);
+      await routePage.close();
+    }
+
+    console.log('Verifying cached API reads while offline...');
+    const offlineApiResult = await page.evaluate(async (id) => {
+      const travelList = await fetch('/api/travel-data/list').then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        length: (await response.json()).length,
+      }));
+      const travel = await fetch(`/api/travel-data?id=${id}`).then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        title: (await response.json()).title,
+      }));
+      const cost = await fetch(`/api/cost-tracking?id=${id}`).then(async (response) => ({
+        ok: response.ok,
+        status: response.status,
+        tripTitle: (await response.json()).tripTitle,
+      }));
+
+      return { travelList, travel, cost };
+    }, tripId);
+    console.log('offlineApiResult', offlineApiResult);
+    assert.equal(offlineApiResult.travelList.ok, true);
+    assert.equal(offlineApiResult.travel.ok, true);
+    assert.equal(offlineApiResult.cost.ok, true);
+    assert.equal(offlineApiResult.travel.title, initialTravelTitle);
+    assert.equal(offlineApiResult.cost.tripTitle, initialCostTitle);
+
+    console.log('Restoring connectivity and waiting for queued deltas to sync...');
+    await costPage.bringToFront();
+    await context.setOffline(false);
+    await waitForOnline(page);
+    await waitForOnline(tripPage);
+    await waitForOnline(costPage);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await tripPage.evaluate(() => window.dispatchEvent(new Event('online')));
+    await costPage.evaluate(() => window.dispatchEvent(new Event('online')));
+    const syncState = await waitForSyncCompletion(costPage, {
+      tripId,
+      expectedTravelTitle: nextTravelTitle,
+      expectedBudget: nextOverallBudget
+    });
+    if (
+      syncState.queue.length !== 0 ||
+      syncState.travelTitle !== nextTravelTitle ||
+      Number(syncState.overallBudget) !== Number(nextOverallBudget)
+    ) {
+      console.log('syncStateAfterReconnectTimeout', syncState);
+      throw new Error('Timed out waiting for offline deltas to finish syncing.');
+    }
+
+    const syncedData = await page.evaluate(async (id) => {
+      const travel = await fetch(`/api/travel-data?id=${id}`, { cache: 'no-store' }).then((response) => response.json());
+      const cost = await fetch(`/api/cost-tracking?id=${id}`, { cache: 'no-store' }).then((response) => response.json());
+      const queue = JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]');
+
+      return {
+        travelTitle: travel.title,
+        overallBudget: cost.overallBudget,
+        queueLength: queue.length,
+      };
+    }, tripId);
+    console.log('syncedData', syncedData);
+    assert.equal(syncedData.travelTitle, nextTravelTitle);
+    assert.equal(Number(syncedData.overallBudget), nextOverallBudget);
+    if (syncedData.queueLength !== 0) {
+      await page.waitForFunction(
+        () => JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]').length === 0,
+        undefined,
+        { timeout: 5000 }
+      );
+    }
+    const finalQueueLength = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]').length
+    );
+    assert.equal(finalQueueLength, 0);
+
+    console.log('Offline end-to-end verification completed successfully.');
+  } finally {
+    await costPage?.close();
+    await tripPage?.close();
+    await page?.close();
+    await context?.close();
+    await browser?.close();
   }
-
-  const syncedData = await page.evaluate(async (id) => {
-    const travel = await fetch(`/api/travel-data?id=${id}`, { cache: 'no-store' }).then((response) => response.json());
-    const cost = await fetch(`/api/cost-tracking?id=${id}`, { cache: 'no-store' }).then((response) => response.json());
-    const queue = JSON.parse(localStorage.getItem('travel-tracker-offline-delta-queue-v1') || '[]');
-
-    return {
-      travelTitle: travel.title,
-      overallBudget: cost.overallBudget,
-      queueLength: queue.length,
-    };
-  }, tripId);
-  console.log('syncedData', syncedData);
-  assert.equal(syncedData.travelTitle, nextTravelTitle);
-  assert.equal(Number(syncedData.overallBudget), nextOverallBudget);
-  assert.equal(syncedData.queueLength, 0);
-
-  await costPage.close();
-  await tripPage.close();
-  await browser.close();
-  console.log('Offline end-to-end verification completed successfully.');
 }
 
 main().catch((error) => {

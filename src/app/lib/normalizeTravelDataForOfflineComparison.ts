@@ -1,30 +1,53 @@
-import type { Location, TravelData, TravelRoute, TravelRouteSegment } from '@/app/types';
+import type { Accommodation, Location, TravelData, TravelRoute, TravelRouteSegment } from '@/app/types';
 import { formatLocalDateInput } from '@/app/lib/localDateUtils';
 
 const normalizeLocalDayValue = (
   value: Date | string | undefined | null
-): Date | string | undefined => {
+): string | undefined => {
   const normalized = formatLocalDateInput(value);
   if (normalized) {
     return normalized;
   }
 
-  if (value === null) {
-    return undefined;
-  }
-
-  return value ?? undefined;
+  return undefined;
 };
 
-const normalizeLocation = (location: Partial<Location>): Partial<Location> => {
+type ComparableLocation = Partial<Omit<Location, 'date' | 'endDate'>> & {
+  date?: string;
+  endDate?: string;
+};
+
+type ComparableRouteSegment = Partial<Omit<TravelRouteSegment, 'date'>> & {
+  date?: string;
+};
+
+type ComparableRoute = Partial<Omit<TravelRoute, 'date' | 'subRoutes'>> & {
+  date?: string;
+  subRoutes: ComparableRouteSegment[];
+};
+
+type ComparableAccommodation = Partial<Accommodation>;
+
+export type NormalizedTravelDataForOfflineComparison = Partial<
+  Omit<TravelData, 'startDate' | 'endDate' | 'locations' | 'routes' | 'accommodations' | 'instagramUsername'>
+> & {
+  startDate?: string;
+  endDate?: string;
+  instagramUsername: string;
+  locations: ComparableLocation[];
+  routes: ComparableRoute[];
+  accommodations: ComparableAccommodation[];
+};
+
+const normalizeLocation = (location: Partial<Location>): ComparableLocation => {
   return {
     id: location.id,
     name: location.name,
     coordinates: location.coordinates,
     arrivalTime: location.arrivalTime,
     departureTime: location.departureTime,
-    date: normalizeLocalDayValue(location.date) as Location['date'],
-    endDate: normalizeLocalDayValue(location.endDate) as Location['endDate'],
+    date: normalizeLocalDayValue(location.date),
+    endDate: normalizeLocalDayValue(location.endDate),
     duration: location.duration,
     notes: location.notes ?? '',
     instagramPosts: Array.isArray(location.instagramPosts) ? location.instagramPosts : [],
@@ -39,7 +62,7 @@ const normalizeLocation = (location: Partial<Location>): Partial<Location> => {
   };
 };
 
-const normalizeRouteSegment = (segment: Partial<TravelRouteSegment>): Partial<TravelRouteSegment> => {
+const normalizeRouteSegment = (segment: Partial<TravelRouteSegment>): ComparableRouteSegment => {
   return {
     id: segment.id,
     from: segment.from,
@@ -47,7 +70,7 @@ const normalizeRouteSegment = (segment: Partial<TravelRouteSegment>): Partial<Tr
     fromCoords: segment.fromCoords,
     toCoords: segment.toCoords,
     transportType: segment.transportType,
-    date: normalizeLocalDayValue(segment.date) as TravelRouteSegment['date'],
+    date: normalizeLocalDayValue(segment.date),
     duration: segment.duration,
     distanceOverride: segment.distanceOverride,
     notes: segment.notes ?? '',
@@ -61,7 +84,7 @@ const normalizeRouteSegment = (segment: Partial<TravelRouteSegment>): Partial<Tr
   };
 };
 
-const normalizeRoute = (route: Partial<TravelRoute>): Partial<TravelRoute> => {
+const normalizeRoute = (route: Partial<TravelRoute>): ComparableRoute => {
   return {
     id: route.id,
     from: route.from,
@@ -69,7 +92,7 @@ const normalizeRoute = (route: Partial<TravelRoute>): Partial<TravelRoute> => {
     fromCoords: route.fromCoords,
     toCoords: route.toCoords,
     transportType: route.transportType,
-    date: normalizeLocalDayValue(route.date) as TravelRoute['date'],
+    date: normalizeLocalDayValue(route.date),
     duration: route.duration,
     distanceOverride: route.distanceOverride,
     notes: route.notes ?? '',
@@ -80,22 +103,36 @@ const normalizeRoute = (route: Partial<TravelRoute>): Partial<TravelRoute> => {
     isReturn: route.isReturn,
     doubleDistance: route.doubleDistance,
     isReadOnly: route.isReadOnly,
-    subRoutes: (Array.isArray(route.subRoutes) ? route.subRoutes.map(normalizeRouteSegment) : []) as TravelRoute['subRoutes'],
+    subRoutes: Array.isArray(route.subRoutes) ? route.subRoutes.map(normalizeRouteSegment) : [],
+  };
+};
+
+const normalizeAccommodation = (accommodation: Partial<Accommodation>): ComparableAccommodation => {
+  return {
+    id: accommodation.id,
+    name: accommodation.name,
+    locationId: accommodation.locationId,
+    accommodationData: accommodation.accommodationData,
+    isAccommodationPublic: accommodation.isAccommodationPublic ?? false,
+    costTrackingLinks: Array.isArray(accommodation.costTrackingLinks) ? accommodation.costTrackingLinks : [],
+    createdAt: accommodation.createdAt,
+    updatedAt: accommodation.updatedAt,
+    isReadOnly: accommodation.isReadOnly,
   };
 };
 
 export const normalizeTravelDataForOfflineComparison = (
   data: Partial<TravelData>
-): Partial<TravelData> => {
+): NormalizedTravelDataForOfflineComparison => {
   return {
     id: data.id,
     title: data.title,
     description: data.description,
-    startDate: normalizeLocalDayValue(data.startDate) as TravelData['startDate'],
-    endDate: normalizeLocalDayValue(data.endDate) as TravelData['endDate'],
+    startDate: normalizeLocalDayValue(data.startDate),
+    endDate: normalizeLocalDayValue(data.endDate),
     instagramUsername: data.instagramUsername ?? '',
-    locations: (Array.isArray(data.locations) ? data.locations.map(normalizeLocation) : []) as TravelData['locations'],
-    routes: (Array.isArray(data.routes) ? data.routes.map(normalizeRoute) : []) as TravelData['routes'],
-    accommodations: (Array.isArray(data.accommodations) ? data.accommodations : []) as TravelData['accommodations'],
+    locations: Array.isArray(data.locations) ? data.locations.map(normalizeLocation) : [],
+    routes: Array.isArray(data.routes) ? data.routes.map(normalizeRoute) : [],
+    accommodations: Array.isArray(data.accommodations) ? data.accommodations.map(normalizeAccommodation) : [],
   };
 };

@@ -1,3 +1,5 @@
+// These cacheability helpers are mirrored in src/app/lib/serviceWorkerCacheUtils.ts for Jest.
+// Keep both copies in sync when changing service worker cache behavior.
 const CACHE_VERSION = 'v13';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
@@ -79,7 +81,7 @@ const isCacheableResponse = (response) => {
     return false;
   }
 
-  const cacheControl = response.headers.get('Cache-Control') || '';
+  const cacheControl = (response.headers.get('Cache-Control') || '').toLowerCase();
   return !cacheControl.includes('no-store');
 };
 
@@ -315,7 +317,7 @@ const resolvePreCacheResponse = async (url) => {
 
   for (let redirectCount = 0; redirectCount <= MAX_PRECACHE_REDIRECTS; redirectCount += 1) {
     const response = await fetchWithTimeout(requestUrl, { redirect: 'manual' });
-    if (isCacheableResponse(response) && !isRedirectResponse(response)) {
+    if (isCacheableAppShellResponse(response) && !isRedirectResponse(response)) {
       return cloneResponseForCache(response, { originalUrl: cacheKeyUrl });
     }
 
