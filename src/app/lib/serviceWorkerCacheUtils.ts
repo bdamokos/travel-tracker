@@ -35,6 +35,45 @@ export const isCacheableResponse = (response: Response | null | undefined): bool
   return !cacheControl.includes('no-store');
 };
 
+const normalizeUrl = (requestUrl: string | URL): URL => {
+  if (requestUrl instanceof URL) {
+    return requestUrl;
+  }
+
+  return new URL(requestUrl, 'http://localhost');
+};
+
+export const isSameOriginStaticAssetUrl = (requestUrl: string | URL): boolean => {
+  const normalizedUrl = normalizeUrl(requestUrl);
+
+  return (
+    normalizedUrl.pathname.startsWith('/_next/static/') ||
+    normalizedUrl.pathname.startsWith('/_next/image') ||
+    normalizedUrl.pathname.startsWith('/images/') ||
+    normalizedUrl.pathname.startsWith('/icon-') ||
+    normalizedUrl.pathname === '/manifest.json'
+  );
+};
+
+export const isCacheableStaticAssetResponse = (
+  response: Response | null | undefined,
+  requestUrl: string | URL
+): boolean => {
+  if (!response || !response.ok) {
+    return false;
+  }
+
+  if (response.redirected) {
+    return false;
+  }
+
+  if (response.type !== 'basic' && response.type !== 'cors') {
+    return false;
+  }
+
+  return isSameOriginStaticAssetUrl(requestUrl) || isCacheableResponse(response);
+};
+
 export const isCacheableAppShellResponse = (response: Response | null | undefined): boolean => {
   if (!response || !response.ok) {
     return false;

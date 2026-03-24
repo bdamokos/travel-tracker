@@ -1,6 +1,6 @@
 // These cacheability helpers are mirrored in src/app/lib/serviceWorkerCacheUtils.ts for Jest.
 // Keep both copies in sync when changing service worker cache behavior.
-const CACHE_VERSION = 'v13';
+const CACHE_VERSION = 'v14';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -83,6 +83,30 @@ const isCacheableResponse = (response) => {
 
   const cacheControl = (response.headers.get('Cache-Control') || '').toLowerCase();
   return !cacheControl.includes('no-store');
+};
+
+const isSameOriginStaticAssetUrl = (url) =>
+  url.origin === self.location.origin &&
+  (url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/_next/image') ||
+    url.pathname.startsWith('/images/') ||
+    url.pathname.startsWith('/icon-') ||
+    url.pathname === '/manifest.json');
+
+const isCacheableStaticAssetResponse = (response, requestUrl) => {
+  if (!response || !response.ok) {
+    return false;
+  }
+
+  if (response.redirected) {
+    return false;
+  }
+
+  if (response.type !== 'basic' && response.type !== 'cors') {
+    return false;
+  }
+
+  return isSameOriginStaticAssetUrl(requestUrl) || isCacheableResponse(response);
 };
 
 const isCacheableAppShellResponse = (response) => {
@@ -538,7 +562,12 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
 
 const staleWhileRevalidate = async (event, request, cacheName, { isTileRequest = false } = {}) => {
   const cachePromise = openCacheSafely(cacheName);
-  const shouldCacheResponse = isTileRequest ? isCacheableTileResponse : isCacheableResponse;
+  const requestUrl = new URL(request.url);
+  const shouldCacheResponse = isTileRequest
+    ? isCacheableTileResponse
+    : cacheName === STATIC_CACHE
+      ? (response) => isCacheableStaticAssetResponse(response, requestUrl)
+      : isCacheableResponse;
 
   const networkPromise = (async () => {
     const cache = await cachePromise;

@@ -3,6 +3,7 @@ import {
   cloneResponseForCache,
   isCacheableAppShellResponse,
   isCacheableResponse,
+  isCacheableStaticAssetResponse,
   isPreCacheFollowResponseCacheable,
   isRedirectResponse
 } from '@/app/lib/serviceWorkerCacheUtils';
@@ -37,6 +38,18 @@ describe('serviceWorkerCacheUtils', () => {
 
     expect(isCacheableResponse(response)).toBe(false);
     expect(isCacheableAppShellResponse(response)).toBe(true);
+  });
+
+  it('accepts no-store same-origin next static assets for runtime offline caching', () => {
+    const response = setResponseShape(
+      makeResponse('chunk', { status: 200, headers: { 'Cache-Control': 'private, no-store' } }),
+      { type: 'basic', redirected: false, url: 'https://tt-admin.bdamokos.org/_next/static/chunks/app.js' }
+    );
+
+    expect(isCacheableResponse(response)).toBe(false);
+    expect(isCacheableStaticAssetResponse(response, 'https://tt-admin.bdamokos.org/_next/static/chunks/app.js')).toBe(
+      true
+    );
   });
 
   it('accepts followed pre-cache responses before cloning them into cache-safe responses', () => {
