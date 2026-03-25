@@ -1,6 +1,4 @@
-// These cacheability helpers are mirrored in src/app/lib/serviceWorkerCacheUtils.ts for Jest.
-// Keep both copies in sync when changing service worker cache behavior.
-const CACHE_VERSION = 'v14';
+const CACHE_VERSION = 'v12';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -81,44 +79,8 @@ const isCacheableResponse = (response) => {
     return false;
   }
 
-  const cacheControl = (response.headers.get('Cache-Control') || '').toLowerCase();
+  const cacheControl = response.headers.get('Cache-Control') || '';
   return !cacheControl.includes('no-store');
-};
-
-const isSameOriginStaticAssetUrl = (url) =>
-  url.origin === self.location.origin &&
-  (url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/_next/image') ||
-    url.pathname.startsWith('/images/') ||
-    url.pathname.startsWith('/icon-') ||
-    url.pathname === '/manifest.json');
-
-const isCacheableStaticAssetResponse = (response, requestUrl) => {
-  if (!response || !response.ok) {
-    return false;
-  }
-
-  if (response.redirected) {
-    return false;
-  }
-
-  if (response.type !== 'basic' && response.type !== 'cors') {
-    return false;
-  }
-
-  return isSameOriginStaticAssetUrl(requestUrl) || isCacheableResponse(response);
-};
-
-const isCacheableAppShellResponse = (response) => {
-  if (!response || !response.ok) {
-    return false;
-  }
-
-  if (response.redirected) {
-    return false;
-  }
-
-  return response.type === 'basic' || response.type === 'cors' || response.type === 'default';
 };
 
 const isCacheableTileResponse = (response) => {
@@ -133,29 +95,15 @@ const isCacheableTileResponse = (response) => {
   return isCacheableResponse(response);
 };
 
-const isPreCacheFollowResponseCacheable = (response) => {
-  if (!response || !response.ok) {
-    return false;
-  }
-
-  return response.type === 'basic' || response.type === 'cors';
-};
-
-const cloneResponseForCache = async (response, { originalUrl } = {}) => {
-  const responseUrl = response.url || null;
-  const normalizedOriginalUrl = typeof originalUrl === 'string' ? originalUrl : null;
-  const shouldCloneResponse =
-    response.redirected ||
-    (normalizedOriginalUrl !== null && responseUrl !== null && responseUrl !== normalizedOriginalUrl);
-
-  if (!shouldCloneResponse) {
+const cloneResponseForCache = async (response) => {
+  if (!response.redirected) {
     return response;
   }
 
   const responseBody = await response.arrayBuffer();
   const responseHeaders = new Headers(response.headers);
-  if (responseUrl) {
-    responseHeaders.set('X-Travel-Tracker-Original-Url', responseUrl);
+  if (response.url) {
+    responseHeaders.set('X-Travel-Tracker-Original-Url', response.url);
   }
 
   return new Response(responseBody, {
@@ -336,18 +284,17 @@ const invalidateDataCacheForMutation = async (requestUrl) => {
 };
 
 const resolvePreCacheResponse = async (url) => {
-  const cacheKeyUrl = new URL(url, self.location.origin).toString();
-  let requestUrl = cacheKeyUrl;
+  let requestUrl = new URL(url, self.location.origin).toString();
 
   for (let redirectCount = 0; redirectCount <= MAX_PRECACHE_REDIRECTS; redirectCount += 1) {
     const response = await fetchWithTimeout(requestUrl, { redirect: 'manual' });
-    if (isCacheableAppShellResponse(response) && !isRedirectResponse(response)) {
-      return cloneResponseForCache(response, { originalUrl: cacheKeyUrl });
+    if (isCacheableResponse(response) && !isRedirectResponse(response)) {
+      return response;
     }
 
     if (response.type === 'opaqueredirect') {
       const followedResponse = await fetchWithTimeout(requestUrl, { redirect: 'follow' });
-      if (!isPreCacheFollowResponseCacheable(followedResponse)) {
+      if (!isCacheableResponse(followedResponse)) {
         break;
       }
 
@@ -356,7 +303,7 @@ const resolvePreCacheResponse = async (url) => {
         break;
       }
 
-      return cloneResponseForCache(followedResponse, { originalUrl: cacheKeyUrl });
+      return cloneResponseForCache(followedResponse);
     }
 
     if (!isHttpRedirectStatus(response.status)) {
@@ -496,11 +443,6 @@ const getNavigationFallbackResponse = async (requestUrl) => {
 
 const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = false } = {}) => {
   const cache = await openCacheSafely(cacheName);
-  const requestUrl = new URL(request.url);
-  const shouldCacheResponse =
-    cacheName === APP_SHELL_CACHE && isAppRouteRequest(requestUrl)
-      ? isCacheableAppShellResponse
-      : isCacheableResponse;
 
   try {
     const networkResponse = await fetch(request);
@@ -524,7 +466,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
       }
     }
 
-    if (cache && shouldCacheResponse(response)) {
+    if (cache && isCacheableResponse(response)) {
       try {
         await cache.put(request, response.clone());
       } catch (error) {
@@ -562,12 +504,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
 
 const staleWhileRevalidate = async (event, request, cacheName, { isTileRequest = false } = {}) => {
   const cachePromise = openCacheSafely(cacheName);
-  const requestUrl = new URL(request.url);
-  const shouldCacheResponse = isTileRequest
-    ? isCacheableTileResponse
-    : cacheName === STATIC_CACHE
-      ? (response) => isCacheableStaticAssetResponse(response, requestUrl)
-      : isCacheableResponse;
+  const shouldCacheResponse = isTileRequest ? isCacheableTileResponse : isCacheableResponse;
 
   const networkPromise = (async () => {
     const cache = await cachePromise;

@@ -7,8 +7,6 @@ import {
 } from '@/app/lib/costDataDelta';
 import { cloneSerializable, isRecord } from '@/app/lib/collectionDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
-import { normalizeTravelDataForOfflineComparison } from '@/app/lib/normalizeTravelDataForOfflineComparison';
-import type { NormalizedTravelDataForOfflineComparison } from '@/app/lib/normalizeTravelDataForOfflineComparison';
 import {
   createTravelDataDelta,
   isTravelDataDelta,
@@ -20,12 +18,9 @@ import type { CostTrackingData, TravelData } from '@/app/types';
 
 const STORAGE_KEY = 'travel-tracker-offline-delta-queue-v1';
 export const OFFLINE_DELTA_QUEUE_EVENT = 'travel-tracker-offline-delta-queue-changed';
-const SYNC_LOCK_KEY = `${STORAGE_KEY}-sync-lock`;
 const DEFAULT_LOCAL_STORAGE_BUDGET_BYTES = 5 * 1024 * 1024;
 const LOCAL_STORAGE_WARNING_RATIO = 0.8;
 const LOCAL_STORAGE_CRITICAL_RATIO = 0.95;
-const SYNC_LOCK_TIMEOUT_MS = 15_000;
-const SYNC_LOCK_POLL_INTERVAL_MS = 100;
 
 type OfflineQueueStatus = 'pending' | 'conflict';
 
@@ -115,9 +110,6 @@ let lastStorageWarningLevel: 'none' | 'warning' | 'critical' = 'none';
 
 const canUseStorage = (): boolean =>
   typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-
-const createSyncLockOwnerId = (): string =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 const isOfflineQueueStatus = (value: unknown): value is OfflineQueueStatus =>
   value === 'pending' || value === 'conflict';
@@ -264,101 +256,6 @@ const emitQueueChanged = (entries: OfflineQueueEntry[]): void => {
   );
 };
 
-const getSyncLockRecord = (): { ownerId: string; expiresAt: number } | null => {
-  if (!canUseStorage()) {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(SYNC_LOCK_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw) as { ownerId?: unknown; expiresAt?: unknown };
-    if (
-      typeof parsed.ownerId !== 'string' ||
-      typeof parsed.expiresAt !== 'number' ||
-      !Number.isFinite(parsed.expiresAt)
-    ) {
-      return null;
-    }
-
-    return {
-      ownerId: parsed.ownerId,
-      expiresAt: parsed.expiresAt
-    };
-  } catch {
-    return null;
-  }
-};
-
-const tryAcquireSyncLock = (ownerId: string): boolean => {
-  if (!canUseStorage()) {
-    return true;
-  }
-
-  try {
-    const now = Date.now();
-    const currentLock = getSyncLockRecord();
-    if (currentLock && currentLock.ownerId !== ownerId && currentLock.expiresAt > now) {
-      return false;
-    }
-
-    const nextLock = JSON.stringify({
-      ownerId,
-      expiresAt: now + SYNC_LOCK_TIMEOUT_MS
-    });
-    window.localStorage.setItem(SYNC_LOCK_KEY, nextLock);
-
-    return getSyncLockRecord()?.ownerId === ownerId;
-  } catch {
-    return true;
-  }
-};
-
-const releaseSyncLock = (ownerId: string): void => {
-  if (!canUseStorage()) {
-    return;
-  }
-
-  try {
-    if (getSyncLockRecord()?.ownerId === ownerId) {
-      window.localStorage.removeItem(SYNC_LOCK_KEY);
-    }
-  } catch {
-    // Best-effort cleanup only.
-  }
-};
-
-const sleep = (durationMs: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, durationMs);
-  });
-
-const withOfflineQueueSyncLock = async <T>(callback: () => Promise<T>): Promise<T> => {
-  if (!canUseStorage()) {
-    return callback();
-  }
-
-  const ownerId = createSyncLockOwnerId();
-  const startedAt = Date.now();
-
-  while (!tryAcquireSyncLock(ownerId)) {
-    if (Date.now() - startedAt >= SYNC_LOCK_TIMEOUT_MS) {
-      throw new Error('Timed out waiting for offline delta queue sync lock.');
-    }
-
-    await sleep(SYNC_LOCK_POLL_INTERVAL_MS);
-  }
-
-  try {
-    return await callback();
-  } finally {
-    releaseSyncLock(ownerId);
-  }
-};
-
 const parseStoredEntries = (raw: unknown): OfflineQueueEntry[] => {
   if (!Array.isArray(raw)) {
     return [];
@@ -459,21 +356,21 @@ const writeQueue = (entries: OfflineQueueEntry[]): void => {
 };
 
 const toTravelDeltaComparable = (
-  candidate: NormalizedTravelDataForOfflineComparison,
+  candidate: Partial<TravelData>,
   fallback: TravelData
 ): TravelData => {
   return {
-    id: candidate.id ?? fallback.id,
+    id: candidate.id || fallback.id,
     title: candidate.title ?? fallback.title,
     description: candidate.description ?? fallback.description,
     startDate: (candidate.startDate ?? fallback.startDate) as TravelData['startDate'],
     endDate: (candidate.endDate ?? fallback.endDate) as TravelData['endDate'],
-    instagramUsername: candidate.instagramUsername ?? fallback.instagramUsername ?? '',
-    locations: (Array.isArray(candidate.locations) ? candidate.locations : fallback.locations) as TravelData['locations'],
-    routes: (Array.isArray(candidate.routes) ? candidate.routes : fallback.routes) as TravelData['routes'],
+    instagramUsername: candidate.instagramUsername ?? fallback.instagramUsername,
+    locations: Array.isArray(candidate.locations) ? candidate.locations : fallback.locations,
+    routes: Array.isArray(candidate.routes) ? candidate.routes : fallback.routes,
     accommodations: Array.isArray(candidate.accommodations)
-      ? (candidate.accommodations as TravelData['accommodations'])
-      : (fallback.accommodations ?? [])
+      ? candidate.accommodations
+      : fallback.accommodations
   };
 };
 
@@ -504,46 +401,6 @@ const toCostDeltaComparable = (
 
 const getPendingCount = (entries: OfflineQueueEntry[]): number =>
   entries.filter((entry) => entry.status === 'pending').length;
-
-const propagateSyncedTravelSnapshotToPendingCostEntries = (
-  queue: OfflineQueueEntry[],
-  syncedTravelEntry: OfflineTravelQueueEntry
-): void => {
-  const syncedTravelId = syncedTravelEntry.id;
-  const syncedSnapshot = syncedTravelEntry.pendingSnapshot;
-
-  queue.forEach((entry, index) => {
-    if (entry.kind !== 'cost' || entry.status !== 'pending') {
-      return;
-    }
-
-    if (normalizeCostEntryId(entry.baseSnapshot.tripId) !== normalizeCostEntryId(syncedTravelId)) {
-      return;
-    }
-
-    const nextBaseSnapshot: CostTrackingData = {
-      ...entry.baseSnapshot,
-      tripTitle: syncedSnapshot.title,
-      tripStartDate: syncedSnapshot.startDate as CostTrackingData['tripStartDate'],
-      tripEndDate: syncedSnapshot.endDate as CostTrackingData['tripEndDate']
-    };
-
-    const nextPendingSnapshot: CostTrackingData = {
-      ...entry.pendingSnapshot,
-      tripTitle: syncedSnapshot.title,
-      tripStartDate: syncedSnapshot.startDate as CostTrackingData['tripStartDate'],
-      tripEndDate: syncedSnapshot.endDate as CostTrackingData['tripEndDate']
-    };
-
-    // Keep the stored cost delta as-is: trip metadata is travel-owned server state, while the
-    // queued cost delta only tracks user-authored cost edits such as budget/expense changes.
-    queue[index] = {
-      ...entry,
-      baseSnapshot: nextBaseSnapshot,
-      pendingSnapshot: nextPendingSnapshot
-    };
-  });
-};
 
 export const normalizeCostEntryId = (id: string): string => id.replace(/^(cost-)+/, '');
 
@@ -696,7 +553,6 @@ const syncTravelEntry = async (
     patchUrl: `/api/travel-data?id=${encodeURIComponent(entry.id)}`,
     baseSnapshot: entry.baseSnapshot,
     pendingDelta: entry.delta,
-    normalizeSnapshot: normalizeTravelDataForOfflineComparison,
     toComparable: toTravelDeltaComparable,
     createDelta: createTravelDataDelta,
     isDeltaEmpty: isTravelDataDeltaEmpty
@@ -748,28 +604,26 @@ const syncCostEntry = async (
   return coreResult;
 };
 
-type SyncEntryCoreParams<TSnapshot, TDelta, TComparableInput = Partial<TSnapshot>> = {
+type SyncEntryCoreParams<TSnapshot, TDelta> = {
   id: string;
   fetchUrl: string;
   patchUrl: string;
   baseSnapshot: TSnapshot;
   pendingDelta: TDelta;
-  normalizeSnapshot?: (candidate: Partial<TSnapshot>) => TComparableInput;
-  toComparable: (candidate: TComparableInput, fallback: TSnapshot) => TSnapshot;
+  toComparable: (candidate: Partial<TSnapshot>, fallback: TSnapshot) => TSnapshot;
   createDelta: (previous: TSnapshot, current: TSnapshot) => TDelta | null;
   isDeltaEmpty: (delta: TDelta | null | undefined) => boolean;
 };
 
-const syncEntryCore = async <TSnapshot, TDelta, TComparableInput = Partial<TSnapshot>>({
+const syncEntryCore = async <TSnapshot, TDelta>({
   fetchUrl,
   patchUrl,
   baseSnapshot,
   pendingDelta,
-  normalizeSnapshot,
   toComparable,
   createDelta,
   isDeltaEmpty
-}: SyncEntryCoreParams<TSnapshot, TDelta, TComparableInput>): Promise<{
+}: SyncEntryCoreParams<TSnapshot, TDelta>): Promise<{
   status: 'synced' | 'conflict' | 'failed';
   serverDelta?: TDelta | null;
 }> => {
@@ -779,16 +633,8 @@ const syncEntryCore = async <TSnapshot, TDelta, TComparableInput = Partial<TSnap
   }
 
   const serverRaw = (await response.json()) as Partial<TSnapshot>;
-  const normalizedBaseSnapshot = normalizeSnapshot
-    ? normalizeSnapshot(baseSnapshot as Partial<TSnapshot>)
-    : (baseSnapshot as unknown as TComparableInput);
-  const baseComparable = toComparable(normalizedBaseSnapshot, baseSnapshot);
-  const normalizedServerSnapshot = normalizeSnapshot
-    ? normalizeSnapshot(serverRaw)
-    : (serverRaw as unknown as TComparableInput);
-  // Use the canonicalized base as the fallback so omitted server fields resolve through the same
-  // normalized defaults that removed the false-conflict cases in the first place.
-  const serverComparable = toComparable(normalizedServerSnapshot, baseComparable);
+  const baseComparable = toComparable(baseSnapshot, baseSnapshot);
+  const serverComparable = toComparable(serverRaw, baseSnapshot);
   const serverDelta = createDelta(baseComparable, serverComparable);
 
   if (serverDelta && !isDeltaEmpty(serverDelta)) {
@@ -857,11 +703,8 @@ const runSyncOfflineDeltaQueue = async (
       if (result.status === 'synced') {
         synced += 1;
         changed = true;
-        if (entry.kind === 'travel') {
-          propagateSyncedTravelSnapshotToPendingCostEntries(queue, entry);
-        }
-        queue.splice(index, 1);
         options.onSynced?.(entry);
+        queue.splice(index, 1);
         index -= 1;
         continue;
       }
@@ -930,34 +773,22 @@ export const syncOfflineDeltaQueue = async (
   const mergedOptions: SyncOfflineDeltaQueueOptions = {
     onConflict: (conflict) => {
       syncSubscribers.forEach((subscriber) => {
-        try {
-          subscriber.onConflict?.(conflict);
-        } catch (error) {
-          console.error('Offline delta conflict subscriber failed:', error);
-        }
+        subscriber.onConflict?.(conflict);
       });
     },
     onSynced: (entry) => {
       syncSubscribers.forEach((subscriber) => {
-        try {
-          subscriber.onSynced?.(entry);
-        } catch (error) {
-          console.error('Offline delta sync subscriber failed:', error);
-        }
+        subscriber.onSynced?.(entry);
       });
     },
     onError: (entry, error) => {
       syncSubscribers.forEach((subscriber) => {
-        try {
-          subscriber.onError?.(entry, error);
-        } catch (subscriberError) {
-          console.error('Offline delta error subscriber failed:', subscriberError);
-        }
+        subscriber.onError?.(entry, error);
       });
     }
   };
 
-  inFlightSync = withOfflineQueueSyncLock(() => runSyncOfflineDeltaQueue(mergedOptions));
+  inFlightSync = runSyncOfflineDeltaQueue(mergedOptions);
   try {
     return await inFlightSync;
   } finally {
