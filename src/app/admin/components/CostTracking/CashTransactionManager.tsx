@@ -80,7 +80,7 @@ type CashRefundToBaseFormState = {
   date: Date | null;
   sourceCurrency: string;
   localAmount: string;
-  exchangeRateBasePerLocal: string;
+  refundedBaseAmount: string;
   country: string;
   description: string;
   notes: string;
@@ -122,7 +122,7 @@ const INITIAL_REFUND_TO_BASE_FORM: CashRefundToBaseFormState = {
   date: getTodayLocalDay(),
   sourceCurrency: '',
   localAmount: '',
-  exchangeRateBasePerLocal: '',
+  refundedBaseAmount: '',
   country: '',
   description: '',
   notes: '',
@@ -187,6 +187,13 @@ export default function CashTransactionManager({
     () =>
       costData.expenses
         .filter(isCashSource)
+        .filter(source => {
+          const { fundingSegments, remainingLocalAmount, remainingBaseAmount } = source.cashTransaction;
+          const isFullyConsumedDerivedCashEvent =
+            Boolean(fundingSegments?.length) && remainingLocalAmount <= 0 && remainingBaseAmount <= 0;
+
+          return !isFullyConsumedDerivedCashEvent;
+        })
         .sort((a, b) => getLocalDateSortValue(a.date) - getLocalDateSortValue(b.date)),
     [costData.expenses]
   );
@@ -543,7 +550,7 @@ export default function CashTransactionManager({
 
     const sourceCurrency = refundToBaseForm.sourceCurrency.trim().toUpperCase();
     const localAmount = parseFloat(refundToBaseForm.localAmount);
-    const exchangeRateBasePerLocal = parseFloat(refundToBaseForm.exchangeRateBasePerLocal);
+    const refundedBaseAmount = parseFloat(refundToBaseForm.refundedBaseAmount);
 
     if (!sourceCurrency) {
       alert('Select the currency you are refunding from.');
@@ -566,10 +573,12 @@ export default function CashTransactionManager({
       return;
     }
 
-    if (Number.isNaN(exchangeRateBasePerLocal) || exchangeRateBasePerLocal <= 0) {
-      alert('Provide an exchange rate to calculate the refund in your tracking currency.');
+    if (Number.isNaN(refundedBaseAmount) || refundedBaseAmount <= 0) {
+      alert(`Enter the refunded amount received in ${currency} (must be greater than zero).`);
       return;
     }
+
+    const exchangeRateBasePerLocal = refundedBaseAmount / localAmount;
 
     setIsSubmitting(true);
     try {
@@ -647,12 +656,32 @@ export default function CashTransactionManager({
 
   const estimatedRefundToBaseAmount = useMemo(() => {
     const localAmount = parseFloat(refundToBaseForm.localAmount);
-    const rate = parseFloat(refundToBaseForm.exchangeRateBasePerLocal);
-    if (Number.isNaN(localAmount) || Number.isNaN(rate) || localAmount <= 0 || rate <= 0) {
+    const refundedBaseAmount = parseFloat(refundToBaseForm.refundedBaseAmount);
+    if (
+      Number.isNaN(localAmount) ||
+      Number.isNaN(refundedBaseAmount) ||
+      localAmount <= 0 ||
+      refundedBaseAmount <= 0
+    ) {
       return null;
     }
-    return roundCurrency(localAmount * rate);
-  }, [refundToBaseForm.localAmount, refundToBaseForm.exchangeRateBasePerLocal]);
+    return roundCurrency(refundedBaseAmount);
+  }, [refundToBaseForm.localAmount, refundToBaseForm.refundedBaseAmount]);
+
+  const derivedRefundToBaseRate = useMemo(() => {
+    const localAmount = parseFloat(refundToBaseForm.localAmount);
+    const refundedBaseAmount = parseFloat(refundToBaseForm.refundedBaseAmount);
+    if (
+      Number.isNaN(localAmount) ||
+      Number.isNaN(refundedBaseAmount) ||
+      localAmount <= 0 ||
+      refundedBaseAmount <= 0
+    ) {
+      return null;
+    }
+
+    return roundCurrency(refundedBaseAmount / localAmount, 6);
+  }, [refundToBaseForm.localAmount, refundToBaseForm.refundedBaseAmount]);
 
   const handleAllocationChange = (currencyKey: string, updates: Partial<CashAllocationFormState>) => {
     setAllocationForms(prev => ({
@@ -1666,24 +1695,34 @@ export default function CashTransactionManager({
                 </div>
 
                 <div>
-                  <label htmlFor="cash-refund-to-base-exchange-rate" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Exchange rate (1 {refundToBaseForm.sourceCurrency || 'local'} = X {currency}) *
+                  <label htmlFor="cash-refund-to-base-base-amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Refunded amount received in {currency} *
                   </label>
                   <input
-                    id="cash-refund-to-base-exchange-rate"
+                    id="cash-refund-to-base-base-amount"
                     type="number"
                     min="0"
-                    step="0.0001"
-                    value={refundToBaseForm.exchangeRateBasePerLocal}
+                    step="0.01"
+                    value={refundToBaseForm.refundedBaseAmount}
                     onChange={e =>
-                      setRefundToBaseForm(prev => ({ ...prev, exchangeRateBasePerLocal: e.target.value }))
+                      setRefundToBaseForm(prev => ({ ...prev, refundedBaseAmount: e.target.value }))
                     }
                     className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded"
-                    placeholder="e.g., 0.0009"
+                    placeholder="0.00"
                   />
                   {estimatedRefundToBaseAmount !== null && (
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      ≈ {estimatedRefundToBaseAmount.toFixed(2)} {currency}
+                      Received: {estimatedRefundToBaseAmount.toFixed(2)} {currency}
+                    </p>
+                  )}
+                  {derivedRefundToBaseRate !== null && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Derived rate: 1 {refundToBaseForm.sourceCurrency || 'local'} ={' '}
+                      {derivedRefundToBaseRate.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 6
+                      })}{' '}
+                      {currency}
                     </p>
                   )}
                 </div>
