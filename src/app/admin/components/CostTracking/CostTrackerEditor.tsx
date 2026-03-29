@@ -49,6 +49,72 @@ interface CostTrackerEditorProps {
   onRefreshData?: () => Promise<void>;
 }
 
+type ApplyExpenseToCostDataParams = {
+  costData: CostTrackingData;
+  expense: Expense;
+  editingExpenseIndex: number | null;
+};
+
+export function applyExpenseToCostData({
+  costData,
+  expense,
+  editingExpenseIndex
+}: ApplyExpenseToCostDataParams): CostTrackingData {
+  const updatedCountryBudgets = [...costData.countryBudgets];
+  if (!expense.isGeneralExpense && expense.country && editingExpenseIndex === null) {
+    const hasBudget = updatedCountryBudgets.some(budget => budget.country === expense.country);
+    if (!hasBudget) {
+      updatedCountryBudgets.push({
+        id: generateId(),
+        country: expense.country,
+        currency: costData.currency,
+        notes: 'Auto-created when adding expense'
+      });
+    }
+  }
+
+  let updatedExpenses = [...costData.expenses];
+
+  if (isCashSource(expense) && expense.cashTransaction.fundingSegments?.length) {
+    const segments = expense.cashTransaction.fundingSegments;
+    const missingSource = segments.find(
+      segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
+    );
+
+    if (missingSource) {
+      throw new Error(
+        'Unable to find one of the funding exchanges referenced by this transaction. Please refresh and try again.'
+      );
+    }
+
+    updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
+  }
+
+  if (isCashAllocation(expense) && editingExpenseIndex === null) {
+    const segments = getAllocationSegments(expense.cashTransaction);
+    const missingSource = segments.find(
+      segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
+    );
+
+    if (missingSource) {
+      throw new Error('Unable to find one of the cash exchanges referenced by this spending. Please refresh and try again.');
+    }
+
+    updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
+    updatedExpenses = [...updatedExpenses, expense];
+  } else if (editingExpenseIndex !== null) {
+    updatedExpenses[editingExpenseIndex] = expense;
+  } else {
+    updatedExpenses = [...updatedExpenses, expense];
+  }
+
+  return {
+    ...costData,
+    expenses: updatedExpenses,
+    countryBudgets: updatedCountryBudgets
+  };
+}
+
 /**
  * Renders the CostTrackerEditor UI for creating and editing a cost-tracking dataset, including budget and country budgets, categories, expense tracking, YNAB import/mappings/setup, travel lookup and expense-to-travel linking.
  *
@@ -246,84 +312,33 @@ export default function CostTrackerEditor({
       };
     }
 
-    const updatedCountryBudgets = [...costData.countryBudgets];
-    if (!expense.isGeneralExpense && expense.country && editingExpenseIndex === null) {
-      const hasBudget = updatedCountryBudgets.some(budget => budget.country === expense.country);
-      if (!hasBudget) {
-        updatedCountryBudgets.push({
-          id: generateId(),
-          country: expense.country,
-          currency: costData.currency,
-          notes: 'Auto-created when adding expense'
+    let updatedCostData: CostTrackingData | null = null;
+    let applyErrorMessage: string | null = null;
+
+    setCostData(prevCostData => {
+      try {
+        updatedCostData = applyExpenseToCostData({
+          costData: prevCostData,
+          expense,
+          editingExpenseIndex
         });
-      }
-    }
-
-    let updatedExpenses = [...costData.expenses];
-
-    if (isCashSource(expense) && expense.cashTransaction.fundingSegments?.length) {
-      const segments = expense.cashTransaction.fundingSegments;
-      const missingSource = segments.find(
-        segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
-      );
-
-      if (missingSource) {
-        alert(
-          'Unable to find one of the funding exchanges referenced by this transaction. Please refresh and try again.'
-        );
-        return;
-      }
-
-      try {
-        updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
+        return updatedCostData;
       } catch (error) {
-        console.error('Failed to apply funding segments to cash sources:', error);
-        alert(
+        applyErrorMessage =
           error instanceof Error
             ? error.message
-            : 'Unable to apply the funding exchanges to this transaction.'
-        );
-        return;
+            : 'Unable to update the cost tracker with this expense.';
+        return prevCostData;
       }
+    });
+
+    if (applyErrorMessage || !updatedCostData) {
+      const errorMessage =
+        applyErrorMessage ?? 'Unable to update the cost tracker with this expense.';
+      console.error('Failed to apply expense update:', errorMessage);
+      alert(errorMessage);
+      return;
     }
-
-    if (isCashAllocation(expense) && editingExpenseIndex === null) {
-      const segments = getAllocationSegments(expense.cashTransaction);
-      const missingSource = segments.find(
-        segment => !updatedExpenses.some(existing => existing.id === segment.sourceExpenseId)
-      );
-
-      if (missingSource) {
-        alert('Unable to find one of the cash exchanges referenced by this spending. Please refresh and try again.');
-        return;
-      }
-
-      try {
-        updatedExpenses = applyAllocationSegmentsToSources(updatedExpenses, segments, expense.id);
-      } catch (error) {
-        console.error('Failed to apply cash allocation:', error);
-        alert(
-          error instanceof Error
-            ? error.message
-            : 'Unable to allocate this cash spending to the available exchanges.'
-        );
-        return;
-      }
-
-      updatedExpenses = [...updatedExpenses, expense];
-    } else if (editingExpenseIndex !== null) {
-      updatedExpenses[editingExpenseIndex] = expense;
-    } else {
-      updatedExpenses = [...updatedExpenses, expense];
-    }
-
-    const updatedCostData: CostTrackingData = {
-      ...costData,
-      expenses: updatedExpenses,
-      countryBudgets: updatedCountryBudgets
-    };
-
-    setCostData(updatedCostData);
 
     if (editingExpenseIndex !== null) {
       setEditingExpenseIndex(null);
