@@ -595,7 +595,7 @@ export default function CostSummaryDashboard({
           {tripSpendingHistory.length > 0 ? (
             <div className="mt-6">
               <div className="-mx-1 overflow-x-auto pb-1">
-                <div className="grid min-h-[18rem] min-w-max grid-flow-col auto-cols-[minmax(5.5rem,1fr)] gap-2 px-1 sm:gap-3 md:min-w-0 md:grid-cols-7 md:grid-flow-row md:auto-cols-auto">
+                <div className="grid min-h-[18rem] min-w-max grid-flow-col auto-cols-[minmax(5.5rem,1fr)] gap-2 px-1 sm:gap-3 md:min-w-0 md:grid-cols-7 md:grid-flow-row">
                 {tripSpendingHistory.map(entry => {
                   const normalizedAmount = Math.max(entry.amount, 0);
                   const percentage = maxTripSpending > 0 ? (normalizedAmount / maxTripSpending) * 100 : 0;
