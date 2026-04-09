@@ -44,8 +44,10 @@ export default function CountryBudgetManager({
     }
 
     const existingBudget = editingBudgetIndex !== null ? costData.countryBudgets[editingBudgetIndex] : null;
+    const existingBudgetWithoutAmount = existingBudget ? { ...existingBudget } : {};
+    delete existingBudgetWithoutAmount.amount;
     const baseBudgetItem = {
-      ...(existingBudget ?? {}),
+      ...existingBudgetWithoutAmount,
       id: existingBudget?.id ?? generateId(),
       country: currentBudget.country,
       currency: costData.currency,
