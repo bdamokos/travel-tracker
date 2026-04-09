@@ -1288,6 +1288,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData, debug = false
     // Handle overlay visibility changes for keyboard navigation (WCAG compliance)
     map.on('overlayadd', (event: L.LayersControlEvent) => {
       if (event.layer === locationMarkersLayer) {
+        if (!map.hasLayer(spiderfyLegsLayer)) {
+          spiderfyLegsLayer.addTo(map);
+        }
         // Restore focus order when locations layer is re-enabled
         updateFocusOrder();
       }
@@ -1295,6 +1298,9 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData, debug = false
 
     map.on('overlayremove', (event: L.LayersControlEvent) => {
       if (event.layer === locationMarkersLayer) {
+        if (map.hasLayer(spiderfyLegsLayer)) {
+          map.removeLayer(spiderfyLegsLayer);
+        }
         // Clear focus order when locations layer is disabled to prevent Tab trapping
         focusOrderRef.current = [];
         focusedMarkerKeyRef.current = null;
