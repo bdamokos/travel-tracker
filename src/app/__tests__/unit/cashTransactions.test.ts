@@ -5,6 +5,7 @@ import {
   createCashRefundExpense,
   createCashRefundToBase,
   createCashSourceExpense,
+  getCashSourceDateEditConflict,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
 import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
@@ -294,6 +295,89 @@ describe('cash transaction utilities', () => {
     expect(newSource.cashTransaction?.localCurrency).toBe('VES');
     expect(updatedSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(6000, 5);
     expect(updatedSources[0].cashTransaction.remainingBaseAmount).toBeCloseTo(6, 5);
+  });
+
+  test('cash conversion date edit conflicts after the first dependent usage', () => {
+    const clpSource = createCashSourceExpense({
+      id: 'clp-source-1',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'CLP',
+      trackingCurrency: 'EUR',
+      country: 'Chile'
+    });
+
+    const { newSource } = createCashConversion({
+      id: 'cash-source-ves',
+      sources: [clpSource],
+      sourceLocalAmount: 4000,
+      targetLocalAmount: 20,
+      targetCurrency: 'VES',
+      date: new Date('2024-02-01T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      country: 'Venezuela'
+    });
+
+    const { expense: allocationExpense } = createCashAllocationExpense({
+      id: 'cash-allocation-ves',
+      sources: [newSource],
+      localAmount: 5,
+      date: new Date('2024-02-03T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      category: 'Food'
+    });
+
+    const conflict = getCashSourceDateEditConflict(
+      [clpSource, newSource, allocationExpense],
+      newSource,
+      new Date('2024-02-04T00:00:00Z')
+    );
+
+    expect(conflict?.message).toContain('first dependent cash event');
+    expect(conflict?.message).toContain('3 Feb 2024');
+  });
+
+  test('cash conversion date edit conflicts before its latest funding source date', () => {
+    const firstSource = createCashSourceExpense({
+      id: 'cop-source-1',
+      date: new Date('2024-02-01T00:00:00Z'),
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'COP',
+      trackingCurrency: 'EUR',
+      country: 'Colombia'
+    });
+
+    const secondSource = createCashSourceExpense({
+      id: 'cop-source-2',
+      date: new Date('2024-02-05T00:00:00Z'),
+      baseAmount: 5,
+      localAmount: 5000,
+      localCurrency: 'COP',
+      trackingCurrency: 'EUR',
+      country: 'Colombia'
+    });
+
+    const { newSource } = createCashConversion({
+      id: 'cash-source-usd',
+      sources: [firstSource, secondSource],
+      sourceLocalAmount: 12000,
+      targetLocalAmount: 3,
+      targetCurrency: 'USD',
+      date: new Date('2024-02-06T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      country: 'Colombia'
+    });
+
+    const conflict = getCashSourceDateEditConflict(
+      [firstSource, secondSource, newSource],
+      newSource,
+      new Date('2024-02-04T00:00:00Z')
+    );
+
+    expect(conflict?.message).toContain('latest funding cash event');
+    expect(conflict?.message).toContain('5 Feb 2024');
   });
 
   test('cash refund to base accounts for losses with exchange fee expense', () => {

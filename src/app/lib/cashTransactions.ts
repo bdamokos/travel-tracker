@@ -6,6 +6,7 @@ import {
   TravelReference
 } from '@/app/types';
 import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME, generateId } from './costUtils';
+import { formatLocalDateLabel, getLocalDateSortValue } from './localDateUtils';
 
 const CURRENCY_EPSILON = 0.000001;
 
@@ -225,6 +226,10 @@ export interface ResolvedCashFundingSegment {
 export interface ResolvedCashSourceUsage {
   expense: Expense & { cashTransaction: CashTransactionSourceDetails };
   segment: CashTransactionAllocationSegment;
+}
+
+export interface CashSourceDateEditConflict {
+  message: string;
 }
 
 function getSourceCurrency(source: Expense): string {
@@ -581,6 +586,71 @@ export function getAllocationsForSource(expenses: Expense[], sourceId: string): 
   return expenses
     .filter(isCashAllocation)
     .filter(expense => getAllocationSegments(expense.cashTransaction).some(segment => segment.sourceExpenseId === sourceId));
+}
+
+export function getCashSourceDateEditConflict(
+  expenses: Expense[],
+  sourceExpense: Expense,
+  nextDate: Date | string | undefined | null
+): CashSourceDateEditConflict | null {
+  if (!isCashSource(sourceExpense)) {
+    return null;
+  }
+
+  const nextDateSortValue = getLocalDateSortValue(nextDate);
+  if (nextDateSortValue === Number.MAX_SAFE_INTEGER) {
+    return null;
+  }
+
+  const fundingSources = getFundingSegmentsForSource(expenses, sourceExpense);
+  const latestFundingSource = fundingSources.reduce<Expense | null>((latest, item) => {
+    if (!latest) {
+      return item.source;
+    }
+
+    return getLocalDateSortValue(item.source.date) > getLocalDateSortValue(latest.date)
+      ? item.source
+      : latest;
+  }, null);
+
+  if (
+    latestFundingSource &&
+    nextDateSortValue < getLocalDateSortValue(latestFundingSource.date)
+  ) {
+    return {
+      message: `This date cannot be earlier than its latest funding cash event on ${formatLocalDateLabel(
+        latestFundingSource.date
+      )}.`
+    };
+  }
+
+  const usageExpenses = [
+    ...getCashSourceUsages(expenses, sourceExpense.id).map(item => item.expense),
+    ...getAllocationsForSource(expenses, sourceExpense.id)
+  ];
+
+  const earliestUsageExpense = usageExpenses.reduce<Expense | null>((earliest, expense) => {
+    if (!earliest) {
+      return expense;
+    }
+
+    return getLocalDateSortValue(expense.date) < getLocalDateSortValue(earliest.date)
+      ? expense
+      : earliest;
+  }, null);
+
+  if (
+    earliestUsageExpense &&
+    nextDateSortValue > getLocalDateSortValue(earliestUsageExpense.date)
+  ) {
+    return {
+      message: `This date cannot be later than the first dependent cash event on ${formatLocalDateLabel(
+        earliestUsageExpense.date
+      )}.`
+    };
+  }
+
+  return null;
 }
 
 /**

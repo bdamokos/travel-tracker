@@ -1,5 +1,6 @@
 import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '@/app/types';
 import { formatLocalDateInput, formatLocalDateLabel, getLocalDateSortValue, getTodayLocalDay, parseDateAsLocalDay } from './localDateUtils';
+import { getUniquePeriodDayCount } from './costDashboardAnalytics';
 
 const MS_IN_DAY = 1000 * 60 * 60 * 24;
 
@@ -487,14 +488,8 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
 
     if (countryBudget?.periods && countryBudget.periods.length > 0) {
-      // Use configured periods to calculate total days
-      countryData.days = countryBudget.periods.reduce((totalDays, period) => {
-        const periodStart = parseDateAsLocalDay(period.startDate);
-        const periodEnd = parseDateAsLocalDay(period.endDate);
-        if (!periodStart || !periodEnd) return totalDays;
-        const periodDays = calculateInclusiveDays(periodStart, periodEnd);
-        return totalDays + periodDays;
-      }, 0);
+      // Use the unique union of configured periods to avoid overlap inflation.
+      countryData.days = getUniquePeriodDayCount(countryBudget.periods);
     } else {
       // Fallback to expense-based calculation
       const countryExpenseDates = countryData.expenses

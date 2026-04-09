@@ -6,11 +6,6 @@ import CostTrackerEditor from '@/app/admin/components/CostTracking/CostTrackerEd
 import { createCashRefundToBase, createCashSourceExpense } from '@/app/lib/cashTransactions';
 import type { CostTrackingData, ExistingTrip, Expense } from '@/app/types';
 
-jest.mock('@/app/admin/components/CostPieCharts', () => ({
-  __esModule: true,
-  default: () => <div data-testid="cost-pie-charts" />
-}));
-
 jest.mock('@/app/admin/components/CostTracking/BudgetSetup', () => ({
   __esModule: true,
   default: () => <div data-testid="budget-setup" />
@@ -24,11 +19,6 @@ jest.mock('@/app/admin/components/CostTracking/CountryBudgetManager', () => ({
 jest.mock('@/app/admin/components/CostTracking/CategoryManager', () => ({
   __esModule: true,
   default: () => <div data-testid="category-manager" />
-}));
-
-jest.mock('@/app/admin/components/CostTracking/CountryBreakdownDisplay', () => ({
-  __esModule: true,
-  default: () => <div data-testid="country-breakdown-display" />
 }));
 
 jest.mock('@/app/admin/components/CostTracking/CostSummaryDashboard', () => ({

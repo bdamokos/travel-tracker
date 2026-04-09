@@ -34,7 +34,10 @@ export default function ExpenseDisplay({
     isCashSourceExpense && allExpenses ? getFundingSegmentsForSource(allExpenses, expense) : [];
   const sourceUsages =
     isCashSourceExpense && allExpenses ? getCashSourceUsages(allExpenses, expense.id) : [];
-  const canEdit = !isCashSourceExpense;
+  const canEdit = isCashAllocationExpense || !isCashSourceExpense || (
+    expense.cashTransaction.sourceType === 'exchange' &&
+    Boolean(expense.cashTransaction.fundingSegments?.length)
+  );
 
   const formatDate = (date: string | Date) => {
     return formatUtcDate(date, 'en-GB', {

@@ -78,4 +78,39 @@ describe('ExpenseDisplay', () => {
     expect(screen.getByText(/CLP to VES conversion/)).toBeInTheDocument();
     expect(screen.getByText(/4\.00 EUR \(4000\.00 CLP\)/)).toBeInTheDocument();
   });
+
+  test('shows edit action for derived cash conversions', () => {
+    const sourceExpense = createCashSourceExpense({
+      id: 'cash-source-clp',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'CLP',
+      trackingCurrency: 'EUR',
+      country: 'Chile',
+      description: 'CLP ATM withdrawal'
+    });
+
+    const { newSource } = createCashConversion({
+      id: 'cash-source-ves',
+      sources: [sourceExpense],
+      sourceLocalAmount: 4000,
+      targetLocalAmount: 20,
+      targetCurrency: 'VES',
+      date: new Date('2024-02-01T00:00:00Z'),
+      trackingCurrency: 'EUR',
+      country: 'Venezuela',
+      description: 'CLP to VES conversion'
+    });
+
+    render(
+      <ExpenseDisplay
+        expense={newSource}
+        allExpenses={[sourceExpense, newSource]}
+        onEdit={() => undefined}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+  });
 });
