@@ -74,14 +74,15 @@ describe('CountryBudgetManager', () => {
 
     render(<Wrapper />);
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const [editBudgetButton] = screen.getAllByRole('button', { name: 'Edit' });
+    await user.click(editBudgetButton);
 
     const amountInput = screen.getByLabelText('Budget Amount');
     await user.clear(amountInput);
     await user.click(screen.getByRole('button', { name: 'Update Budget' }));
 
     expect(screen.getByText('Not set')).toBeInTheDocument();
-    expect(screen.getByText(/Mar 1, 2026 - Mar 5, 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/1 Mar 2026 - 5 Mar 2026/)).toBeInTheDocument();
     expect(screen.getByText('Total days: 5')).toBeInTheDocument();
   });
 });
