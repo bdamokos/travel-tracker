@@ -594,7 +594,8 @@ export default function CostSummaryDashboard({
 
           {tripSpendingHistory.length > 0 ? (
             <div className="mt-6">
-              <div className="grid min-h-[18rem] grid-cols-7 gap-2 sm:gap-3">
+              <div className="-mx-1 overflow-x-auto pb-1">
+                <div className="grid min-h-[18rem] min-w-max grid-flow-col auto-cols-[minmax(5.5rem,1fr)] gap-2 px-1 sm:gap-3 md:min-w-0 md:grid-cols-7 md:grid-flow-row">
                 {tripSpendingHistory.map(entry => {
                   const normalizedAmount = Math.max(entry.amount, 0);
                   const percentage = maxTripSpending > 0 ? (normalizedAmount / maxTripSpending) * 100 : 0;
@@ -613,7 +614,7 @@ export default function CostSummaryDashboard({
                       key={entry.date}
                       type="button"
                       onClick={() => setSelectedTripSpendingDate(entry.date)}
-                      className={`flex h-full min-h-[16rem] flex-col justify-end rounded-[1.1rem] border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      className={`flex h-full min-h-[16rem] min-w-[5.5rem] flex-col justify-end rounded-[1.1rem] border p-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:p-3 ${
                         isSelected
                           ? 'border-blue-400 bg-blue-50 shadow-sm dark:border-blue-500 dark:bg-blue-950/40'
                           : 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900'
@@ -622,7 +623,7 @@ export default function CostSummaryDashboard({
                       aria-pressed={isSelected}
                       title={`Show expenses for ${dayLabel}`}
                     >
-                      <div className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      <div className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 sm:text-[0.72rem] sm:tracking-[0.18em]">
                         {dayLabel}
                       </div>
                       <div className="mt-4 flex-1 rounded-[0.9rem] bg-slate-200/80 p-2 dark:bg-slate-800">
@@ -633,12 +634,13 @@ export default function CostSummaryDashboard({
                           />
                         </div>
                       </div>
-                      <div className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                      <div className="mt-3 text-base font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-lg">
                         {formatCurrency(entry.amount, costData.currency)}
                       </div>
                     </button>
                   );
                 })}
+                </div>
               </div>
             </div>
           ) : (
