@@ -243,6 +243,31 @@ describe('costDashboardAnalytics', () => {
     expect(analytics.includedDays).toBe(28);
   });
 
+  it('keeps zero-spend budgeted itinerary countries available in the exclusion controls', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-18T12:00:00.000Z'));
+
+    const costData = buildBaseCostData();
+    costData.countryBudgets.push({
+      id: 'budget-peru',
+      country: 'Peru',
+      amount: 900,
+      currency: 'USD',
+      periods: [
+        {
+          id: 'peru-period',
+          startDate: new Date('2026-01-23T00:00:00.000Z'),
+          endDate: new Date('2026-01-26T00:00:00.000Z'),
+        },
+      ],
+    });
+
+    const costSummary = calculateCostSummary(costData);
+    const analytics = buildCostDashboardAnalytics(costSummary, costData, []);
+
+    expect(analytics.availableCountryOptions).toContain('Peru');
+  });
+
   it('does not subtract future period days while the trip is still in progress', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-01-15T12:00:00.000Z'));

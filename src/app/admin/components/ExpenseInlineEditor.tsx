@@ -70,6 +70,7 @@ export default function ExpenseInlineEditor({
   const amountInputId = `${idPrefix}-amount`;
   const currencySelectId = `${idPrefix}-currency`;
   const categorySelectId = `${idPrefix}-category`;
+  const categoryHintId = `${categorySelectId}-hint`;
   const countrySelectId = `${idPrefix}-country`;
   const typeSelectId = `${idPrefix}-type`;
   const descriptionInputId = `${idPrefix}-description`;
@@ -203,6 +204,7 @@ export default function ExpenseInlineEditor({
               id={categorySelectId}
               value={formData.category}
               onChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+              ariaDescribedBy={disableCategoryField ? categoryHintId : undefined}
               className="w-full px-2 py-1 text-sm"
               required
               disabled={disableCategoryField}
@@ -210,7 +212,7 @@ export default function ExpenseInlineEditor({
               placeholder="Select Category"
             />
             {disableCategoryField && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p id={categoryHintId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Category stays tied to the cash transaction type.
               </p>
             )}

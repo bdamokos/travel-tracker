@@ -479,7 +479,9 @@ export default function ExpenseManager({
                       <ExpenseInlineEditor
                         expense={expense}
                         onSave={updatedExpense => {
-                          if (isCashSource(expense)) {
+                          const dateChanged = getLocalDateSortValue(updatedExpense.date) !== getLocalDateSortValue(expense.date);
+
+                          if (isCashSource(expense) && dateChanged) {
                             const dateConflict = getCashSourceDateEditConflict(
                               costData.expenses,
                               expense,

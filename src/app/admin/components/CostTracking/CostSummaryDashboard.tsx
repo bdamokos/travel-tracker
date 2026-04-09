@@ -9,6 +9,7 @@ import {
   type DashboardCountryRow,
 } from '@/app/lib/costDashboardAnalytics';
 import { isCashAllocation } from '@/app/lib/cashTransactions';
+import { filterExpensesByExcludedCountries } from '@/app/lib/countryInclusions';
 import { formatCurrency, formatCurrencyWithRefunds } from '@/app/lib/costUtils';
 import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -173,6 +174,9 @@ function getCountryBarWidth(country: DashboardCountryRow, sortMode: SortMode, ma
   }
 
   const metricValue = getCountryMetricValue(country, sortMode);
+  if (!Number.isFinite(metricValue)) {
+    return '0%';
+  }
   const normalized = sortMode === 'budget' ? Math.abs(metricValue) : Math.max(metricValue, 0);
   return `${Math.max(8, (normalized / maxValue) * 100)}%`;
 }
@@ -189,11 +193,6 @@ export default function CostSummaryDashboard({
   const [selectedCountryKey, setSelectedCountryKey] = useState<string | null>(null);
   const [categoryScope, setCategoryScope] = useState<CategoryScope>('all');
 
-  const tripSpendingHistory = costSummary.recentTripSpending;
-  const maxTripSpending = tripSpendingHistory.length > 0
-    ? Math.max(...tripSpendingHistory.map(entry => entry.amount), 0)
-    : 0;
-
   const analytics = useMemo(
     () => buildCostDashboardAnalytics(costSummary, costData, excludedCountries),
     [costSummary, costData, excludedCountries]
@@ -202,21 +201,69 @@ export default function CostSummaryDashboard({
   const normalizeDate = (value: Date | string): Date => parseDateAsLocalDay(value) || new Date(NaN);
 
   const tripStartDate = normalizeDate(costData.tripStartDate);
-  const tripExpensesByDay = useMemo(() => {
-    const tripStart = normalizeDate(costData.tripStartDate);
-    const tripEnd = normalizeDate(costData.tripEndDate);
-    const grouped = new Map<string, Expense[]>();
-
-    costData.expenses.forEach(expense => {
+  const tripEndDate = normalizeDate(costData.tripEndDate);
+  const includedActualTripExpenses = useMemo(() => {
+    return filterExpensesByExcludedCountries(costData.expenses, excludedCountries).filter(expense => {
       if ((expense.expenseType || 'actual') !== 'actual') {
-        return;
+        return false;
       }
 
       const expenseDate = normalizeDate(expense.date);
-      if (expenseDate < tripStart || expenseDate > tripEnd) {
+      return expenseDate >= tripStartDate && expenseDate <= tripEndDate;
+    });
+  }, [costData.expenses, excludedCountries, tripEndDate, tripStartDate]);
+  const tripSpendingHistory = useMemo(() => {
+    if (
+      costSummary.tripStatus === 'before' ||
+      !analytics.tripWindow.end ||
+      !Number.isFinite(tripStartDate.getTime()) ||
+      !Number.isFinite(tripEndDate.getTime())
+    ) {
+      return [] as { date: string; amount: number }[];
+    }
+
+    const windowEnd = analytics.tripWindow.end;
+    const historyWindow = 7;
+    const earliestDay = (() => {
+      const candidate = new Date(windowEnd);
+      candidate.setDate(candidate.getDate() - (historyWindow - 1));
+      return candidate < tripStartDate ? new Date(tripStartDate) : candidate;
+    })();
+    const dayTotals = new Map<string, number>();
+
+    includedActualTripExpenses.forEach(expense => {
+      const expenseDate = normalizeDate(expense.date);
+      if (expenseDate < earliestDay || expenseDate > windowEnd) {
         return;
       }
 
+      const dateKey = formatLocalDateInput(expenseDate);
+      dayTotals.set(dateKey, (dayTotals.get(dateKey) || 0) + expense.amount);
+    });
+
+    const history: { date: string; amount: number }[] = [];
+    const cursor = new Date(earliestDay);
+
+    while (cursor <= windowEnd) {
+      const dateKey = formatLocalDateInput(cursor);
+      history.push({
+        date: dateKey,
+        amount: dayTotals.get(dateKey) || 0,
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return history;
+  }, [analytics.tripWindow.end, costSummary.tripStatus, includedActualTripExpenses, tripEndDate, tripStartDate]);
+  const maxTripSpending = tripSpendingHistory.length > 0
+    ? Math.max(...tripSpendingHistory.map(entry => entry.amount), 0)
+    : 0;
+
+  const tripExpensesByDay = useMemo(() => {
+    const grouped = new Map<string, Expense[]>();
+
+    includedActualTripExpenses.forEach(expense => {
+      const expenseDate = normalizeDate(expense.date);
       const dateKey = formatLocalDateInput(expenseDate);
       const existing = grouped.get(dateKey);
 
@@ -228,7 +275,7 @@ export default function CostSummaryDashboard({
     });
 
     return grouped;
-  }, [costData.expenses, costData.tripEndDate, costData.tripStartDate]);
+  }, [includedActualTripExpenses]);
 
   const selectedTripSpendingDetail = useMemo<TripDayExpenseDetail | null>(() => {
     if (!selectedTripSpendingDate) {
@@ -263,7 +310,13 @@ export default function CostSummaryDashboard({
   }, [selectedTripSpendingDetail]);
 
   const getAverageForDateRange = (startDate: Date, endDate: Date) => {
-    if (endDate < tripStartDate) {
+    if (
+      costSummary.tripStatus === 'before' ||
+      !analytics.tripWindow.end ||
+      !Number.isFinite(startDate.getTime()) ||
+      !Number.isFinite(endDate.getTime()) ||
+      endDate < tripStartDate
+    ) {
       return { average: 0, total: 0, days: 0 };
     }
 
@@ -275,8 +328,7 @@ export default function CostSummaryDashboard({
       return { average: 0, total: 0, days: 0 };
     }
 
-    const total = costData.expenses
-      .filter(expense => (expense.expenseType || 'actual') === 'actual')
+    const total = includedActualTripExpenses
       .filter(expense => {
         const expenseDate = normalizeDate(expense.date);
         return expenseDate >= effectiveStart && expenseDate <= endDate;
@@ -287,14 +339,22 @@ export default function CostSummaryDashboard({
   };
 
   const calculateRangeAverage = (rangeDays: number) => {
-    const windowEnd = analytics.tripWindow.end || normalizeDate(costData.tripEndDate);
+    if (!analytics.tripWindow.end) {
+      return { average: 0, total: 0, days: 0 };
+    }
+
+    const windowEnd = analytics.tripWindow.end;
     const rangeStart = new Date(windowEnd);
     rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
     return getAverageForDateRange(rangeStart, windowEnd);
   };
 
   const calculateTrend = (rangeDays: number, currentAverage: number) => {
-    const activeEnd = analytics.tripWindow.end || normalizeDate(costData.tripEndDate);
+    if (!analytics.tripWindow.end) {
+      return { trend: 'flat' as const, delta: 0 };
+    }
+
+    const activeEnd = analytics.tripWindow.end;
     const previousRangeEnd = new Date(activeEnd);
     previousRangeEnd.setDate(previousRangeEnd.getDate() - rangeDays);
     const previousRangeStart = new Date(previousRangeEnd);
@@ -316,9 +376,18 @@ export default function CostSummaryDashboard({
     return [...analytics.countryRows].sort((left, right) => {
       const leftMetric = getCountryMetricValue(left, countrySortMode);
       const rightMetric = getCountryMetricValue(right, countrySortMode);
-      const normalizedLeft = Number.isFinite(leftMetric) ? leftMetric : Number.NEGATIVE_INFINITY;
-      const normalizedRight = Number.isFinite(rightMetric) ? rightMetric : Number.NEGATIVE_INFINITY;
-      return normalizedRight - normalizedLeft || right.netSpent - left.netSpent || left.country.localeCompare(right.country);
+      const leftFinite = Number.isFinite(leftMetric);
+      const rightFinite = Number.isFinite(rightMetric);
+
+      if (leftFinite !== rightFinite) {
+        return leftFinite ? -1 : 1;
+      }
+
+      if (leftFinite && rightFinite && rightMetric !== leftMetric) {
+        return rightMetric - leftMetric;
+      }
+
+      return right.netSpent - left.netSpent || left.country.localeCompare(right.country);
     });
   }, [analytics.countryRows, countrySortMode]);
 
@@ -339,6 +408,9 @@ export default function CostSummaryDashboard({
     : analytics.allCategoryRows;
   const maxCountryMetricValue = sortedCountryRows.reduce((maxValue, country) => {
     const metricValue = getCountryMetricValue(country, countrySortMode);
+    if (!Number.isFinite(metricValue)) {
+      return maxValue;
+    }
     const comparable = countrySortMode === 'budget' ? Math.abs(metricValue) : Math.max(metricValue, 0);
     return comparable > maxValue ? comparable : maxValue;
   }, 0);
@@ -477,13 +549,14 @@ export default function CostSummaryDashboard({
                 type="button"
                 onClick={() => toggleExcludedCountry(country)}
                 aria-pressed={isExcluded}
+                aria-label={`${isExcluded ? 'Include' : 'Exclude'} ${country} from analytics`}
                 className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
                   isExcluded
                     ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200'
                     : 'border-slate-200 bg-slate-100/80 text-slate-700 hover:border-slate-300 hover:bg-slate-200/80 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800'
                 }`}
               >
-                {isExcluded ? 'Excluded' : 'Include'} {country}
+                {country}
               </button>
             );
           })}

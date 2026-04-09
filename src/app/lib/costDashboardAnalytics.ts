@@ -6,6 +6,7 @@ import {
 } from '@/app/lib/countryInclusions';
 import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
+// Kept local to avoid creating a circular dependency on costUtils for one label constant.
 const REFUNDS_CATEGORY_NAME = 'Refunds';
 
 export type DashboardTripWindow = {
@@ -256,6 +257,21 @@ function combineCategoryRows(countryRows: DashboardCountryRow[]): DashboardCateg
     .sort((left, right) => right.amount - left.amount || left.category.localeCompare(right.category));
 }
 
+function hasCountryDashboardPresence(country: CountryBreakdown, costData: CostTrackingData): boolean {
+  if (
+    country.spentAmount > 0 ||
+    country.refundAmount > 0 ||
+    country.plannedSpending > 0 ||
+    country.plannedRefunds > 0 ||
+    country.budgetAmount > 0
+  ) {
+    return true;
+  }
+
+  const countryBudget = costData.countryBudgets.find(budget => budget.country === country.country);
+  return Boolean(countryBudget?.periods?.length);
+}
+
 export function buildCostDashboardAnalytics(
   costSummary: CostSummary,
   costData: CostTrackingData,
@@ -303,7 +319,7 @@ export function buildCostDashboardAnalytics(
   const includedRefunds = countryRows.reduce((sum, country) => sum + country.refunds, 0);
   const includedAveragePerDay = includedDays > 0 ? includedSpending / includedDays : null;
   const availableCountryOptions = costSummary.countryBreakdown
-    .filter(country => country.spentAmount > 0 || country.refundAmount > 0)
+    .filter(country => hasCountryDashboardPresence(country, costData))
     .map(country => country.country)
     .sort((left, right) => left.localeCompare(right));
   const allCategoryRows = combineCategoryRows(countryRows);

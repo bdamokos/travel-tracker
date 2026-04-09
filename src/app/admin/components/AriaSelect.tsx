@@ -14,6 +14,7 @@ interface AriaSelectProps {
   name?: string;
   defaultValue?: string;
   value?: string;
+  ariaDescribedBy?: string;
   onChange?: (value: string) => void;
   required?: boolean;
   disabled?: boolean;
@@ -28,6 +29,7 @@ export default function AriaSelect({
   name,
   defaultValue = '',
   value,
+  ariaDescribedBy,
   onChange,
   required = false,
   disabled = false,
@@ -51,6 +53,7 @@ export default function AriaSelect({
     disabled,
     className: finalClassName,
     'aria-label': placeholder,
+    'aria-describedby': ariaDescribedBy,
     ...(isControlled 
       ? { 
           value, 
