@@ -5,12 +5,22 @@ import {
   createCashRefundExpense,
   createCashRefundToBase,
   createCashSourceExpense,
+  getCashSourceDateEditConflict,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
 import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 describe('cash transaction utilities', () => {
-  const baseDate = new Date('2024-01-01T00:00:00Z');
+  const localDay = (value: string): Date => {
+    const parsed = parseDateAsLocalDay(value);
+    if (!parsed) {
+      throw new Error(`Invalid test date: ${value}`);
+    }
+    return parsed;
+  };
+
+  const baseDate = localDay('2024-01-01');
 
   function createSource() {
     return createCashSourceExpense({
@@ -161,7 +171,7 @@ describe('cash transaction utilities', () => {
 
     const secondSource = createCashSourceExpense({
       id: 'cash-source-2',
-      date: new Date('2024-01-02T00:00:00Z'),
+      date: localDay('2024-01-02'),
       baseAmount: 10,
       localAmount: 20000,
       localCurrency: 'ARS',
@@ -173,7 +183,7 @@ describe('cash transaction utilities', () => {
       id: 'cash-allocation-3',
       sources: [firstSource, secondSource],
       localAmount: 18000,
-      date: new Date('2024-01-03T00:00:00Z'),
+      date: localDay('2024-01-03'),
       trackingCurrency: 'EUR',
       category: 'Food & Dining'
     });
@@ -216,7 +226,7 @@ describe('cash transaction utilities', () => {
 
     const secondSource = createCashSourceExpense({
       id: 'cash-source-2',
-      date: new Date('2024-01-02T00:00:00Z'),
+      date: localDay('2024-01-02'),
       baseAmount: 10,
       localAmount: 10000,
       localCurrency: 'ARS',
@@ -228,7 +238,7 @@ describe('cash transaction utilities', () => {
       id: 'cash-allocation-4',
       sources: [firstSource, secondSource],
       localAmount: 19000,
-      date: new Date('2024-01-03T00:00:00Z'),
+      date: localDay('2024-01-03'),
       trackingCurrency: 'EUR',
       category: 'Shopping'
     });
@@ -243,7 +253,7 @@ describe('cash transaction utilities', () => {
       id: 'cash-allocation-5',
       sources: updatedSources,
       localAmount: 1500,
-      date: new Date('2024-01-04T00:00:00Z'),
+      date: localDay('2024-01-04'),
       trackingCurrency: 'EUR',
       category: 'Food & Dining'
     });
@@ -282,7 +292,7 @@ describe('cash transaction utilities', () => {
       sourceLocalAmount: 4000,
       targetLocalAmount: 20,
       targetCurrency: 'VES',
-      date: new Date('2024-02-01T00:00:00Z'),
+      date: localDay('2024-02-01'),
       trackingCurrency: 'EUR',
       country: 'Bolivia'
     });
@@ -294,6 +304,89 @@ describe('cash transaction utilities', () => {
     expect(newSource.cashTransaction?.localCurrency).toBe('VES');
     expect(updatedSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(6000, 5);
     expect(updatedSources[0].cashTransaction.remainingBaseAmount).toBeCloseTo(6, 5);
+  });
+
+  test('cash conversion date edit conflicts after the first dependent usage', () => {
+    const clpSource = createCashSourceExpense({
+      id: 'clp-source-1',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'CLP',
+      trackingCurrency: 'EUR',
+      country: 'Chile'
+    });
+
+    const { newSource } = createCashConversion({
+      id: 'cash-source-ves',
+      sources: [clpSource],
+      sourceLocalAmount: 4000,
+      targetLocalAmount: 20,
+      targetCurrency: 'VES',
+      date: localDay('2024-02-01'),
+      trackingCurrency: 'EUR',
+      country: 'Venezuela'
+    });
+
+    const { expense: allocationExpense } = createCashAllocationExpense({
+      id: 'cash-allocation-ves',
+      sources: [newSource],
+      localAmount: 5,
+      date: localDay('2024-02-03'),
+      trackingCurrency: 'EUR',
+      category: 'Food'
+    });
+
+    const conflict = getCashSourceDateEditConflict(
+      [clpSource, newSource, allocationExpense],
+      newSource,
+      localDay('2024-02-04')
+    );
+
+    expect(conflict?.message).toContain('first dependent cash event');
+    expect(conflict?.message).toContain('3 Feb 2024');
+  });
+
+  test('cash conversion date edit conflicts before its latest funding source date', () => {
+    const firstSource = createCashSourceExpense({
+      id: 'cop-source-1',
+      date: localDay('2024-02-01'),
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'COP',
+      trackingCurrency: 'EUR',
+      country: 'Colombia'
+    });
+
+    const secondSource = createCashSourceExpense({
+      id: 'cop-source-2',
+      date: localDay('2024-02-05'),
+      baseAmount: 5,
+      localAmount: 5000,
+      localCurrency: 'COP',
+      trackingCurrency: 'EUR',
+      country: 'Colombia'
+    });
+
+    const { newSource } = createCashConversion({
+      id: 'cash-source-usd',
+      sources: [firstSource, secondSource],
+      sourceLocalAmount: 12000,
+      targetLocalAmount: 3,
+      targetCurrency: 'USD',
+      date: localDay('2024-02-06'),
+      trackingCurrency: 'EUR',
+      country: 'Colombia'
+    });
+
+    const conflict = getCashSourceDateEditConflict(
+      [firstSource, secondSource, newSource],
+      newSource,
+      localDay('2024-02-04')
+    );
+
+    expect(conflict?.message).toContain('latest funding cash event');
+    expect(conflict?.message).toContain('5 Feb 2024');
   });
 
   test('cash refund to base accounts for losses with exchange fee expense', () => {
@@ -311,7 +404,7 @@ describe('cash transaction utilities', () => {
       sources: [clpSource],
       localAmount: 10000,
       exchangeRateBasePerLocal: 0.0009, // Receive €9 back
-      date: new Date('2024-02-05T00:00:00Z'),
+      date: localDay('2024-02-05'),
       trackingCurrency: 'EUR',
       country: 'Chile',
       exchangeFeeCategory: 'Exchange fees'
@@ -342,7 +435,7 @@ describe('cash transaction utilities', () => {
       sources: [clpSource],
       localAmount: 10000,
       exchangeRateBasePerLocal: 0.0011, // Receive €11 back
-      date: new Date('2024-02-06T00:00:00Z'),
+      date: localDay('2024-02-06'),
       trackingCurrency: 'EUR',
       country: 'Chile'
     });

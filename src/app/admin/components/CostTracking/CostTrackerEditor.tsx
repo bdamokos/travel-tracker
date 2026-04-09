@@ -15,13 +15,11 @@ import {
 } from '@/app/types';
 import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
-import CostPieCharts from '@/app/admin/components/CostPieCharts';
 import { filterExpensesByExcludedCountries } from '@/app/lib/countryInclusions';
 import BudgetSetup from '@/app/admin/components/CostTracking/BudgetSetup';
 import CountryBudgetManager from '@/app/admin/components/CostTracking/CountryBudgetManager';
 import CategoryManager from '@/app/admin/components/CostTracking/CategoryManager';
 import ExpenseManager from '@/app/admin/components/CostTracking/ExpenseManager';
-import CountryBreakdownDisplay from '@/app/admin/components/CostTracking/CountryBreakdownDisplay';
 import CostSummaryDashboard from '@/app/admin/components/CostTracking/CostSummaryDashboard';
 import ExpenseLeaderboards from '@/app/admin/components/CostTracking/ExpenseLeaderboards';
 import ExportDataMenu from '@/app/admin/components/CostTracking/ExportDataMenu';
@@ -561,7 +559,12 @@ export default function CostTrackerEditor({
       <>
         {costSummary && (
           <div className="mb-8">
-            <CostSummaryDashboard costSummary={costSummary} costData={costData} />
+            <CostSummaryDashboard
+              costSummary={costSummary}
+              costData={costData}
+              excludedCountries={excludedCountries}
+              setExcludedCountries={setExcludedCountries}
+            />
           </div>
         )}
 
@@ -631,19 +634,6 @@ export default function CostTrackerEditor({
             tripId={costData.tripId}
           />
         </div>
-
-        {costSummary && costSummary.countryBreakdown.some(c => c.spentAmount > 0) && (
-            <CostPieCharts
-              costSummary={costSummary}
-              currency={costData.currency}
-              excludedCountries={excludedCountries}
-              setExcludedCountries={setExcludedCountries}
-            />
-        )}
-
-        {costSummary && costSummary.countryBreakdown.length > 0 && (
-          <CountryBreakdownDisplay costSummary={costSummary} currency={costData.currency} />
-        )}
 
         {costData.expenses.length > 0 && (
           <ExpenseLeaderboards

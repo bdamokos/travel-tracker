@@ -7,7 +7,11 @@ import MultiRouteLinkManager from './MultiRouteLinkManager';
 import { TravelLinkInfo, ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AriaSelect from './AriaSelect';
 import AccessibleDatePicker from './AccessibleDatePicker';
-import { isCashAllocation, isCashSource } from '@/app/lib/cashTransactions';
+import {
+  getCashSourceDateEditConflict,
+  isCashAllocation,
+  isCashSource
+} from '@/app/lib/cashTransactions';
 import { useMultiRouteLinks } from '@/app/hooks/useMultiRouteLinks';
 import { useLoadExpenseLinks } from '@/app/hooks/useLoadExpenseLinks';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
@@ -19,6 +23,7 @@ interface ExpenseInlineEditorProps {
   currency: string;
   categories: string[];
   countryOptions: string[];
+  allExpenses?: Expense[];
   travelLookup: ExpenseTravelLookup | null;
   tripId: string;
 }
@@ -30,6 +35,7 @@ export default function ExpenseInlineEditor({
   currency,
   categories,
   countryOptions,
+  allExpenses,
   travelLookup,
   tripId
 }: ExpenseInlineEditorProps) {
@@ -57,12 +63,14 @@ export default function ExpenseInlineEditor({
   const isCashSourceExpense = isCashSource(expense);
   const isCashAllocationExpense = isCashAllocation(expense);
   const disableFinancialFields = isCashSourceExpense || isCashAllocationExpense;
+  const disableCategoryField = isCashSourceExpense;
 
   const dateLabelId = `${idPrefix}-date-label`;
   const dateInputId = `${idPrefix}-date`;
   const amountInputId = `${idPrefix}-amount`;
   const currencySelectId = `${idPrefix}-currency`;
   const categorySelectId = `${idPrefix}-category`;
+  const categoryHintId = `${categorySelectId}-hint`;
   const countrySelectId = `${idPrefix}-country`;
   const typeSelectId = `${idPrefix}-type`;
   const descriptionInputId = `${idPrefix}-description`;
@@ -80,6 +88,19 @@ export default function ExpenseInlineEditor({
       if (!formData.category) missing.push('Category');
       setFormError(`Please fill in required fields: ${missing.join(', ')}`);
       return;
+    }
+
+    if (
+      isCashSourceExpense &&
+      allExpenses &&
+      formData.date &&
+      parseDateAsLocalDay(formData.date)?.getTime() !== parseDateAsLocalDay(expense.date)?.getTime()
+    ) {
+      const dateConflict = getCashSourceDateEditConflict(allExpenses, expense, formData.date);
+      if (dateConflict) {
+        setFormError(dateConflict.message);
+        return;
+      }
     }
 
     try {
@@ -183,11 +204,18 @@ export default function ExpenseInlineEditor({
               id={categorySelectId}
               value={formData.category}
               onChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+              ariaDescribedBy={disableCategoryField ? categoryHintId : undefined}
               className="w-full px-2 py-1 text-sm"
               required
+              disabled={disableCategoryField}
               options={categories.map(cat => ({ value: cat, label: cat }))}
               placeholder="Select Category"
             />
+            {disableCategoryField && (
+              <p id={categoryHintId} className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Category stays tied to the cash transaction type.
+              </p>
+            )}
           </div>
         </div>
 

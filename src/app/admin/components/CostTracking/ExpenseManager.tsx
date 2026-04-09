@@ -9,6 +9,7 @@ import {
   useMoveExpenseLink
 } from '@/app/hooks/useExpenseLinks';
 import {
+  getCashSourceDateEditConflict,
   getAllocationSegments,
   getAllocationsForSource,
   isCashAllocation,
@@ -477,11 +478,28 @@ export default function ExpenseManager({
                     editor={(expense, onSave, onCancel) => (
                       <ExpenseInlineEditor
                         expense={expense}
-                        onSave={onSave}
+                        onSave={updatedExpense => {
+                          const dateChanged = getLocalDateSortValue(updatedExpense.date) !== getLocalDateSortValue(expense.date);
+
+                          if (isCashSource(expense) && dateChanged) {
+                            const dateConflict = getCashSourceDateEditConflict(
+                              costData.expenses,
+                              expense,
+                              updatedExpense.date
+                            );
+
+                            if (dateConflict) {
+                              throw new Error(dateConflict.message);
+                            }
+                          }
+
+                          onSave(updatedExpense);
+                        }}
                         onCancel={onCancel}
                         currency={costData.currency}
                         categories={getCategories()}
                         countryOptions={getExistingCountries()}
+                        allExpenses={costData.expenses}
                         travelLookup={travelLookup}
                         tripId={tripId}
                       />

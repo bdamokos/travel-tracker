@@ -1,5 +1,6 @@
 import { CostTrackingData, CostSummary, CountryBreakdown, Expense, BudgetItem, CategoryBreakdown, CountryPeriod, ExpenseType } from '@/app/types';
 import { formatLocalDateInput, formatLocalDateLabel, getLocalDateSortValue, getTodayLocalDay, parseDateAsLocalDay } from './localDateUtils';
+import { collectUniqueDayKeysForPeriods, getUniquePeriodDayCount } from './costDashboardAnalytics';
 
 const MS_IN_DAY = 1000 * 60 * 60 * 24;
 
@@ -487,26 +488,26 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
     const countryBudget = costData.countryBudgets.find(b => b.country === countryData.country);
 
     if (countryBudget?.periods && countryBudget.periods.length > 0) {
-      // Use configured periods to calculate total days
-      countryData.days = countryBudget.periods.reduce((totalDays, period) => {
-        const periodStart = parseDateAsLocalDay(period.startDate);
-        const periodEnd = parseDateAsLocalDay(period.endDate);
-        if (!periodStart || !periodEnd) return totalDays;
-        const periodDays = calculateInclusiveDays(periodStart, periodEnd);
-        return totalDays + periodDays;
-      }, 0);
+      // Use the unique union of configured periods to avoid overlap inflation.
+      countryData.days = getUniquePeriodDayCount(countryBudget.periods);
     } else {
-      // Fallback to expense-based calculation
-      const countryExpenseDates = countryData.expenses
-        .map(e => parseDateAsLocalDay(e.date))
-        .filter((date): date is Date => date !== null);
-      if (countryExpenseDates.length > 0) {
-        const minDate = new Date(Math.min(...countryExpenseDates.map(d => d.getTime())));
-        const maxDate = new Date(Math.max(...countryExpenseDates.map(d => d.getTime())));
-        countryData.days = calculateInclusiveDays(minDate, maxDate);
-      } else {
-        countryData.days = 0;
-      }
+      // Fallback to unique actual expense days instead of the full min/max span.
+      const countryExpenseDayKeys = new Set(
+        countryData.expenses
+          .map(expense => {
+            if ((expense.expenseType || 'actual') !== 'actual') {
+              return null;
+            }
+
+            const expenseDate = parseDateAsLocalDay(expense.date);
+            return expenseDate && expenseDate >= startDate && expenseDate <= endDate
+              ? expenseDate
+              : null;
+          })
+          .filter((date): date is Date => date !== null)
+          .map(expenseDate => formatLocalDateInput(expenseDate))
+      );
+      countryData.days = countryExpenseDayKeys.size;
     }
 
     // Calculate suggested daily budget for remaining days (if country has budget)
@@ -543,24 +544,10 @@ function calculateRemainingDaysInCountry(
   today: Date,
   tripEndDate: Date
 ): number {
-  let remainingDays = 0;
-
-  for (const period of periods) {
-    const periodStart = parseDateAsLocalDay(period.startDate);
-    const periodEndRaw = parseDateAsLocalDay(period.endDate);
-    if (!periodStart || !periodEndRaw) {
-      continue;
-    }
-    const periodEnd = new Date(Math.min(periodEndRaw.getTime(), tripEndDate.getTime()));
-
-    if (today < periodEnd) {
-      const startFrom = today > periodStart ? today : periodStart;
-      const daysInPeriod = calculateInclusiveDays(startFrom, periodEnd);
-      remainingDays += Math.max(0, daysInPeriod);
-    }
-  }
-
-  return remainingDays;
+  return collectUniqueDayKeysForPeriods(periods, {
+    start: today,
+    end: tripEndDate,
+  }).length;
 }
 
 /**
@@ -625,25 +612,7 @@ function calculateDailyAverageWithPeriods(
   tripSpent: number,
   today: Date
 ): number {
-  let totalElapsedDays = 0;
-
-  for (const period of periods) {
-    const periodStart = parseDateAsLocalDay(period.startDate);
-    const periodEnd = parseDateAsLocalDay(period.endDate);
-    if (!periodStart || !periodEnd) {
-      continue;
-    }
-
-    // Skip periods that haven't started yet
-    if (today < periodStart) {
-      continue;
-    }
-
-    // For periods that have started, calculate elapsed days
-    const effectiveEnd = today < periodEnd ? today : periodEnd;
-    const elapsedDays = calculateInclusiveDays(periodStart, effectiveEnd);
-    totalElapsedDays += Math.max(0, elapsedDays);
-  }
+  const totalElapsedDays = collectUniqueDayKeysForPeriods(periods, { end: today }).length;
 
   // If no periods have started yet, return 0
   if (totalElapsedDays === 0) {
