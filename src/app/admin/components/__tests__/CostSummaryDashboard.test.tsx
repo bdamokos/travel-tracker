@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import CostSummaryDashboard from '@/app/admin/components/CostTracking/CostSummaryDashboard';
@@ -216,6 +216,23 @@ describe('CostSummaryDashboard', () => {
     expect(screen.getByText(/context:/i)).toHaveTextContent('Antarctica only');
     expect(screen.getAllByText('Transportation').length).toBeGreaterThan(0);
     expect(screen.queryAllByText('Accommodation')).toHaveLength(0);
+  });
+
+  it('keeps category context aligned when selecting a country from the detail table', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<DashboardHarness costData={buildCostData()} />);
+
+    await user.click(screen.getByRole('button', { name: /focus categories below/i }));
+    expect(screen.getByText(/context:/i)).toHaveTextContent('Antarctica only');
+
+    const detailSection = screen.getByText('Compact country detail table').closest('section');
+    expect(detailSection).not.toBeNull();
+
+    const argentinaButtons = within(detailSection as HTMLElement).getAllByRole('button', { name: 'Argentina' });
+    await user.click(argentinaButtons[0]);
+
+    expect(screen.getByText(/context:/i)).toHaveTextContent('Argentina only');
+    expect(screen.getAllByText('Accommodation').length).toBeGreaterThan(0);
   });
 
   it('opens and closes a daily expense modal when a spending bar is clicked', async () => {

@@ -951,7 +951,10 @@ export default function CostSummaryDashboard({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setSelectedCountryKey(country.key)}
+                        onClick={() => {
+                          setSelectedCountryKey(country.key);
+                          setCategoryScope('selected');
+                        }}
                         className="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-slate-100"
                       >
                         {country.country}
@@ -997,7 +1000,10 @@ export default function CostSummaryDashboard({
                 <div>
                   <button
                     type="button"
-                    onClick={() => setSelectedCountryKey(country.key)}
+                    onClick={() => {
+                      setSelectedCountryKey(country.key);
+                      setCategoryScope('selected');
+                    }}
                     className="text-left text-base font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-slate-100"
                   >
                     {country.country}

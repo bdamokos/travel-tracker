@@ -494,8 +494,16 @@ export function calculateCountryBreakdowns(costData: CostTrackingData): CountryB
       // Fallback to unique actual expense days instead of the full min/max span.
       const countryExpenseDayKeys = new Set(
         countryData.expenses
-          .filter(expense => (expense.expenseType || 'actual') === 'actual')
-          .map(expense => parseDateAsLocalDay(expense.date))
+          .map(expense => {
+            if ((expense.expenseType || 'actual') !== 'actual') {
+              return null;
+            }
+
+            const expenseDate = parseDateAsLocalDay(expense.date);
+            return expenseDate && expenseDate >= startDate && expenseDate <= endDate
+              ? expenseDate
+              : null;
+          })
           .filter((date): date is Date => date !== null)
           .map(expenseDate => formatLocalDateInput(expenseDate))
       );

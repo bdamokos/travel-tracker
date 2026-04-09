@@ -30,6 +30,7 @@ export type DashboardCountryRow = {
   key: string;
   coverageDays: number;
   coverageDayKeys: string[];
+  tripNetSpent: number;
   netSpent: number;
   refunds: number;
   budgetAmount: number;
@@ -290,10 +291,11 @@ export function buildCostDashboardAnalytics(
         key: country.country,
         coverageDays: coverageDayKeys.length,
         coverageDayKeys,
+        tripNetSpent: country.tripSpent,
         netSpent: country.spentAmount - country.refundAmount,
         refunds: country.refundAmount,
         budgetAmount: country.budgetAmount,
-        averagePerDay: coverageDayKeys.length > 0 ? (country.spentAmount - country.refundAmount) / coverageDayKeys.length : 0,
+        averagePerDay: coverageDayKeys.length > 0 ? country.tripSpent / coverageDayKeys.length : 0,
         plannedNet: country.plannedSpending - country.plannedRefunds,
         postTripNet: country.postTripSpent - country.postTripRefunds,
         budgetDelta: country.availableForPlanning,
@@ -317,7 +319,8 @@ export function buildCostDashboardAnalytics(
   const includedDays = Math.max(0, tripWindow.dayCount - excludedDayKeys.size);
   const includedSpending = countryRows.reduce((sum, country) => sum + country.netSpent, 0);
   const includedRefunds = countryRows.reduce((sum, country) => sum + country.refunds, 0);
-  const includedAveragePerDay = includedDays > 0 ? includedSpending / includedDays : null;
+  const includedTripNetSpending = countryRows.reduce((sum, country) => sum + country.tripNetSpent, 0);
+  const includedAveragePerDay = includedDays > 0 ? includedTripNetSpending / includedDays : null;
   const availableCountryOptions = costSummary.countryBreakdown
     .filter(country => hasCountryDashboardPresence(country, costData))
     .map(country => country.country)

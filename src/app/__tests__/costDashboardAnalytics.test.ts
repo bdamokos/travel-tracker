@@ -268,6 +268,66 @@ describe('costDashboardAnalytics', () => {
     expect(analytics.availableCountryOptions).toContain('Peru');
   });
 
+  it('uses trip-window net spend rather than prep costs for daily averages', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-02-10T12:00:00.000Z'));
+
+    const costData = buildBaseCostData();
+    costData.expenses.push(
+      buildExpense({
+        id: 'argentina-pretrip-deposit',
+        country: 'Argentina',
+        category: 'Accommodation',
+        amount: 300,
+        date: new Date('2025-12-28T00:00:00.000Z'),
+      })
+    );
+
+    const costSummary = calculateCostSummary(costData);
+    const analytics = buildCostDashboardAnalytics(costSummary, costData, []);
+    const argentina = analytics.countryRows.find(country => country.country === 'Argentina');
+
+    expect(argentina?.netSpent).toBe(1000);
+    expect(argentina?.tripNetSpent).toBe(700);
+    expect(argentina?.averagePerDay).toBe(70);
+    expect(analytics.includedAveragePerDay).toBeCloseTo((1200 + 700 + 400 + 100) / 30, 5);
+  });
+
+  it('clamps fallback expense-day counting to the trip window', () => {
+    const costData = buildBaseCostData();
+    costData.countryBudgets = [];
+    costData.expenses = [
+      buildExpense({
+        id: 'peru-pre',
+        country: 'Peru',
+        amount: 40,
+        date: new Date('2025-12-31T00:00:00.000Z'),
+      }),
+      buildExpense({
+        id: 'peru-trip-1',
+        country: 'Peru',
+        amount: 100,
+        date: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+      buildExpense({
+        id: 'peru-trip-2',
+        country: 'Peru',
+        amount: 200,
+        date: new Date('2026-01-04T00:00:00.000Z'),
+      }),
+      buildExpense({
+        id: 'peru-post',
+        country: 'Peru',
+        amount: 60,
+        date: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+    ];
+
+    const breakdown = calculateCountryBreakdowns(costData).find(country => country.country === 'Peru');
+
+    expect(breakdown?.days).toBe(2);
+  });
+
   it('does not subtract future period days while the trip is still in progress', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-01-15T12:00:00.000Z'));
