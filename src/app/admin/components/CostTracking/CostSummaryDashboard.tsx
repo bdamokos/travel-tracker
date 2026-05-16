@@ -459,13 +459,28 @@ export default function CostSummaryDashboard({
             tone={budgetBalanceTone}
           />
           {isCompletedTrip ? (
-            <MetricCard
-              label="During trip"
-              value={formatCurrency(costSummary.tripSpent, costData.currency)}
-              supporting="Expenses dated inside the trip."
-              detail={costSummary.tripRefunds > 0 ? `${formatCurrency(costSummary.tripRefunds, costData.currency)} refunded.` : undefined}
-              tone="cobalt"
-            />
+            <>
+              <MetricCard
+                label="Actual spend"
+                value={includedSpendingDisplay.displayText}
+                supporting="Pre-trip and trip-date actuals."
+                detail={analytics.includedRefunds > 0
+                  ? `${formatCurrency(analytics.includedRefunds, costData.currency)} refunded.`
+                  : undefined}
+                tone="slate"
+              />
+              <MetricCard
+                label="Trip average"
+                value={analytics.includedAveragePerDay === null ? 'N/A' : formatCurrency(analytics.includedAveragePerDay, costData.currency)}
+                supporting={analytics.includedDays > 0
+                  ? `${analytics.includedDays} day${analytics.includedDays === 1 ? '' : 's'} counted.`
+                  : 'No days in view.'}
+                detail={excludedCountries.length > 0
+                  ? 'Actual spend, exclusions applied.'
+                  : 'Actual spend over trip days.'}
+                tone="sky"
+              />
+            </>
           ) : (
             <MetricCard
               label="Daily budget"
@@ -475,26 +490,30 @@ export default function CostSummaryDashboard({
               tone="cobalt"
             />
           )}
-          <MetricCard
-            label="Actual spend"
-            value={includedSpendingDisplay.displayText}
-            supporting="Pre-trip and trip-date actuals."
-            detail={analytics.includedRefunds > 0
-              ? `${formatCurrency(analytics.includedRefunds, costData.currency)} refunded.`
-              : undefined}
-            tone="slate"
-          />
-          <MetricCard
-            label={isCompletedTrip ? 'Trip average' : 'Included daily average'}
-            value={analytics.includedAveragePerDay === null ? 'N/A' : formatCurrency(analytics.includedAveragePerDay, costData.currency)}
-            supporting={analytics.includedDays > 0
-              ? `${analytics.includedDays} day${analytics.includedDays === 1 ? '' : 's'} counted.`
-              : 'No days in view.'}
-            detail={excludedCountries.length > 0
-              ? 'Exclusions applied.'
-              : undefined}
-            tone="sky"
-          />
+          {!isCompletedTrip ? (
+            <>
+              <MetricCard
+                label="Actual spend"
+                value={includedSpendingDisplay.displayText}
+                supporting="Pre-trip and trip-date actuals."
+                detail={analytics.includedRefunds > 0
+                  ? `${formatCurrency(analytics.includedRefunds, costData.currency)} refunded.`
+                  : undefined}
+                tone="slate"
+              />
+              <MetricCard
+                label="Included daily average"
+                value={analytics.includedAveragePerDay === null ? 'N/A' : formatCurrency(analytics.includedAveragePerDay, costData.currency)}
+                supporting={analytics.includedDays > 0
+                  ? `${analytics.includedDays} day${analytics.includedDays === 1 ? '' : 's'} counted.`
+                  : 'No days in view.'}
+                detail={excludedCountries.length > 0
+                  ? 'Actual spend, exclusions applied.'
+                  : 'Actual spend over trip days.'}
+                tone="sky"
+              />
+            </>
+          ) : null}
           <MetricCard
             label="Days"
             value={`${analytics.includedDays}`}
@@ -512,6 +531,15 @@ export default function CostSummaryDashboard({
             supporting={analytics.categoryCount > 0 ? `${analytics.categoryCount} categor${analytics.categoryCount === 1 ? 'y' : 'ies'}.` : 'No categories yet.'}
             tone="slate"
           />
+          {isCompletedTrip ? (
+            <MetricCard
+              label="Dated during trip"
+              value={formatCurrency(costSummary.tripSpent, costData.currency)}
+              supporting="Transaction dates inside the trip."
+              detail={costSummary.tripRefunds > 0 ? `${formatCurrency(costSummary.tripRefunds, costData.currency)} refunded.` : undefined}
+              tone="cobalt"
+            />
+          ) : null}
         </div>
       </section>
 
