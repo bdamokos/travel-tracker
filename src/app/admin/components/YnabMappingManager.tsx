@@ -97,8 +97,9 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
   useEffect(() => {
     // Load existing mappings
     if (costData.ynabImportData?.mappings) {
-      console.log('DEBUG: Loading existing mappings:', costData.ynabImportData.mappings);
-      setMappings(costData.ynabImportData.mappings);
+      const nextMappings = costData.ynabImportData.mappings;
+      console.log('DEBUG: Loading existing mappings:', nextMappings);
+      queueMicrotask(() => setMappings(nextMappings));
     }
   }, [costData]);
 

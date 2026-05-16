@@ -60,11 +60,11 @@ const MediaPostItem = ({ post, onUpdate, onRemove, urlPlaceholder, linkColorClas
   const [caption, setCaption] = useState(post.caption || '');
 
   useEffect(() => {
-    setUrl(post.url);
+    queueMicrotask(() => setUrl(post.url));
   }, [post.url]);
 
   useEffect(() => {
-    setCaption(post.caption || '');
+    queueMicrotask(() => setCaption(post.caption || ''));
   }, [post.caption]);
 
   const handleUrlBlur = () => {
@@ -158,15 +158,15 @@ const BlogPostItem = ({ post, onUpdate, onRemove }: BlogPostItemProps) => {
   const [excerpt, setExcerpt] = useState(post.excerpt || '');
 
   useEffect(() => {
-    setTitle(post.title);
+    queueMicrotask(() => setTitle(post.title));
   }, [post.title]);
 
   useEffect(() => {
-    setUrl(post.url);
+    queueMicrotask(() => setUrl(post.url));
   }, [post.url]);
 
   useEffect(() => {
-    setExcerpt(post.excerpt || '');
+    queueMicrotask(() => setExcerpt(post.excerpt || ''));
   }, [post.excerpt]);
 
   const handleTitleBlur = () => {
@@ -270,14 +270,18 @@ export default function LocationPosts({
   const id = useId();
 
   useEffect(() => {
-    setSelectedInstagramId('');
-    setInstagramError(null);
+    queueMicrotask(() => {
+      setSelectedInstagramId('');
+      setInstagramError(null);
+    });
   }, [location.id]);
 
   useEffect(() => {
-    setInstagramPosts([]);
-    setSelectedInstagramId('');
-    setInstagramError(null);
+    queueMicrotask(() => {
+      setInstagramPosts([]);
+      setSelectedInstagramId('');
+      setInstagramError(null);
+    });
   }, [instagramUsername]);
 
   if (!isVisible) {

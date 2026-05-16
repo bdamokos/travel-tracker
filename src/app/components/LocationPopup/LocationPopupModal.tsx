@@ -104,59 +104,65 @@ export default function LocationPopupModal({
     : departureWikipediaError;
 
   useEffect(() => {
-    if (!isOpen) {
-      setAnnouncement('');
-      prevFlagsRef.current = {
-        departureWeatherLoaded: false,
-        arrivalWeatherLoaded: false,
-        departureWikiLoaded: false,
-        arrivalWikiLoaded: false,
-        departureWikiErrored: false,
-        arrivalWikiErrored: false,
-      };
-      return;
-    }
+    queueMicrotask(() => {
+      if (!isOpen) {
+        setAnnouncement('');
+        prevFlagsRef.current = {
+          departureWeatherLoaded: false,
+          arrivalWeatherLoaded: false,
+          departureWikiLoaded: false,
+          arrivalWikiLoaded: false,
+          departureWikiErrored: false,
+          arrivalWikiErrored: false,
+        };
+        return;
+      }
 
-    if (isTransition) {
-      const targetName = activeTab === 'departure' ? departureLocation?.name : arrivalLocation?.name;
-      if (targetName) setAnnouncement(`Showing details for ${targetName}.`);
-    }
+      if (isTransition) {
+        const targetName = activeTab === 'departure' ? departureLocation?.name : arrivalLocation?.name;
+        if (targetName) setAnnouncement(`Showing details for ${targetName}.`);
+      }
+    });
   }, [activeTab, arrivalLocation?.name, departureLocation?.name, isOpen, isTransition]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    announceOnce(departureWeather, 'departureWeatherLoaded', departureLocation?.name, name => `Weather loaded for ${name}.`);
-    announceOnce(arrivalWeather, 'arrivalWeatherLoaded', arrivalLocation?.name, name => `Weather loaded for ${name}.`);
+    queueMicrotask(() => {
+      announceOnce(departureWeather, 'departureWeatherLoaded', departureLocation?.name, name => `Weather loaded for ${name}.`);
+      announceOnce(arrivalWeather, 'arrivalWeatherLoaded', arrivalLocation?.name, name => `Weather loaded for ${name}.`);
+    });
   }, [announceOnce, arrivalLocation?.name, arrivalWeather, departureLocation?.name, departureWeather, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    announceOnce(
-      departureWikipediaData,
-      'departureWikiLoaded',
-      departureLocation?.name,
-      name => `Wikipedia content loaded for ${name}.`
-    );
-    announceOnce(
-      arrivalWikipediaData,
-      'arrivalWikiLoaded',
-      arrivalLocation?.name,
-      name => `Wikipedia content loaded for ${name}.`
-    );
-    announceOnce(
-      departureWikipediaError,
-      'departureWikiErrored',
-      departureLocation?.name,
-      name => `Wikipedia failed to load for ${name}.`
-    );
-    announceOnce(
-      arrivalWikipediaError,
-      'arrivalWikiErrored',
-      arrivalLocation?.name,
-      name => `Wikipedia failed to load for ${name}.`
-    );
+    queueMicrotask(() => {
+      announceOnce(
+        departureWikipediaData,
+        'departureWikiLoaded',
+        departureLocation?.name,
+        name => `Wikipedia content loaded for ${name}.`
+      );
+      announceOnce(
+        arrivalWikipediaData,
+        'arrivalWikiLoaded',
+        arrivalLocation?.name,
+        name => `Wikipedia content loaded for ${name}.`
+      );
+      announceOnce(
+        departureWikipediaError,
+        'departureWikiErrored',
+        departureLocation?.name,
+        name => `Wikipedia failed to load for ${name}.`
+      );
+      announceOnce(
+        arrivalWikipediaError,
+        'arrivalWikiErrored',
+        arrivalLocation?.name,
+        name => `Wikipedia failed to load for ${name}.`
+      );
+    });
   }, [
     announceOnce,
     arrivalLocation?.name,

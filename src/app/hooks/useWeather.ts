@@ -110,15 +110,21 @@ export function useWeather(location: Location | null) {
     } finally {
       setLoading(false);
     }
-  }, [url, todayUrl, location?.id]);
+  }, [url, todayUrl, location]);
 
   // Clear previous data immediately when switching locations/URL to avoid stale display
   useEffect(() => {
-    setData(null);
-    setError(null);
+    queueMicrotask(() => {
+      setData(null);
+      setError(null);
+    });
   }, [url]);
 
-  useEffect(() => { fetchWeather(); }, [fetchWeather]);
+  useEffect(() => {
+    queueMicrotask(() => {
+      void fetchWeather();
+    });
+  }, [fetchWeather]);
 
   return { data, loading, error, refetch: fetchWeather };
 }

@@ -320,7 +320,7 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
       const linkedExpenseIds = travelLookup.getExpensesForTravelItem('route', id);
       const linkedExpenses = costData.expenses.filter(exp => linkedExpenseIds.includes(exp.id));
       const total = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      setTotalLinkedCost(total);
+      queueMicrotask(() => setTotalLinkedCost(total));
     }
   }, [travelLookup, costData, id]);
 

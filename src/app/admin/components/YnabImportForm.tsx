@@ -294,7 +294,9 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
   };
 
   useEffect(() => {
-    setPayeeCategoryDefaults({ ...(costData.ynabImportData?.payeeCategoryDefaults ?? {}) });
+    queueMicrotask(() => {
+      setPayeeCategoryDefaults({ ...(costData.ynabImportData?.payeeCategoryDefaults ?? {}) });
+    });
   }, [costData.ynabImportData?.payeeCategoryDefaults]);
 
   const getDefaultCategoryForTransaction = useCallback((transaction: ProcessedYnabTransaction) => {

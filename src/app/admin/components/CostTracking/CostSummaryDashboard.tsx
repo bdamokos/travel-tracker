@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react';
+import { useMemo, useState, type CSSProperties, type JSX } from 'react';
 import AccessibleModal from '@/app/admin/components/AccessibleModal';
 import type { CostSummary, CostTrackingData, Expense } from '@/app/types';
 import {
@@ -391,18 +391,10 @@ export default function CostSummaryDashboard({
     });
   }, [analytics.countryRows, countrySortMode]);
 
-  useEffect(() => {
-    if (sortedCountryRows.length === 0) {
-      setSelectedCountryKey(null);
-      return;
-    }
-
-    if (!selectedCountryKey || !sortedCountryRows.some(country => country.key === selectedCountryKey)) {
-      setSelectedCountryKey(sortedCountryRows[0].key);
-    }
-  }, [selectedCountryKey, sortedCountryRows]);
-
-  const selectedCountry = sortedCountryRows.find(country => country.key === selectedCountryKey) || null;
+  const resolvedSelectedCountryKey = sortedCountryRows.some(country => country.key === selectedCountryKey)
+    ? selectedCountryKey
+    : sortedCountryRows[0]?.key ?? null;
+  const selectedCountry = sortedCountryRows.find(country => country.key === resolvedSelectedCountryKey) || null;
   const categoryRows = categoryScope === 'selected' && selectedCountry
     ? selectedCountry.categoryRows
     : analytics.allCategoryRows;

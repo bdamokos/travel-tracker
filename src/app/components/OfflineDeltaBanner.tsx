@@ -112,7 +112,7 @@ export default function OfflineDeltaBanner() {
 
   useEffect(() => {
     if (summary.conflicts === 0) {
-      setShowConflictDetails(false);
+      queueMicrotask(() => setShowConflictDetails(false));
     }
   }, [summary.conflicts]);
 

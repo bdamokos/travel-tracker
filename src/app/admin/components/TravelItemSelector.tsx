@@ -143,38 +143,40 @@ export default function TravelItemSelector({
 
   // Load current reference values using SWR data or initialValue
   useEffect(() => {
-    // First, try to use initialValue if provided
-    if (initialValue) {
-      setSelectedType(initialValue.type);
-      setSelectedItem(initialValue.id);
-      setDescription(initialValue.name || '');
-      return;
-    }
-
-    if (!loadExistingLink) {
-      const hasSelection =
-        selectionStateRef.current.selectedType ||
-        selectionStateRef.current.selectedItem ||
-        selectionStateRef.current.description;
-
-      if (hasSelection) {
-        setSelectedType('');
-        setSelectedItem('');
-        setDescription('');
-        onReferenceChangeRef.current(undefined);
+    queueMicrotask(() => {
+      // First, try to use initialValue if provided
+      if (initialValue) {
+        setSelectedType(initialValue.type);
+        setSelectedItem(initialValue.id);
+        setDescription(initialValue.name || '');
+        return;
       }
-      return;
-    }
 
-    // Fallback to SWR data
-    if (expenseId && expenseLinksForHydration && expenseLinksForHydration.length > 0) {
-      const currentLink = expenseLinksForHydration.find(link => link.expenseId === expenseId);
-      if (currentLink) {
-        setSelectedType(currentLink.travelItemType);
-        setSelectedItem(currentLink.travelItemId);
-        setDescription(currentLink.description || '');
+      if (!loadExistingLink) {
+        const hasSelection =
+          selectionStateRef.current.selectedType ||
+          selectionStateRef.current.selectedItem ||
+          selectionStateRef.current.description;
+
+        if (hasSelection) {
+          setSelectedType('');
+          setSelectedItem('');
+          setDescription('');
+          onReferenceChangeRef.current(undefined);
+        }
+        return;
       }
-    }
+
+      // Fallback to SWR data
+      if (expenseId && expenseLinksForHydration && expenseLinksForHydration.length > 0) {
+        const currentLink = expenseLinksForHydration.find(link => link.expenseId === expenseId);
+        if (currentLink) {
+          setSelectedType(currentLink.travelItemType);
+          setSelectedItem(currentLink.travelItemId);
+          setDescription(currentLink.description || '');
+        }
+      }
+    });
   }, [
     expenseLinksForHydration,
     expenseId,

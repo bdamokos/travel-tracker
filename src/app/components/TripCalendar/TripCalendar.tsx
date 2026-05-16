@@ -100,7 +100,7 @@ export default function TripCalendar({
   }, [closePopup]);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   const isPublic = useCallback(

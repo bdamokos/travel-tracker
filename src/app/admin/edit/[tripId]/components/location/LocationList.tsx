@@ -63,33 +63,35 @@ export default function LocationList({
   const sideTripMap = useMemo(() => buildSideTripMap(locations), [locations]);
 
   useEffect(() => {
-    const today = getTodayMidnight();
+    queueMicrotask(() => {
+      const today = getTodayMidnight();
 
-    setCollapsedLocations(prev => {
-      const next: Record<string, boolean> = {};
-      let changed = false;
+      setCollapsedLocations(prev => {
+        const next: Record<string, boolean> = {};
+        let changed = false;
 
-      locations.forEach(location => {
-        const defaultCollapsed = getDefaultCollapsedState(location, today, locations, sideTripMap);
-        if (Object.prototype.hasOwnProperty.call(prev, location.id)) {
-          next[location.id] = prev[location.id];
-        } else {
-          next[location.id] = defaultCollapsed;
-          changed = true;
+        locations.forEach(location => {
+          const defaultCollapsed = getDefaultCollapsedState(location, today, locations, sideTripMap);
+          if (Object.prototype.hasOwnProperty.call(prev, location.id)) {
+            next[location.id] = prev[location.id];
+          } else {
+            next[location.id] = defaultCollapsed;
+            changed = true;
+          }
+        });
+
+        const prevKeys = Object.keys(prev);
+        const nextKeys = Object.keys(next);
+        if (!changed) {
+          if (prevKeys.length !== nextKeys.length) {
+            changed = true;
+          } else if (prevKeys.some(id => !nextKeys.includes(id))) {
+            changed = true;
+          }
         }
+
+        return changed ? next : prev;
       });
-
-      const prevKeys = Object.keys(prev);
-      const nextKeys = Object.keys(next);
-      if (!changed) {
-        if (prevKeys.length !== nextKeys.length) {
-          changed = true;
-        } else if (prevKeys.some(id => !nextKeys.includes(id))) {
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
     });
   }, [locations, sideTripMap]);
 
@@ -98,12 +100,14 @@ export default function LocationList({
       return;
     }
 
-    setCollapsedLocations(prev => {
-      if (prev[selectedLocationForPosts] === false) {
-        return prev;
-      }
+    queueMicrotask(() => {
+      setCollapsedLocations(prev => {
+        if (prev[selectedLocationForPosts] === false) {
+          return prev;
+        }
 
-      return { ...prev, [selectedLocationForPosts]: false };
+        return { ...prev, [selectedLocationForPosts]: false };
+      });
     });
   }, [selectedLocationForPosts]);
 

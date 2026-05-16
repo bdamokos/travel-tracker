@@ -108,22 +108,24 @@ export default function RouteForm({
   }, [currentRoute.subRoutes]);
 
   useEffect(() => {
-    setRouteCoordOverrides({ from: false, to: false });
+    queueMicrotask(() => setRouteCoordOverrides({ from: false, to: false }));
   }, [editingRouteIndex, currentRoute.id]);
 
   useEffect(() => {
-    setCurrentRoute(prev => {
-      const hasSubRoutes = (prev.subRoutes?.length || 0) > 0;
-      if (hasSubRoutes) {
-        const derivedType = getCompositeTransportType(prev.subRoutes ?? [], prev.transportType || 'plane');
-        if (prev.transportType !== derivedType) {
-          return { ...prev, transportType: derivedType };
+    queueMicrotask(() => {
+      setCurrentRoute(prev => {
+        const hasSubRoutes = (prev.subRoutes?.length || 0) > 0;
+        if (hasSubRoutes) {
+          const derivedType = getCompositeTransportType(prev.subRoutes ?? [], prev.transportType || 'plane');
+          if (prev.transportType !== derivedType) {
+            return { ...prev, transportType: derivedType };
+          }
         }
-      }
-      if (!hasSubRoutes && prev.transportType === 'multimodal') {
-        return { ...prev, transportType: 'plane' };
-      }
-      return prev;
+        if (!hasSubRoutes && prev.transportType === 'multimodal') {
+          return { ...prev, transportType: 'plane' };
+        }
+        return prev;
+      });
     });
   }, [
     currentRoute.subRoutes?.length,

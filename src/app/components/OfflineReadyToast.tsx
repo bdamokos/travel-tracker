@@ -50,7 +50,7 @@ export default function OfflineReadyToast(): ReactElement | null {
 
   useEffect(() => {
     if (!isAdminPath || typeof window === 'undefined') {
-      setIsVisible(false);
+      queueMicrotask(() => setIsVisible(false));
       return;
     }
 

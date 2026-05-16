@@ -60,23 +60,25 @@ export default function MultiRouteLinkManager({
       return;
     }
     
-    if (initialLinks.length > 0) {
-      const withTempIds = initialLinks.map((link) => ({
-        ...link,
-        // Use stable key based on type and id
-        tempId: `${link.type}-${link.id}`
-      }));
-      setLinks(withTempIds);
+    queueMicrotask(() => {
+      if (initialLinks.length > 0) {
+        const withTempIds = initialLinks.map((link) => ({
+          ...link,
+          // Use stable key based on type and id
+          tempId: `${link.type}-${link.id}`
+        }));
+        setLinks(withTempIds);
 
-      // Detect split mode from first link
-      if (initialLinks[0]?.splitMode) {
-        setSplitMode(initialLinks[0].splitMode);
+        // Detect split mode from first link
+        if (initialLinks[0]?.splitMode) {
+          setSplitMode(initialLinks[0].splitMode);
+        }
+      } else {
+        // Clear state when navigating to an expense with no links
+        setLinks([]);
+        setSplitMode('equal');
       }
-    } else {
-      // Clear state when navigating to an expense with no links
-      setLinks([]);
-      setSplitMode('equal');
-    }
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLinks, expenseId]);
 

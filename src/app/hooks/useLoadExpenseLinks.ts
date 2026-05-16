@@ -46,13 +46,15 @@ export function useLoadExpenseLinks(
 
   useEffect(() => {
     if (!shouldLoad || !expenseId || !tripId) {
-      reset();
+      queueMicrotask(reset);
       return;
     }
 
     const abortController = new AbortController();
-    setIsLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      setIsLoading(true);
+      setError(null);
+    });
 
     const loadLinks = async () => {
       try {
@@ -101,7 +103,7 @@ export function useLoadExpenseLinks(
       }
     };
 
-    loadLinks();
+    void loadLinks();
 
     return () => {
       abortController.abort();

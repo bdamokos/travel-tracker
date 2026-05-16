@@ -161,7 +161,13 @@ export default function CostTrackerEditor({
 
   const [editingBudgetIndex, setEditingBudgetIndex] = useState<number | null>(null);
   const [editingExpenseIndex, setEditingExpenseIndex] = useState<number | null>(null);
-  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const costSummary = useMemo<CostSummary | null>(() => {
+    if (!costData.tripStartDate || !costData.tripEndDate) {
+      return null;
+    }
+
+    return calculateCostSummary(costData);
+  }, [costData]);
   
   const [editingPeriodForBudget, setEditingPeriodForBudget] = useState<string | null>(null);
   const [editingPeriodIndex, setEditingPeriodIndex] = useState<number | null>(null);
@@ -262,16 +268,11 @@ export default function CostTrackerEditor({
 
   useEffect(() => {
     if (costData.tripId) {
-      initializeTravelLookup(costData.tripId);
+      queueMicrotask(() => {
+        void initializeTravelLookup(costData.tripId);
+      });
     }
   }, [costData.tripId]);
-
-  useEffect(() => {
-    if (costData.tripStartDate && costData.tripEndDate) {
-      const summary = calculateCostSummary(costData);
-      setCostSummary(summary);
-    }
-  }, [costData]);
 
   useEffect(() => {
     if (travelLookup) {
