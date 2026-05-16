@@ -207,6 +207,24 @@ describe('CostSummaryDashboard', () => {
     expect(screen.getByText('8 days counted.')).toBeInTheDocument();
   });
 
+  it('spreads pre-trip actual spend across trip days in the headline average', () => {
+    const costData = buildCostData();
+    costData.expenses.push(buildExpense({
+      id: 'expense-pre-trip-flight',
+      description: 'Pre-trip flight',
+      amount: 2000,
+      category: 'Transportation',
+      country: 'General',
+      isGeneralExpense: true,
+      date: localDay('2026-01-15'),
+    }));
+
+    render(<DashboardHarness costData={costData} />);
+
+    expect(screen.getByText('$167.5')).toBeInTheDocument();
+    expect(screen.getByText('Actual spend over trip days.')).toBeInTheDocument();
+  });
+
   it('drives category context from the selected country analysis row', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<DashboardHarness costData={buildCostData()} />);

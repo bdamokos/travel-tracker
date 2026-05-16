@@ -319,8 +319,7 @@ export function buildCostDashboardAnalytics(
   const includedDays = Math.max(0, tripWindow.dayCount - excludedDayKeys.size);
   const includedSpending = countryRows.reduce((sum, country) => sum + country.netSpent, 0);
   const includedRefunds = countryRows.reduce((sum, country) => sum + country.refunds, 0);
-  const includedTripNetSpending = countryRows.reduce((sum, country) => sum + country.tripNetSpent, 0);
-  const includedAveragePerDay = includedDays > 0 ? includedTripNetSpending / includedDays : null;
+  const includedAveragePerDay = includedDays > 0 ? includedSpending / includedDays : null;
   const availableCountryOptions = costSummary.countryBreakdown
     .filter(country => hasCountryDashboardPresence(country, costData))
     .map(country => country.country)
