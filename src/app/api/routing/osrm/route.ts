@@ -11,16 +11,17 @@ const OSRM_PROFILE_PATHS = {
 } as const satisfies Record<OsrmProfile, string>;
 
 const parseFinite = (value: string | null): number | null => {
-  if (!value) {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue) {
     return null;
   }
 
-  const parsed = Number(value);
+  const parsed = Number(trimmedValue);
   return Number.isFinite(parsed) ? parsed : null;
 };
 
 const getOsrmProfilePath = (value: string | null): string | null => {
-  if (!value || !(value in OSRM_PROFILE_PATHS)) {
+  if (!value || !Object.hasOwn(OSRM_PROFILE_PATHS, value)) {
     return null;
   }
 

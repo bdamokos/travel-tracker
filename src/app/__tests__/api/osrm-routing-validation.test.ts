@@ -26,11 +26,35 @@ describe('OSRM routing proxy validation', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('rejects inherited object property names as profiles', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    const response = await GET(buildRequest(
+      'profile=toString&fromLat=51.5&fromLng=-0.1&toLat=48.8&toLng=2.3'
+    ));
+
+    await expect(response.json()).resolves.toEqual({ error: 'Invalid profile' });
+    expect(response.status).toBe(400);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('rejects partially numeric coordinate values', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch');
 
     const response = await GET(buildRequest(
       'profile=car&fromLat=51.5abc&fromLng=-0.1&toLat=48.8&toLng=2.3'
+    ));
+
+    await expect(response.json()).resolves.toEqual({ error: 'Invalid coordinates' });
+    expect(response.status).toBe(400);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-only coordinate values', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    const response = await GET(buildRequest(
+      'profile=car&fromLat=%20%20%20&fromLng=-0.1&toLat=48.8&toLng=2.3'
     ));
 
     await expect(response.json()).resolves.toEqual({ error: 'Invalid coordinates' });
