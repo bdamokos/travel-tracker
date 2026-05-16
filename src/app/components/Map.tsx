@@ -23,6 +23,9 @@ import {
   getMarkerDistanceBucket,
 } from '@/app/lib/mapIconUtils';
 
+const markerIconCache = new globalThis.Map<string, L.DivIcon>();
+const highlightedIconCache = new globalThis.Map<string, L.DivIcon>();
+
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {
   // Only run on client
@@ -397,16 +400,27 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     };
   }, [getTemporalDistanceForLocation, locationDateLookup]);
 
-  const buildMarkerIcon = useCallback((location: Location, label: string, _labelKey: string, isHighlighted: boolean) => {
-    void _labelKey;
+  const buildMarkerIcon = useCallback((location: Location, label: string, labelKey: string, isHighlighted: boolean) => {
     const { status, days } = getTemporalDistanceForLocation(location);
     const bucket = getMarkerDistanceBucket(days);
 
     if (isHighlighted) {
-      return createHighlightedMarkerIcon(L, status, bucket, { label, dataKey: location.id });
+      const highlightedKey = `highlight:${status}:${bucket}:${labelKey}`;
+      const cachedHighlighted = highlightedIconCache.get(highlightedKey);
+      if (cachedHighlighted) return cachedHighlighted;
+
+      const icon = createHighlightedMarkerIcon(L, status, bucket, { label, dataKey: location.id });
+      highlightedIconCache.set(highlightedKey, icon);
+      return icon;
     }
 
-    return createMarkerIcon(L, status, bucket, { label, dataKey: location.id });
+    const cacheKey = `${status}:${bucket}:${labelKey}`;
+    const cached = markerIconCache.get(cacheKey);
+    if (cached) return cached;
+
+    const icon = createMarkerIcon(L, status, bucket, { label, dataKey: location.id });
+    markerIconCache.set(cacheKey, icon);
+    return icon;
   }, [getTemporalDistanceForLocation]);
 
   const closestLocation = useMemo(() => {

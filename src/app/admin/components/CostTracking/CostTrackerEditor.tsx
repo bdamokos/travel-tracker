@@ -708,7 +708,7 @@ export default function CostTrackerEditor({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {autoSaving ? 'Saving changes' : 'Ready to save'}
+                {autoSaving ? 'Saving changes' : canSave ? 'Ready to save' : 'Not ready to save'}
               </p>
               <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
                 {autoSaving
