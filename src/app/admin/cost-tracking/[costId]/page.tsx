@@ -159,7 +159,9 @@ export default function CostTrackingPage() {
 
   // Load cost tracking data if editing existing
   useEffect(() => {
-    loadCostData();
+    queueMicrotask(() => {
+      void loadCostData();
+    });
   }, [loadCostData]);
 
   // Auto-save function for existing cost trackers
@@ -374,7 +376,7 @@ export default function CostTrackingPage() {
   // Track when user makes changes
   useEffect(() => {
     if (!isNewCostTracker && costData.id) {
-      setHasUnsavedChanges(true);
+      queueMicrotask(() => setHasUnsavedChanges(true));
     }
   }, [costData, isNewCostTracker]);
 

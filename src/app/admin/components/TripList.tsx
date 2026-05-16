@@ -54,7 +54,9 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
   };
 
   useEffect(() => {
-    loadExistingTrips();
+    queueMicrotask(() => {
+      void loadExistingTrips();
+    });
   }, []);
 
   // Delete trip function

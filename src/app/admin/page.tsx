@@ -26,14 +26,16 @@ function AdminPageContent() {
 
   // Set active tab based on URL parameter
   useEffect(() => {
-    const tab = searchParams?.get?.('tab') || null;
-    if (tab === 'cost') {
-      setActiveTab('cost');
-    } else if (tab === 'backups') {
-      setActiveTab('backups');
-    } else {
-      setActiveTab('travel');
-    }
+    queueMicrotask(() => {
+      const tab = searchParams?.get?.('tab') || null;
+      if (tab === 'cost') {
+        setActiveTab('cost');
+      } else if (tab === 'backups') {
+        setActiveTab('backups');
+      } else {
+        setActiveTab('travel');
+      }
+    });
   }, [searchParams]);
 
   useEffect(() => {
@@ -90,7 +92,9 @@ function AdminPageContent() {
   // Load cost tracking entries only when the cost tab is opened.
   useEffect(() => {
     if (isAuthorized && activeTab === 'cost' && !hasLoadedCostEntries) {
-      void loadExistingCostEntries({ includeCostData: true });
+      queueMicrotask(() => {
+        void loadExistingCostEntries({ includeCostData: true });
+      });
     }
   }, [activeTab, hasLoadedCostEntries, isAuthorized]);
 

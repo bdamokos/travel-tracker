@@ -88,7 +88,9 @@ export default function BackupsManager() {
   }, []);
 
   useEffect(() => {
-    loadBackups();
+    queueMicrotask(() => {
+      void loadBackups();
+    });
   }, [loadBackups]);
 
   const synchronize = async () => {

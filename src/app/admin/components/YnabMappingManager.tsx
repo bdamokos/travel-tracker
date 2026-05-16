@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import { YnabCategoryMapping, CostTrackingData, YnabCategory } from '@/app/types';
 import { extractCategoriesFromYnabFile } from '@/app/lib/ynabUtils';
 import JSZip from 'jszip';
@@ -91,16 +91,26 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null);
   const [lastCategorySync, setLastCategorySync] = useState<Date | null>(null);
+  const hasHydratedMappingsRef = useRef(false);
 
   const availableCountries = costData.countryBudgets.map(b => b.country);
+  const savedMappings = costData.ynabImportData?.mappings;
 
   useEffect(() => {
-    // Load existing mappings
-    if (costData.ynabImportData?.mappings) {
-      console.log('DEBUG: Loading existing mappings:', costData.ynabImportData.mappings);
-      setMappings(costData.ynabImportData.mappings);
+    if (!isOpen) {
+      hasHydratedMappingsRef.current = false;
+      return;
     }
-  }, [costData]);
+
+    if (hasHydratedMappingsRef.current) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      setMappings(savedMappings ?? []);
+      hasHydratedMappingsRef.current = true;
+    });
+  }, [isOpen, savedMappings]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

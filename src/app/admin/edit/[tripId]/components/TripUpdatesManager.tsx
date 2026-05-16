@@ -46,9 +46,11 @@ function UpdateRow({ update, onSave, onDelete }: UpdateRowProps) {
   const isDirty = message !== update.message || createdAt !== baselineCreatedAt;
 
   useEffect(() => {
-    setMessage(update.message);
-    setCreatedAt(baselineCreatedAt);
-    setError(null);
+    queueMicrotask(() => {
+      setMessage(update.message);
+      setCreatedAt(baselineCreatedAt);
+      setError(null);
+    });
   }, [baselineCreatedAt, update.message]);
 
   const handleSave = async () => {
@@ -184,7 +186,9 @@ export default function TripUpdatesManager({ tripId }: TripUpdatesManagerProps) 
   }, [effectiveTripId]);
 
   useEffect(() => {
-    void loadUpdates();
+    queueMicrotask(() => {
+      void loadUpdates();
+    });
   }, [loadUpdates]);
 
   const saveUpdate = useCallback(

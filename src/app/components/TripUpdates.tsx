@@ -75,16 +75,26 @@ export default function TripUpdates({ updates = [], className = '', currentStatu
   }, [updates]);
 
   useEffect(() => {
-    const cookieValue = getCookieValue(COOKIE_NAME);
-    const cookieDate = cookieValue ? new Date(cookieValue) : null;
-    const hasValidCookieDate = cookieDate && !Number.isNaN(cookieDate.getTime());
-    const shouldExpand = Boolean(
-      hasValidCookieDate && latestUpdateDate && latestUpdateDate > (cookieDate as Date)
-    );
-    setExpanded(shouldExpand);
+    let isCurrent = true;
 
-    const nowString = new Date().toISOString();
-    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(nowString)}; path=/; max-age=31536000`;
+    queueMicrotask(() => {
+      if (!isCurrent) return;
+
+      const cookieValue = getCookieValue(COOKIE_NAME);
+      const cookieDate = cookieValue ? new Date(cookieValue) : null;
+      const hasValidCookieDate = cookieDate && !Number.isNaN(cookieDate.getTime());
+      const shouldExpand = Boolean(
+        hasValidCookieDate && latestUpdateDate && latestUpdateDate > (cookieDate as Date)
+      );
+      setExpanded(shouldExpand);
+
+      const nowString = new Date().toISOString();
+      document.cookie = `${COOKIE_NAME}=${encodeURIComponent(nowString)}; path=/; max-age=31536000`;
+    });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [latestUpdateDate]);
 
   const updateItems = useMemo(() => {

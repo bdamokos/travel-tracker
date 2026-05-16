@@ -108,30 +108,32 @@ export default function RouteManager({
   );
 
   useEffect(() => {
-    setCollapsedRoutes(prev => {
-      const next: Record<string, boolean> = {};
-      let changed = false;
+    queueMicrotask(() => {
+      setCollapsedRoutes(prev => {
+        const next: Record<string, boolean> = {};
+        let changed = false;
 
-      travelData.routes.forEach(route => {
-        if (Object.prototype.hasOwnProperty.call(prev, route.id)) {
-          next[route.id] = prev[route.id];
-        } else {
-          next[route.id] = true;
-          changed = true;
+        travelData.routes.forEach(route => {
+          if (Object.prototype.hasOwnProperty.call(prev, route.id)) {
+            next[route.id] = prev[route.id];
+          } else {
+            next[route.id] = true;
+            changed = true;
+          }
+        });
+
+        const prevKeys = Object.keys(prev);
+        const nextKeys = Object.keys(next);
+        if (!changed) {
+          if (prevKeys.length !== nextKeys.length) {
+            changed = true;
+          } else if (prevKeys.some(id => !Object.prototype.hasOwnProperty.call(next, id))) {
+            changed = true;
+          }
         }
+
+        return changed ? next : prev;
       });
-
-      const prevKeys = Object.keys(prev);
-      const nextKeys = Object.keys(next);
-      if (!changed) {
-        if (prevKeys.length !== nextKeys.length) {
-          changed = true;
-        } else if (prevKeys.some(id => !Object.prototype.hasOwnProperty.call(next, id))) {
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
     });
   }, [travelData.routes]);
 

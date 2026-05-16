@@ -1,18 +1,13 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript", "plugin:jsx-a11y/recommended"),
+  ...nextCoreWebVitals,
+  ...nextTypescript,
   {
     rules: {
+      ...jsxA11y.flatConfigs.recommended.rules,
       // Downgrade some rules from errors to warnings to prevent build failures
       "@typescript-eslint/no-unused-vars": "warn",
       // "@typescript-eslint/no-explicit-any": "warn",

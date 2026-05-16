@@ -72,7 +72,9 @@ export default function ExpenseManager({
   // Keep selections in sync if expenses change (e.g., deletion)
   useEffect(() => {
     if (!isBulkLinkMode) return;
-    setSelectedExpenseIds(prev => prev.filter(id => costData.expenses.some(expense => expense.id === id)));
+    queueMicrotask(() => {
+      setSelectedExpenseIds(prev => prev.filter(id => costData.expenses.some(expense => expense.id === id)));
+    });
   }, [costData.expenses, isBulkLinkMode]);
 
   const expensesById = useMemo(
@@ -126,9 +128,11 @@ export default function ExpenseManager({
       return;
     }
 
-    setSelectedExpenseIds(prev =>
-      prev.filter(id => filteredExpenses.some(expense => expense.id === id))
-    );
+    queueMicrotask(() => {
+      setSelectedExpenseIds(prev =>
+        prev.filter(id => filteredExpenses.some(expense => expense.id === id))
+      );
+    });
   }, [filteredExpenses, isBulkLinkMode]);
 
   const toggleBulkLinkMode = () => {

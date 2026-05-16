@@ -101,13 +101,15 @@ export function useWikipediaData(
 
   // Fetch data when location changes or component mounts
   useEffect(() => {
-    if (location && enabled) {
-      fetchWikipediaData(forceRefresh);
-    } else {
-      setData(null);
-      setError(null);
-      setLoading(false);
-    }
+    queueMicrotask(() => {
+      if (location && enabled) {
+        void fetchWikipediaData(forceRefresh);
+      } else {
+        setData(null);
+        setError(null);
+        setLoading(false);
+      }
+    });
   }, [location?.id, location?.name, location?.wikipediaRef, location, enabled, fetchWikipediaData, forceRefresh]);
 
   return {
@@ -128,22 +130,24 @@ export function useMultipleWikipediaData(
   const [results, setResults] = useState<Record<string, UseWikipediaDataResult>>({});
 
   useEffect(() => {
-    const newResults: Record<string, UseWikipediaDataResult> = {};
+    queueMicrotask(() => {
+      const newResults: Record<string, UseWikipediaDataResult> = {};
 
-    locations.forEach(location => {
-      // Use the single location hook for each location
-      // Note: This is a simplified implementation
-      // In practice, you might want to batch these requests
-      newResults[location.id] = {
-        data: null,
-        loading: false,
-        error: null,
-        refetch: async () => {},
-        clearError: () => {},
-      };
+      locations.forEach(location => {
+        // Use the single location hook for each location
+        // Note: This is a simplified implementation
+        // In practice, you might want to batch these requests
+        newResults[location.id] = {
+          data: null,
+          loading: false,
+          error: null,
+          refetch: async () => {},
+          clearError: () => {},
+        };
+      });
+
+      setResults(newResults);
     });
-
-    setResults(newResults);
   }, [locations]);
 
   return results;

@@ -116,7 +116,9 @@ export function useAccommodations(tripId?: string): UseAccommodationsResult {
 
   useEffect(() => {
     if (tripId) {
-      loadAccommodationsForTrip(tripId);
+      queueMicrotask(() => {
+        void loadAccommodationsForTrip(tripId);
+      });
     }
   }, [tripId]);
 

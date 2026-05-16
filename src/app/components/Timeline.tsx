@@ -317,11 +317,21 @@ const TransportationItem: React.FC<TransportationItemProps> = ({ transportation,
 
   useEffect(() => {
     if (travelLookup && costData && id) {
+      let isCurrent = true;
       const linkedExpenseIds = travelLookup.getExpensesForTravelItem('route', id);
       const linkedExpenses = costData.expenses.filter(exp => linkedExpenseIds.includes(exp.id));
       const total = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      setTotalLinkedCost(total);
+      queueMicrotask(() => {
+        if (isCurrent) {
+          setTotalLinkedCost(total);
+        }
+      });
+
+      return () => {
+        isCurrent = false;
+      };
     }
+    return undefined;
   }, [travelLookup, costData, id]);
 
   const hasSubRoutes = (subRoutes?.length || 0) > 0;

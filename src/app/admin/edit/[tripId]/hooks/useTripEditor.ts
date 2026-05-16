@@ -372,11 +372,13 @@ export function useTripEditor(tripId: string | null) {
   }, [travelData]);
 
   useEffect(() => {
-    if (tripId) {
+    queueMicrotask(() => {
+      if (tripId) {
         loadTripForEditing(tripId);
-    } else {
+      } else {
         loadExistingTrips();
-    }
+      }
+    });
   }, [tripId, loadTripForEditing, loadExistingTrips]);
 
   const autoSaveTravelData = useCallback(async () => {

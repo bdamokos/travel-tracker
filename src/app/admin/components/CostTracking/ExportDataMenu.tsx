@@ -296,7 +296,7 @@ export default function ExportDataMenu({ costData }: ExportDataMenuProps) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 text-sm"
+        className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         disabled={isExporting}
       >
         {isExporting ? 'Preparing…' : 'Export Data'}

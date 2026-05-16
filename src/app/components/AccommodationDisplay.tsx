@@ -28,24 +28,34 @@ export default function AccommodationDisplay({
 
   // Effect to parse accommodation data and calculate linked expenses
   useEffect(() => {
-    const parsed = parseAccommodationData(accommodationData || '');
-    setParsedAccommodationData(parsed);
+    let isCurrent = true;
 
-    if (
-      travelLookup &&
-      costData &&
-      parsed.isStructured &&
-      parsed.data &&
-      typeof parsed.data === 'object' &&
-      'id' in parsed.data
-    ) {
-      const linkedExpenseIds = travelLookup.getExpensesForTravelItem('accommodation', (parsed.data as { id: string }).id);
-      const linkedExpenses = costData.expenses.filter(exp => linkedExpenseIds.includes(exp.id));
-      const total = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      setTotalLinkedCost(total);
-    } else {
-      setTotalLinkedCost(null);
-    }
+    queueMicrotask(() => {
+      if (!isCurrent) return;
+
+      const parsed = parseAccommodationData(accommodationData || '');
+      setParsedAccommodationData(parsed);
+
+      if (
+        travelLookup &&
+        costData &&
+        parsed.isStructured &&
+        parsed.data &&
+        typeof parsed.data === 'object' &&
+        'id' in parsed.data
+      ) {
+        const linkedExpenseIds = travelLookup.getExpensesForTravelItem('accommodation', (parsed.data as { id: string }).id);
+        const linkedExpenses = costData.expenses.filter(exp => linkedExpenseIds.includes(exp.id));
+        const total = linkedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+        setTotalLinkedCost(total);
+      } else {
+        setTotalLinkedCost(null);
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [travelLookup, costData, accommodationData]);
 
   const renderStructuredData = () => {

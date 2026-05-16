@@ -266,22 +266,24 @@ export default function CashTransactionManager({
   }, [cashSources]);
 
   useEffect(() => {
-    setAllocationForms(prevState => {
-      const nextState: Record<string, CashAllocationFormState> = { ...prevState };
+    queueMicrotask(() => {
+      setAllocationForms(prevState => {
+        const nextState: Record<string, CashAllocationFormState> = { ...prevState };
 
-      cashGroups.forEach(group => {
-        if (!nextState[group.currency]) {
-          nextState[group.currency] = createInitialAllocationForm(group.defaultCountry);
-        }
+        cashGroups.forEach(group => {
+          if (!nextState[group.currency]) {
+            nextState[group.currency] = createInitialAllocationForm(group.defaultCountry);
+          }
+        });
+
+        Object.keys(nextState).forEach(currencyKey => {
+          if (!cashGroups.some(group => group.currency === currencyKey)) {
+            delete nextState[currencyKey];
+          }
+        });
+
+        return nextState;
       });
-
-      Object.keys(nextState).forEach(currencyKey => {
-        if (!cashGroups.some(group => group.currency === currencyKey)) {
-          delete nextState[currencyKey];
-        }
-      });
-
-      return nextState;
     });
   }, [cashGroups]);
 
@@ -290,23 +292,25 @@ export default function CashTransactionManager({
       return;
     }
 
-    setConversionForm(prev =>
-      prev.sourceCurrency
-        ? prev
-        : {
-          ...prev,
-          sourceCurrency: cashGroups[0].currency
-        }
-    );
+    queueMicrotask(() => {
+      setConversionForm(prev =>
+        prev.sourceCurrency
+          ? prev
+          : {
+            ...prev,
+            sourceCurrency: cashGroups[0].currency
+          }
+      );
 
-    setRefundToBaseForm(prev =>
-      prev.sourceCurrency
-        ? prev
-        : {
-          ...prev,
-          sourceCurrency: cashGroups[0].currency
-        }
-    );
+      setRefundToBaseForm(prev =>
+        prev.sourceCurrency
+          ? prev
+          : {
+            ...prev,
+            sourceCurrency: cashGroups[0].currency
+          }
+      );
+    });
   }, [cashGroups]);
 
   const [openSections, setOpenSections] = useState({
@@ -325,24 +329,26 @@ export default function CashTransactionManager({
   );
 
   useEffect(() => {
-    setExpandedGroups(prevExpandedGroups => {
-      const newExpandedGroups = cashGroups.reduce(
-        (acc, group) => {
-          acc[group.currency] = prevExpandedGroups[group.currency] ?? cashGroups.length <= 2;
-          return acc;
-        },
-        {} as Record<string, boolean>
-      );
+    queueMicrotask(() => {
+      setExpandedGroups(prevExpandedGroups => {
+        const newExpandedGroups = cashGroups.reduce(
+          (acc, group) => {
+            acc[group.currency] = prevExpandedGroups[group.currency] ?? cashGroups.length <= 2;
+            return acc;
+          },
+          {} as Record<string, boolean>
+        );
 
-      // Prevent unnecessary re-renders if the state is the same
-      if (
-        Object.keys(newExpandedGroups).length === Object.keys(prevExpandedGroups).length &&
-        Object.keys(newExpandedGroups).every(key => newExpandedGroups[key] === prevExpandedGroups[key])
-      ) {
-        return prevExpandedGroups;
-      }
+        // Prevent unnecessary re-renders if the state is the same
+        if (
+          Object.keys(newExpandedGroups).length === Object.keys(prevExpandedGroups).length &&
+          Object.keys(newExpandedGroups).every(key => newExpandedGroups[key] === prevExpandedGroups[key])
+        ) {
+          return prevExpandedGroups;
+        }
 
-      return newExpandedGroups;
+        return newExpandedGroups;
+      });
     });
   }, [cashGroups]);
 

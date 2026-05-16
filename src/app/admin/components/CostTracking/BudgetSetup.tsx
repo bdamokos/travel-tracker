@@ -34,8 +34,8 @@ export default function BudgetSetup({
   };
 
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Budget Setup</h3>
+    <section aria-labelledby="tracker-settings-heading">
+      <h3 id="tracker-settings-heading" className="mb-4 text-xl font-semibold">Tracker settings</h3>
 	      {mode === 'create' && !selectedTrip && (
 	        <div className="mb-4">
 	          <h4 className="text-lg font-medium mb-2">Select a Trip</h4>
@@ -59,10 +59,10 @@ export default function BudgetSetup({
 	      )}
 
       {(selectedTrip || mode === 'edit') && (
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md mb-4">
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label htmlFor="overall-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Overall Budget</label>
+              <label htmlFor="overall-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total budget</label>
               <input
                 id="overall-budget"
                 type="number"
@@ -73,7 +73,7 @@ export default function BudgetSetup({
               />
             </div>
             <div>
-              <label htmlFor="reserved-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reserved (set aside)</label>
+              <label htmlFor="reserved-budget" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reserved</label>
               <input
                 id="reserved-budget"
                 type="number"
@@ -107,7 +107,7 @@ export default function BudgetSetup({
                 max={costData.overallBudget || undefined}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Money you want to hold back (e.g. return ticket) is excluded from daily budget suggestions.
+                Excluded from planning calculations.
               </p>
             </div>
             <div>
@@ -139,6 +139,6 @@ export default function BudgetSetup({
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

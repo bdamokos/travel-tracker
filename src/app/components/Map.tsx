@@ -23,6 +23,9 @@ import {
   getMarkerDistanceBucket,
 } from '@/app/lib/mapIconUtils';
 
+const markerIconCache = new globalThis.Map<string, L.DivIcon>();
+const highlightedIconCache = new globalThis.Map<string, L.DivIcon>();
+
 // Fix Leaflet icon issues with Next.js
 const fixLeafletIcons = () => {
   // Only run on client
@@ -263,8 +266,7 @@ interface MapProps {
 
 const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) => {
   const mapRef = useRef<L.Map | null>(null);
-  const [days, setDays] = useState<JourneyDay[]>([]);
-  const [key, setKey] = useState(0);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [viewChangeTick, setViewChangeTick] = useState(0);
@@ -294,11 +296,11 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
 
   const handleMapReady = useCallback((mapInstance: L.Map) => {
     mapRef.current = mapInstance;
+    setMapInstance(mapInstance);
   }, []);
 
   // Location popup state
   const { isOpen, data, openPopup, closePopup } = useLocationPopup();
-  const markerIconCacheRef = useRef<globalThis.Map<string, L.DivIcon>>(new globalThis.Map());
 
   const handlePopupClose = useCallback(() => {
     closePopup();
@@ -310,34 +312,24 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     fixLeafletIcons();
   }, []);
 
-  // Cleanup effect to handle strict mode double initialization
-  useEffect(() => {
-    return () => {
-      // Force re-render on cleanup to prevent map container reuse
-      setKey(prev => prev + 1);
-    };
-  }, []);
-
-  // Update days when journey changes
-  useEffect(() => {
+  const days = useMemo<JourneyDay[]>(() => {
     if (!journey) {
-      setDays([]);
-      return;
+      return [];
     }
 
     if (selectedDayId) {
       // Show only the selected day
       const selectedDay = journey.days.find(day => day.id === selectedDayId);
-      setDays(selectedDay ? [selectedDay] : []);
-    } else {
-      // Show all days
-      setDays(journey.days);
+      return selectedDay ? [selectedDay] : [];
     }
+
+    // Show all days
+    return journey.days;
   }, [journey, selectedDayId]);
 
   // Fit map bounds to show all locations
   useEffect(() => {
-    if (!mapRef.current || days.length === 0) return;
+    if (!mapInstance || days.length === 0) return;
 
     const allLocations: [number, number][] = [];
 
@@ -361,8 +353,8 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
 
     // Create a bounds object and fit the map to it
     const bounds = L.latLngBounds(allLocations.map(coords => L.latLng(coords[0], coords[1])));
-    mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-  }, [days]);
+    mapInstance.fitBounds(bounds, { padding: [50, 50] });
+  }, [days, mapInstance]);
 
   const locationItems = useMemo<GroupItem[]>(() => {
     return days.flatMap(day => day.locations.map(location => ({ location, day })));
@@ -413,15 +405,21 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
     const bucket = getMarkerDistanceBucket(days);
 
     if (isHighlighted) {
-      return createHighlightedMarkerIcon(L, status, bucket, { label, dataKey: location.id });
+      const highlightedKey = `highlight:${status}:${bucket}:${labelKey}`;
+      const cachedHighlighted = highlightedIconCache.get(highlightedKey);
+      if (cachedHighlighted) return cachedHighlighted;
+
+      const icon = createHighlightedMarkerIcon(L, status, bucket, { label, dataKey: location.id });
+      highlightedIconCache.set(highlightedKey, icon);
+      return icon;
     }
 
     const cacheKey = `${status}:${bucket}:${labelKey}`;
-    const cached = markerIconCacheRef.current.get(cacheKey);
+    const cached = markerIconCache.get(cacheKey);
     if (cached) return cached;
 
     const icon = createMarkerIcon(L, status, bucket, { label, dataKey: location.id });
-    markerIconCacheRef.current.set(cacheKey, icon);
+    markerIconCache.set(cacheKey, icon);
     return icon;
   }, [getTemporalDistanceForLocation]);
 
@@ -521,8 +519,8 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   const groups = useMemo<Group[]>(() => {
     // reference tick so lint understands it intentionally triggers recompute
     void viewChangeTick;
-    return groupLocationsForSpiderfy(mapRef.current, locationItems);
-  }, [locationItems, viewChangeTick]);
+    return groupLocationsForSpiderfy(mapInstance, locationItems);
+  }, [locationItems, mapInstance, viewChangeTick]);
 
   const focusOrder = useMemo(() => {
     const order: string[] = [];
@@ -743,8 +741,10 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
   }, [focusMarkerByIndex, focusOrder, focusedMarkerKey, handlePopupClose, isOpen, scheduleFocusMove]);
 
   useEffect(() => {
-    setExpandedGroups(prev => filterExpandableKeys(prev, groups));
-    setCollapsedGroups(prev => filterExpandableKeys(prev, groups));
+    queueMicrotask(() => {
+      setExpandedGroups(prev => filterExpandableKeys(prev, groups));
+      setCollapsedGroups(prev => filterExpandableKeys(prev, groups));
+    });
   }, [groups, filterExpandableKeys]);
 
   useEffect(() => {
@@ -762,13 +762,15 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
       return;
     }
 
-    setExpandedGroups(prev => {
-      if (prev.has(highlightedGroup.key)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.add(highlightedGroup.key);
-      return next;
+    queueMicrotask(() => {
+      setExpandedGroups(prev => {
+        if (prev.has(highlightedGroup.key)) {
+          return prev;
+        }
+        const next = new Set(prev);
+        next.add(highlightedGroup.key);
+        return next;
+      });
     });
   }, [closestLocation?.id, groups, expandedGroups, collapsedGroups]);
 
@@ -804,7 +806,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
         onFocus={handleMapFocus}
       >
         <MapContainer
-          key={key} // Force re-creation on key change
           className="h-full w-full"
           center={[20, 0]} // Default center (will be overridden by the fit bounds)
           zoom={2}
@@ -836,7 +837,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
               const isHighlighted = closestLocation?.id === location.id;
               const icon = buildMarkerIcon(location, label, labelKey, isHighlighted);
               const onActivate = () => handleLocationActivate(location, day);
-              const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
 
               elements.push(
                 <Marker
@@ -847,11 +847,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   eventHandlers={{
                     click: onActivate,
                     add: event => {
+                      const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
                       keyHandlers.add(event);
                       registerMarkerElement(location.id, label, event);
                     },
                     remove: event => {
-                      keyHandlers.remove(event);
+                      markerKeyHandlersRef.current.get(location.id)?.remove(event);
                       unregisterMarkerElement(location.id);
                     },
                   }}
@@ -881,7 +882,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   return next;
                 });
               };
-              const keyHandlers = getMarkerKeyHandlers(group.key, onActivate);
 
               elements.push(
                 <Marker
@@ -892,11 +892,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   eventHandlers={{
                     click: onActivate,
                     add: event => {
+                      const keyHandlers = getMarkerKeyHandlers(group.key, onActivate);
                       keyHandlers.add(event);
                       registerMarkerElement(group.key, label, event);
                     },
                     remove: event => {
-                      keyHandlers.remove(event);
+                      markerKeyHandlersRef.current.get(group.key)?.remove(event);
                       unregisterMarkerElement(group.key);
                     },
                   }}
@@ -905,7 +906,7 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
             } else {
               // Spiderfy: render distributed markers and legs
               group.items.forEach(({ location, day }, index) => {
-                const distributed = distributeAroundPointPixels(mapRef.current, group.center, index, group.items.length, SPIDER_PIXEL_RADIUS);
+                const distributed = distributeAroundPointPixels(mapInstance, group.center, index, group.items.length, SPIDER_PIXEL_RADIUS);
                 // Spider leg connecting back to center (tasteful connection to true location)
                 elements.push(
                   <Polyline
@@ -918,7 +919,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 const isHighlighted = closestLocation?.id === location.id;
                 const icon = buildMarkerIcon(location, label, labelKey, isHighlighted);
                 const onActivate = () => handleLocationActivate(location, day);
-                const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
 
 
                 elements.push(
@@ -930,11 +930,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                     eventHandlers={{
                       click: onActivate,
                       add: event => {
+                        const keyHandlers = getMarkerKeyHandlers(location.id, onActivate);
                         keyHandlers.add(event);
                         registerMarkerElement(location.id, label, event);
                       },
                       remove: event => {
-                        keyHandlers.remove(event);
+                        markerKeyHandlersRef.current.get(location.id)?.remove(event);
                         unregisterMarkerElement(location.id);
                       },
                     }}
@@ -972,7 +973,6 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                 className: 'travel-marker-collapse',
                 badgeVariant: 'cluster',
               });
-              const collapseKeyHandlers = getMarkerKeyHandlers(`collapse-${group.key}`, collapseHandler);
 
               elements.push(
                 <Marker
@@ -983,11 +983,12 @@ const Map: React.FC<MapProps> = ({ journey, selectedDayId, onLocationClick }) =>
                   eventHandlers={{
                     click: collapseHandler,
                     add: event => {
+                      const collapseKeyHandlers = getMarkerKeyHandlers(`collapse-${group.key}`, collapseHandler);
                       collapseKeyHandlers.add(event);
                       registerMarkerElement(`collapse-${group.key}`, collapseLabel, event);
                     },
                     remove: event => {
-                      collapseKeyHandlers.remove(event);
+                      markerKeyHandlersRef.current.get(`collapse-${group.key}`)?.remove(event);
                       unregisterMarkerElement(`collapse-${group.key}`);
                     },
                   }}

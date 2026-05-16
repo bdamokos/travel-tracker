@@ -56,7 +56,7 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
   // Generate route data asynchronously for land transport, synchronously for air/sea
   useEffect(() => {
     if (!hasValidCoords) {
-      setRoutePoints([]);
+      queueMicrotask(() => setRoutePoints([]));
       return;
     }
 
@@ -78,10 +78,10 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
         } else {
           points = calculateSimpleArc(fromCoords, toCoords, 15, 0.15);
         }
-        setRoutePoints(points);
+        queueMicrotask(() => setRoutePoints(points));
       } catch (error) {
         console.warn('Failed to generate air/sea route points:', error);
-        setRoutePoints([fromCoords, toCoords]);
+        queueMicrotask(() => setRoutePoints([fromCoords, toCoords]));
       }
     } else {
       // For land routes, use async API call
