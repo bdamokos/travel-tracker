@@ -85,7 +85,7 @@ export default function LocationList({
         if (!changed) {
           if (prevKeys.length !== nextKeys.length) {
             changed = true;
-          } else if (prevKeys.some(id => !nextKeys.includes(id))) {
+          } else if (prevKeys.some(id => !Object.prototype.hasOwnProperty.call(next, id))) {
             changed = true;
           }
         }

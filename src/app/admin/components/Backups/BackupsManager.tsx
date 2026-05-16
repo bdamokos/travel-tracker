@@ -88,9 +88,9 @@ export default function BackupsManager() {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadBackups();
-    });
+    // Initial mount syncs the backup list from the API; the direct call is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadBackups();
   }, [loadBackups]);
 
   const synchronize = async () => {

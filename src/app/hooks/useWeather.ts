@@ -9,6 +9,7 @@ export function useWeather(location: Location | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const locationId = location?.id;
 
   const url = useMemo(() => {
     if (!location) return null;
@@ -86,7 +87,7 @@ export function useWeather(location: Location | null) {
           if (tJson.success && today) {
             const todayISO = today.date;
             const summary: WeatherSummary = {
-              locationId: location?.id,
+              locationId,
               startDate: todayISO,
               endDate: todayISO,
               dailyWeather: [today],
@@ -110,7 +111,7 @@ export function useWeather(location: Location | null) {
     } finally {
       setLoading(false);
     }
-  }, [url, todayUrl, location]);
+  }, [url, todayUrl, locationId]);
 
   // Clear previous data immediately when switching locations/URL to avoid stale display
   useEffect(() => {
