@@ -4,15 +4,27 @@ type OsrmProfile = 'car' | 'bike' | 'foot';
 
 const DEFAULT_OSRM_BASE_URL = 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = 15_000;
-const ALLOWED_PROFILES: Set<OsrmProfile> = new Set<OsrmProfile>(['car', 'bike', 'foot']);
+const OSRM_PROFILE_PATHS = {
+  car: 'car',
+  bike: 'bike',
+  foot: 'foot',
+} as const satisfies Record<OsrmProfile, string>;
 
 const parseFinite = (value: string | null): number | null => {
   if (!value) {
     return null;
   }
 
-  const parsed = Number.parseFloat(value);
+  const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getOsrmProfilePath = (value: string | null): string | null => {
+  if (!value || !(value in OSRM_PROFILE_PATHS)) {
+    return null;
+  }
+
+  return OSRM_PROFILE_PATHS[value as OsrmProfile];
 };
 
 const isValidLatitude = (value: number): boolean => value >= -90 && value <= 90;
@@ -34,8 +46,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const fromLng = parseFinite(sp.get('fromLng'));
   const toLat = parseFinite(sp.get('toLat'));
   const toLng = parseFinite(sp.get('toLng'));
+  const profilePath = getOsrmProfilePath(rawProfile);
 
-  if (!rawProfile || !ALLOWED_PROFILES.has(rawProfile as OsrmProfile)) {
+  if (!profilePath) {
     return NextResponse.json({ error: 'Invalid profile' }, { status: 400 });
   }
 
@@ -52,9 +65,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
   }
 
-  const profile = rawProfile as OsrmProfile;
   const upstreamUrl = new URL(
-    `/route/v1/${profile}/${fromLng},${fromLat};${toLng},${toLat}`,
+    `/route/v1/${profilePath}/${fromLng},${fromLat};${toLng},${toLat}`,
     getOsrmBaseUrl()
   );
   upstreamUrl.searchParams.set('overview', 'full');
