@@ -68,10 +68,6 @@ const nextConfig = {
       },
     ];
   },
-  experimental: {
-    // Work around TLS certificate fetch failures from next/font/google in CI-like runtimes.
-    turbopackUseSystemTlsCerts: true,
-  },
   typescript: {
     // Only fail build on type errors, not linting issues
     ignoreBuildErrors: false,

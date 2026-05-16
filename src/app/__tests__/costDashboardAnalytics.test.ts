@@ -268,7 +268,7 @@ describe('costDashboardAnalytics', () => {
     expect(analytics.availableCountryOptions).toContain('Peru');
   });
 
-  it('uses trip-window net spend rather than prep costs for daily averages', () => {
+  it('uses total included spend over trip days for the headline daily average', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-02-10T12:00:00.000Z'));
 
@@ -290,7 +290,7 @@ describe('costDashboardAnalytics', () => {
     expect(argentina?.netSpent).toBe(1000);
     expect(argentina?.tripNetSpent).toBe(700);
     expect(argentina?.averagePerDay).toBe(70);
-    expect(analytics.includedAveragePerDay).toBeCloseTo((1200 + 700 + 400 + 100) / 30, 5);
+    expect(analytics.includedAveragePerDay).toBeCloseTo((1200 + 1000 + 400 + 100) / 30, 5);
   });
 
   it('clamps fallback expense-day counting to the trip window', () => {

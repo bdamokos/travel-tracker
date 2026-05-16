@@ -62,7 +62,7 @@ describe('MultiRouteLinkManager', () => {
       expect(screen.queryByText(/Linked Routes/)).not.toBeInTheDocument();
     });
 
-    it('initializes with provided links', () => {
+    it('initializes with provided links', async () => {
       const initialLinks: TravelLinkInfo[] = [
         { id: 'route-1', type: 'route', name: 'Paris → London' },
         { id: 'route-2', type: 'route', name: 'London → Edinburgh' },
@@ -70,12 +70,12 @@ describe('MultiRouteLinkManager', () => {
 
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
       
-      expect(screen.getByText('Paris → London')).toBeInTheDocument();
+      expect(await screen.findByText('Paris → London')).toBeInTheDocument();
       expect(screen.getByText('London → Edinburgh')).toBeInTheDocument();
       expect(screen.getByText('Linked Routes (2)')).toBeInTheDocument();
     });
 
-    it('detects split mode from initial links', () => {
+    it('detects split mode from initial links', async () => {
       const initialLinks: TravelLinkInfo[] = [
         { id: 'route-1', type: 'route', name: 'Route 1', splitMode: 'percentage', splitValue: 60 },
         { id: 'route-2', type: 'route', name: 'Route 2', splitMode: 'percentage', splitValue: 40 },
@@ -84,7 +84,9 @@ describe('MultiRouteLinkManager', () => {
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
       
       const select = screen.getByTestId('split-mode-select') as HTMLSelectElement;
-      expect(select.value).toBe('percentage');
+      await waitFor(() => {
+        expect(select.value).toBe('percentage');
+      });
     });
   });
 
@@ -119,6 +121,8 @@ describe('MultiRouteLinkManager', () => {
       ];
       
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
+
+      await screen.findByText('New Route');
       
       await user.click(screen.getByText('+ Add route or segment'));
       await user.click(screen.getByTestId('mock-travel-selector'));
@@ -145,6 +149,8 @@ describe('MultiRouteLinkManager', () => {
           onLinksChange={onLinksChange}
         />
       );
+
+      await screen.findByText('Route to Remove');
       
       // Find the remove button for the first route
       const removeButtons = screen.getAllByTitle('Remove link');
@@ -166,6 +172,8 @@ describe('MultiRouteLinkManager', () => {
       ];
       
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
+
+      await screen.findByText('Route 1');
       
       const select = screen.getByTestId('split-mode-select');
       await user.selectOptions(select, 'percentage');
@@ -181,6 +189,8 @@ describe('MultiRouteLinkManager', () => {
       ];
       
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
+
+      await screen.findByText('Route 1');
       
       const select = screen.getByTestId('split-mode-select');
       await user.selectOptions(select, 'percentage');
@@ -190,7 +200,7 @@ describe('MultiRouteLinkManager', () => {
   });
 
   describe('validation', () => {
-    it('shows valid state with correct equal split', () => {
+    it('shows valid state with correct equal split', async () => {
       const initialLinks: TravelLinkInfo[] = [
         { id: 'route-1', type: 'route', name: 'Route 1' },
         { id: 'route-2', type: 'route', name: 'Route 2' },
@@ -199,11 +209,10 @@ describe('MultiRouteLinkManager', () => {
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
       
       // Should show success message (equal split is always valid)
-      expect(screen.getByText(/Expense of 100\.00 EUR split across 2 routes/)).toBeInTheDocument();
+      expect(await screen.findByText(/Expense of 100\.00 EUR split across 2 routes/)).toBeInTheDocument();
     });
 
     it('shows error when percentage split does not sum to 100%', async () => {
-      const user = userEvent.setup();
       const initialLinks: TravelLinkInfo[] = [
         { id: 'route-1', type: 'route', name: 'Route 1', splitMode: 'percentage', splitValue: 60 },
         { id: 'route-2', type: 'route', name: 'Route 2', splitMode: 'percentage', splitValue: 30 },
@@ -211,11 +220,10 @@ describe('MultiRouteLinkManager', () => {
       
       render(<MultiRouteLinkManager {...defaultProps} initialLinks={initialLinks} />);
       
-      expect(screen.getByText(/Percentages must sum to 100%/)).toBeInTheDocument();
+      expect(await screen.findByText(/Percentages must sum to 100%/)).toBeInTheDocument();
     });
 
     it('shows error when fixed split does not sum to expense amount', async () => {
-      const user = userEvent.setup();
       const initialLinks: TravelLinkInfo[] = [
         { id: 'route-1', type: 'route', name: 'Route 1', splitMode: 'fixed', splitValue: 40 },
         { id: 'route-2', type: 'route', name: 'Route 2', splitMode: 'fixed', splitValue: 40 },
@@ -223,7 +231,7 @@ describe('MultiRouteLinkManager', () => {
       
       render(<MultiRouteLinkManager {...defaultProps} expenseAmount={100} initialLinks={initialLinks} />);
       
-      expect(screen.getByText(/Fixed amounts must sum to 100/)).toBeInTheDocument();
+      expect(await screen.findByText(/Fixed amounts must sum to 100/)).toBeInTheDocument();
     });
   });
 
@@ -246,10 +254,7 @@ describe('MultiRouteLinkManager', () => {
         />
       );
       
-      // Wait for initial render cycle to complete
-      await waitFor(() => {
-        expect(onLinksChange).toHaveBeenCalled();
-      });
+      await screen.findByText('Route 1');
       
       // Should not have excessive calls (infinite loop would cause many calls)
       expect(onLinksChange.mock.calls.length).toBeLessThan(5);
@@ -310,7 +315,7 @@ describe('MultiRouteLinkManager', () => {
         />
       );
       
-      expect(screen.getByText('Expense 1 Route')).toBeInTheDocument();
+      expect(await screen.findByText('Expense 1 Route')).toBeInTheDocument();
       
       // Switch to different expense with different links
       const newLinks: TravelLinkInfo[] = [
