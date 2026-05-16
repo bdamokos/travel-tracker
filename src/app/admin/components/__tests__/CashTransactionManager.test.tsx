@@ -156,7 +156,7 @@ describe('CashTransactionManager', () => {
     expect(screen.getByText(/refund to USD/i)).toBeInTheDocument();
   });
 
-  it('does not count refund-to-base transactions as new on-hand sources in the refunded currency group', () => {
+  it('does not count refund-to-base transactions as new on-hand sources in the refunded currency group', async () => {
     const sourceExpense = createCashSourceExpense({
       id: 'cash-source-1',
       date: new Date('2026-03-01T00:00:00.000Z'),
@@ -202,8 +202,8 @@ describe('CashTransactionManager', () => {
     );
 
     expect(screen.getByText(/1 source/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/remaining: 75\.00 USD • 30000\.00 ARS/i)).toHaveLength(2);
-    expect(screen.getByText(/deductions into later cash events/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/remaining: 75\.00 USD • 30000\.00 ARS/i)).toHaveLength(1);
+    expect(await screen.findByText(/deductions into later cash events/i)).toBeInTheDocument();
     expect(screen.getByText(/cash refund to USD from ARS/i)).toBeInTheDocument();
   });
 });

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import YnabMappingManager from '@/app/admin/components/YnabMappingManager';
-import { CostTrackingData, YnabCategoryMapping } from '@/app/types';
+import { CostTrackingData } from '@/app/types';
 
 // Mock the AccessibleModal component
 jest.mock('../AccessibleModal', () => {
@@ -157,7 +157,7 @@ describe('YnabMappingManager', () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('displays existing mappings from costData', () => {
+  it('displays existing mappings from costData', async () => {
     render(
       <YnabMappingManager
         isOpen={true}
@@ -167,7 +167,7 @@ describe('YnabMappingManager', () => {
       />
     );
 
-    expect(screen.getByDisplayValue('Travel - Transport')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Travel - Transport')).toBeInTheDocument();
     expect(screen.getByText('Existing Mappings (1)')).toBeInTheDocument();
   });
 
@@ -209,6 +209,8 @@ describe('YnabMappingManager', () => {
       />
     );
 
+    await screen.findByDisplayValue('Travel - Transport');
+
     const saveButton = screen.getByText('Save Mappings');
     await user.click(saveButton);
 
@@ -234,7 +236,7 @@ describe('YnabMappingManager', () => {
       />
     );
 
-    const deleteButton = screen.getByText('Delete');
+    const deleteButton = await screen.findByText('Delete');
     await user.click(deleteButton);
 
     // Should show 0 mappings after deletion

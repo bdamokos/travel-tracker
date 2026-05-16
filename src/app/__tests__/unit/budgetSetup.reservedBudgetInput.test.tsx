@@ -41,7 +41,7 @@ describe('BudgetSetup reserved budget input', () => {
   it('allows clearing the reserved budget input without forcing 0', () => {
     render(<BudgetSetupHarness />);
 
-    const reservedInput = screen.getByLabelText('Reserved (set aside)') as HTMLInputElement;
+    const reservedInput = screen.getByLabelText('Reserved') as HTMLInputElement;
     expect(reservedInput.value).toBe('6000');
 
     fireEvent.change(reservedInput, { target: { value: '' } });

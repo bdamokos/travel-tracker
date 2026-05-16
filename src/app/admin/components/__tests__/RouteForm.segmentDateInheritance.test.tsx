@@ -29,10 +29,21 @@ type MockComboBoxProps = {
   disabled?: boolean;
 };
 
+function dateInputValueToLocalDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 jest.mock('@/app/admin/components/AccessibleDatePicker', () => {
   return function MockAccessibleDatePicker(props: MockDatePickerProps) {
     const currentValue = props.value ?? props.defaultValue ?? null;
-    const value = currentValue ? currentValue.toISOString().slice(0, 10) : '';
+    const value = currentValue
+      ? [
+          currentValue.getFullYear(),
+          String(currentValue.getMonth() + 1).padStart(2, '0'),
+          String(currentValue.getDate()).padStart(2, '0')
+        ].join('-')
+      : '';
 
     return (
       <input
@@ -42,7 +53,7 @@ jest.mock('@/app/admin/components/AccessibleDatePicker', () => {
         value={value}
         aria-labelledby={props['aria-labelledby']}
         onChange={(event) => {
-          props.onChange?.(event.target.value ? new Date(`${event.target.value}T00:00:00.000Z`) : null);
+          props.onChange?.(event.target.value ? dateInputValueToLocalDate(event.target.value) : null);
         }}
       />
     );
