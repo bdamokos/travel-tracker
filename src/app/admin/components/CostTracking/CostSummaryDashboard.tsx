@@ -47,7 +47,7 @@ const DASHBOARD_THEME: CSSProperties = {
 
 const surfaceClassName = [
   'rounded-[1.5rem] border border-[color:var(--cost-board-border)]',
-  'bg-[color:var(--cost-board-panel)] backdrop-blur-sm',
+  'bg-[color:var(--cost-board-panel)]',
   'shadow-[var(--cost-board-glow)] dark:bg-slate-950/70 dark:border-slate-800',
 ].join(' ');
 
@@ -69,16 +69,16 @@ function MetricCard({
 }: {
   label: string;
   value: string;
-  supporting: string;
+  supporting?: string;
   detail?: string;
   tone?: keyof typeof metricToneClasses;
 }): JSX.Element {
   return (
-    <div className={`rounded-[1.25rem] border p-4 ${metricToneClasses[tone]}`}>
-      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] opacity-75">{label}</p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-2 text-sm opacity-80">{supporting}</p>
-      {detail ? <p className="mt-3 text-xs opacity-70">{detail}</p> : null}
+    <div className={`rounded-xl border p-3.5 ${metricToneClasses[tone]}`}>
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] opacity-75">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+      {supporting ? <p className="mt-1.5 text-sm opacity-80">{supporting}</p> : null}
+      {detail ? <p className="mt-2 text-xs opacity-70">{detail}</p> : null}
     </div>
   );
 }
@@ -133,11 +133,11 @@ function formatWindowLabel(date: Date | null): string {
 
 function trendLabel(trend: TrendDirection, delta: number): string {
   if (trend === 'flat') {
-    return 'Steady vs previous window';
+    return 'Steady';
   }
 
   const rounded = Math.abs(delta).toFixed(1);
-  return trend === 'up' ? `Up ${rounded}% vs previous window` : `Down ${rounded}% vs previous window`;
+  return trend === 'up' ? `Up ${rounded}%` : `Down ${rounded}%`;
 }
 
 function formatShare(value: number): string {
@@ -255,10 +255,6 @@ export default function CostSummaryDashboard({
 
     return history;
   }, [analytics.tripWindow.end, costSummary.tripStatus, includedActualTripExpenses, tripEndDate, tripStartDate]);
-  const maxTripSpending = tripSpendingHistory.length > 0
-    ? Math.max(...tripSpendingHistory.map(entry => entry.amount), 0)
-    : 0;
-
   const tripExpensesByDay = useMemo(() => {
     const grouped = new Map<string, Expense[]>();
 
@@ -413,6 +409,11 @@ export default function CostSummaryDashboard({
     analytics.includedRefunds,
     costData.currency
   );
+  const isCompletedTrip = costSummary.tripStatus === 'after';
+  const budgetBalanceTone = costSummary.availableForPlanning >= 0 ? 'emerald' : 'rose';
+  const budgetBalanceLabel = isCompletedTrip ? 'Final balance' : 'Available to plan';
+  const budgetBalanceSupporting = isCompletedTrip ? 'Budget less actual and planned spend.' : 'Budget left for upcoming spend.';
+  const historyHeading = isCompletedTrip ? 'Final trip days' : 'Recent trip spending';
 
   const toggleExcludedCountry = (country: string) => {
     setExcludedCountries(previous => (
@@ -429,85 +430,86 @@ export default function CostSummaryDashboard({
   return (
     <div style={DASHBOARD_THEME} className="space-y-6 text-[color:var(--cost-board-ink)] dark:text-slate-100">
       <section className={`${surfaceClassName} overflow-hidden`}>
-        <div className="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16),_transparent_42%),linear-gradient(135deg,rgba(248,250,252,0.92),rgba(255,255,255,0.68))] px-5 py-5 dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.28),_transparent_45%),linear-gradient(135deg,rgba(2,6,23,0.92),rgba(15,23,42,0.74))] md:px-6">
+        <div className="border-b border-slate-200/70 bg-slate-50/90 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/70 md:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                Spending Intelligence
-              </p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">
-                Cost operations board
+              <h3 className="text-2xl font-semibold tracking-tight">
+                Cost overview
               </h3>
-              <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-                Filters here only change analytics. Expense tracking, budgets, and links remain untouched.
-              </p>
             </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-4 py-3 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300">
+            <div className="rounded-xl border border-slate-200/80 bg-white/70 px-4 py-2.5 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300">
               <p className="font-semibold text-slate-900 dark:text-slate-100">
-                Window ends on {formatWindowLabel(analytics.tripWindow.end)}
+                Through {formatWindowLabel(analytics.tripWindow.end)}
               </p>
               <p className="mt-1">
-                Active denominator uses the trip window minus excluded itinerary days.
+                {analytics.includedDays} day{analytics.includedDays === 1 ? '' : 's'} counted
               </p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2 xl:grid-cols-3 md:p-6">
+        <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-2 xl:grid-cols-3 md:p-6">
           <MetricCard
-            label="Available for planning"
+            label={budgetBalanceLabel}
             value={formatCurrency(costSummary.availableForPlanning, costData.currency)}
-            supporting="What is left for new expenses and upcoming commitments."
+            supporting={budgetBalanceSupporting}
             detail={costSummary.reservedBudget > 0
-              ? `${formatCurrency(costSummary.reservedBudget, costData.currency)} intentionally reserved.`
+              ? `${formatCurrency(costSummary.reservedBudget, costData.currency)} reserved.`
               : undefined}
-            tone={costSummary.availableForPlanning >= 0 ? 'emerald' : 'rose'}
+            tone={budgetBalanceTone}
           />
+          {isCompletedTrip ? (
+            <MetricCard
+              label="During trip"
+              value={formatCurrency(costSummary.tripSpent, costData.currency)}
+              supporting="Expenses dated inside the trip."
+              detail={costSummary.tripRefunds > 0 ? `${formatCurrency(costSummary.tripRefunds, costData.currency)} refunded.` : undefined}
+              tone="cobalt"
+            />
+          ) : (
+            <MetricCard
+              label="Daily budget"
+              value={formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
+              supporting={`${costSummary.dailyBudgetBasisDays} ${costSummary.tripStatus === 'before' ? 'trip' : 'remaining'} day${costSummary.dailyBudgetBasisDays === 1 ? '' : 's'}.`}
+              detail={costSummary.tripStatus === 'before' ? 'Before trip start.' : 'Current commitments included.'}
+              tone="cobalt"
+            />
+          )}
           <MetricCard
-            label="Suggested daily budget"
-            value={formatCurrency(costSummary.suggestedDailyBudget, costData.currency)}
-            supporting={`Spread over ${costSummary.dailyBudgetBasisDays} ${costSummary.tripStatus === 'during' ? 'remaining' : 'journey'} day${costSummary.dailyBudgetBasisDays === 1 ? '' : 's'}.`}
-            detail={costSummary.tripStatus === 'during'
-              ? 'Uses remaining trip days and current committed spend.'
-              : 'Uses full journey duration outside the active trip window.'}
-            tone="cobalt"
-          />
-          <MetricCard
-            label="Included spending"
+            label="Actual spend"
             value={includedSpendingDisplay.displayText}
-            supporting="Actual net spend from the countries currently in analytics view."
+            supporting="Pre-trip and trip-date actuals."
             detail={analytics.includedRefunds > 0
-              ? `Includes ${formatCurrency(analytics.includedRefunds, costData.currency)} of refunds from included countries.`
+              ? `${formatCurrency(analytics.includedRefunds, costData.currency)} refunded.`
               : undefined}
             tone="slate"
           />
           <MetricCard
-            label="Included daily average"
+            label={isCompletedTrip ? 'Trip average' : 'Included daily average'}
             value={analytics.includedAveragePerDay === null ? 'N/A' : formatCurrency(analytics.includedAveragePerDay, costData.currency)}
             supporting={analytics.includedDays > 0
-              ? `Calculated over ${analytics.includedDays} trip day${analytics.includedDays === 1 ? '' : 's'} in view.`
-              : 'No active itinerary days remain in the filtered view.'}
+              ? `${analytics.includedDays} day${analytics.includedDays === 1 ? '' : 's'} counted.`
+              : 'No days in view.'}
             detail={excludedCountries.length > 0
-              ? 'Excluded countries remove only their unique itinerary-covered days.'
-              : 'Baseline matches the canonical trip day window.'}
+              ? 'Exclusions applied.'
+              : undefined}
             tone="sky"
           />
           <MetricCard
-            label="Days in view"
+            label="Days"
             value={`${analytics.includedDays}`}
             supporting={costSummary.tripStatus === 'before'
-              ? 'The trip has not started yet.'
-              : `Trip window spans ${analytics.tripWindow.dayCount} day${analytics.tripWindow.dayCount === 1 ? '' : 's'} before exclusions.`}
+              ? 'Trip not started.'
+              : `${analytics.tripWindow.dayCount} before exclusions.`}
             detail={excludedCountries.length > 0
-              ? `${analytics.tripWindow.dayCount - analytics.includedDays} day${analytics.tripWindow.dayCount - analytics.includedDays === 1 ? '' : 's'} removed by exclusions.`
+              ? `${analytics.tripWindow.dayCount - analytics.includedDays} removed.`
               : undefined}
             tone="amber"
           />
           <MetricCard
             label="Countries in view"
             value={`${analytics.includedCountryCount}`}
-            supporting="Countries currently contributing to dashboard totals and breakdowns."
-            detail={analytics.categoryCount > 0 ? `${analytics.categoryCount} visible spending categor${analytics.categoryCount === 1 ? 'y' : 'ies'}.` : 'No category data available yet.'}
+            supporting={analytics.categoryCount > 0 ? `${analytics.categoryCount} categor${analytics.categoryCount === 1 ? 'y' : 'ies'}.` : 'No categories yet.'}
             tone="slate"
           />
         </div>
@@ -516,9 +518,9 @@ export default function CostSummaryDashboard({
       <section className={`${surfaceClassName} p-5 md:p-6`}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h4 className="text-lg font-semibold tracking-tight">Country inclusion controls</h4>
+            <h4 className="text-lg font-semibold tracking-tight">Countries</h4>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Excluding a country removes its spend from totals and its itinerary-covered days from the included daily average.
+              Toggle analytics scope.
             </p>
           </div>
           {excludedCountries.length > 0 ? (
@@ -560,38 +562,31 @@ export default function CostSummaryDashboard({
               Excluding: <span className="font-semibold text-slate-900 dark:text-slate-100">{analytics.excludedCountryLabels.join(', ')}</span>
             </p>
             <p className="text-xs">
-              General and Unassigned expenses affect totals, but they never remove itinerary days.
+              General and Unassigned do not change day counts.
             </p>
           </div>
         ) : (
           <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-            All countries are currently included in the analytics view.
+            All countries included.
           </p>
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1.6fr_1fr]">
         <section className={`${surfaceClassName} p-5 md:p-6`}>
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-                Timeline
-              </p>
-              <h4 className="mt-2 text-xl font-semibold tracking-tight">Recent trip spending</h4>
+              <h4 className="text-xl font-semibold tracking-tight">{historyHeading}</h4>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Click a day to inspect the recorded expenses.
+              Select a day.
             </p>
           </div>
 
           {tripSpendingHistory.length > 0 ? (
-            <div className="mt-6">
-              <div className="-mx-1 overflow-x-auto pb-1">
-                <div className="grid min-h-[18rem] min-w-max grid-flow-col auto-cols-[minmax(5.5rem,1fr)] gap-2 px-1 sm:gap-3 md:min-w-0 md:grid-cols-7 md:grid-flow-row">
+            <div className="mt-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
                 {tripSpendingHistory.map(entry => {
-                  const normalizedAmount = Math.max(entry.amount, 0);
-                  const percentage = maxTripSpending > 0 ? (normalizedAmount / maxTripSpending) * 100 : 0;
-                  const minHeight = normalizedAmount > 0 ? '12px' : '4px';
                   const [year, month, day] = entry.date.split('-').map(Number);
                   const labelDate = !Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)
                     ? new Date(year, month - 1, day)
@@ -601,12 +596,13 @@ export default function CostSummaryDashboard({
                     day: 'numeric',
                   });
                   const isSelected = selectedTripSpendingDate === entry.date;
+                  const expenseCount = tripExpensesByDay.get(entry.date)?.length || 0;
                   return (
                     <button
                       key={entry.date}
                       type="button"
                       onClick={() => setSelectedTripSpendingDate(entry.date)}
-                      className={`flex h-full min-h-[16rem] min-w-[5.5rem] flex-col justify-end rounded-[1.1rem] border p-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:p-3 ${
+                      className={`min-w-0 rounded-xl border px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         isSelected
                           ? 'border-blue-400 bg-blue-50 shadow-sm dark:border-blue-500 dark:bg-blue-950/40'
                           : 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-900'
@@ -615,62 +611,80 @@ export default function CostSummaryDashboard({
                       aria-pressed={isSelected}
                       title={`Show expenses for ${dayLabel}`}
                     >
-                      <div className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 sm:text-[0.72rem] sm:tracking-[0.18em]">
+                      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                         {dayLabel}
                       </div>
-                      <div className="mt-4 flex-1 rounded-[0.9rem] bg-slate-200/80 p-2 dark:bg-slate-800">
-                        <div className="flex h-full items-end">
-                          <div
-                            className="w-full rounded-[0.75rem] bg-[linear-gradient(180deg,rgba(14,165,233,0.9),rgba(37,99,235,0.95))]"
-                            style={{ height: `${percentage}%`, minHeight }}
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-3 text-base font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-lg">
+                      <div className="mt-1 text-base font-semibold leading-tight text-slate-900 dark:text-slate-100">
                         {formatCurrency(entry.amount, costData.currency)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {expenseCount} expense{expenseCount === 1 ? '' : 's'}
                       </div>
                     </button>
                   );
                 })}
-                </div>
               </div>
             </div>
           ) : (
             <div className="mt-6 rounded-[1.25rem] border border-dashed border-slate-300 bg-slate-50/80 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-              No trip-day spending has been recorded yet. Once actual expenses land inside the trip window, this strip becomes the main pace view.
+              No trip-day spending yet.
             </div>
           )}
         </section>
 
         <section className={`${surfaceClassName} p-5 md:p-6`}>
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-            Pace
-          </p>
-          <h4 className="mt-2 text-xl font-semibold tracking-tight">Trend snapshots</h4>
+          <h4 className="text-xl font-semibold tracking-tight">
+            {isCompletedTrip ? 'Trip result' : 'Pace'}
+          </h4>
 
-          <div className="mt-6 grid grid-cols-1 gap-4">
-            <MetricCard
-              label="7-day average"
-              value={formatCurrency(weeklyAverage.average, costData.currency)}
-              supporting={weeklyAverage.days > 0 ? `Based on ${weeklyAverage.days} day${weeklyAverage.days === 1 ? '' : 's'} of trip-window spend.` : 'No recent spend yet.'}
-              detail={trendLabel(weeklyTrend.trend, weeklyTrend.delta)}
-              tone="emerald"
-            />
-            <MetricCard
-              label="30-day average"
-              value={formatCurrency(monthlyAverage.average, costData.currency)}
-              supporting={monthlyAverage.days > 0 ? `Based on ${monthlyAverage.days} day${monthlyAverage.days === 1 ? '' : 's'} of trip-window spend.` : 'No rolling monthly spend yet.'}
-              detail={trendLabel(monthlyTrend.trend, monthlyTrend.delta)}
-              tone="sky"
-            />
-            <MetricCard
-              label="Current trip pace"
-              value={formatCurrency(costSummary.averageSpentPerTripDay, costData.currency)}
-              supporting={costSummary.tripStatus === 'before'
-                ? 'Trip pace will populate once the journey begins.'
-                : `Trip-level pace before exclusions across ${costSummary.tripStatus === 'after' ? costSummary.totalDays : costSummary.daysCompleted} day${(costSummary.tripStatus === 'after' ? costSummary.totalDays : costSummary.daysCompleted) === 1 ? '' : 's'}.`}
-              tone="cobalt"
-            />
+          <div className="mt-4 grid grid-cols-1 gap-3">
+            {isCompletedTrip ? (
+              <>
+                <MetricCard
+                  label="Average per day"
+                  value={formatCurrency(costSummary.averageSpentPerTripDay, costData.currency)}
+                  supporting={`${costSummary.totalDays} trip day${costSummary.totalDays === 1 ? '' : 's'}.`}
+                  tone="sky"
+                />
+                <MetricCard
+                  label={costSummary.availableForPlanning >= 0 ? 'Under budget' : 'Over budget'}
+                  value={formatCurrency(Math.abs(costSummary.availableForPlanning), costData.currency)}
+                  supporting="After actual and planned spend."
+                  tone={budgetBalanceTone}
+                />
+                <MetricCard
+                  label="Post-trip spend"
+                  value={formatCurrency(costSummary.postTripSpent, costData.currency)}
+                  supporting={costSummary.postTripRefunds > 0 ? `${formatCurrency(costSummary.postTripRefunds, costData.currency)} refunded.` : 'After trip end.'}
+                  tone="slate"
+                />
+              </>
+            ) : (
+              <>
+                <MetricCard
+                  label="7-day average"
+                  value={formatCurrency(weeklyAverage.average, costData.currency)}
+                  supporting={weeklyAverage.days > 0 ? `${weeklyAverage.days} day${weeklyAverage.days === 1 ? '' : 's'}.` : 'No recent spend.'}
+                  detail={trendLabel(weeklyTrend.trend, weeklyTrend.delta)}
+                  tone="emerald"
+                />
+                <MetricCard
+                  label="30-day average"
+                  value={formatCurrency(monthlyAverage.average, costData.currency)}
+                  supporting={monthlyAverage.days > 0 ? `${monthlyAverage.days} day${monthlyAverage.days === 1 ? '' : 's'}.` : 'No monthly spend.'}
+                  detail={trendLabel(monthlyTrend.trend, monthlyTrend.delta)}
+                  tone="sky"
+                />
+                <MetricCard
+                  label="Current trip pace"
+                  value={formatCurrency(costSummary.averageSpentPerTripDay, costData.currency)}
+                  supporting={costSummary.tripStatus === 'before'
+                    ? 'Starts with the trip.'
+                    : `${costSummary.daysCompleted} day${costSummary.daysCompleted === 1 ? '' : 's'} elapsed.`}
+                  tone="cobalt"
+                />
+              </>
+            )}
           </div>
         </section>
       </div>
@@ -682,7 +696,7 @@ export default function CostSummaryDashboard({
               <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
                 Country analysis
               </p>
-              <h4 className="mt-2 text-xl font-semibold tracking-tight">Where the trip is burning money</h4>
+              <h4 className="mt-2 text-xl font-semibold tracking-tight">Country spend</h4>
             </div>
             <SegmentedControl
               ariaLabel="Country ranking sort"
@@ -728,7 +742,7 @@ export default function CostSummaryDashboard({
                             ) : null}
                           </div>
                           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            {country.coverageDays} covered day{country.coverageDays === 1 ? '' : 's'} • {country.expenseCount} expense{country.expenseCount === 1 ? '' : 's'}
+                            {country.coverageDays} day{country.coverageDays === 1 ? '' : 's'} • {country.expenseCount} expense{country.expenseCount === 1 ? '' : 's'}
                           </p>
                         </div>
                         <div className="text-right">
@@ -736,7 +750,7 @@ export default function CostSummaryDashboard({
                             {getCountryMetricLabel(country, countrySortMode, costData.currency)}
                           </div>
                           <div className={`mt-1 text-xs font-medium ${isNegativeBudget ? 'text-rose-600 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                            {country.budgetAmount > 0 ? `${country.budgetDelta < 0 ? 'Over by' : 'Budget left'} ${formatCurrency(Math.abs(country.budgetDelta), costData.currency)}` : 'No country budget set'}
+                            {country.budgetAmount > 0 ? `${country.budgetDelta < 0 ? 'Over' : 'Left'} ${formatCurrency(Math.abs(country.budgetDelta), costData.currency)}` : 'No budget'}
                           </div>
                         </div>
                       </div>
@@ -745,7 +759,7 @@ export default function CostSummaryDashboard({
                           className={`h-full rounded-full ${
                             countrySortMode === 'budget'
                               ? (isNegativeBudget ? 'bg-rose-500' : 'bg-emerald-500')
-                              : 'bg-[linear-gradient(90deg,rgba(14,165,233,0.95),rgba(37,99,235,0.95))]'
+                              : 'bg-blue-600 dark:bg-blue-400'
                           }`}
                           style={{ width: getCountryBarWidth(country, countrySortMode, maxCountryMetricValue) }}
                         />
@@ -776,13 +790,13 @@ export default function CostSummaryDashboard({
                     <MetricCard
                       label="Net spend"
                       value={formatCurrency(selectedCountry.netSpent, costData.currency)}
-                      supporting={`${selectedCountry.coverageDays} covered day${selectedCountry.coverageDays === 1 ? '' : 's'}.`}
+                      supporting={`${selectedCountry.coverageDays} day${selectedCountry.coverageDays === 1 ? '' : 's'}.`}
                       tone="slate"
                     />
                     <MetricCard
                       label="Avg/day"
                       value={formatCurrency(selectedCountry.averagePerDay, costData.currency)}
-                      supporting={selectedCountry.isItineraryCountry ? 'Derived from unique covered days.' : 'Non-itinerary countries never affect the denominator.'}
+                      supporting={selectedCountry.isItineraryCountry ? 'Unique days.' : 'No day-count effect.'}
                       tone="sky"
                     />
                   </div>
@@ -809,13 +823,13 @@ export default function CostSummaryDashboard({
                   </div>
 
                   <div className="mt-5 rounded-[1rem] border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-900/55">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Coverage note</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Coverage</p>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                       {selectedCountry.hasConfiguredPeriods
-                        ? `Uses ${selectedCountry.periodCount} configured period${selectedCountry.periodCount === 1 ? '' : 's'} with unique union day counting.`
+                        ? `${selectedCountry.periodCount} configured period${selectedCountry.periodCount === 1 ? '' : 's'}, union counted.`
                         : selectedCountry.isItineraryCountry
-                          ? 'No explicit country periods found. Coverage falls back to distinct actual expense dates inside the active trip window.'
-                          : 'This country is informational only and does not contribute itinerary-day coverage.'}
+                          ? 'Falls back to distinct expense dates.'
+                          : 'Informational only.'}
                     </p>
                   </div>
 
@@ -827,7 +841,7 @@ export default function CostSummaryDashboard({
                         onClick={() => setCategoryScope('selected')}
                         className="text-xs font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
                       >
-                        Focus categories below
+                        Show below
                       </button>
                     </div>
                     {selectedCountry.categoryRows.length > 0 ? (
@@ -850,7 +864,7 @@ export default function CostSummaryDashboard({
                 </>
               ) : (
                 <div className="rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
-                  Select a country to inspect its spend, refunds, and category distribution.
+                  Select a country for details.
                 </div>
               )}
             </div>
@@ -863,7 +877,7 @@ export default function CostSummaryDashboard({
               <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
                 Category analysis
               </p>
-              <h4 className="mt-2 text-xl font-semibold tracking-tight">What the current view is spending on</h4>
+              <h4 className="mt-2 text-xl font-semibold tracking-tight">Category mix</h4>
             </div>
             <SegmentedControl
               ariaLabel="Category analysis scope"
@@ -876,8 +890,8 @@ export default function CostSummaryDashboard({
             />
           </div>
 
-          <div className="mt-4 rounded-[1rem] border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/55 dark:text-slate-300">
-            Context: <span className="font-semibold text-slate-900 dark:text-slate-100">{categoryScopeLabel}</span>
+          <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            {categoryScopeLabel}
           </div>
 
           <div className="mt-5 space-y-3">
@@ -887,7 +901,7 @@ export default function CostSummaryDashboard({
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="font-semibold text-slate-950 dark:text-slate-100">{category.category}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                      <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                         {category.count} expense{category.count === 1 ? '' : 's'} • {formatShare(category.share)}
                       </p>
                     </div>
@@ -899,7 +913,7 @@ export default function CostSummaryDashboard({
                   </div>
                   <div className="mt-3 h-2 rounded-full bg-slate-200 dark:bg-slate-800">
                     <div
-                      className="h-full rounded-full bg-[linear-gradient(90deg,rgba(34,197,94,0.95),rgba(14,165,233,0.95))]"
+                      className="h-full rounded-full bg-slate-900 dark:bg-slate-100"
                       style={{ width: maxCategoryAmount > 0 ? `${Math.max(10, (category.amount / maxCategoryAmount) * 100)}%` : '0%' }}
                     />
                   </div>
@@ -909,7 +923,7 @@ export default function CostSummaryDashboard({
               <div className="rounded-[1.2rem] border border-dashed border-slate-300 bg-slate-50/80 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
                 {categoryScope === 'selected' && selectedCountry
                   ? `${selectedCountry.country} has no visible category breakdown for the current filters.`
-                  : 'No category data is available for the current filters.'}
+                  : 'No category data for these filters.'}
               </div>
             )}
           </div>
@@ -918,10 +932,7 @@ export default function CostSummaryDashboard({
 
       <section className={`${surfaceClassName} overflow-hidden`}>
         <div className="border-b border-slate-200/70 px-5 py-4 dark:border-slate-800 md:px-6">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">
-            Country ledger
-          </p>
-          <h4 className="mt-2 text-xl font-semibold tracking-tight">Compact country detail table</h4>
+          <h4 className="text-xl font-semibold tracking-tight">Country table</h4>
         </div>
 
         <div className="hidden overflow-x-auto md:block">

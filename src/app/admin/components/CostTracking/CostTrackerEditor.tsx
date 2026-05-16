@@ -53,6 +53,28 @@ type ApplyExpenseToCostDataParams = {
   editingExpenseIndex: number | null;
 };
 
+const editorSections = [
+  { id: 'cost-overview', label: 'Overview' },
+  { id: 'cost-budgets', label: 'Budgets' },
+  { id: 'cost-categories', label: 'Categories' },
+  { id: 'cost-expenses', label: 'Expenses' },
+  { id: 'cost-insights', label: 'Insights' },
+] as const;
+
+const secondaryActionClassName = [
+  'inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300',
+  'bg-white px-3 py-2 text-sm font-medium text-slate-700 transition',
+  'hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+  'dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+].join(' ');
+
+const primaryActionClassName = [
+  'inline-flex min-h-10 items-center justify-center rounded-md bg-blue-600 px-4 py-2',
+  'text-sm font-semibold text-white transition hover:bg-blue-700',
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+  'disabled:cursor-not-allowed disabled:bg-slate-400 disabled:text-slate-100',
+].join(' ');
+
 export function applyExpenseToCostData({
   costData,
   expense,
@@ -297,6 +319,8 @@ export default function CostTrackerEditor({
       trackingCurrency: costData.currency || 'USD'
     });
   }, [costData.currency, leaderboardExpenses, travelLookup, tripAccommodations, tripLocations]);
+
+  const canSave = Boolean(costData.tripId && costData.overallBudget && costData.overallBudget > 0);
 
   const handleExpenseAdded = async (incomingExpense: Expense, travelLinkInfo?: TravelLinkInfo | TravelLinkInfo[]) => {
     let expense: Expense = { ...incomingExpense };
@@ -547,7 +571,7 @@ export default function CostTrackerEditor({
   };
 
   return (
-    <div className="space-y-8 text-gray-900 dark:text-gray-100">
+    <div className="space-y-8 pb-28 text-gray-900 dark:text-gray-100">
       <BudgetSetup
         costData={costData}
         setCostData={setCostData}
@@ -558,65 +582,98 @@ export default function CostTrackerEditor({
       />
       {(selectedTrip || mode === 'edit') && (
       <>
+        <nav
+          aria-label="Cost tracker sections"
+          className="sticky top-2 z-20 -mx-1 overflow-x-auto rounded-xl border border-slate-200 bg-white/95 px-1.5 py-1.5 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/90"
+        >
+          <div className="flex min-w-max gap-1">
+            {editorSections.map(section => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className="rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50 sm:px-3 sm:text-sm"
+              >
+                {section.label}
+              </a>
+            ))}
+          </div>
+        </nav>
+
         {costSummary && (
-          <div className="mb-8">
+          <section id="cost-overview" className="scroll-mt-24">
             <CostSummaryDashboard
               costSummary={costSummary}
               costData={costData}
               excludedCountries={excludedCountries}
               setExcludedCountries={setExcludedCountries}
             />
-          </div>
+          </section>
         )}
 
-        <CountryBudgetManager
-          costData={costData}
-          setCostData={setCostData}
-          currentBudget={currentBudget}
-          setCurrentBudget={setCurrentBudget}
-          editingBudgetIndex={editingBudgetIndex}
-          setEditingBudgetIndex={setEditingBudgetIndex}
-          currentPeriod={currentPeriod}
-          setCurrentPeriod={setCurrentPeriod}
-          editingPeriodForBudget={editingPeriodForBudget}
-          setEditingPeriodForBudget={setEditingPeriodForBudget}
-          editingPeriodIndex={editingPeriodIndex}
-          setEditingPeriodIndex={setEditingPeriodIndex}
-        />
-        <CategoryManager
-          costData={costData}
-          setCostData={setCostData}
-          newCategory={newCategory}
-          setNewCategory={setNewCategory}
-          editingCategoryIndex={editingCategoryIndex}
-          setEditingCategoryIndex={setEditingCategoryIndex}
-          getCategories={getCategories}
-          ensureCategoriesInitialized={ensureCategoriesInitialized}
-        />
-        <div className="space-y-4">
+        <section id="cost-budgets" className="scroll-mt-24">
+          <CountryBudgetManager
+            costData={costData}
+            setCostData={setCostData}
+            currentBudget={currentBudget}
+            setCurrentBudget={setCurrentBudget}
+            editingBudgetIndex={editingBudgetIndex}
+            setEditingBudgetIndex={setEditingBudgetIndex}
+            currentPeriod={currentPeriod}
+            setCurrentPeriod={setCurrentPeriod}
+            editingPeriodForBudget={editingPeriodForBudget}
+            setEditingPeriodForBudget={setEditingPeriodForBudget}
+            editingPeriodIndex={editingPeriodIndex}
+            setEditingPeriodIndex={setEditingPeriodIndex}
+          />
+        </section>
+
+        <section id="cost-categories" className="scroll-mt-24">
+          <CategoryManager
+            costData={costData}
+            setCostData={setCostData}
+            newCategory={newCategory}
+            setNewCategory={setNewCategory}
+            editingCategoryIndex={editingCategoryIndex}
+            setEditingCategoryIndex={setEditingCategoryIndex}
+            getCategories={getCategories}
+            ensureCategoriesInitialized={ensureCategoriesInitialized}
+          />
+        </section>
+
+        <section id="cost-expenses" className="scroll-mt-24 space-y-4">
           {mode === 'edit' && (
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-semibold">Expense Tracking</h3>
-              <div className="flex gap-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                    Expense operations
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-100">Expense Tracking</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
                 <ExportDataMenu costData={costData} />
                 <button
+                  type="button"
                   onClick={() => setShowYnabSetup(true)}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 text-sm"
+                  className={secondaryActionClassName}
                 >
                   Setup YNAB API
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowYnabMappings(true)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                  className={secondaryActionClassName}
                 >
                   Manage YNAB Mappings
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowYnabImport(true)}
-                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
+                  className={primaryActionClassName}
                 >
                   Import from YNAB
                 </button>
+                </div>
               </div>
             </div>
           )}
@@ -634,30 +691,49 @@ export default function CostTrackerEditor({
             setHasUnsavedChanges={setHasUnsavedChanges}
             tripId={costData.tripId}
           />
-        </div>
+        </section>
 
         {costData.expenses.length > 0 && (
-          <ExpenseLeaderboards
-            expenses={leaderboardExpenses}
-            currency={costData.currency}
-            locationTotals={locationTotals}
-            locations={tripLocations}
-          />
+          <section id="cost-insights" className="scroll-mt-24">
+            <ExpenseLeaderboards
+              expenses={leaderboardExpenses}
+              currency={costData.currency}
+              locationTotals={locationTotals}
+              locations={tripLocations}
+            />
+          </section>
         )}
 
-        <div className="flex justify-end items-center gap-4">
+        <div className="sticky bottom-3 z-30 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:bottom-4 sm:p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {autoSaving ? 'Saving changes' : 'Ready to save'}
+              </p>
+              <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
+                {autoSaving
+                  ? 'Autosave is writing the latest edit.'
+                  : mode === 'edit'
+                    ? 'Manual save is still available for this tracker.'
+                    : 'Complete the required budget and trip fields to save.'}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-3">
             {autoSaving && (
-              <span className="text-sm text-gray-600">
-                💾 Auto-saving...
+              <span className="hidden text-sm font-medium text-slate-600 dark:text-slate-300 sm:inline" aria-live="polite">
+                Auto-saving...
               </span>
             )}
             <button
+              type="button"
               onClick={onSave}
-              disabled={!costData.tripId || !costData.overallBudget || costData.overallBudget <= 0}
-              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+              disabled={!canSave}
+              className={primaryActionClassName}
             >
               {mode === 'edit' ? 'Update Cost Tracker' : 'Save Cost Tracker'}
             </button>
+            </div>
+          </div>
           </div>
         </>
       )}

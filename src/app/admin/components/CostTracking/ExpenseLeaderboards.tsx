@@ -33,7 +33,7 @@ interface ExpenseLeaderboardsProps {
 
 interface LeaderboardSectionProps {
   title: string;
-  description: string;
+  description?: string;
   entries: LeaderboardEntry[];
   currency: string;
   minimumMentions: number;
@@ -257,7 +257,7 @@ const LeaderboardList = ({
       <h6 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{title}</h6>
       <span className="text-xs text-gray-500 dark:text-gray-400">{entries.length} items</span>
     </div>
-    <div className="space-y-2">
+    <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
       {entries.map(entry => (
         <button
           key={entry.key}
@@ -295,14 +295,14 @@ const LeaderboardSection = ({
   entries,
   currency,
   minimumMentions,
-  breakdownTitle = 'Country Breakdown',
+  breakdownTitle = 'Country breakdown',
   emptyBreakdownMessage = 'No country breakdown available.',
   emptySelectionMessage = 'Select an entry to see the country split.',
   headerExtras,
   getTotalValue = entry => entry.total,
   getBreakdownTotal = (_entry, breakdown) => breakdown.total,
-  mostExpensesTitle = 'Most Expenses',
-  highestCostTitle = 'Highest Cost'
+  mostExpensesTitle = 'Most expenses',
+  highestCostTitle = 'Highest cost'
 }: LeaderboardSectionProps) => {
   const filteredEntries = useMemo(
     () => entries.filter(entry => entry.count >= minimumMentions),
@@ -318,15 +318,19 @@ const LeaderboardSection = ({
 
   return (
     <section className="space-y-4">
-      <div>
-        <h5 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h5>
-        <p className="text-sm text-gray-600 dark:text-gray-300">{description}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Showing entries with at least {minimumMentions} expenses.
-        </p>
-        {headerExtras && <div className="mt-3">{headerExtras}</div>}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h5 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h5>
+          {description ? <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{description}</p> : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            {minimumMentions}+ expenses
+          </span>
+          {headerExtras}
+        </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LeaderboardList
@@ -432,7 +436,7 @@ export default function ExpenseLeaderboards({
     [locationCostMode]
   );
 
-  const locationHighestCostTitle = locationCostMode === 'perDay' ? 'Highest Cost/Day' : 'Highest Cost';
+  const locationHighestCostTitle = locationCostMode === 'perDay' ? 'Highest cost/day' : 'Highest cost';
 
   const locationHeaderExtras = (
     <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
@@ -491,48 +495,44 @@ export default function ExpenseLeaderboards({
   return (
     <div className="space-y-8">
       <LeaderboardSection
-        title="Repeated Descriptions"
-        description="Track recurring expense descriptions to spot frequent purchases."
+        title="Repeated descriptions"
         entries={descriptionEntries}
         currency={currency}
         minimumMentions={minimumMentions}
       />
       <LeaderboardSection
-        title="Repeated Payees (Notes)"
-        description="See which payees show up most often based on the notes field."
+        title="Payees"
         entries={payeeEntries}
         currency={currency}
         minimumMentions={minimumMentions}
       />
       <LeaderboardSection
-        title="Category Spending Analysis"
-        description="Discover where your budget actually goes by exploring spending patterns within each category."
+        title="Categories"
         entries={categoryEntries}
         currency={currency}
         minimumMentions={minimumMentions}
-        breakdownTitle={categoryBreakdownMode === 'country' ? 'Country Breakdown' : 'Payee Breakdown'}
+        breakdownTitle={categoryBreakdownMode === 'country' ? 'Country breakdown' : 'Payee breakdown'}
         emptyBreakdownMessage={
           categoryBreakdownMode === 'country'
-            ? 'No country breakdown available for this category.'
-            : 'No payee breakdown available for this category.'
+            ? 'No country split.'
+            : 'No payee split.'
         }
         emptySelectionMessage={
           categoryBreakdownMode === 'country'
-            ? 'Select a category to see spending by country.'
-            : 'Select a category to see which payees drive spending.'
+            ? 'Select a category.'
+            : 'Select a category.'
         }
         headerExtras={categoryHeaderExtras}
       />
       {locationEntries.length > 0 && (
         <LeaderboardSection
-          title="Top Locations by Spend"
-          description="Compare linked expenses by location to spot the biggest spenders or switch to per-day rates."
+          title="Locations"
           entries={locationEntries}
           currency={currency}
           minimumMentions={1}
-          breakdownTitle="Category Breakdown"
-          emptyBreakdownMessage="No category breakdown available."
-          emptySelectionMessage="Select an entry to see the category split."
+          breakdownTitle="Category split"
+          emptyBreakdownMessage="No category split."
+          emptySelectionMessage="Select a location."
           headerExtras={locationHeaderExtras}
           getTotalValue={locationTotalValue}
           getBreakdownTotal={locationBreakdownTotal}

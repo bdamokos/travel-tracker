@@ -194,9 +194,9 @@ describe('CostSummaryDashboard', () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<DashboardHarness costData={buildCostData()} />);
 
-    expect(screen.getByText('Cost operations board')).toBeInTheDocument();
-    expect(screen.getByText('Available for planning')).toBeInTheDocument();
-    expect(screen.getByText('Calculated over 20 trip days in view.')).toBeInTheDocument();
+    expect(screen.getByText('Cost overview')).toBeInTheDocument();
+    expect(screen.getByText('Final balance')).toBeInTheDocument();
+    expect(screen.getByText('20 days counted.')).toBeInTheDocument();
 
     const antarcticaChip = screen.getByRole('button', { name: /exclude antarctica from analytics/i });
     expect(antarcticaChip).toHaveAttribute('aria-pressed', 'false');
@@ -204,16 +204,16 @@ describe('CostSummaryDashboard', () => {
     await user.click(antarcticaChip);
 
     expect(screen.getByRole('button', { name: /include antarctica from analytics/i })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Calculated over 8 trip days in view.')).toBeInTheDocument();
+    expect(screen.getByText('8 days counted.')).toBeInTheDocument();
   });
 
   it('drives category context from the selected country analysis row', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<DashboardHarness costData={buildCostData()} />);
 
-    await user.click(screen.getByRole('button', { name: /focus categories below/i }));
+    await user.click(screen.getByRole('button', { name: /show below/i }));
 
-    expect(screen.getByText(/context:/i)).toHaveTextContent('Antarctica only');
+    expect(screen.getByText('Antarctica only')).toBeInTheDocument();
     expect(screen.getAllByText('Transportation').length).toBeGreaterThan(0);
     expect(screen.queryAllByText('Accommodation')).toHaveLength(0);
   });
@@ -222,16 +222,16 @@ describe('CostSummaryDashboard', () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<DashboardHarness costData={buildCostData()} />);
 
-    await user.click(screen.getByRole('button', { name: /focus categories below/i }));
-    expect(screen.getByText(/context:/i)).toHaveTextContent('Antarctica only');
+    await user.click(screen.getByRole('button', { name: /show below/i }));
+    expect(screen.getByText('Antarctica only')).toBeInTheDocument();
 
-    const detailSection = screen.getByText('Compact country detail table').closest('section');
+    const detailSection = screen.getByText('Country table').closest('section');
     expect(detailSection).not.toBeNull();
 
     const argentinaButtons = within(detailSection as HTMLElement).getAllByRole('button', { name: 'Argentina' });
     await user.click(argentinaButtons[0]);
 
-    expect(screen.getByText(/context:/i)).toHaveTextContent('Argentina only');
+    expect(screen.getByText('Argentina only')).toBeInTheDocument();
     expect(screen.getAllByText('Accommodation').length).toBeGreaterThan(0);
   });
 
@@ -264,6 +264,6 @@ describe('CostSummaryDashboard', () => {
 
     render(<DashboardHarness costData={costData} />);
 
-    expect(screen.getByText(/No trip-day spending has been recorded yet/i)).toBeInTheDocument();
+    expect(screen.getByText('No trip-day spending yet.')).toBeInTheDocument();
   });
 });
