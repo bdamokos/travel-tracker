@@ -104,7 +104,11 @@ export default function LocationPopupModal({
     : departureWikipediaError;
 
   useEffect(() => {
+    let isCurrent = true;
+
     queueMicrotask(() => {
+      if (!isCurrent) return;
+
       if (!isOpen) {
         setAnnouncement('');
         prevFlagsRef.current = {
@@ -123,21 +127,37 @@ export default function LocationPopupModal({
         if (targetName) setAnnouncement(`Showing details for ${targetName}.`);
       }
     });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [activeTab, arrivalLocation?.name, departureLocation?.name, isOpen, isTransition]);
 
   useEffect(() => {
     if (!isOpen) return;
 
+    let isCurrent = true;
+
     queueMicrotask(() => {
+      if (!isCurrent) return;
+
       announceOnce(departureWeather, 'departureWeatherLoaded', departureLocation?.name, name => `Weather loaded for ${name}.`);
       announceOnce(arrivalWeather, 'arrivalWeatherLoaded', arrivalLocation?.name, name => `Weather loaded for ${name}.`);
     });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [announceOnce, arrivalLocation?.name, arrivalWeather, departureLocation?.name, departureWeather, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
+    let isCurrent = true;
+
     queueMicrotask(() => {
+      if (!isCurrent) return;
+
       announceOnce(
         departureWikipediaData,
         'departureWikiLoaded',
@@ -163,6 +183,10 @@ export default function LocationPopupModal({
         name => `Wikipedia failed to load for ${name}.`
       );
     });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [
     announceOnce,
     arrivalLocation?.name,

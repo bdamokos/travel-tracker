@@ -28,7 +28,11 @@ export default function AccommodationDisplay({
 
   // Effect to parse accommodation data and calculate linked expenses
   useEffect(() => {
+    let isCurrent = true;
+
     queueMicrotask(() => {
+      if (!isCurrent) return;
+
       const parsed = parseAccommodationData(accommodationData || '');
       setParsedAccommodationData(parsed);
 
@@ -48,6 +52,10 @@ export default function AccommodationDisplay({
         setTotalLinkedCost(null);
       }
     });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [travelLookup, costData, accommodationData]);
 
   const renderStructuredData = () => {

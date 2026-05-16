@@ -75,7 +75,11 @@ export default function TripUpdates({ updates = [], className = '', currentStatu
   }, [updates]);
 
   useEffect(() => {
+    let isCurrent = true;
+
     queueMicrotask(() => {
+      if (!isCurrent) return;
+
       const cookieValue = getCookieValue(COOKIE_NAME);
       const cookieDate = cookieValue ? new Date(cookieValue) : null;
       const hasValidCookieDate = cookieDate && !Number.isNaN(cookieDate.getTime());
@@ -87,6 +91,10 @@ export default function TripUpdates({ updates = [], className = '', currentStatu
       const nowString = new Date().toISOString();
       document.cookie = `${COOKIE_NAME}=${encodeURIComponent(nowString)}; path=/; max-age=31536000`;
     });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [latestUpdateDate]);
 
   const updateItems = useMemo(() => {

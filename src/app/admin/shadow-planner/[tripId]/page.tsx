@@ -119,7 +119,10 @@ export default function ShadowPlannerPage() {
       {notification && (
         <ToastNotification
           notification={notification}
-          onClose={() => setNotification(null)}
+          onClose={() => {
+            setNotification(prev => prev ? { ...prev, isVisible: false } : null);
+            setTimeout(() => setNotification(null), 300);
+          }}
         />
       )}
 

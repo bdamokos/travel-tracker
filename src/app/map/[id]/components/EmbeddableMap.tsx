@@ -375,7 +375,17 @@ const EmbeddableMap: React.FC<EmbeddableMapProps> = ({ travelData, debug = false
 
   // Initialize client-side state
   useEffect(() => {
-    queueMicrotask(() => setIsClient(true));
+    let isCurrent = true;
+
+    queueMicrotask(() => {
+      if (isCurrent) {
+        setIsClient(true);
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
   }, []);
 
   // Log what route data we received

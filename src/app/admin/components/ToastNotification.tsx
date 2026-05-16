@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactElement } from 'react';
+
 export type ToastNotificationType = 'success' | 'error' | 'info';
 
 export type ToastNotificationState = {
@@ -13,11 +15,15 @@ type ToastNotificationProps = {
   onClose: () => void;
 };
 
-export default function ToastNotification({ notification, onClose }: ToastNotificationProps) {
+export default function ToastNotification({ notification, onClose }: ToastNotificationProps): ReactElement {
   return (
-    <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
-      notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-    }`}>
+    <div
+      className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
+        notification.isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+      }`}
+      role={notification.type === 'error' ? 'alert' : 'status'}
+      aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
+    >
       <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
         notification.type === 'success' ? 'bg-green-50 dark:bg-green-900' :
         notification.type === 'error' ? 'bg-red-50 dark:bg-red-900' :

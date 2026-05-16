@@ -111,9 +111,19 @@ export default function OfflineDeltaBanner() {
   }, [entries, isOnline, summary.conflicts, summary.pending]);
 
   useEffect(() => {
+    let isCurrent = true;
+
     if (summary.conflicts === 0) {
-      queueMicrotask(() => setShowConflictDetails(false));
+      queueMicrotask(() => {
+        if (isCurrent) {
+          setShowConflictDetails(false);
+        }
+      });
     }
+
+    return () => {
+      isCurrent = false;
+    };
   }, [summary.conflicts]);
 
   const handleDiscardConflicts = (targetEntry?: OfflineQueueEntry) => {
