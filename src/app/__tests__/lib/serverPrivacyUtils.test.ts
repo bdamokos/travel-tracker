@@ -1,4 +1,8 @@
-import { filterJourneyForServer, filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
+import {
+  filterAccommodationForServer,
+  filterJourneyForServer,
+  filterTravelDataForServer,
+} from '@/app/lib/serverPrivacyUtils';
 import { Accommodation } from '@/app/types';
 
 describe('server privacy utilities', () => {
@@ -129,5 +133,13 @@ describe('server privacy utilities', () => {
     );
 
     expect(result.accommodations?.[0]?.costTrackingLinks).toEqual(privateAccommodation.costTrackingLinks);
+  });
+
+  it('keeps direct public accommodation filtering defensive', () => {
+    const result = filterAccommodationForServer(privateAccommodation, 'travel.example');
+
+    expect(result.accommodationData).toBeUndefined();
+    expect(result.isAccommodationPublic).toBeUndefined();
+    expect(result.costTrackingLinks).toBeUndefined();
   });
 });

@@ -9,6 +9,11 @@ interface TravelData {
   [key: string]: unknown;
 }
 
+type TransportationWithPrivateRuntimeFields = Transportation & {
+  isReadOnly?: boolean;
+  subRoutes?: TransportationWithPrivateRuntimeFields[];
+};
+
 /**
  * Server-side privacy filtering utilities
  * These functions ensure private data never reaches the client in public/embeddable views
@@ -52,21 +57,30 @@ export function filterTransportationForServer(
     return transportation; // Admin sees everything
   }
 
-  const filteredSubRoutes = transportation.subRoutes?.map(subRoute => ({
-    ...subRoute,
-    privateNotes: undefined,
-    costTrackingLinks: undefined,
-    isReadOnly: undefined,
-    routePoints: subRoute.routePoints
-  }));
+  const transportationWithPrivateFields = transportation as TransportationWithPrivateRuntimeFields;
+  const publicTransportation: TransportationWithPrivateRuntimeFields = {
+    ...transportationWithPrivateFields,
+  };
+  delete publicTransportation.privateNotes;
+  delete publicTransportation.costTrackingLinks;
+  delete publicTransportation.isReadOnly;
+  delete publicTransportation.subRoutes;
+
+  const filteredSubRoutes = transportationWithPrivateFields.subRoutes?.map(subRoute => {
+    const publicSubRoute: TransportationWithPrivateRuntimeFields = { ...subRoute };
+    delete publicSubRoute.privateNotes;
+    delete publicSubRoute.costTrackingLinks;
+    delete publicSubRoute.isReadOnly;
+
+    return {
+      ...publicSubRoute,
+      routePoints: subRoute.routePoints
+    };
+  });
 
   // Public view - remove private data entirely  
   const filteredTransportation: Transportation = {
-    ...transportation,
-    // Remove private fields completely
-    privateNotes: undefined,
-    costTrackingLinks: undefined,
-    isReadOnly: undefined,
+    ...publicTransportation,
     // Preserve routePoints for public map display
     routePoints: transportation.routePoints,
     subRoutes: filteredSubRoutes
@@ -90,6 +104,7 @@ export function filterAccommodationForServer(
 
   return {
     ...accommodation,
+    accommodationData: accommodation.isAccommodationPublic ? accommodation.accommodationData : undefined,
     isAccommodationPublic: undefined,
     costTrackingLinks: undefined,
     isReadOnly: undefined,
