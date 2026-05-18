@@ -535,6 +535,7 @@ export async function listAllTrips(): Promise<Array<{
   isUnified: boolean;
   locationCount: number;
   accommodationCount: number;
+  publicAccommodationCount: number;
   routeCount: number;
 }>> {
   try {
@@ -550,6 +551,7 @@ export async function listAllTrips(): Promise<Array<{
       isUnified: boolean;
       locationCount: number;
       accommodationCount: number;
+      publicAccommodationCount: number;
       routeCount: number;
     }>();
 
@@ -578,7 +580,11 @@ export async function listAllTrips(): Promise<Array<{
               )
             : 0);
 
-        const accommodationCount = Array.isArray(data.accommodations) ? data.accommodations.length : 0;
+        const accommodations = Array.isArray(data.accommodations) ? data.accommodations : [];
+        const accommodationCount = accommodations.length;
+        const publicAccommodationCount = accommodations.filter(
+          (accommodation: { isAccommodationPublic?: boolean }) => accommodation.isAccommodationPublic
+        ).length;
 
         trips.set(data.id, {
           id: data.id,
@@ -591,6 +597,7 @@ export async function listAllTrips(): Promise<Array<{
           isUnified: true,
           locationCount,
           accommodationCount,
+          publicAccommodationCount,
           routeCount
         });
       }

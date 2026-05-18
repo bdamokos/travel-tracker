@@ -16,7 +16,7 @@ export async function GET() {
         endDate: trip.endDate,
         createdAt: trip.createdAt,
         locationCount: trip.locationCount,
-        accommodationCount: trip.accommodationCount,
+        accommodationCount: trip.publicAccommodationCount,
         routeCount: trip.routeCount
       }));
     

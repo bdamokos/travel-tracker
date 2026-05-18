@@ -17,9 +17,14 @@ type RouteLike = {
   toCoordinates?: [number, number];
   date?: string | Date;
   departureTime?: string | Date;
+  notes?: string;
   privateNotes?: string;
   routePoints?: [number, number][];
   subRoutes?: RouteLike[];
+};
+
+type MapRouteTransformOptions = {
+  includePrivateNotes?: boolean;
 };
 
 const resolveCoords = (
@@ -40,8 +45,12 @@ const toDateString = (value?: string | Date): string | undefined => {
   return value instanceof Date ? value.toISOString() : value;
 };
 
-export const toMapRouteSegment = (route: Transportation | RouteLike): MapRouteSegment => {
+export const toMapRouteSegment = (
+  route: Transportation | RouteLike,
+  options: MapRouteTransformOptions = {}
+): MapRouteSegment => {
   const routeLike = route as RouteLike;
+  const notes = routeLike.notes || (options.includePrivateNotes ? routeLike.privateNotes : '') || '';
 
   return {
     id: routeLike.id,
@@ -52,9 +61,9 @@ export const toMapRouteSegment = (route: Transportation | RouteLike): MapRouteSe
     transportType: resolveTransportType(routeLike),
     date: resolveDate(routeLike),
     duration: '',
-    notes: routeLike.privateNotes || '',
+    notes,
     routePoints: routeLike.routePoints,
-    subRoutes: routeLike.subRoutes?.map((segment) => toMapRouteSegment(segment))
+    subRoutes: routeLike.subRoutes?.map((segment) => toMapRouteSegment(segment, options))
   };
 };
 
@@ -69,7 +78,10 @@ type MapTravelDataLike = Omit<MapTravelData, 'startDate' | 'endDate' | 'location
   routes?: Array<Transportation | RouteLike | MapRouteSegment>;
 };
 
-export const normalizeMapTravelData = (travelData: MapTravelDataLike): MapTravelData => ({
+export const normalizeMapTravelData = (
+  travelData: MapTravelDataLike,
+  options: MapRouteTransformOptions = {}
+): MapTravelData => ({
   ...travelData,
   startDate: toDateString(travelData.startDate) || '',
   endDate: toDateString(travelData.endDate) || '',
@@ -79,5 +91,5 @@ export const normalizeMapTravelData = (travelData: MapTravelDataLike): MapTravel
     date: toDateString(location.date) || '',
     endDate: toDateString(location.endDate)
   })),
-  routes: (travelData.routes || []).map(route => toMapRouteSegment(route as Transportation | RouteLike))
+  routes: (travelData.routes || []).map(route => toMapRouteSegment(route as Transportation | RouteLike, options))
 });
