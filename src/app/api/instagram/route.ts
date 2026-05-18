@@ -6,6 +6,7 @@ import {
   normalizeInstagramUsername,
   payloadRequiresInstagramLogin,
 } from '@/app/lib/instagramImportUtils';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 const DEFAULT_INSTAGRAM_APP_ID = '936619743392459';
 const MAX_IMPORTED_POSTS = 40;
@@ -44,7 +45,8 @@ export async function GET(request: NextRequest) {
   const rawUsername = searchParams.get('username') ?? '';
   const username = normalizeInstagramUsername(rawUsername);
   const instagramAppId = process.env.INSTAGRAM_APP_ID?.trim() || DEFAULT_INSTAGRAM_APP_ID;
-  const cookieHeader = buildInstagramCookieHeaderFromEnv();
+  const isAdmin = await isAdminDomain();
+  const cookieHeader = isAdmin ? buildInstagramCookieHeaderFromEnv() : undefined;
   const usePrivateCache = Boolean(cookieHeader);
 
   if (!username) {
