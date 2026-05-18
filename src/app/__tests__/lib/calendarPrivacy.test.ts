@@ -22,6 +22,7 @@ describe('calendar privacy helpers', () => {
           costTrackingLinks: [{ expenseId: 'expense-1' }],
           accommodationData: 'Public hotel name',
           isAccommodationPublic: true,
+          accommodationIds: ['acc-private', 'acc-public'],
         },
         {
           id: 'loc-private',
@@ -100,6 +101,7 @@ describe('calendar privacy helpers', () => {
       costTrackingLinks: undefined,
       accommodationData: 'Public hotel name',
       isAccommodationPublic: undefined,
+      accommodationIds: undefined,
     });
     expect(result.routes).toHaveLength(1);
     expect(result.routes[0]).toMatchObject({

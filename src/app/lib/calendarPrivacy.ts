@@ -12,6 +12,7 @@ export function sanitizeCalendarLocationForPublic(location: Location): Location 
     notes: undefined,
     accommodationData: location.isAccommodationPublic ? location.accommodationData : undefined,
     isAccommodationPublic: undefined,
+    accommodationIds: undefined,
     costTrackingLinks: undefined,
   };
 }
