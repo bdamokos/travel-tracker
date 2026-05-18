@@ -20,6 +20,7 @@ import { getDataDir } from './dataDirectory';
 import { dateReviver } from './jsonDateReviver';
 import { buildTripUpdates } from './tripUpdates';
 import { ConflictError, NotFoundError, ValidationError } from './errors';
+import { mergeYnabConfigForStorage } from './ynabConfigSecurity';
 
 const getDataDirPath = () => getDataDir();
 const getBackupDirPath = () => join(getDataDirPath(), 'backups');
@@ -822,7 +823,10 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
       expenses: (costUpdates.expenses as Expense[]) || baseData.costData?.expenses || [],
       ...(resolvedCustomCategories ? { customCategories: resolvedCustomCategories } : {}),
       ynabImportData: (costUpdates.ynabImportData as YnabImportData) || baseData.costData?.ynabImportData,
-      ynabConfig: (costUpdates.ynabConfig as YnabConfig) || baseData.costData?.ynabConfig // YNAB API configuration
+      ynabConfig: mergeYnabConfigForStorage(
+        costUpdates.ynabConfig as YnabConfig | undefined,
+        baseData.costData?.ynabConfig
+      )
     }
   };
 

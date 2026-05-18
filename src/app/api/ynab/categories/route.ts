@@ -1,35 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { YnabApiClient } from '@/app/lib/ynabApiClient';
 import { YnabApiError } from '@/app/types';
+import { PRIVATE_JSON_HEADERS } from '@/app/lib/ynabConfigSecurity';
+import { requireAdminYnabConfig } from '@/app/lib/ynabServerConfig';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Use POST for YNAB category sync' },
+    { status: 405, headers: PRIVATE_JSON_HEADERS }
+  );
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const apiKey = searchParams.get('apiKey');
-    const budgetId = searchParams.get('budgetId');
-    const serverKnowledge = searchParams.get('serverKnowledge');
-
-    if (!apiKey || typeof apiKey !== 'string') {
-      return NextResponse.json(
-        { error: 'API key is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!budgetId || typeof budgetId !== 'string') {
-      return NextResponse.json(
-        { error: 'Budget ID is required' },
-        { status: 400 }
-      );
+    const body = await request.json();
+    const { costTrackerId, serverKnowledge } = body;
+    const configResult = await requireAdminYnabConfig(costTrackerId);
+    if (configResult.response) {
+      return configResult.response;
     }
 
     // Create YNAB API client
-    const client = new YnabApiClient(apiKey);
+    const client = new YnabApiClient(configResult.config.apiKey!);
 
     try {
       // Get categories with optional delta sync
       const result = await client.getCategories(
-        budgetId,
+        configResult.config.selectedBudgetId,
         serverKnowledge ? parseInt(serverKnowledge) : undefined
       );
 
@@ -47,12 +44,7 @@ export async function GET(request: NextRequest) {
           })),
           serverKnowledge: result.serverKnowledge
         },
-        {
-          headers: {
-            // YNAB data should not be cached at CDN because it’s user-specific and sensitive
-            'Cache-Control': 'no-store'
-          }
-        }
+        { headers: PRIVATE_JSON_HEADERS }
       );
 
     } catch (ynabError) {

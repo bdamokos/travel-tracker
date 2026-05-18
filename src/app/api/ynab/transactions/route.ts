@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { YnabApiClient, ynabUtils } from '@/app/lib/ynabApiClient';
 import { YnabApiError, ProcessedYnabTransaction, CategoryMapping } from '@/app/types';
+import { PRIVATE_JSON_HEADERS } from '@/app/lib/ynabConfigSecurity';
+import { requireAdminYnabConfig } from '@/app/lib/ynabServerConfig';
 
 /**
  * Retrieve YNAB transactions filtered by mapped category IDs and return them in ProcessedYnabTransaction format.
@@ -17,172 +19,17 @@ import { YnabApiError, ProcessedYnabTransaction, CategoryMapping } from '@/app/t
  *
  * On error the JSON body includes `error` (message) and `code` (error identifier).
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const apiKey = searchParams.get('apiKey');
-    const budgetId = searchParams.get('budgetId');
-    const mappedCategoryIds = searchParams.get('categoryIds');
-    const sinceDate = searchParams.get('sinceDate');
-    const serverKnowledge = searchParams.get('serverKnowledge');
-
-    if (!apiKey || typeof apiKey !== 'string') {
-      return NextResponse.json(
-        { error: 'API key is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!budgetId || typeof budgetId !== 'string') {
-      return NextResponse.json(
-        { error: 'Budget ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!mappedCategoryIds) {
-      return NextResponse.json(
-        { error: 'Category IDs are required' },
-        { status: 400 }
-      );
-    }
-
-    // Parse category IDs from comma-separated string
-    const categoryIds = mappedCategoryIds.split(',').filter(id => id.trim());
-
-    if (categoryIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        transactions: [],
-        serverKnowledge: 0,
-        message: 'No categories mapped for transaction retrieval'
-      });
-    }
-
-    // Create YNAB API client
-    const client = new YnabApiClient(apiKey);
-
-    try {
-      // Get transactions filtered by mapped category IDs
-      const result = await client.getTransactions(
-        budgetId,
-        categoryIds,
-        sinceDate || undefined,
-        serverKnowledge ? parseInt(serverKnowledge) : undefined
-      );
-
-      const expandedTransactions = ynabUtils.flattenTransactions(result.transactions);
-
-      // Convert YNAB transactions to ProcessedYnabTransaction format
-      const processedTransactions: ProcessedYnabTransaction[] = expandedTransactions.map((txn, index) => {
-        const amount = Math.abs(ynabUtils.milliunitsToAmount(txn.amount));
-        const isOutflow = txn.amount < 0;
-        const hash = ynabUtils.generateTransactionHash(txn);
-
-        return {
-          originalTransaction: {
-            Account: txn.account_name || '',
-            Flag: txn.flag_name || '',
-            Date: txn.date,
-            Payee: txn.payee_name || '',
-            'Category Group/Category': txn.category_name || '',
-            'Category Group': '', // Not directly available in API response
-            Category: txn.category_name || '',
-            Memo: txn.memo || '',
-            Outflow: isOutflow ? amount.toString() : '',
-            Inflow: !isOutflow ? amount.toString() : '',
-            Cleared: txn.cleared
-          },
-          amount: isOutflow ? amount : -amount, // Expenses are positive, income is negative
-          date: txn.date,
-          description: txn.payee_name || 'Unknown Payee',
-          memo: txn.memo || '',
-          mappedCountry: '', // Will be determined by category mapping
-          isGeneralExpense: false, // Will be determined by category mapping
-          hash,
-          instanceId: txn.id || `${hash}-${index}`,
-          sourceIndex: index,
-          expenseType: 'actual',
-          ynabTransactionId: txn.id,
-          importId: txn.import_id
-        };
-      });
-
-      return NextResponse.json(
-        {
-          success: true,
-          transactions: processedTransactions,
-          serverKnowledge: result.serverKnowledge,
-          totalCount: processedTransactions.length
-        },
-        {
-          headers: {
-            // User-specific financial data must not be cached
-            'Cache-Control': 'no-store'
-          }
-        }
-      );
-
-    } catch (ynabError) {
-      const error = ynabError as YnabApiError;
-      
-      // Handle specific YNAB API errors
-      if (error.id === '401') {
-        return NextResponse.json(
-          { 
-            error: 'Invalid API key. Please check your YNAB Personal Access Token.',
-            code: 'INVALID_API_KEY'
-          },
-          { status: 401 }
-        );
-      }
-
-      if (error.id === '404') {
-        return NextResponse.json(
-          { 
-            error: 'Budget not found. Please check the budget ID.',
-            code: 'BUDGET_NOT_FOUND'
-          },
-          { status: 404 }
-        );
-      }
-
-      if (error.id === '429') {
-        return NextResponse.json(
-          { 
-            error: 'Rate limit exceeded. Please wait a moment and try again.',
-            code: 'RATE_LIMIT'
-          },
-          { status: 429 }
-        );
-      }
-
-      // Generic YNAB API error
-      return NextResponse.json(
-        { 
-          error: `YNAB API Error: ${error.detail}`,
-          code: 'YNAB_API_ERROR'
-        },
-        { status: 500 }
-      );
-    }
-
-  } catch (error) {
-    console.error('YNAB transactions error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch YNAB transactions',
-        code: 'TRANSACTIONS_ERROR'
-      },
-      { status: 500 }
-    );
-  }
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Use POST for YNAB transaction sync' },
+    { status: 405, headers: PRIVATE_JSON_HEADERS }
+  );
 }
 
 /**
  * Handle POST requests to fetch YNAB transactions for mapped categories and return them in a processed import-ready format.
  *
- * @param request - Incoming NextRequest whose JSON body must include `apiKey` (string), `budgetId` (string), and `categoryMappings` (array). Optional body fields: `sinceDate` and `serverKnowledge`.
+ * @param request - Incoming NextRequest whose JSON body must include `costTrackerId` (string) and `categoryMappings` (array). Optional body fields: `sinceDate` and `serverKnowledge`.
  * @returns On success, a JSON object containing:
  * - `success`: `true`
  * - `transactions`: an array of processed transactions where each item includes `originalTransaction`, `amount`, `date`, `description`, `memo`, `mappedCountry`, `isGeneralExpense`, `hash`, `instanceId`, `sourceIndex`, `expenseType`, `ynabTransactionId`, and `importId`.
@@ -195,25 +42,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-      apiKey, 
-      budgetId, 
+      costTrackerId,
       categoryMappings, 
       sinceDate,
       serverKnowledge 
     } = body;
 
-    if (!apiKey || typeof apiKey !== 'string') {
-      return NextResponse.json(
-        { error: 'API key is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!budgetId || typeof budgetId !== 'string') {
-      return NextResponse.json(
-        { error: 'Budget ID is required' },
-        { status: 400 }
-      );
+    const configResult = await requireAdminYnabConfig(costTrackerId);
+    if (configResult.response) {
+      return configResult.response;
     }
 
     if (!categoryMappings || !Array.isArray(categoryMappings)) {
@@ -236,16 +73,16 @@ export async function POST(request: NextRequest) {
         transactions: [],
         serverKnowledge: serverKnowledge || 0,
         message: 'No categories mapped for transaction retrieval. Please use "YNAB Category Mappings" to map categories first, then save the mappings before importing transactions.'
-      });
+      }, { headers: PRIVATE_JSON_HEADERS });
     }
 
     // Create YNAB API client
-    const client = new YnabApiClient(apiKey);
+    const client = new YnabApiClient(configResult.config.apiKey!);
 
     try {
       // Get transactions using efficient category-specific API calls with delta sync
       const result = await client.getTransactionsByCategories(
-        budgetId,
+        configResult.config.selectedBudgetId,
         mappedCategoryIds,
         sinceDate || undefined,
         serverKnowledge || undefined
@@ -307,11 +144,7 @@ export async function POST(request: NextRequest) {
           serverKnowledge: result.serverKnowledge,
           totalCount: processedTransactions.length
         },
-        {
-          headers: {
-            'Cache-Control': 'no-store'
-          }
-        }
+        { headers: PRIVATE_JSON_HEADERS }
       );
 
     } catch (ynabError) {

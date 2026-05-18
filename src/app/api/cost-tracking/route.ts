@@ -5,6 +5,7 @@ import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
 import { applyCostDataDelta, isCostDataDelta, isCostDataDeltaEmpty } from '@/app/lib/costDataDelta';
+import { PRIVATE_JSON_HEADERS, redactYnabConfig } from '@/app/lib/ynabConfigSecurity';
 import type { CostTrackingData } from '@/app/types';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -40,8 +41,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       id,
-      data: legacyData
-    });
+      data: {
+        ...legacyData,
+        ynabConfig: redactYnabConfig(legacyData.ynabConfig)
+      }
+    }, { headers: PRIVATE_JSON_HEADERS });
   } catch (error) {
     console.error('Error saving cost tracking data:', error);
     return NextResponse.json(
@@ -108,14 +112,14 @@ export async function GET(request: NextRequest) {
       countryBudgets: costDataSource.costData.countryBudgets,
       expenses: costDataSource.costData.expenses, // These are already trip-scoped by design
       ynabImportData: costDataSource.costData.ynabImportData,
-      ynabConfig: costDataSource.costData.ynabConfig, // Include YNAB API configuration
+      ynabConfig: redactYnabConfig(costDataSource.costData.ynabConfig),
       createdAt: costDataSource.createdAt,
       updatedAt: costDataSource.updatedAt,
       // Add validation status for monitoring
       hasValidationWarnings: !validation.isValid
     };
     
-    return NextResponse.json(costData);
+    return NextResponse.json(costData, { headers: PRIVATE_JSON_HEADERS });
   } catch (error) {
     console.error('Error loading cost tracking data:', error);
     return NextResponse.json(
@@ -169,8 +173,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       id: cleanId,
-      data: legacyData
-    });
+      data: {
+        ...legacyData,
+        ynabConfig: redactYnabConfig(legacyData.ynabConfig)
+      }
+    }, { headers: PRIVATE_JSON_HEADERS });
   } catch (error) {
     console.error('Error updating cost tracking data:', error);
     return NextResponse.json(
@@ -273,7 +280,7 @@ export async function PATCH(request: NextRequest) {
       success: true,
       message: 'Delta applied successfully',
       id: cleanId
-    });
+    }, { headers: PRIVATE_JSON_HEADERS });
   } catch (error) {
     console.error('Error patching cost tracking data:', error);
     return NextResponse.json(
@@ -309,7 +316,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Cost tracking data for "${trip.title}" has been deleted and backed up`
-    });
+    }, { headers: PRIVATE_JSON_HEADERS });
   } catch (error) {
     console.error('Error deleting cost tracking data:', error);
     return NextResponse.json({ error: 'Failed to delete cost tracking data' }, { status: 500 });

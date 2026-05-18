@@ -424,7 +424,8 @@ export interface CategoryMapping {
 // YNAB API configuration - scoped to specific cost tracker
 export interface YnabConfig {
   costTrackerId: string; // CRITICAL: Scope to specific cost tracker for data isolation
-  apiKey: string;
+  apiKey?: string;
+  hasApiKey?: boolean;
   selectedBudgetId: string;
   selectedBudgetName: string;
   currency: string;

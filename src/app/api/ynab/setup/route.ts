@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { YnabApiClient } from '@/app/lib/ynabApiClient';
 import { YnabBudget, YnabApiError } from '@/app/types';
+import { isAdminDomain } from '@/app/lib/server-domains';
+import { PRIVATE_JSON_HEADERS } from '@/app/lib/ynabConfigSecurity';
 
 export async function POST(request: NextRequest) {
   try {
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403, headers: PRIVATE_JSON_HEADERS }
+      );
+    }
+
     const body = await request.json();
     const { apiKey, costTrackerId } = body;
 
@@ -40,11 +50,7 @@ export async function POST(request: NextRequest) {
             currency_format: budget.currency_format
           }))
         },
-        {
-          headers: {
-            'Cache-Control': 'no-store'
-          }
-        }
+        { headers: PRIVATE_JSON_HEADERS }
       );
 
     } catch (ynabError) {

@@ -87,13 +87,18 @@ export async function maybeSyncPendingYnabTransactions(
 
   const sinceDate = buildSinceDate(costData.ynabConfig);
   const serverKnowledge = buildServerKnowledge(costData.ynabConfig);
+  const { apiKey, selectedBudgetId } = costData.ynabConfig;
 
-  const client = new YnabApiClient(costData.ynabConfig.apiKey);
+  if (!apiKey || !selectedBudgetId) {
+    return null;
+  }
+
+  const client = new YnabApiClient(apiKey);
   let transactionResult: { transactions: YnabApiTransaction[]; serverKnowledge: number };
 
   try {
     transactionResult = await client.getTransactionsByCategories(
-      costData.ynabConfig.selectedBudgetId,
+      selectedBudgetId,
       mappedCategories,
       sinceDate,
       serverKnowledge
