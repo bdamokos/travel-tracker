@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateCostData, loadUnifiedTripData, deleteCostTrackingWithBackup } from '@/app/lib/unifiedDataService';
-import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
@@ -78,12 +77,7 @@ export async function GET(request: NextRequest) {
     
     // Load unified trip data
     const unifiedData = await loadUnifiedTripData(cleanId);
-    const syncedData = unifiedData
-      ? await maybeSyncPendingYnabTransactions(cleanId, unifiedData)
-      : null;
-    const costDataSource = syncedData || unifiedData;
-
-    if (!costDataSource?.costData) {
+    if (!unifiedData?.costData) {
       return NextResponse.json(
         { error: 'Cost tracking data not found' },
         { status: 404 }
@@ -91,7 +85,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Validate trip boundaries
-    const validation = validateAllTripBoundaries(costDataSource);
+    const validation = validateAllTripBoundaries(unifiedData);
     if (!validation.isValid) {
       console.warn('Trip boundary violations detected in trip %s:', cleanId, validation.errors);
       // Continue processing but log the violations
@@ -102,19 +96,19 @@ export async function GET(request: NextRequest) {
     const costData = {
       id: `cost-${cleanId}`,
       tripId: cleanId,
-      tripTitle: costDataSource.title,
-      tripStartDate: costDataSource.startDate,
-      tripEndDate: costDataSource.endDate,
-      overallBudget: costDataSource.costData.overallBudget,
-      reservedBudget: costDataSource.costData.reservedBudget || 0,
-      currency: costDataSource.costData.currency,
-      customCategories: costDataSource.costData.customCategories,
-      countryBudgets: costDataSource.costData.countryBudgets,
-      expenses: costDataSource.costData.expenses, // These are already trip-scoped by design
-      ynabImportData: costDataSource.costData.ynabImportData,
-      ynabConfig: redactYnabConfig(costDataSource.costData.ynabConfig),
-      createdAt: costDataSource.createdAt,
-      updatedAt: costDataSource.updatedAt,
+      tripTitle: unifiedData.title,
+      tripStartDate: unifiedData.startDate,
+      tripEndDate: unifiedData.endDate,
+      overallBudget: unifiedData.costData.overallBudget,
+      reservedBudget: unifiedData.costData.reservedBudget || 0,
+      currency: unifiedData.costData.currency,
+      customCategories: unifiedData.costData.customCategories,
+      countryBudgets: unifiedData.costData.countryBudgets,
+      expenses: unifiedData.costData.expenses, // These are already trip-scoped by design
+      ynabImportData: unifiedData.costData.ynabImportData,
+      ynabConfig: redactYnabConfig(unifiedData.costData.ynabConfig),
+      createdAt: unifiedData.createdAt,
+      updatedAt: unifiedData.updatedAt,
       // Add validation status for monitoring
       hasValidationWarnings: !validation.isValid
     };
