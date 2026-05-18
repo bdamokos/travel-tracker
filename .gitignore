@@ -52,6 +52,9 @@ deploy/backups/*
 scripts/*
 .codex/*
 .playwright-cli/
+.playwright-mcp/
+.clawpatch/
+.impeccable/
 output/
 .swc/
 .worktrees/
