@@ -61,26 +61,27 @@ else
   git -C "$repo_root" worktree add -b "$branch_name" "$target_dir" "$base_branch"
 fi
 
+mkdir -p "${target_dir}/data/backups"
+
+if command -v bun >/dev/null 2>&1; then
+  echo "Installing dependencies in ${target_dir} without lifecycle scripts"
+  bun install --cwd "$target_dir" --ignore-scripts
+else
+  echo "Bun not found; skipping dependency install."
+fi
+
 source_env="${main_repo_root}/deploy/.env"
 dest_env="${target_dir}/deploy/.env"
 
 if [[ -f "$source_env" && ! -f "$dest_env" ]]; then
   mkdir -p "$(dirname "$dest_env")"
   cp "$source_env" "$dest_env"
+  chmod 600 "$dest_env"
   echo "Copied .env to ${dest_env}"
 elif [[ -f "$dest_env" ]]; then
   echo ".env already exists at ${dest_env}"
 else
   echo "No .env found to copy from ${source_env}"
-fi
-
-mkdir -p "${target_dir}/data/backups"
-
-if command -v bun >/dev/null 2>&1; then
-  echo "Installing dependencies in ${target_dir}"
-  bun install --cwd "$target_dir"
-else
-  echo "Bun not found; skipping dependency install."
 fi
 
 echo "Worktree ready at ${target_dir}"
