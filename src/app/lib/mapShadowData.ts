@@ -166,9 +166,9 @@ export function buildAdminMapTravelData(
       }))
     ],
     routes: [
-      ...realRoutes.map(route => toMapRouteSegment(route)),
+      ...realRoutes.map(route => toMapRouteSegment(route, { includePrivateNotes: true })),
       ...filteredShadowRoutes.map(route => {
-        const baseRoute = toMapRouteSegment(route);
+        const baseRoute = toMapRouteSegment(route, { includePrivateNotes: true });
         return {
           ...baseRoute,
           from: `${SHADOW_LOCATION_PREFIX} ${route.from}`,
@@ -183,7 +183,7 @@ export function buildAdminMapTravelData(
     ]
   };
 
-  return normalizeMapTravelData(transformedData);
+  return transformedData;
 }
 
 export async function loadMapTravelDataForServer(
