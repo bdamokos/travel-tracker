@@ -66,14 +66,14 @@ function validateCoordinates(coords: [number, number]): void {
   }
 }
 
-function validateDateRange(start: Date, end: Date): { startISO: string; endISO: string; spanDays: number } {
+function validateDateRange(start: Date, end: Date): { startISO: string; endISO: string } {
   if (!isValid(start) || !isValid(end)) {
     throw new Error('Invalid weather date range');
   }
 
   const startISO = toISODate(start);
   const endISO = toISODate(end);
-  const spanDays = daysBetweenInclusive(parseISO(startISO), parseISO(endISO));
+  const spanDays = daysBetweenInclusive(start, end);
 
   if (spanDays < 1) {
     throw new Error('Weather start date must be before or equal to end date');
@@ -82,7 +82,7 @@ function validateDateRange(start: Date, end: Date): { startISO: string; endISO: 
     throw new Error(`Weather date range cannot exceed ${MAX_LOCATION_WEATHER_SPAN_DAYS} days`);
   }
 
-  return { startISO, endISO, spanDays };
+  return { startISO, endISO };
 }
 
 export function parseWeatherDateInput(value: string): Date | null {
