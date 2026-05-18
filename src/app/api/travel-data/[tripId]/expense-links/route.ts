@@ -65,6 +65,11 @@ export async function GET(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
+    }
+
     const { tripId } = await params;
 
     if (!tripId) {
