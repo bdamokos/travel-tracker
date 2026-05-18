@@ -41,17 +41,36 @@ describe('costTrackerCache', () => {
     expect(getCachedCostTracker('cost-trip-1')).toEqual(expectedCachedData);
   });
 
-  it('restores cached data from sessionStorage after memory cache is cleared', () => {
-    const costData = buildCostData('cost-trip-1');
+  it('does not persist full cost tracker data to sessionStorage', () => {
+    const costData = {
+      ...buildCostData('cost-trip-1'),
+      ynabConfig: {
+        apiKey: 'SECRET_YNAB_KEY',
+        selectedBudgetId: 'budget-1'
+      }
+    };
+    const expectedCachedData = { ...costData, id: 'cost-trip-1' };
 
     setCachedCostTracker(costData);
-    clearCachedCostTracker('cost-trip-1');
+
+    expect(window.sessionStorage.getItem('travel-tracker-cost-cache:cost-trip-1')).toBeNull();
+    expect(getCachedCostTracker('cost-trip-1')).toEqual(expectedCachedData);
+  });
+
+  it('removes legacy persisted cost tracker data when checked', () => {
     window.sessionStorage.setItem(
       'travel-tracker-cost-cache:cost-trip-1',
-      JSON.stringify(costData)
+      JSON.stringify({
+        ...buildCostData('cost-trip-1'),
+        ynabConfig: {
+          apiKey: 'SECRET_YNAB_KEY',
+          selectedBudgetId: 'budget-1'
+        }
+      })
     );
 
-    expect(getCachedCostTracker('cost-trip-1')).toEqual(costData);
+    expect(getCachedCostTracker('cost-trip-1')).toBeNull();
+    expect(window.sessionStorage.getItem('travel-tracker-cost-cache:cost-trip-1')).toBeNull();
   });
 
   it('ignores incomplete cost tracker entries without an id or trip id', () => {

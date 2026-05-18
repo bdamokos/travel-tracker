@@ -26,23 +26,8 @@ export function getCachedCostTracker(id: string): CostTrackingData | null {
     return cachedInMemory;
   }
 
-  if (!canUseSessionStorage()) {
-    return null;
-  }
-
-  try {
-    const serialized = window.sessionStorage.getItem(`${STORAGE_KEY_PREFIX}${cacheKey}`);
-    if (!serialized) {
-      return null;
-    }
-
-    const parsed = JSON.parse(serialized) as CostTrackingData;
-    memoryCache.set(cacheKey, parsed);
-    return parsed;
-  } catch (error) {
-    console.warn('Failed to read cached cost tracker data:', error);
-    return null;
-  }
+  clearPersistedCostTracker(cacheKey);
+  return null;
 }
 
 export function hasCachedCostTracker(id: string): boolean {
@@ -62,26 +47,17 @@ export function setCachedCostTracker(costData: CostTrackingData): void {
   };
 
   memoryCache.set(cacheKey, normalizedCostData);
-
-  if (!canUseSessionStorage()) {
-    return;
-  }
-
-  try {
-    window.sessionStorage.setItem(
-      `${STORAGE_KEY_PREFIX}${cacheKey}`,
-      JSON.stringify(normalizedCostData)
-    );
-  } catch (error) {
-    console.warn('Failed to persist cached cost tracker data:', error);
-  }
+  clearPersistedCostTracker(cacheKey);
 }
 
 export function clearCachedCostTracker(id: string): void {
   const cacheKey = getCacheKey(id);
   memoryCache.delete(cacheKey);
   inFlightRequests.delete(cacheKey);
+  clearPersistedCostTracker(cacheKey);
+}
 
+function clearPersistedCostTracker(cacheKey: string): void {
   if (!canUseSessionStorage()) {
     return;
   }
@@ -89,7 +65,7 @@ export function clearCachedCostTracker(id: string): void {
   try {
     window.sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${cacheKey}`);
   } catch (error) {
-    console.warn('Failed to clear cached cost tracker data:', error);
+    console.warn('Failed to clear persisted cost tracker cache:', error);
   }
 }
 

@@ -31,16 +31,26 @@ describe('travelDataCache', () => {
     expect(getCachedTravelData('trip-1')).toEqual(travelData);
   });
 
-  it('restores cached data from sessionStorage after memory cache is cleared', () => {
+  it('does not persist full trip data to sessionStorage', () => {
     const travelData = buildTravelData('trip-1');
 
     setCachedTravelData(travelData);
-    clearCachedTravelData('trip-1');
+
+    expect(window.sessionStorage.getItem('travel-tracker-trip-cache:trip-1')).toBeNull();
+    expect(getCachedTravelData('trip-1')).toEqual(travelData);
+  });
+
+  it('removes legacy persisted trip data when checked', () => {
+    const travelData = buildTravelData('trip-1');
     window.sessionStorage.setItem(
       'travel-tracker-trip-cache:trip-1',
-      JSON.stringify(travelData)
+      JSON.stringify({
+        ...travelData,
+        privateNotes: 'do not keep in browser storage'
+      })
     );
 
-    expect(getCachedTravelData('trip-1')).toEqual(travelData);
+    expect(getCachedTravelData('trip-1')).toBeNull();
+    expect(window.sessionStorage.getItem('travel-tracker-trip-cache:trip-1')).toBeNull();
   });
 });
