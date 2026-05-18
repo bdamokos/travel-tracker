@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 interface ExpenseLink {
   expenseId: string;
@@ -240,6 +241,11 @@ export async function POST(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+
     const { tripId } = await params;
 
     if (!tripId) {
@@ -338,6 +344,11 @@ export async function DELETE(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+
     const { tripId } = await params;
 
     if (!tripId) {
