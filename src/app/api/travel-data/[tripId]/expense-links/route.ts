@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 interface ExpenseLink {
   expenseId: string;
@@ -46,6 +47,18 @@ function validateSplitConfiguration(
 
   return { valid: true };
 }
+
+const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
+  const isAdmin = await isAdminDomain();
+  if (isAdmin) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: 'Forbidden - admin domain required' },
+    { status: 403 }
+  );
+};
 
 export async function GET(
   _request: NextRequest,
@@ -240,6 +253,11 @@ export async function POST(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
+    }
+
     const { tripId } = await params;
 
     if (!tripId) {
@@ -338,6 +356,11 @@ export async function DELETE(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
+    }
+
     const { tripId } = await params;
 
     if (!tripId) {

@@ -430,8 +430,8 @@ run_ssh "
     
     echo \"\"
     echo \"🌐 Services are running on:\"
-    echo \"  Admin Interface: http://\$(hostname -I | awk '{print \$1}'):\${ADMIN_PORT:-3001}\"
-    echo \"  Embed Interface: http://\$(hostname -I | awk '{print \$1}'):\${EMBED_PORT:-3002}\"
+    echo \"  Admin Interface: http://127.0.0.1:\${ADMIN_PORT:-3001} (via Cloudflare Tunnel/Access)\"
+    echo \"  Embed Interface: http://127.0.0.1:\${EMBED_PORT:-3002} (via Cloudflare Tunnel)\"
     echo \"\"
     echo \"💾 Data is persisted at: \$DATA_PATH\"
     # Clean up dangling images on remote machine
