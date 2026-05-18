@@ -2,16 +2,14 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { join } from 'path';
-import { readFile } from 'fs/promises';
 import { TripCalendar } from '@/app/components/TripCalendar';
 import TripUpdates from '@/app/components/TripUpdates';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
-import { getDataDir } from '@/app/lib/dataDirectory';
 import { buildPublicCalendarTrip } from '@/app/lib/calendarPrivacy';
 import { isAdminHost } from '@/app/lib/server-domains';
-import { Location, Transportation, Accommodation, ShadowTrip } from '@/app/types';
-import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
+import { loadShadowTrip } from '@/app/lib/shadowTripStorage';
+import { filterNonOverlappingShadowPlans } from '@/app/lib/mapShadowData';
+import { Location, Transportation, Accommodation } from '@/app/types';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 
@@ -20,22 +18,6 @@ interface CalendarPageProps {
     tripId: string;
   }>;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-const SHADOW_DATA_FILE = join(getDataDir(), 'shadowTravelData.json');
-
-async function loadShadowTrip(tripId: string): Promise<ShadowTrip | null> {
-  try {
-    const content = await readFile(SHADOW_DATA_FILE, 'utf-8');
-    const shadowTrips = JSON.parse(content) as Record<string, ShadowTrip>;
-    return shadowTrips[tripId] || null;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== 'ENOENT') {
-      console.error('Error loading calendar shadow data:', error);
-    }
-    return null;
-  }
 }
 
 export async function generateMetadata({
@@ -90,58 +72,11 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
         const shadowLocations: Location[] = shadowData.shadowData?.shadowLocations || [];
         const shadowRoutes: Transportation[] = shadowData.shadowData?.shadowRoutes || [];
 
-        const toStartOfDay = (d: Date) => {
-          const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
-          normalized.setHours(0, 0, 0, 0);
-          return normalized.getTime();
-        };
-        const toEndOfDay = (d: Date) => {
-          const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
-          normalized.setHours(23, 59, 59, 999);
-          return normalized.getTime();
-        };
-        const safeDate = (value?: string | Date) => {
-          if (!value) return null;
-          const d = value instanceof Date ? value : new Date(value);
-          return isNaN(d.getTime()) ? null : d;
-        };
-
-        type Interval = { start: number; end: number };
-        const realIntervals: Interval[] = [];
-        // Real locations coverage
-        for (const loc of realLocations) {
-          const startDate = safeDate((loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-          const endDate = safeDate((loc as any).endDate || (loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-          if (startDate && endDate) {
-            realIntervals.push({ start: toStartOfDay(startDate), end: toEndOfDay(endDate) });
-          }
-        }
-        // Real routes coverage
-        for (const route of realRoutes) {
-          const dep = safeDate((route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-          const arr = safeDate((route as any).arrivalTime || (route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-          if (dep && arr) {
-            realIntervals.push({ start: toStartOfDay(dep), end: toEndOfDay(arr) });
-          }
-        }
-        const overlaps = (start: number, end: number) => realIntervals.some(i => start <= i.end && end >= i.start);
-
-        const filteredShadowLocations: Location[] = shadowLocations.filter(loc => {
-          const startDate = safeDate((loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-          const endDate = safeDate((loc as any).endDate || (loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-          if (!startDate || !endDate) return true;
-          const s = toStartOfDay(startDate);
-          const e = toEndOfDay(endDate);
-          return !overlaps(s, e);
-        });
-
-        const filteredShadowRoutes: Transportation[] = shadowRoutes.filter(route => {
-          const dep = safeDate((route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-          const arr = safeDate((route as any).arrivalTime || (route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-          if (!dep || !arr) return true;
-          const s = toStartOfDay(dep);
-          const e = toEndOfDay(arr);
-          return !overlaps(s, e);
+        const { filteredShadowLocations, filteredShadowRoutes } = filterNonOverlappingShadowPlans({
+          realLocations,
+          realRoutes,
+          shadowLocations,
+          shadowRoutes,
         });
 
         // Merge real data with shadow data

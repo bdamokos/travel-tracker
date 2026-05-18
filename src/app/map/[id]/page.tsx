@@ -1,179 +1,19 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-import { getDomainConfig } from '@/app/lib/domains';
 import EmbeddableMap from './components/EmbeddableMap';
-import { formatDateRange, formatUtcDate, normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
-import { Location, Transportation, type MapTravelData } from '@/app/types';
+import { formatDateRange, formatUtcDate } from '@/app/lib/dateUtils';
 import InstagramIcon from '@/app/components/icons/InstagramIcon';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import TripUpdates from '@/app/components/TripUpdates';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
-import { normalizeMapTravelData, toMapRouteSegment } from '@/app/lib/mapRouteTransform';
 import { isAdminHost } from '@/app/lib/server-domains';
-
-const toMapDateString = (value?: string | Date): string | undefined => {
-  if (!value) return undefined;
-  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
-};
-
-async function getTravelData(id: string, isAdmin: boolean = false): Promise<MapTravelData | null> {
-  try {
-    const { embedDomain } = getDomainConfig();
-    const baseUrl = embedDomain || 'http://localhost:3000';
-    
-    // In admin mode, try to load shadow data first, fallback to regular data
-    if (isAdmin) {
-      try {
-        const shadowResponse = await fetch(`${baseUrl}/api/shadow-trips/${id}`, {
-          cache: 'no-store'
-        });
-        
-        if (shadowResponse.ok) {
-          const shadowData = await shadowResponse.json();
-
-          // Build coverage from real plans and filter shadow items that overlap
-          const realLocations: Location[] = shadowData.travelData?.locations || [];
-          const realRoutes: Transportation[] = shadowData.travelData?.routes || [];
-          const shadowLocations: Location[] = shadowData.shadowData?.shadowLocations || [];
-          const shadowRoutes: Transportation[] = shadowData.shadowData?.shadowRoutes || [];
-
-          const toStartOfDay = (d: Date) => {
-            const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
-            normalized.setHours(0, 0, 0, 0);
-            return normalized.getTime();
-          };
-          const toEndOfDay = (d: Date) => {
-            const normalized = normalizeUtcDateToLocalDay(d) || new Date(d);
-            normalized.setHours(23, 59, 59, 999);
-            return normalized.getTime();
-          };
-          const safeDate = (value?: string | Date) => {
-            if (!value) return null;
-            const d = value instanceof Date ? value : new Date(value);
-            return isNaN(d.getTime()) ? null : d;
-          };
-
-          type Interval = { start: number; end: number };
-          const realIntervals: Interval[] = [];
-          // Real locations coverage
-          for (const loc of realLocations) {
-            const startDate = safeDate((loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-            const endDate = safeDate((loc as any).endDate || (loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-            if (startDate && endDate) {
-              realIntervals.push({ start: toStartOfDay(startDate), end: toEndOfDay(endDate) });
-            }
-          }
-          // Real routes coverage
-          for (const route of realRoutes) {
-            const dep = safeDate((route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-            const arr = safeDate((route as any).arrivalTime || (route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-            if (dep && arr) {
-              realIntervals.push({ start: toStartOfDay(dep), end: toEndOfDay(arr) });
-            }
-          }
-          const overlaps = (start: number, end: number) => realIntervals.some(i => start <= i.end && end >= i.start);
-
-          const filteredShadowLocations: Location[] = shadowLocations.filter(loc => {
-            const startDate = safeDate((loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-            const endDate = safeDate((loc as any).endDate || (loc as any).date); // eslint-disable-line @typescript-eslint/no-explicit-any
-            if (!startDate || !endDate) return true;
-            const s = toStartOfDay(startDate);
-            const e = toEndOfDay(endDate);
-            return !overlaps(s, e);
-          });
-
-          const filteredShadowRoutes: Transportation[] = shadowRoutes.filter(route => {
-            const dep = safeDate((route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-            const arr = safeDate((route as any).arrivalTime || (route as any).departureTime); // eslint-disable-line @typescript-eslint/no-explicit-any
-            if (!dep || !arr) return true;
-            const s = toStartOfDay(dep);
-            const e = toEndOfDay(arr);
-            return !overlaps(s, e);
-          });
-
-          // Transform shadow data to TravelData format
-          const transformedData: MapTravelData = {
-            id: shadowData.id,
-            title: shadowData.title,
-            description: shadowData.description,
-            startDate: shadowData.startDate,
-            endDate: shadowData.endDate,
-            createdAt: shadowData.createdAt,
-            publicUpdates: shadowData.publicUpdates || [],
-            // Merge real locations with shadow locations
-            locations: [
-              ...(shadowData.travelData?.locations || []).map((loc: Location) => ({
-                id: loc.id,
-                name: loc.name,
-                coordinates: loc.coordinates,
-                date: toMapDateString(loc.date) ?? '',
-                endDate: toMapDateString(loc.endDate),
-                notes: loc.notes,
-                wikipediaRef: loc.wikipediaRef,
-                instagramPosts: loc.instagramPosts,
-                tikTokPosts: loc.tikTokPosts,
-                blogPosts: loc.blogPosts,
-              })),
-              ...filteredShadowLocations.map((loc: Location) => ({
-                id: loc.id,
-                name: `${SHADOW_LOCATION_PREFIX} ${loc.name}`, // Prefix shadow locations
-                coordinates: loc.coordinates,
-                date: toMapDateString(loc.date) ?? '',
-                endDate: toMapDateString(loc.endDate),
-                notes: loc.notes,
-                wikipediaRef: loc.wikipediaRef,
-                instagramPosts: loc.instagramPosts,
-                tikTokPosts: loc.tikTokPosts,
-                blogPosts: loc.blogPosts,
-              }))
-            ],
-            // Merge real routes with shadow routes
-            routes: [
-              ...(shadowData.travelData?.routes || []).map((route: Transportation) => toMapRouteSegment(route)),
-              ...filteredShadowRoutes.map((route: Transportation) => {
-                const baseRoute = toMapRouteSegment(route);
-                return {
-                  ...baseRoute,
-                  from: `${SHADOW_LOCATION_PREFIX} ${route.from}`,
-                  to: `${SHADOW_LOCATION_PREFIX} ${route.to}`,
-                  subRoutes: baseRoute.subRoutes?.map(segment => ({
-                    ...segment,
-                    from: `${SHADOW_LOCATION_PREFIX} ${segment.from}`,
-                    to: `${SHADOW_LOCATION_PREFIX} ${segment.to}`
-                  }))
-                };
-              })
-            ]
-          };
-          
-          return normalizeMapTravelData(transformedData);
-        }
-      } catch {
-        console.log('Shadow data not available, falling back to regular data');
-      }
-    }
-    
-    const response = await fetch(`${baseUrl}/api/travel-data?id=${id}`, {
-      cache: 'no-store' // Always fetch fresh data
-    });
-    
-    if (!response.ok) {
-      return null;
-    }
-    
-    const rawTravelData = await response.json();
-    return normalizeMapTravelData(rawTravelData);
-  } catch (error) {
-    console.error('Error fetching travel data:', error);
-    return null;
-  }
-}
+import { loadMapTravelDataForServer } from '@/app/lib/mapShadowData';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const travelData = await getTravelData(id);
+  const travelData = await loadMapTravelDataForServer(id, false);
   
   if (!travelData) {
     return {
@@ -212,7 +52,7 @@ export default async function MapPage({
   const host = headersList.get('host');
   const isAdmin = isAdminHost(host);
   
-  const travelData = await getTravelData(id, isAdmin);
+  const travelData = await loadMapTravelDataForServer(id, isAdmin);
   
   if (!travelData) {
     notFound();
