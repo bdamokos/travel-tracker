@@ -1,45 +1,13 @@
 #!/bin/bash
 
 # ==============================================================================
-# Travel Tracker Deployment Script with macOS Keychain Integration
+# Travel Tracker Deployment Script with SSH Key Authentication
 # ==============================================================================
 #
 # This script deploys the Travel Tracker application to a remote Raspberry Pi
-# using SSH. It integrates with macOS Keychain to securely store and retrieve
-# SSH passwords.
-#
-# KEYCHAIN INTEGRATION:
-# --------------------
-# 1. First Run: The script will try to retrieve the password from Keychain. 
-#    If it doesn't exist, it will:
-#    - Prompt you to enter the password manually
-#    - Ask if you want to store it in Keychain for future use
-#    - If you say yes, it stores the password securely
-#
-# 2. Subsequent Runs: The script will automatically retrieve the password 
-#    from Keychain without any prompts
-#
-# 3. Authorization: The first time you store or access a password in Keychain, 
-#    macOS will prompt you to authorize terminal access. You can choose to 
-#    "Always Allow" so it won't prompt again.
-#
-# BENEFITS:
-# ---------
-# - Security: Password is encrypted and stored securely in Keychain
-# - Convenience: No need to type password every time
-# - Control: You control when to store/update the password
-# - Fallback: Still works if Keychain access fails
-#
-# MANUAL KEYCHAIN MANAGEMENT:
-# ---------------------------
-# Store password manually:
-#   security add-generic-password -a "pi@192.168.1.100" -s "travel-tracker-deploy" -w
-#
-# View stored password (will prompt for authorization):
-#   security find-generic-password -a "pi@192.168.1.100" -s "travel-tracker-deploy" -w
-#
-# Delete stored password:
-#   security delete-generic-password -a "pi@192.168.1.100" -s "travel-tracker-deploy"
+# using SSH. It expects SSH key authentication and a pinned host key in
+# known_hosts. Password automation is intentionally unsupported so deploys do
+# not expose SSH passwords to local process listings or spoofed SSH servers.
 #
 # USAGE:
 # ------
@@ -69,17 +37,21 @@ fi
 PI_HOST=${PI_HOST:-}
 PI_USER=${PI_USER:-pi}
 DEPLOY_PATH=${DEPLOY_PATH:-/home/${PI_USER}/travel-tracker}
-KEYCHAIN_SERVICE="travel-tracker-deploy"
-KEYCHAIN_ACCOUNT="$PI_USER@$PI_HOST"
-
 # SSH connection multiplexing - reuse a single authenticated connection
-SSH_CONTROL_PATH="/tmp/ssh-deploy-${PI_USER}-${PI_HOST}"
-SSH_OPTS="-o StrictHostKeyChecking=no -o ControlMaster=auto -o ControlPath=$SSH_CONTROL_PATH -o ControlPersist=300 -o ServerAliveInterval=30 -o ServerAliveCountMax=5"
+SSH_CONTROL_ID=$(printf '%s' "${PI_USER}-${PI_HOST}" | tr -c 'A-Za-z0-9_.-' '_')
+SSH_CONTROL_PATH="/tmp/ssh-deploy-${SSH_CONTROL_ID}"
+SSH_OPTS=(
+    -o ControlMaster=auto
+    -o ControlPath="$SSH_CONTROL_PATH"
+    -o ControlPersist=300
+    -o ServerAliveInterval=30
+    -o ServerAliveCountMax=5
+)
 
 # Clean up SSH control socket on exit
 cleanup_ssh() {
     if [ -S "$SSH_CONTROL_PATH" ]; then
-        ssh -O exit -o ControlPath="$SSH_CONTROL_PATH" $PI_USER@$PI_HOST 2>/dev/null || true
+        ssh -O exit -o ControlPath="$SSH_CONTROL_PATH" "$PI_USER@$PI_HOST" 2>/dev/null || true
     fi
 }
 trap cleanup_ssh EXIT
@@ -128,92 +100,31 @@ parse_args() {
     done
 }
 
-# Function to get password from keychain or prompt for it
-get_password() {
-    echo "🔐 Retrieving SSH password from Keychain..."
-    
-    # Try to get password from keychain
-    PASSWORD=$(security find-generic-password -a "$KEYCHAIN_ACCOUNT" -s "$KEYCHAIN_SERVICE" -w 2>/dev/null || echo "")
-    
-    if [ -z "$PASSWORD" ]; then
-        echo "❌ Password not found in Keychain."
-        echo
-        echo "💡 To store your password in Keychain manually, run this command:"
-        echo "   security add-generic-password -a \"$KEYCHAIN_ACCOUNT\" -s \"$KEYCHAIN_SERVICE\" -w"
-        echo "   (This will prompt you securely for the password)"
-        echo
-        prompt_for_password
-        
-        # Ask if user wants to store password in keychain
-        echo
-        echo -n "Would you like to store this password in Keychain for future use? (y/n): "
-        read -r store_password
-        if [[ "$store_password" =~ ^[Yy]$ ]]; then
-            echo "🔐 Storing password in Keychain..."
-            if security add-generic-password -a "$KEYCHAIN_ACCOUNT" -s "$KEYCHAIN_SERVICE" -w "$PASSWORD" 2>/dev/null; then
-                echo "✅ Password stored successfully in Keychain."
-            else
-                echo "⚠️  Failed to store password in Keychain, but continuing with deployment."
-            fi
-        fi
-    else
-        echo "✅ Password retrieved from Keychain."
-        # Test the password before proceeding
-        if ! test_ssh_connection; then
-            echo "❌ Keychain password appears to be incorrect."
-            echo "🔄 Please enter the correct password:"
-            prompt_for_password
-            
-            # Suggest updating keychain
-            echo
-            echo "💡 To update your Keychain with the correct password, run:"
-            echo "   security delete-generic-password -a \"$KEYCHAIN_ACCOUNT\" -s \"$KEYCHAIN_SERVICE\""
-            echo "   security add-generic-password -a \"$KEYCHAIN_ACCOUNT\" -s \"$KEYCHAIN_SERVICE\" -w"
-        fi
-    fi
-}
-
-# Function to prompt for password
-prompt_for_password() {
-    echo -n "Enter your SSH password for $PI_USER@$PI_HOST: "
-    read -s PASSWORD
-    echo
-    
-    # Test the password
-    if ! test_ssh_connection; then
-        echo "❌ SSH connection failed. Please check your password and try again."
-        exit 1
-    fi
-}
-
 # Function to test SSH connection
 test_ssh_connection() {
     echo "🔑 Testing SSH connection..."
-    
-    # Check if sshpass is available
-    if ! command -v sshpass &> /dev/null; then
-        echo "❌ sshpass is not installed. Please install it:"
-        echo "   On macOS: brew install sshpass"
-        echo "   On Ubuntu/Debian: sudo apt-get install sshpass"
-        return 1
-    fi
-    
-    if sshpass -p "$PASSWORD" ssh $SSH_OPTS -o ConnectTimeout=10 $PI_USER@$PI_HOST "echo 'SSH connection successful'" >/dev/null 2>&1; then
+
+    if ssh "${SSH_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=10 "$PI_USER@$PI_HOST" "echo 'SSH connection successful'" >/dev/null 2>&1; then
         echo "✅ SSH connection test successful."
         return 0
     else
+        echo "❌ SSH connection failed."
+        echo "Please configure SSH key authentication and verify the host key first:"
+        echo "  ssh-keyscan -H \"$PI_HOST\""
+        echo "  # Verify the fingerprint through a trusted channel before adding it to ~/.ssh/known_hosts"
+        echo "  ssh-copy-id \"$PI_USER@$PI_HOST\""
         return 1
     fi
 }
 
-# Function to run SSH commands with password
+# Function to run SSH commands
 run_ssh() {
-    sshpass -p "$PASSWORD" ssh $SSH_OPTS $PI_USER@$PI_HOST "$1"
+    ssh "${SSH_OPTS[@]}" "$PI_USER@$PI_HOST" "$1"
 }
 
-# Function to run SCP with password
+# Function to run SCP
 run_scp() {
-    sshpass -p "$PASSWORD" scp $SSH_OPTS "$@"
+    scp "${SSH_OPTS[@]}" "$@"
 }
 
 # Function to follow logs
@@ -223,7 +134,7 @@ follow_logs() {
     echo ""
     
     # Use -t flag for interactive terminal to properly handle Ctrl+C
-    sshpass -p "$PASSWORD" ssh $SSH_OPTS -t $PI_USER@$PI_HOST "cd $DEPLOY_PATH && docker-compose -f docker-compose.prod.yml logs -f"
+    ssh "${SSH_OPTS[@]}" -t "$PI_USER@$PI_HOST" "cd $DEPLOY_PATH && docker-compose -f docker-compose.prod.yml logs -f"
 }
 
 # Validate configuration
@@ -254,8 +165,8 @@ echo "🚀 Starting Travel Tracker deployment process..."
 # Validate configuration
 validate_config
 
-# Get password from keychain or prompt
-get_password
+# Verify SSH key authentication and host key validation before doing any work
+test_ssh_connection
 
 # Build and push Docker image unless deploy-only flag is set
 if [ "$DEPLOY_ONLY" = false ]; then
@@ -284,7 +195,7 @@ echo "📋 Deploying Travel Tracker to $PI_USER@$PI_HOST..."
 # Copy deployment files to Pi
 echo "📦 Copying deployment files to Pi..."
 run_ssh "mkdir -p $DEPLOY_PATH"
-run_scp docker-compose.prod.yml .env $PI_USER@$PI_HOST:$DEPLOY_PATH/
+run_scp docker-compose.prod.yml .env "$PI_USER@$PI_HOST:$DEPLOY_PATH/"
 
 # Run deployment commands on Pi
 echo "🔄 Running deployment on Pi..."
@@ -356,7 +267,7 @@ if [ -z "$REMOTE_DATA_PATH" ]; then
 fi
 
 REMOTE_DATA_PATH_ESCAPED=$(printf '%q' "$REMOTE_DATA_PATH")
-if sshpass -p "$PASSWORD" ssh $SSH_OPTS $PI_USER@$PI_HOST "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"; then
+if ssh "${SSH_OPTS[@]}" "$PI_USER@$PI_HOST" "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"; then
     echo "✅ Local backup saved to $LOCAL_BACKUP_FILE"
 else
     echo "❌ Failed to download remote backup."
@@ -450,7 +361,5 @@ if [ "$FOLLOW_LOGS" = true ]; then
     echo ""
     follow_logs
 else
-    # Clear password from memory
-    PASSWORD=""
     echo "💡 To follow logs, run: $0 --follow-logs"
 fi
