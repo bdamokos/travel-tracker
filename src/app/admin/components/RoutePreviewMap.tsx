@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Map, Marker } from 'leaflet';
+import type { Map, Marker } from 'leaflet';
 import { getRouteStyle, generateRoutePoints, calculateGreatCirclePoints, calculateSimpleArc } from '@/app/lib/routeUtils';
 import { attachMarkerKeyHandlers, escapeAttribute, formatCoordLabel } from '@/app/lib/mapIconUtils';
 import { Transportation } from '@/app/types';
@@ -32,6 +32,26 @@ const buildPreviewMarkerHtml = (label: string, color: string, text: string) => `
     ">${text}</div>
   </div>
 `;
+
+export function createRoutePreviewPopupContent(
+  label: 'Start' | 'End',
+  locationName: string,
+  coords: [number, number]
+): HTMLDivElement {
+  const container = document.createElement('div');
+
+  const title = document.createElement('strong');
+  title.textContent = `${label}: ${locationName}`;
+  container.appendChild(title);
+
+  container.appendChild(document.createElement('br'));
+
+  const coordinates = document.createElement('small');
+  coordinates.textContent = formatCoordLabel(coords);
+  container.appendChild(coordinates);
+
+  return container;
+}
 
 const RoutePreviewMap: React.FC<RoutePreviewProps> = ({ 
   from, 
@@ -187,11 +207,11 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
         // Add markers - store references for popup updates
         const startMarker = L.marker(fromCoords, { icon: startIcon, keyboard: false })
           .addTo(map)
-          .bindPopup(`<strong>Start: ${from}</strong><br/><small>${formatCoordLabel(fromCoords)}</small>`);
+          .bindPopup(createRoutePreviewPopupContent('Start', from, fromCoords));
 
         const endMarker = L.marker(toCoords, { icon: endIcon, keyboard: false })
           .addTo(map)
-          .bindPopup(`<strong>End: ${to}</strong><br/><small>${formatCoordLabel(toCoords)}</small>`);
+          .bindPopup(createRoutePreviewPopupContent('End', to, toCoords));
 
         attachMarkerKeyHandlers(startMarker, () => startMarker.openPopup());
         attachMarkerKeyHandlers(endMarker, () => endMarker.openPopup());
@@ -255,8 +275,8 @@ const RoutePreviewMap: React.FC<RoutePreviewProps> = ({
   // Update popup content when location names change (without recreating map)
   useEffect(() => {
     if (startMarkerRef.current && endMarkerRef.current) {
-      const startPopupContent = `<strong>Start: ${from}</strong><br/><small>${formatCoordLabel(fromCoords)}</small>`;
-      const endPopupContent = `<strong>End: ${to}</strong><br/><small>${formatCoordLabel(toCoords)}</small>`;
+      const startPopupContent = createRoutePreviewPopupContent('Start', from, fromCoords);
+      const endPopupContent = createRoutePreviewPopupContent('End', to, toCoords);
       
       startMarkerRef.current.setPopupContent(startPopupContent);
       endMarkerRef.current.setPopupContent(endPopupContent);
