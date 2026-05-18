@@ -58,11 +58,32 @@ function buildPeriodSummary(periods?: CountryPeriod[]): string {
     .join('; ');
 }
 
-function escapeCsvValue(value: string): string {
-  if (value.includes('"') || value.includes(',') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
+function looksLikePlainNumber(value: string): boolean {
+  return /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(value.trim());
+}
+
+export function sanitizeSpreadsheetCell(value: string): string {
+  const trimmedStart = value.trimStart();
+  if (!trimmedStart) {
+    return value;
   }
+
+  const firstChar = trimmedStart[0];
+  const startsWithFormulaChar = firstChar === '=' || firstChar === '+' || firstChar === '-' || firstChar === '@';
+  const startsWithControlChar = value.startsWith('\t') || value.startsWith('\r');
+  if ((startsWithFormulaChar || startsWithControlChar) && !looksLikePlainNumber(trimmedStart)) {
+    return `'${value}`;
+  }
+
   return value;
+}
+
+export function escapeCsvValue(value: string): string {
+  const sanitizedValue = sanitizeSpreadsheetCell(value);
+  if (sanitizedValue.includes('"') || sanitizedValue.includes(',') || sanitizedValue.includes('\n')) {
+    return `"${sanitizedValue.replace(/"/g, '""')}"`;
+  }
+  return sanitizedValue;
 }
 
 function escapeHtml(value: string): string {
@@ -110,7 +131,7 @@ function toStringValue(value: unknown): string {
   return String(value);
 }
 
-function buildCsv(rows: string[][]): string {
+export function buildCsv(rows: string[][]): string {
   return rows
     .map((row) =>
       row
@@ -120,13 +141,13 @@ function buildCsv(rows: string[][]): string {
     .join('\n');
 }
 
-function buildExcelTable(title: string, rows: string[][]): string {
+export function buildExcelTable(title: string, rows: string[][]): string {
   const header = rows[0] || [];
   const body = rows.slice(1);
 
-  const headerHtml = header.map((cell) => `<th>${escapeHtml(cell)}</th>`).join('');
+  const headerHtml = header.map((cell) => `<th>${escapeHtml(sanitizeSpreadsheetCell(cell))}</th>`).join('');
   const bodyHtml = body
-    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(sanitizeSpreadsheetCell(cell))}</td>`).join('')}</tr>`)
     .join('');
 
   return `
