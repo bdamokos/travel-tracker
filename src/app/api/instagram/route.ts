@@ -45,8 +45,9 @@ export async function GET(request: NextRequest) {
   const rawUsername = searchParams.get('username') ?? '';
   const username = normalizeInstagramUsername(rawUsername);
   const instagramAppId = process.env.INSTAGRAM_APP_ID?.trim() || DEFAULT_INSTAGRAM_APP_ID;
-  const isAdmin = await isAdminDomain();
-  const cookieHeader = isAdmin ? buildInstagramCookieHeaderFromEnv() : undefined;
+  const envCookieHeader = buildInstagramCookieHeaderFromEnv();
+  const isAdmin = Boolean(envCookieHeader) && await isAdminDomain();
+  const cookieHeader = isAdmin ? envCookieHeader : undefined;
   const usePrivateCache = Boolean(cookieHeader);
 
   if (!username) {
@@ -158,7 +159,9 @@ export async function GET(request: NextRequest) {
     if (sawLoginRequirement) {
       return NextResponse.json(
         {
-          error: 'Instagram is requiring a logged-in session. Configure INSTAGRAM_SESSIONID (and optionally INSTAGRAM_CSRFTOKEN / INSTAGRAM_DS_USER_ID).'
+          error: isAdmin
+            ? 'Instagram is requiring a logged-in session. Configure INSTAGRAM_SESSIONID (and optionally INSTAGRAM_CSRFTOKEN / INSTAGRAM_DS_USER_ID).'
+            : 'This Instagram profile is not publicly accessible.'
         },
         { status: 403 }
       );
