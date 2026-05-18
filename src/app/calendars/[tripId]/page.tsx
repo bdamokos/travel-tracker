@@ -2,10 +2,15 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
+import { join } from 'path';
+import { readFile } from 'fs/promises';
 import { TripCalendar } from '@/app/components/TripCalendar';
 import TripUpdates from '@/app/components/TripUpdates';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
-import { Location, Transportation, Accommodation } from '@/app/types';
+import { getDataDir } from '@/app/lib/dataDirectory';
+import { buildPublicCalendarTrip } from '@/app/lib/calendarPrivacy';
+import { isAdminHost } from '@/app/lib/server-domains';
+import { Location, Transportation, Accommodation, ShadowTrip } from '@/app/types';
 import { normalizeUtcDateToLocalDay } from '@/app/lib/dateUtils';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
@@ -15,6 +20,22 @@ interface CalendarPageProps {
     tripId: string;
   }>;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+const SHADOW_DATA_FILE = join(getDataDir(), 'shadowTravelData.json');
+
+async function loadShadowTrip(tripId: string): Promise<ShadowTrip | null> {
+  try {
+    const content = await readFile(SHADOW_DATA_FILE, 'utf-8');
+    const shadowTrips = JSON.parse(content) as Record<string, ShadowTrip>;
+    return shadowTrips[tripId] || null;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') {
+      console.error('Error loading calendar shadow data:', error);
+    }
+    return null;
+  }
 }
 
 export async function generateMetadata({
@@ -43,19 +64,25 @@ export async function generateMetadata({
 }
 
 async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
+  const tripData = await loadUnifiedTripData(tripId);
+
+  if (!tripData) {
+    return null;
+  }
+
   if (isAdmin) {
     try {
-      // Try to load shadow data first
-      const headersList = await headers();
-      const host = headersList.get('host') || 'localhost:3000';
-      const protocol = headersList.get('x-forwarded-proto') || 'http';
-      const baseUrl = `${protocol}://${host}`;
-      const response = await fetch(`${baseUrl}/api/shadow-trips/${tripId}`, {
-        cache: 'no-store'
-      });
-      
-      if (response.ok) {
-        const shadowData = await response.json();
+      const shadowTrip = await loadShadowTrip(tripId);
+
+      if (shadowTrip) {
+        const shadowData = {
+          ...tripData,
+          shadowData: {
+            shadowLocations: shadowTrip.shadowLocations,
+            shadowRoutes: shadowTrip.shadowRoutes,
+            shadowAccommodations: shadowTrip.shadowAccommodations,
+          },
+        };
 
         // Build coverage from real plans and filter shadow items that overlap
         const realLocations: Location[] = shadowData.travelData?.locations || [];
@@ -159,7 +186,7 @@ async function loadTripDataWithShadow(tripId: string, isAdmin: boolean) {
   }
   
   // Fallback to regular data
-  return await loadUnifiedTripData(tripId);
+  return tripData;
 }
 
 export default async function TripCalendarPage({ params }: CalendarPageProps) {
@@ -168,7 +195,7 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
   // Check if this is admin mode based on domain
   const headersList = await headers();
   const host = headersList.get('host');
-  const isAdmin = Boolean(host?.includes('tt-admin') || host?.includes('localhost'));
+  const isAdmin = isAdminHost(host);
 
   let tripData: Awaited<ReturnType<typeof loadTripDataWithShadow>>;
   try {
@@ -193,19 +220,7 @@ export default async function TripCalendarPage({ params }: CalendarPageProps) {
 
   // In admin/planning mode, show all data including shadow data
   // In public mode, filter for public locations only
-  const displayTrip = isAdmin ? trip : {
-    ...trip,
-    locations: trip.locations.filter((location: Location) => {
-      // Temporary workaround: check for [PRIVATE] in notes
-      // TODO: Replace with proper isPublic boolean field when Issue #28 is implemented
-      return !location.notes?.includes('[PRIVATE]');
-    }),
-    routes: trip.routes.filter((route: Transportation) => {
-      // Temporary workaround: filter out routes with private notes
-      // TODO: Replace with proper public/private route flags when Issue #28 is implemented
-      return !route.privateNotes;
-    })
-  };
+  const displayTrip = isAdmin ? trip : buildPublicCalendarTrip(trip);
 
   const updates = isAdmin
     ? tripData.publicUpdates

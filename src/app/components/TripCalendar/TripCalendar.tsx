@@ -312,6 +312,7 @@ export default function TripCalendar({
         isOpen={isOpen}
         onClose={handlePopupClose}
         data={data}
+        isAdminView={planningMode}
       />
     </div>
   );

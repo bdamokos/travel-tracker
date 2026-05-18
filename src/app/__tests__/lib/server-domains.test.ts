@@ -31,4 +31,9 @@ describe('server domain helpers', () => {
     expect(isAdminHost('admin.example.test:3000')).toBe(true);
     expect(isAdminHost('public.example.test')).toBe(false);
   });
+
+  it('does not treat admin-looking substrings as admin hosts', () => {
+    expect(isAdminHost('tt-admin.attacker.example')).toBe(false);
+    expect(isAdminHost('public.example.test:3000')).toBe(false);
+  });
 });
