@@ -11,6 +11,7 @@ import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
 const PUBLIC_TRAVEL_DATA_CACHE_CONTROL = 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800';
 const PRIVATE_TRAVEL_DATA_CACHE_CONTROL = 'no-store';
+const SAFE_TRIP_ID_PATTERN = /^[A-Za-z0-9]+$/;
 
 type RouteSegmentPayload = {
   from: string;
@@ -479,6 +480,13 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: 'ID parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!SAFE_TRIP_ID_PATTERN.test(id)) {
+      return NextResponse.json(
+        { error: 'Invalid trip ID' },
         { status: 400 }
       );
     }

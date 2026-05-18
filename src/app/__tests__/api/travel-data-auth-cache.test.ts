@@ -4,8 +4,8 @@
 
 import { NextRequest } from 'next/server';
 
-import { GET, PATCH } from '@/app/api/travel-data/route';
-import { loadUnifiedTripData, updateTravelData } from '@/app/lib/unifiedDataService';
+import { DELETE, GET, PATCH } from '@/app/api/travel-data/route';
+import { deleteTripWithBackup, loadUnifiedTripData, updateTravelData } from '@/app/lib/unifiedDataService';
 
 jest.mock('@/app/lib/server-domains', () => ({
   __esModule: true,
@@ -23,6 +23,7 @@ jest.mock('@/app/lib/unifiedDataService', () => ({
 const { isAdminDomain: mockIsAdminDomain } = jest.requireMock('@/app/lib/server-domains');
 const mockLoadUnifiedTripData = loadUnifiedTripData as jest.MockedFunction<typeof loadUnifiedTripData>;
 const mockUpdateTravelData = updateTravelData as jest.MockedFunction<typeof updateTravelData>;
+const mockDeleteTripWithBackup = deleteTripWithBackup as jest.MockedFunction<typeof deleteTripWithBackup>;
 
 const buildTrip = () => ({
   schemaVersion: 4,
@@ -125,6 +126,23 @@ describe('travel-data API auth and cache boundary', () => {
     expect(result).toEqual({ error: 'Patch operation only allowed on admin domain' });
     expect(mockLoadUnifiedTripData).not.toHaveBeenCalled();
     expect(mockUpdateTravelData).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed trip IDs on DELETE before loading or deleting trip data', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
+    const request = new NextRequest('https://admin.example.test/api/travel-data?id=victim%26x%3D1', {
+      method: 'DELETE',
+      headers: { host: 'admin.example.test' }
+    });
+
+    const response = await DELETE(request);
+    const result = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(result).toEqual({ error: 'Invalid trip ID' });
+    expect(mockLoadUnifiedTripData).not.toHaveBeenCalled();
+    expect(mockDeleteTripWithBackup).not.toHaveBeenCalled();
   });
 
   it('marks admin-domain travel data responses as private and no-store', async () => {
