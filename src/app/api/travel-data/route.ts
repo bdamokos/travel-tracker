@@ -58,7 +58,9 @@ const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
   return { routes: normalized as RoutePayload[] };
 };
 
-const requireAdminDomain = async (operation: string) => {
+const requireAdminDomain = async (
+  operation: string
+): Promise<NextResponse<{ error: string }> | null> => {
   const isAdmin = await isAdminDomain();
   if (isAdmin) {
     return null;
