@@ -60,11 +60,11 @@ DATA_PATH=~/travel-tracker/data
 
 Set up two Cloudflare tunnels, one for the admin interface and one for the embed interface.
 
-The admin interface should point to the local port 3001 and you should set up Cloudflare Access for it to make sure only authorized users can access it.
+The admin interface should point to the loopback-bound local port 3001 and you should set up Cloudflare Access for it to make sure only authorized users can access it.
 
-The embed interface should point to the local port 3002.
+The embed interface should point to the loopback-bound local port 3002.
 
-(The port numbers are set in the .env file)
+The port numbers are set in the .env file. Production Docker publishes both ports on `127.0.0.1` only so callers cannot bypass Cloudflare Tunnel/Access by connecting directly to the app port with a forged `Host` header.
 
 ## Usage
 

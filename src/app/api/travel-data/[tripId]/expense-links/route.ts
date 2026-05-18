@@ -48,6 +48,18 @@ function validateSplitConfiguration(
   return { valid: true };
 }
 
+const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
+  const isAdmin = await isAdminDomain();
+  if (isAdmin) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: 'Forbidden - admin domain required' },
+    { status: 403 }
+  );
+};
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ tripId: string }> }
@@ -241,9 +253,9 @@ export async function POST(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
-    const isAdmin = await isAdminDomain();
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
     }
 
     const { tripId } = await params;
@@ -344,9 +356,9 @@ export async function DELETE(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   try {
-    const isAdmin = await isAdminDomain();
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
     }
 
     const { tripId } = await params;

@@ -5,7 +5,7 @@ services:
     image: ${IMAGE_REGISTRY}:5010/travel-tracker:latest
     container_name: travel-tracker-admin
     ports:
-      - "${ADMIN_PORT:-3001}:3000"
+      - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
     volumes:
       - travel-data:/app/data
     environment:
@@ -32,7 +32,7 @@ services:
     image: ${IMAGE_REGISTRY}:5010/travel-tracker:latest
     container_name: travel-tracker-embed
     ports:
-      - "${EMBED_PORT:-3002}:3000"
+      - "127.0.0.1:${EMBED_PORT:-3002}:3000"
     volumes:
       - travel-data:/app/data
     environment:
