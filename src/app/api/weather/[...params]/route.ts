@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   MAX_LOCATION_WEATHER_SPAN_DAYS,
+  daysBetweenInclusive,
   parseWeatherDateInput,
   weatherService
 } from '@/app/services/weatherService';
 import { Location } from '@/app/types';
 
 const coordinatePattern = /^[-+]?(?:\d+\.?\d*|\.\d+)$/;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function badRequest(error: string): NextResponse {
   return NextResponse.json({ success: false, error }, { status: 400 });
@@ -18,12 +18,6 @@ function parseCoordinate(value: string | null, min: number, max: number): number
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
   return parsed;
-}
-
-function inclusiveDaySpan(start: Date, end: Date): number {
-  const startMs = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-  const endMs = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
-  return Math.floor((endMs - startMs) / MS_PER_DAY) + 1;
 }
 
 function parseForecastDays(value: string | null): number | null {
@@ -102,7 +96,7 @@ export async function GET(
     const endDate = end ? parseWeatherDateInput(end) : startDate;
     if (!startDate) return badRequest('start must use YYYY-MM-DD');
     if (!endDate) return badRequest('end must use YYYY-MM-DD');
-    const spanDays = inclusiveDaySpan(startDate, endDate);
+    const spanDays = daysBetweenInclusive(startDate, endDate);
     if (spanDays < 1) return badRequest('start must be before or equal to end');
     if (spanDays > MAX_LOCATION_WEATHER_SPAN_DAYS) {
       return badRequest(`Weather date range cannot exceed ${MAX_LOCATION_WEATHER_SPAN_DAYS} days`);

@@ -559,7 +559,7 @@ function safeDate(year: number, month: number, day: number): Date {
   return d;
 }
 
-function daysBetweenInclusive(start: Date, end: Date): number {
+export function daysBetweenInclusive(start: Date, end: Date): number {
   const s = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
   const e = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
   const ms = e.getTime() - s.getTime();
@@ -841,7 +841,6 @@ export const weatherServiceTestUtils = {
   parseRateLimitResetMs,
   getRateLimitHeaderDelayMs,
   needsForecastRefresh,
-  parseWeatherDateInput,
   resetRateLimitStateForTests
 };
 

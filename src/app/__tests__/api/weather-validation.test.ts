@@ -7,16 +7,10 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/weather/[...params]/route';
 
 jest.mock('@/app/services/weatherService', () => {
-  const parseWeatherDateInput = (value: string): Date | null => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-    const parsed = new Date(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return null;
-    return parsed;
-  };
+  const actual = jest.requireActual('@/app/services/weatherService');
 
   return {
-    MAX_LOCATION_WEATHER_SPAN_DAYS: 370,
-    parseWeatherDateInput,
+    ...actual,
     weatherService: {
       getWeatherForLocation: jest.fn(),
       getWeatherForDate: jest.fn(),
