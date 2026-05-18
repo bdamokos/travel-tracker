@@ -160,6 +160,50 @@ describe('offlineDeltaSync', () => {
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'PATCH' });
   });
 
+  it('redacts YNAB API keys from queued cost data in localStorage', () => {
+    const base = makeCostData({
+      ynabConfig: {
+        apiKey: 'SECRET_BASE_YNAB_KEY',
+        selectedBudgetId: 'budget-1'
+      }
+    });
+    const pending = makeCostData({
+      overallBudget: 1500,
+      ynabConfig: {
+        apiKey: 'SECRET_PENDING_YNAB_KEY',
+        selectedBudgetId: 'budget-2'
+      }
+    });
+
+    const queued = queueCostDelta({
+      id: base.id,
+      baseSnapshot: base,
+      pendingSnapshot: pending
+    });
+
+    expect(queued.queued).toBe(true);
+    const serializedQueue = localStorage.getItem('travel-tracker-offline-delta-queue-v1');
+    expect(serializedQueue).not.toContain('SECRET_BASE_YNAB_KEY');
+    expect(serializedQueue).not.toContain('SECRET_PENDING_YNAB_KEY');
+
+    const [entry] = getOfflineQueueEntries();
+    expect(entry).toMatchObject({
+      kind: 'cost',
+      baseSnapshot: {
+        ynabConfig: {
+          hasApiKey: true,
+          selectedBudgetId: 'budget-1'
+        }
+      },
+      pendingSnapshot: {
+        ynabConfig: {
+          hasApiKey: true,
+          selectedBudgetId: 'budget-2'
+        }
+      }
+    });
+  });
+
   it('discards conflicted queue entries when requested', async () => {
     const base = makeTravelData();
     const pending = makeTravelData({ title: 'Offline Title Change' });

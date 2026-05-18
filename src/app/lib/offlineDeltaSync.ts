@@ -234,6 +234,46 @@ const isQuotaExceededError = (error: unknown): boolean => {
   return error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED';
 };
 
+const redactYnabConfigForBrowserStorage = (
+  config: CostTrackingData['ynabConfig']
+): CostTrackingData['ynabConfig'] => {
+  if (!config) {
+    return undefined;
+  }
+
+  const safeConfig = { ...config };
+  const hasApiKey = Boolean(safeConfig.apiKey || safeConfig.hasApiKey);
+  delete safeConfig.apiKey;
+
+  return {
+    ...safeConfig,
+    ...(hasApiKey ? { hasApiKey: true } : {})
+  };
+};
+
+const redactCostSnapshotForBrowserStorage = (data: CostTrackingData): CostTrackingData => ({
+  ...cloneSerializable(data),
+  ynabConfig: redactYnabConfigForBrowserStorage(data.ynabConfig)
+});
+
+const redactCostDeltaForBrowserStorage = (delta: CostDataDelta): CostDataDelta => {
+  const safeDelta = cloneSerializable(delta);
+  if (Object.prototype.hasOwnProperty.call(safeDelta, 'ynabConfig')) {
+    safeDelta.ynabConfig = redactYnabConfigForBrowserStorage(safeDelta.ynabConfig);
+  }
+  return safeDelta;
+};
+
+const redactCostEntryForBrowserStorage = (entry: OfflineCostQueueEntry): OfflineCostQueueEntry => ({
+  ...entry,
+  baseSnapshot: redactCostSnapshotForBrowserStorage(entry.baseSnapshot),
+  pendingSnapshot: redactCostSnapshotForBrowserStorage(entry.pendingSnapshot),
+  delta: redactCostDeltaForBrowserStorage(entry.delta),
+  lastServerDelta: entry.lastServerDelta
+    ? redactCostDeltaForBrowserStorage(entry.lastServerDelta)
+    : undefined
+});
+
 const summarizeQueue = (entries: OfflineQueueEntry[]): OfflineQueueSummary => {
   const pending = entries.filter((entry) => entry.status === 'pending').length;
   const conflicts = entries.filter((entry) => entry.status === 'conflict').length;
@@ -298,7 +338,13 @@ const parseStoredEntries = (raw: unknown): OfflineQueueEntry[] => {
       return isTravelDataDelta(entry.delta);
     }
 
-    return isCostDataDelta(entry.delta);
+    if (!isCostDataDelta(entry.delta)) {
+      return false;
+    }
+
+    const safeCostEntry = redactCostEntryForBrowserStorage(entry as OfflineCostQueueEntry);
+    Object.assign(entry, safeCostEntry);
+    return true;
   });
 };
 
@@ -494,9 +540,9 @@ export const queueCostDelta = ({ id, baseSnapshot, pendingSnapshot }: QueueCostD
   const now = new Date().toISOString();
 
   const canonicalBase = existingIndex >= 0 && queue[existingIndex].kind === 'cost'
-    ? snapshotCostData(queue[existingIndex].baseSnapshot)
-    : snapshotCostData(baseSnapshot);
-  const canonicalPending = snapshotCostData(pendingSnapshot);
+    ? redactCostSnapshotForBrowserStorage(snapshotCostData(queue[existingIndex].baseSnapshot))
+    : redactCostSnapshotForBrowserStorage(snapshotCostData(baseSnapshot));
+  const canonicalPending = redactCostSnapshotForBrowserStorage(snapshotCostData(pendingSnapshot));
   const mergedDelta = createCostDataDelta(canonicalBase, canonicalPending);
 
   if (!mergedDelta || isCostDataDeltaEmpty(mergedDelta)) {
@@ -512,7 +558,7 @@ export const queueCostDelta = ({ id, baseSnapshot, pendingSnapshot }: QueueCostD
     id: normalizedId,
     baseSnapshot: canonicalBase,
     pendingSnapshot: canonicalPending,
-    delta: mergedDelta,
+    delta: redactCostDeltaForBrowserStorage(mergedDelta),
     queuedAt: existingIndex >= 0 ? queue[existingIndex].queuedAt : now,
     updatedAt: now,
     status: 'pending'

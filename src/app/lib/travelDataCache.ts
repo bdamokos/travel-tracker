@@ -17,23 +17,8 @@ export function getCachedTravelData(id: string): TravelData | null {
     return cachedInMemory;
   }
 
-  if (!canUseSessionStorage()) {
-    return null;
-  }
-
-  try {
-    const serialized = window.sessionStorage.getItem(`${STORAGE_KEY_PREFIX}${id}`);
-    if (!serialized) {
-      return null;
-    }
-
-    const parsed = JSON.parse(serialized) as TravelData;
-    memoryCache.set(id, parsed);
-    return parsed;
-  } catch (error) {
-    console.warn('Failed to read cached travel data:', error);
-    return null;
-  }
+  clearPersistedTravelData(id);
+  return null;
 }
 
 export function hasCachedTravelData(id: string): boolean {
@@ -46,19 +31,7 @@ export function setCachedTravelData(travelData: TravelData): void {
   }
 
   memoryCache.set(travelData.id, travelData);
-
-  if (!canUseSessionStorage()) {
-    return;
-  }
-
-  try {
-    window.sessionStorage.setItem(
-      `${STORAGE_KEY_PREFIX}${travelData.id}`,
-      JSON.stringify(travelData)
-    );
-  } catch (error) {
-    console.warn('Failed to persist cached travel data:', error);
-  }
+  clearPersistedTravelData(travelData.id);
 }
 
 export function clearCachedTravelData(id: string): void {
@@ -73,6 +46,18 @@ export function clearCachedTravelData(id: string): void {
     window.sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${id}`);
   } catch (error) {
     console.warn('Failed to clear cached travel data:', error);
+  }
+}
+
+function clearPersistedTravelData(id: string): void {
+  if (!canUseSessionStorage()) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${id}`);
+  } catch (error) {
+    console.warn('Failed to clear persisted travel data cache:', error);
   }
 }
 
