@@ -6,12 +6,12 @@ import vm from 'vm';
 
 type ListenerMap = Record<string, (event: unknown) => void>;
 
-interface CacheMock {
+type CacheMock = {
   match: jest.Mock;
   put: jest.Mock;
   keys: jest.Mock;
   delete: jest.Mock;
-}
+};
 
 const makeRequestLike = (url: string, mode = 'same-origin') => ({
   url,
@@ -110,6 +110,51 @@ describe('service worker cache privacy', () => {
 
     expect(response.status).toBe(403);
     expect(await response.text()).toBe('forbidden');
+    expect(cache.match).not.toHaveBeenCalled();
+    expect(cache.put).not.toHaveBeenCalled();
+  });
+
+  it('treats travel-data APIs as network-only', async () => {
+    const cache: CacheMock = {
+      match: jest.fn().mockResolvedValue(new Response('cached trip data', { status: 200 })),
+      put: jest.fn().mockResolvedValue(undefined),
+      keys: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(true)
+    };
+    const fetchMock = jest.fn().mockResolvedValue(new Response('fresh trip data', { status: 200 }));
+    const listeners = loadServiceWorker(cache, fetchMock);
+
+    const response = await dispatchFetch(
+      listeners,
+      makeRequestLike('https://admin.example.test/api/travel-data?id=trip-1')
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('fresh trip data');
+    expect(cache.match).not.toHaveBeenCalled();
+    expect(cache.put).not.toHaveBeenCalled();
+  });
+
+  it('returns private API redirect responses without converting them to offline errors', async () => {
+    const cache: CacheMock = {
+      match: jest.fn().mockResolvedValue(new Response('cached secret', { status: 200 })),
+      put: jest.fn().mockResolvedValue(undefined),
+      keys: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(true)
+    };
+    const fetchMock = jest.fn().mockResolvedValue(new Response(null, {
+      status: 302,
+      headers: { Location: '/login' }
+    }));
+    const listeners = loadServiceWorker(cache, fetchMock);
+
+    const response = await dispatchFetch(
+      listeners,
+      makeRequestLike('https://admin.example.test/api/cost-tracking?id=cost-trip-1')
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('Location')).toBe('/login');
     expect(cache.match).not.toHaveBeenCalled();
     expect(cache.put).not.toHaveBeenCalled();
   });

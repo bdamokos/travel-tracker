@@ -219,8 +219,9 @@ const isPrivateDataRequest = (url) =>
   url.origin === self.location.origin &&
   (url.pathname.startsWith('/api/cost-tracking') ||
     url.pathname.startsWith('/admin/api/') ||
-    (url.pathname === '/api/travel-data' && url.searchParams.has('id')) ||
-    url.pathname.includes('/expense-links'));
+    url.pathname.startsWith('/api/travel-data') ||
+    url.pathname.endsWith('/expense-links') ||
+    url.pathname.includes('/expense-links/'));
 const isAppRouteRequest = (url) =>
   url.origin === self.location.origin &&
   !isDataRequest(url) &&
@@ -510,11 +511,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
 
 const networkOnly = async (request) => {
   try {
-    const networkResponse = await fetch(request);
-    const response = await toRuntimeSafeResponse(networkResponse);
-    if (response) {
-      return response;
-    }
+    return await fetch(request);
   } catch {
     // Fall through to the explicit offline response below.
   }

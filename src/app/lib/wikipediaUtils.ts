@@ -5,6 +5,20 @@
 import { createHash } from 'crypto';
 import { WikipediaAPIResponse } from '@/app/types/wikipedia';
 
+const WIKIMEDIA_STANDARD_THUMBNAIL_WIDTHS = [
+  20,
+  40,
+  60,
+  120,
+  250,
+  330,
+  500,
+  960,
+  1280,
+  1920,
+  3840
+] as const;
+
 /**
  * Generate consistent cache key for location data
  */
@@ -130,10 +144,7 @@ function calculateStringSimilarity(str1: string, str2: string): number {
 /**
  * Extract disambiguation targets from Wikipedia disambiguation page
  */
-export function extractDisambiguationTargets(
-  extract: string,
-  _originalLocation: string
-): string[] {
+export function extractDisambiguationTargets(extract: string): string[] {
   const targets: string[] = [];
   
   // Look for patterns like "X may refer to:" followed by bullet points
@@ -208,15 +219,23 @@ export function isCacheExpired(lastFetched: number, refreshIntervalDays: number 
 }
 
 /**
+ * Get a Wikimedia-standard thumbnail width for direct thumbnail URLs.
+ * Direct requests are rejected unless they use one of Wikimedia's standard sizes.
+ */
+export function getStandardThumbnailWidth(targetWidth: number = 240): number {
+  const normalizedTarget = Number.isFinite(targetWidth) && targetWidth > 0 ? targetWidth : 240;
+  return WIKIMEDIA_STANDARD_THUMBNAIL_WIDTHS.find((width) => width >= normalizedTarget)
+    ?? WIKIMEDIA_STANDARD_THUMBNAIL_WIDTHS[WIKIMEDIA_STANDARD_THUMBNAIL_WIDTHS.length - 1];
+}
+
+/**
  * Get optimal thumbnail size for different use cases
  */
-export function getOptimalThumbnailUrl(
-  thumbnailUrl: string,
-  targetWidth: number = 240
-): string {
+export function getOptimalThumbnailUrl(thumbnailUrl: string, targetWidth: number = 240): string {
+  const standardWidth = getStandardThumbnailWidth(targetWidth);
   // Wikipedia thumbnail URLs can be resized by changing the width parameter
-  // Example: .../320px-Image.jpg -> .../240px-Image.jpg
-  return thumbnailUrl.replace(/\/\d+px-/, `/${targetWidth}px-`);
+  // Example: .../320px-Image.jpg -> .../250px-Image.jpg
+  return thumbnailUrl.replace(/\/\d+px-/, `/${standardWidth}px-`);
 }
 
 /**
