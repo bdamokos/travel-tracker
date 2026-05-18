@@ -14,12 +14,13 @@ interface TripContextSectionProps {
   location: Location;
   day: JourneyDay;
   tripId: string;
+  isAdminView?: boolean;
 }
 
 export default function TripContextSection({
   location,
   day,
-  tripId: _tripId
+  isAdminView = false
 }: TripContextSectionProps) {
   // Check if this is a transition day (multiple locations)
   const isTransition = day.locations && day.locations.length > 1;
@@ -202,7 +203,7 @@ export default function TripContextSection({
         </h3>
         
         <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-          {isTransition ? (
+          {isAdminView && isTransition ? (
             <>
               <p>
                 <span className="font-medium">Departure from:</span> {location.name}
@@ -221,19 +222,34 @@ export default function TripContextSection({
                 </>
               )}
             </>
-          ) : (
+          ) : isTransition ? (
+            <>
+              <p>
+                <span className="font-medium">Departure:</span> {location.name}
+              </p>
+              {secondaryLocation && (
+                <p>
+                  <span className="font-medium">Arrival:</span> {secondaryLocation.name}
+                </p>
+              )}
+            </>
+          ) : isAdminView ? (
             <p>
               <span className="font-medium">Stay:</span> {formatDateRange(location.date, location.endDate)}
             </p>
+          ) : (
+            <p>
+              <span className="font-medium">Location:</span> {location.name}
+            </p>
           )}
           
-          {location.arrivalTime && (
+          {isAdminView && location.arrivalTime && (
             <p>
               <span className="font-medium">Arrival:</span> {location.arrivalTime}
             </p>
           )}
           
-          {(location.notes || day.customNotes) && (
+          {isAdminView && (location.notes || day.customNotes) && (
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
               {location.notes && (
                 <p className="italic">{location.notes}</p>

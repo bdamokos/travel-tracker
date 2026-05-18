@@ -25,12 +25,14 @@ interface LocationPopupModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: LocationPopupData | null;
+  isAdminView?: boolean;
 }
 
 export default function LocationPopupModal({
   isOpen,
   onClose,
-  data
+  data,
+  isAdminView = false
 }: LocationPopupModalProps) {
   const isTransition = (data?.day.locations?.length ?? 0) > 1;
   const [activeTab, setActiveTab] = useState<'departure' | 'arrival'>('departure');
@@ -265,6 +267,7 @@ export default function LocationPopupModal({
           location={location}
           day={day}
           tripId={tripId}
+          isAdminView={isAdminView}
         />
 
         {/* Weather Section with Tabs for Transition Days */}

@@ -11,6 +11,7 @@ import TripUpdates from '@/app/components/TripUpdates';
 import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 import { normalizeMapTravelData, toMapRouteSegment } from '@/app/lib/mapRouteTransform';
+import { isAdminHost } from '@/app/lib/server-domains';
 
 const toMapDateString = (value?: string | Date): string | undefined => {
   if (!value) return undefined;
@@ -209,7 +210,7 @@ export default async function MapPage({
   // Check if this is admin mode based on domain
   const headersList = await headers();
   const host = headersList.get('host');
-  const isAdmin = Boolean(host?.includes('tt-admin') || host?.includes('localhost'));
+  const isAdmin = isAdminHost(host);
   
   const travelData = await getTravelData(id, isAdmin);
   

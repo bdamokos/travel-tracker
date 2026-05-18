@@ -6,6 +6,7 @@ import { ShadowTrip } from '@/app/types';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { UnifiedTripData } from '@/app/lib/dataMigration';
 import { getDataDir } from '@/app/lib/dataDirectory';
+import { isAdminHost } from '@/app/lib/server-domains';
 
 const DATA_DIR = getDataDir();
 const SHADOW_DATA_FILE = join(DATA_DIR, 'shadowTravelData.json');
@@ -69,7 +70,7 @@ export async function GET(
 
     // Check if user is admin (shadow trips are admin-only)
     const host = request.headers.get('host');
-    const isAdmin = host?.includes('tt-admin') || host?.includes('localhost');
+    const isAdmin = isAdminHost(host);
     
     if (!isAdmin) {
       return NextResponse.json(
@@ -132,7 +133,7 @@ export async function PUT(
 
     // Check if user is admin
     const host = request.headers.get('host');
-    const isAdmin = host?.includes('tt-admin') || host?.includes('localhost');
+    const isAdmin = isAdminHost(host);
     
     if (!isAdmin) {
       return NextResponse.json(
@@ -191,7 +192,7 @@ export async function DELETE(
 
     // Check if user is admin
     const host = request.headers.get('host');
-    const isAdmin = host?.includes('tt-admin') || host?.includes('localhost');
+    const isAdmin = isAdminHost(host);
     
     if (!isAdmin) {
       return NextResponse.json(
