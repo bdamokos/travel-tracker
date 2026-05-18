@@ -38,8 +38,9 @@ PI_HOST=${PI_HOST:-}
 PI_USER=${PI_USER:-pi}
 DEPLOY_PATH=${DEPLOY_PATH:-/home/${PI_USER}/travel-tracker}
 # SSH connection multiplexing - reuse a single authenticated connection
-SSH_CONTROL_ID=$(printf '%s' "${PI_USER}-${PI_HOST}" | tr -c 'A-Za-z0-9_.-' '_')
-SSH_CONTROL_PATH="/tmp/ssh-deploy-${SSH_CONTROL_ID}"
+SSH_CONTROL_DIR=$(mktemp -d "${TMPDIR:-/tmp}/travel-tracker-ssh.XXXXXX")
+chmod 700 "$SSH_CONTROL_DIR"
+SSH_CONTROL_PATH="${SSH_CONTROL_DIR}/control"
 SSH_OPTS=(
     -o ControlMaster=auto
     -o ControlPath="$SSH_CONTROL_PATH"
@@ -50,9 +51,10 @@ SSH_OPTS=(
 
 # Clean up SSH control socket on exit
 cleanup_ssh() {
-    if [ -S "$SSH_CONTROL_PATH" ]; then
+    if [ -n "${PI_HOST:-}" ] && [ -S "$SSH_CONTROL_PATH" ]; then
         ssh -O exit -o ControlPath="$SSH_CONTROL_PATH" "$PI_USER@$PI_HOST" 2>/dev/null || true
     fi
+    rm -rf "$SSH_CONTROL_DIR"
 }
 trap cleanup_ssh EXIT
 
@@ -245,8 +247,9 @@ run_ssh "
 
 # Create local backup of remote data directory
 echo "💾 Creating local backup of remote data directory..."
-LOCAL_BACKUP_DIR=${LOCAL_BACKUP_DIR:-"$PWD/backups"}
+LOCAL_BACKUP_DIR=${LOCAL_BACKUP_DIR:-"${XDG_STATE_HOME:-$HOME/.local/state}/travel-tracker/backups"}
 mkdir -p "$LOCAL_BACKUP_DIR"
+chmod 700 "$LOCAL_BACKUP_DIR"
 BACKUP_TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
 LOCAL_BACKUP_FILE="$LOCAL_BACKUP_DIR/data-$BACKUP_TIMESTAMP.tar.gz"
 
@@ -267,7 +270,8 @@ if [ -z "$REMOTE_DATA_PATH" ]; then
 fi
 
 REMOTE_DATA_PATH_ESCAPED=$(printf '%q' "$REMOTE_DATA_PATH")
-if ssh "${SSH_OPTS[@]}" "$PI_USER@$PI_HOST" "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"; then
+if (umask 077 && ssh "${SSH_OPTS[@]}" "$PI_USER@$PI_HOST" "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_BACKUP_FILE"); then
+    chmod 600 "$LOCAL_BACKUP_FILE"
     echo "✅ Local backup saved to $LOCAL_BACKUP_FILE"
 else
     echo "❌ Failed to download remote backup."

@@ -34,9 +34,10 @@ fi
 PI_HOST=${PI_HOST:-}
 PI_USER=${PI_USER:-pi}
 DEPLOY_PATH=${DEPLOY_PATH:-/home/${PI_USER}/travel-tracker}
+CONTAINER_DATA_GID=${CONTAINER_DATA_GID:-1001}
 KEYCHAIN_SERVICE="travel-tracker-deploy"
 KEYCHAIN_ACCOUNT="$PI_USER@$PI_HOST"
-BACKUPS_DIR="backups"
+BACKUPS_DIR=${BACKUPS_DIR:-"${XDG_STATE_HOME:-$HOME/.local/state}/travel-tracker/backups"}
 
 # Function to get password from keychain or prompt for it
 get_password() {
@@ -103,6 +104,9 @@ if [ -z "$PI_HOST" ]; then
 fi
 
 echo "🚀 Starting Travel Tracker Restore Process..."
+
+mkdir -p "$BACKUPS_DIR"
+chmod 700 "$BACKUPS_DIR"
 
 # Get password first
 get_password
@@ -202,7 +206,8 @@ echo "🛡️  Creating safety backup LOCALLY: $LOCAL_SAFETY_BACKUP"
 # Use specific tar logic to stream remote data to local file
 # Using sudo to ensure we can read all files (even root-owned ones)
 REMOTE_DATA_PATH_ESCAPED=$(printf '%q' "$REMOTE_DATA_PATH")
-if sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "echo \"$PASSWORD\" | sudo -S tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_SAFETY_BACKUP"; then
+if (umask 077 && sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "echo \"$PASSWORD\" | sudo -S tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_SAFETY_BACKUP"); then
+    chmod 600 "$LOCAL_SAFETY_BACKUP"
     echo "✅ Safety backup saved to $LOCAL_SAFETY_BACKUP"
 else
     echo "❌ Failed to download safety backup."
@@ -242,8 +247,10 @@ run_ssh "rm -f \"$TEMP_REMOTE_FILE\""
 
 # Fix permissions after restore (users often have permission issues if files are restored as root)
 echo "🔧 Fixing permissions..."
-run_ssh "echo \"$PASSWORD\" | sudo -S chown -R $PI_USER:$PI_USER \"$REMOTE_DATA_PATH\""
-run_ssh "echo \"$PASSWORD\" | sudo -S chmod -R 777 \"$REMOTE_DATA_PATH\""
+OWNER_SPEC_ESCAPED=$(printf '%q' "$PI_USER:$CONTAINER_DATA_GID")
+run_ssh "echo \"$PASSWORD\" | sudo -S chown -R $OWNER_SPEC_ESCAPED $REMOTE_DATA_PATH_ESCAPED"
+run_ssh "echo \"$PASSWORD\" | sudo -S find $REMOTE_DATA_PATH_ESCAPED -type d -exec chmod 770 {} +"
+run_ssh "echo \"$PASSWORD\" | sudo -S find $REMOTE_DATA_PATH_ESCAPED -type f -exec chmod 660 {} +"
 
 
 echo "✅ Backup restored successfully."
