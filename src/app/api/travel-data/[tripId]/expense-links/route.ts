@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData } from '@/app/lib/unifiedDataService';
 import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 interface ExpenseLink {
   expenseId: string;
@@ -58,6 +59,14 @@ export async function GET(
       return NextResponse.json({ 
         error: 'Trip ID is required' 
       }, { status: 400 });
+    }
+
+    // Restrict expense-link metadata (including split allocation) to admin domain only
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({
+        error: 'Unauthorized - admin domain required'
+      }, { status: 403 });
     }
 
     // Load trip data
