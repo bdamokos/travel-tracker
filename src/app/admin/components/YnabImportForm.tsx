@@ -55,6 +55,7 @@ interface TransactionSelection {
  * @returns A React element that displays the YNAB import modal and its interactive steps
  */
 export default function YnabImportForm({ isOpen, costData, onImportComplete, onClose }: YnabImportFormProps) {
+  const hasYnabApiKey = Boolean(costData.ynabConfig?.apiKey || costData.ynabConfig?.hasApiKey);
   const [currentStep, setCurrentStep] = useState(0); // Start with method selection
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -397,7 +398,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
   // Load categories from YNAB API for mapping
   const handleLoadCategoriesFromApi = async () => {
-    if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
+    if (!hasYnabApiKey || !costData.ynabConfig?.selectedBudgetId) {
       setError('YNAB API configuration not found. Please setup YNAB API first.');
       return;
     }
@@ -407,19 +408,15 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
     try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const params = new URLSearchParams({
-        apiKey: costData.ynabConfig.apiKey,
-        budgetId: costData.ynabConfig.selectedBudgetId,
-        ...(costData.ynabConfig.categoryServerKnowledge && {
-          serverKnowledge: costData.ynabConfig.categoryServerKnowledge.toString()
-        })
-      });
-
-      const response = await fetch(`${baseUrl}/api/ynab/categories?${params}`, {
-        method: 'GET',
+      const response = await fetch(`${baseUrl}/api/ynab/categories`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          costTrackerId: costData.id,
+          serverKnowledge: costData.ynabConfig.categoryServerKnowledge
+        })
       });
 
       if (!response.ok) {
@@ -528,7 +525,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 
   // Load transactions from API directly
   const loadTransactionsFromApi = async (mappingOverride?: YnabCategoryMapping[]) => {
-    if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
+    if (!hasYnabApiKey || !costData.ynabConfig?.selectedBudgetId) {
       setError('YNAB API configuration not found. Please setup YNAB API first.');
       return;
     }
@@ -545,8 +542,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          apiKey: costData.ynabConfig.apiKey,
-          budgetId: costData.ynabConfig.selectedBudgetId,
+          costTrackerId: costData.id,
           categoryMappings: (mappingOverride ?? categoryMappings).map(mapping => ({
             ynabCategoryId: mapping.ynabCategoryId,
             mappingType: mapping.mappingType,
@@ -960,15 +956,15 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 	                  className={`border-2 rounded-lg p-6 transition-all duration-200 ${
 	                    importMethod === 'api' 
 	                      ? 'border-purple-500 bg-purple-50 dark:bg-purple-950' 
-	                      : costData.ynabConfig?.apiKey
+	                      : hasYnabApiKey
 	                        ? 'border-gray-300 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-700'
 	                        : 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
 	                  }`}
 	                >
 	                  <label
 	                    htmlFor="import-method-api"
-	                    aria-disabled={!costData.ynabConfig?.apiKey}
-	                    className={`block ${costData.ynabConfig?.apiKey ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+	                    aria-disabled={!hasYnabApiKey}
+	                    className={`block ${hasYnabApiKey ? 'cursor-pointer' : 'cursor-not-allowed'}`}
 	                  >
 	                    <div className="flex items-center mb-4">
 	                      <input
@@ -978,21 +974,21 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 	                        value="api"
 	                        checked={importMethod === 'api'}
 	                        onChange={() => setImportMethod('api')}
-	                        disabled={!costData.ynabConfig?.apiKey}
+	                        disabled={!hasYnabApiKey}
 	                        className="mr-3"
 	                      />
 	                      <h3 className={`text-lg font-semibold ${
-	                        costData.ynabConfig?.apiKey 
+	                        hasYnabApiKey 
 	                          ? 'text-gray-800 dark:text-gray-100' 
 	                          : 'text-gray-400 dark:text-gray-500'
 	                      }`}>
 	                        Load from YNAB API
 	                      </h3>
 	                    </div>
-	                    {costData.ynabConfig?.apiKey ? (
+	                    {hasYnabApiKey ? (
 	                      <>
 	                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-	                          Load transactions directly from your connected YNAB budget: <strong>{costData.ynabConfig.selectedBudgetName}</strong>
+	                          Load transactions directly from your connected YNAB budget: <strong>{costData.ynabConfig?.selectedBudgetName}</strong>
 	                        </p>
 	                        <div className="text-sm text-gray-500 dark:text-gray-400">
 	                          ✓ Real-time data sync<br />
@@ -1012,7 +1008,7 @@ export default function YnabImportForm({ isOpen, costData, onImportComplete, onC
 	                      </>
 	                    )}
 	                  </label>
-	                  {costData.ynabConfig?.apiKey && importMethod === 'api' && (
+	                  {hasYnabApiKey && importMethod === 'api' && (
 	                    <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-700">
 	                      <label htmlFor="sync-mode-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 	                        Sync Mode

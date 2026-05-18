@@ -3,6 +3,7 @@ import { listAllTrips, loadUnifiedTripData } from '@/app/lib/unifiedDataService'
 import { CostTrackingData, Expense } from '@/app/types';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { validateAllTripBoundaries } from '@/app/lib/tripBoundaryValidation';
+import { PRIVATE_JSON_HEADERS, redactYnabConfig } from '@/app/lib/ynabConfigSecurity';
 
 function buildLegacyCostData(tripId: string, unifiedData: Awaited<ReturnType<typeof loadUnifiedTripData>>): CostTrackingData | null {
   if (!unifiedData?.costData) {
@@ -22,7 +23,7 @@ function buildLegacyCostData(tripId: string, unifiedData: Awaited<ReturnType<typ
     countryBudgets: unifiedData.costData.countryBudgets,
     expenses: unifiedData.costData.expenses,
     ynabImportData: unifiedData.costData.ynabImportData,
-    ynabConfig: unifiedData.costData.ynabConfig,
+    ynabConfig: redactYnabConfig(unifiedData.costData.ynabConfig),
     createdAt: unifiedData.createdAt,
     updatedAt: unifiedData.updatedAt
   };
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     // Filter out null entries
     const validCostEntries = costEntries.filter(entry => entry !== null);
 
-    return NextResponse.json(validCostEntries);
+    return NextResponse.json(validCostEntries, { headers: PRIVATE_JSON_HEADERS });
   } catch (error) {
     console.error('Error listing cost tracking data:', error);
     return NextResponse.json(

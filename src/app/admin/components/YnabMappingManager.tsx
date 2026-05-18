@@ -76,6 +76,7 @@ interface YnabMappingManagerProps {
 }
 
 export default function YnabMappingManager({ isOpen, costData, onSave, onClose }: YnabMappingManagerProps) {
+  const hasYnabApiKey = Boolean(costData.ynabConfig?.apiKey || costData.ynabConfig?.hasApiKey);
   const [mappings, setMappings] = useState<YnabCategoryMapping[]>([]);
   const [extractedCategories, setExtractedCategories] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -160,7 +161,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
 
   // Load categories from YNAB API
   const handleLoadCategoriesFromApi = async () => {
-    if (!costData.ynabConfig?.apiKey || !costData.ynabConfig?.selectedBudgetId) {
+    if (!hasYnabApiKey || !costData.ynabConfig?.selectedBudgetId) {
       alert('YNAB API configuration not found. Please setup YNAB API first.');
       return;
     }
@@ -170,19 +171,15 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
 
     try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      const params = new URLSearchParams({
-        apiKey: costData.ynabConfig.apiKey,
-        budgetId: costData.ynabConfig.selectedBudgetId,
-        ...(costData.ynabConfig.categoryServerKnowledge && {
-          serverKnowledge: costData.ynabConfig.categoryServerKnowledge.toString()
-        })
-      });
-      
-      const response = await fetch(`${baseUrl}/api/ynab/categories?${params}`, {
-        method: 'GET',
+      const response = await fetch(`${baseUrl}/api/ynab/categories`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          costTrackerId: costData.id,
+          serverKnowledge: costData.ynabConfig.categoryServerKnowledge
+        })
       });
 
       if (!response.ok) {
@@ -407,11 +404,11 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
       </div>
 
       {/* YNAB API Category Loading */}
-      {costData.ynabConfig?.apiKey && (
+      {hasYnabApiKey && (
         <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-700 rounded-lg p-4 mb-6">
           <h3 className="text-lg font-semibold mb-3 text-purple-800 dark:text-purple-200">Load Categories from YNAB API</h3>
           <p className="text-sm text-purple-700 dark:text-purple-300 mb-4">
-            Load categories directly from your connected YNAB budget: <strong>{costData.ynabConfig.selectedBudgetName}</strong>
+            Load categories directly from your connected YNAB budget: <strong>{costData.ynabConfig?.selectedBudgetName}</strong>
           </p>
           
           <div className="flex items-center gap-4 mb-3">
@@ -464,7 +461,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
         </div>
       )}
 
-      {!costData.ynabConfig?.apiKey && (
+      {!hasYnabApiKey && (
         <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
           <h3 className="text-lg font-semibold mb-2 text-yellow-800 dark:text-yellow-200">YNAB API Not Configured</h3>
           <p className="text-sm text-yellow-700 dark:text-yellow-300">
