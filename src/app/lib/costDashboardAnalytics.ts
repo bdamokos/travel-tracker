@@ -8,6 +8,7 @@ import { formatLocalDateInput, getTodayLocalDay, parseDateAsLocalDay } from '@/a
 
 // Kept local to avoid creating a circular dependency on costUtils for one label constant.
 const REFUNDS_CATEGORY_NAME = 'Refunds';
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 export const MAX_DASHBOARD_DAY_ENUMERATION = 3660;
 
 export type DashboardTripWindow = {
@@ -84,7 +85,7 @@ function getUtcLocalDayTimestamp(date: Date): number {
 function getInclusiveLocalDaySpan(start: Date, end: Date): number {
   const startTimestamp = getUtcLocalDayTimestamp(start);
   const endTimestamp = getUtcLocalDayTimestamp(end);
-  const daySpan = Math.floor((endTimestamp - startTimestamp) / 86400000) + 1;
+  const daySpan = Math.floor((endTimestamp - startTimestamp) / MS_PER_DAY) + 1;
   return Number.isFinite(daySpan) ? daySpan : 0;
 }
 
