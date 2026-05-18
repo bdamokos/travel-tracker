@@ -1,10 +1,28 @@
 
 import { NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 import { CostTrackingLink } from '@/app/types';
+
+const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
+  const isAdmin = await isAdminDomain();
+  if (isAdmin) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: 'Forbidden - admin domain required' },
+    { status: 403 }
+  );
+};
 
 export async function POST(request: Request) {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
+    }
+
     const { tripId, expenseId, newTravelItemId, newLinkDescription } = await request.json();
 
     if (!tripId || !expenseId || !newTravelItemId) {
