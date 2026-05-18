@@ -33,6 +33,9 @@ interface TripListProps {
   } | null>>;
 }
 
+export const buildTravelDataDeleteUrl = (tripId: string): string =>
+  `/api/travel-data?${new URLSearchParams({ id: tripId }).toString()}`;
+
 export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: TripListProps) {
   const router = useRouter();
   const [existingTrips, setExistingTrips] = useState<ExistingTrip[]>([]);
@@ -76,7 +79,7 @@ export default function TripList({ tripDeleteDialog, setTripDeleteDialog }: Trip
     setTripDeleteDialog(prev => prev ? { ...prev, isDeleting: true } : null);
 
     try {
-      const response = await fetch(`/api/travel-data?id=${tripDeleteDialog.tripId}`, {
+      const response = await fetch(buildTravelDataDeleteUrl(tripDeleteDialog.tripId), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });
