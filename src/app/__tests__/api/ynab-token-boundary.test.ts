@@ -12,6 +12,7 @@ import {
   POST as ynabTransactionsPOST,
 } from '@/app/api/ynab/transactions/route';
 import { loadUnifiedTripData, listAllTrips } from '@/app/lib/unifiedDataService';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import { YnabApiClient } from '@/app/lib/ynabApiClient';
 import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
 
@@ -55,6 +56,7 @@ const mockLoadUnifiedTripData = loadUnifiedTripData as jest.MockedFunction<typeo
 const mockListAllTrips = listAllTrips as jest.MockedFunction<typeof listAllTrips>;
 const mockYnabApiClient = YnabApiClient as jest.MockedClass<typeof YnabApiClient>;
 const mockMaybeSyncPendingYnabTransactions = maybeSyncPendingYnabTransactions as jest.MockedFunction<typeof maybeSyncPendingYnabTransactions>;
+const syncBaselineDate = parseDateAsLocalDay('2026-05-01')!;
 
 const buildTrip = () => ({
   schemaVersion: 9,
@@ -119,8 +121,8 @@ describe('YNAB token boundary', () => {
         ...buildTrip().costData,
         ynabConfig: {
           ...buildTrip().costData.ynabConfig,
-          lastTransactionImport: new Date('2026-05-01T00:00:00.000Z'),
-          lastAutomaticTransactionSync: new Date('2026-05-01T01:00:00.000Z'),
+          lastTransactionImport: syncBaselineDate,
+          lastAutomaticTransactionSync: syncBaselineDate,
           automaticTransactionServerKnowledge: 10,
         },
         ynabImportData: {
