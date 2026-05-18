@@ -100,6 +100,12 @@ export async function POST(request: NextRequest) {
 // PUT - Update existing accommodation
 export async function PUT(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { tripId } = body;
     
@@ -121,8 +127,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 });
     }
     
-    // Update accommodation - exclude costTrackingLinks as they're managed by the new SWR system
-    const { costTrackingLinks, ...accommodationData } = body;
+    // Update accommodation - exclude request metadata and costTrackingLinks as they're managed by the new SWR system
+    const {
+      costTrackingLinks,
+      tripId: requestTripId,
+      ...accommodationData
+    } = body;
+    void costTrackingLinks;
+    void requestTripId;
     tripData.accommodations[index] = {
       ...tripData.accommodations[index],
       ...accommodationData,
@@ -141,6 +153,12 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete accommodation
 export async function DELETE(request: NextRequest) {
   try {
+    // Check if request is from admin domain
+    const isAdmin = await isAdminDomain();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const tripId = searchParams.get('tripId');
