@@ -12,6 +12,7 @@ import {
   DELETE as deleteLegacyExpenseLink,
   POST as postLegacyExpenseLink,
 } from '@/app/api/travel-data/expense-links/route';
+import { POST as moveCostTrackingExpenseLink } from '@/app/api/cost-tracking/move-expense-link/route';
 import { POST as moveLegacyExpenseLink } from '@/app/api/travel-data/expense-links/move/route';
 
 jest.mock('@/app/lib/server-domains', () => ({
@@ -174,6 +175,21 @@ describe('expense-link API admin-domain authorization', () => {
         fromTravelItemId: 'location-1',
         toTravelItemId: 'route-1',
         toTravelItemType: 'route',
+      })
+    );
+
+    await expectForbidden(response);
+    expect(mockLoadUnifiedTripData).not.toHaveBeenCalled();
+    expect(mockSaveUnifiedTripData).not.toHaveBeenCalled();
+  });
+
+  it('blocks cost-tracking expense-link moves on public domains', async () => {
+    const response = await moveCostTrackingExpenseLink(
+      jsonRequest('https://travel.example/api/cost-tracking/move-expense-link', 'POST', {
+        tripId: 'trip-1',
+        expenseId: 'expense-1',
+        newTravelItemId: 'route-1',
+        newLinkDescription: 'Route 1',
       })
     );
 
