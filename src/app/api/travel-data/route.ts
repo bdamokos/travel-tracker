@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateTravelData, loadUnifiedTripData, deleteTripWithBackup } from '@/app/lib/unifiedDataService';
 import { filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
-import { isAdminDomain } from '@/app/lib/server-domains';
+import { isAdminDomain, isAdminHost } from '@/app/lib/server-domains';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { applyTravelDataDelta, isTravelDataDelta, isTravelDataDeltaEmpty } from '@/app/lib/travelDataDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
@@ -9,6 +9,8 @@ import type { TravelData } from '@/app/types';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
 const DEBUG_TRAVEL_DATA = process.env.DEBUG_TRAVEL_DATA === 'true';
+const PUBLIC_TRAVEL_DATA_CACHE_CONTROL = 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800';
+const PRIVATE_TRAVEL_DATA_CACHE_CONTROL = 'no-store';
 
 type RouteSegmentPayload = {
   from: string;
@@ -174,10 +176,13 @@ export async function GET(request: NextRequest) {
       });
     }
     
+    const cacheControl = isAdminHost(host)
+      ? PRIVATE_TRAVEL_DATA_CACHE_CONTROL
+      : PUBLIC_TRAVEL_DATA_CACHE_CONTROL;
+
     return NextResponse.json(filteredData, {
       headers: {
-        // Cache at the CDN for a day; allow serving stale for a week while revalidating
-        'Cache-Control': 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
+        'Cache-Control': cacheControl
       }
     });
   } catch (error) {
