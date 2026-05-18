@@ -12,7 +12,9 @@ import {
   POST as ynabTransactionsPOST,
 } from '@/app/api/ynab/transactions/route';
 import { loadUnifiedTripData, listAllTrips } from '@/app/lib/unifiedDataService';
+import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import { YnabApiClient } from '@/app/lib/ynabApiClient';
+import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
 
 const mockGetCategories = jest.fn();
 
@@ -53,6 +55,8 @@ const { isAdminDomain: mockIsAdminDomain } = jest.requireMock('@/app/lib/server-
 const mockLoadUnifiedTripData = loadUnifiedTripData as jest.MockedFunction<typeof loadUnifiedTripData>;
 const mockListAllTrips = listAllTrips as jest.MockedFunction<typeof listAllTrips>;
 const mockYnabApiClient = YnabApiClient as jest.MockedClass<typeof YnabApiClient>;
+const mockMaybeSyncPendingYnabTransactions = maybeSyncPendingYnabTransactions as jest.MockedFunction<typeof maybeSyncPendingYnabTransactions>;
+const syncBaselineDate = parseDateAsLocalDay('2026-05-01')!;
 
 const buildTrip = () => ({
   schemaVersion: 9,
@@ -107,6 +111,37 @@ describe('YNAB token boundary', () => {
     });
     expect(result.ynabConfig.apiKey).toBeUndefined();
     expect(serialized).not.toContain('SECRET-YNAB-TOKEN');
+  });
+
+  it('keeps cost-tracking GET read-only even when stored YNAB sync metadata exists', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockLoadUnifiedTripData.mockResolvedValue({
+      ...buildTrip(),
+      costData: {
+        ...buildTrip().costData,
+        ynabConfig: {
+          ...buildTrip().costData.ynabConfig,
+          lastTransactionImport: syncBaselineDate,
+          lastAutomaticTransactionSync: syncBaselineDate,
+          automaticTransactionServerKnowledge: 10,
+        },
+        ynabImportData: {
+          mappings: [
+            {
+              ynabCategoryId: 'cat-1',
+              mappingType: 'general',
+            },
+          ],
+        },
+      },
+    });
+
+    const response = await costTrackingGET(
+      new NextRequest('https://admin.example.test/api/cost-tracking?id=trip-1')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockMaybeSyncPendingYnabTransactions).not.toHaveBeenCalled();
   });
 
   it('redacts stored YNAB tokens from cost-tracking list data', async () => {
