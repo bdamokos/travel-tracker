@@ -34,6 +34,7 @@ fi
 PI_HOST=${PI_HOST:-}
 PI_USER=${PI_USER:-pi}
 DEPLOY_PATH=${DEPLOY_PATH:-/home/${PI_USER}/travel-tracker}
+CONTAINER_DATA_GID=${CONTAINER_DATA_GID:-1001}
 KEYCHAIN_SERVICE="travel-tracker-deploy"
 KEYCHAIN_ACCOUNT="$PI_USER@$PI_HOST"
 BACKUPS_DIR=${BACKUPS_DIR:-"${XDG_STATE_HOME:-$HOME/.local/state}/travel-tracker/backups"}
@@ -246,9 +247,10 @@ run_ssh "rm -f \"$TEMP_REMOTE_FILE\""
 
 # Fix permissions after restore (users often have permission issues if files are restored as root)
 echo "🔧 Fixing permissions..."
-run_ssh "echo \"$PASSWORD\" | sudo -S chown -R $PI_USER:1001 \"$REMOTE_DATA_PATH\""
-run_ssh "echo \"$PASSWORD\" | sudo -S find \"$REMOTE_DATA_PATH\" -type d -exec chmod 770 {} +"
-run_ssh "echo \"$PASSWORD\" | sudo -S find \"$REMOTE_DATA_PATH\" -type f -exec chmod 660 {} +"
+OWNER_SPEC_ESCAPED=$(printf '%q' "$PI_USER:$CONTAINER_DATA_GID")
+run_ssh "echo \"$PASSWORD\" | sudo -S chown -R $OWNER_SPEC_ESCAPED $REMOTE_DATA_PATH_ESCAPED"
+run_ssh "echo \"$PASSWORD\" | sudo -S find $REMOTE_DATA_PATH_ESCAPED -type d -exec chmod 770 {} +"
+run_ssh "echo \"$PASSWORD\" | sudo -S find $REMOTE_DATA_PATH_ESCAPED -type f -exec chmod 660 {} +"
 
 
 echo "✅ Backup restored successfully."
