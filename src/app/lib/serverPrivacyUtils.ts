@@ -1,8 +1,9 @@
-import { Journey, Location, Transportation, JourneyPeriod } from '@/app/types';
+import { Accommodation, Journey, Location, Transportation, JourneyPeriod } from '@/app/types';
 
 interface TravelData {
   locations?: Location[];
   routes?: Transportation[];
+  accommodations?: Accommodation[];
   days?: JourneyPeriod[];
   [key: string]: unknown;
 }
@@ -83,6 +84,27 @@ export function filterTransportationForServer(
 }
 
 /**
+ * Filter accommodation data based on request context (server-side only)
+ */
+export function filterAccommodationForServer(
+  accommodation: Accommodation,
+  host: string | null
+): Accommodation {
+  const isAdmin = isAdminRequest(host);
+
+  if (isAdmin) {
+    return accommodation;
+  }
+
+  return {
+    ...accommodation,
+    accommodationData: accommodation.isAccommodationPublic ? accommodation.accommodationData : undefined,
+    isAccommodationPublic: undefined,
+    costTrackingLinks: undefined,
+  };
+}
+
+/**
  * Filter journey period data based on request context (server-side only)
  */
 export function filterJourneyPeriodForServer(
@@ -111,11 +133,15 @@ export function filterJourneyForServer(journey: Journey, host: string | null): J
   const filteredDays = journey.days.map(period => 
     filterJourneyPeriodForServer(period, host)
   );
+  const journeyWithAccommodations = journey as Journey & { accommodations?: Accommodation[] };
 
   return {
     ...journey,
+    accommodations: journeyWithAccommodations.accommodations?.map((accommodation: Accommodation) =>
+      filterAccommodationForServer(accommodation, host)
+    ),
     days: filteredDays,
-  };
+  } as Journey;
 }
 
 /**
@@ -134,6 +160,9 @@ export function filterTravelDataForServer(travelData: TravelData, host: string |
     const filteredJourney = filterJourneyForServer(travelData as unknown as Journey, host);
     return {
       ...filteredJourney,
+      accommodations: travelData.accommodations?.map((accommodation: Accommodation) =>
+        filterAccommodationForServer(accommodation, host)
+      ),
       instagramUsername: undefined
     } as TravelData;
   }
@@ -150,6 +179,12 @@ export function filterTravelDataForServer(travelData: TravelData, host: string |
   if (travelData.routes) {
     filteredData.routes = travelData.routes.map((route: Transportation) => 
       filterTransportationForServer(route, host)
+    );
+  }
+
+  if (travelData.accommodations) {
+    filteredData.accommodations = travelData.accommodations.map((accommodation: Accommodation) =>
+      filterAccommodationForServer(accommodation, host)
     );
   }
 

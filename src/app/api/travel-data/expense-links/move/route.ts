@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataService';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 interface MoveExpenseRequest {
   tripId: string;
@@ -31,6 +32,18 @@ interface TripData {
     expenses?: Array<{ id: string; [key: string]: unknown }>;
   };
 }
+
+const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
+  const isAdmin = await isAdminDomain();
+  if (isAdmin) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: 'Forbidden - admin domain required' },
+    { status: 403 }
+  );
+};
 
 const findRouteItem = (tripData: TripData, travelItemId: string) => {
   if (!tripData.travelData?.routes) return null;
@@ -124,6 +137,11 @@ function addLinkToTravelItem(travelItem: { costTrackingLinks?: Array<{ expenseId
 
 export async function POST(request: NextRequest) {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) {
+      return forbidden;
+    }
+
     const body: MoveExpenseRequest = await request.json();
     const { tripId, expenseId, fromTravelItemId, toTravelItemId, toTravelItemType, description } = body;
 
