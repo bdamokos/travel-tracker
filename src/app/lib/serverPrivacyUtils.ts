@@ -1,4 +1,5 @@
 import { Accommodation, Journey, Location, Transportation, JourneyPeriod } from '@/app/types';
+import { isAdminHost } from '@/app/lib/server-domains';
 
 interface TravelData {
   locations?: Location[];
@@ -8,29 +9,21 @@ interface TravelData {
   [key: string]: unknown;
 }
 
+type TransportationWithPrivateRuntimeFields = Transportation & {
+  isReadOnly?: boolean;
+  subRoutes?: TransportationWithPrivateRuntimeFields[];
+};
+
 /**
  * Server-side privacy filtering utilities
  * These functions ensure private data never reaches the client in public/embeddable views
  */
 
 /**
- * Determine if request is from admin domain based on host header
- */
-function isAdminRequest(host: string | null): boolean {
-  if (!host) return false;
-  
-  // Use environment variable for admin domain
-  const adminDomain = process.env.ADMIN_DOMAIN?.replace(/^https?:\/\//, '');
-  
-  return (adminDomain && (host === adminDomain || host.startsWith(adminDomain + ':'))) || 
-         (process.env.NODE_ENV !== 'production' && (host === 'localhost' || host.startsWith('localhost:')));
-}
-
-/**
  * Filter location data based on request context (server-side only)
  */
 export function filterLocationForServer(location: Location, host: string | null): Location {
-  const isAdmin = isAdminRequest(host);
+  const isAdmin = isAdminHost(host);
   
   if (isAdmin) {
     return location; // Admin sees everything
@@ -40,10 +33,12 @@ export function filterLocationForServer(location: Location, host: string | null)
   const filteredLocation: Location = {
     ...location,
     // Remove private fields completely
+    accommodationIds: undefined,
     costTrackingLinks: undefined,
     // Handle accommodation privacy
     accommodationData: location.isAccommodationPublic ? location.accommodationData : undefined,
     isAccommodationPublic: undefined, // Don't expose the privacy flag itself
+    isReadOnly: undefined,
   };
 
   return filteredLocation;
@@ -56,25 +51,36 @@ export function filterTransportationForServer(
   transportation: Transportation,
   host: string | null
 ): Transportation {
-  const isAdmin = isAdminRequest(host);
+  const isAdmin = isAdminHost(host);
   
   if (isAdmin) {
     return transportation; // Admin sees everything
   }
 
-  const filteredSubRoutes = transportation.subRoutes?.map(subRoute => ({
-    ...subRoute,
-    privateNotes: undefined,
-    costTrackingLinks: undefined,
-    routePoints: subRoute.routePoints
-  }));
+  const transportationWithPrivateFields = transportation as TransportationWithPrivateRuntimeFields;
+  const publicTransportation: TransportationWithPrivateRuntimeFields = {
+    ...transportationWithPrivateFields,
+  };
+  delete publicTransportation.privateNotes;
+  delete publicTransportation.costTrackingLinks;
+  delete publicTransportation.isReadOnly;
+  delete publicTransportation.subRoutes;
+
+  const filteredSubRoutes = transportationWithPrivateFields.subRoutes?.map(subRoute => {
+    const publicSubRoute: TransportationWithPrivateRuntimeFields = { ...subRoute };
+    delete publicSubRoute.privateNotes;
+    delete publicSubRoute.costTrackingLinks;
+    delete publicSubRoute.isReadOnly;
+
+    return {
+      ...publicSubRoute,
+      routePoints: subRoute.routePoints
+    };
+  });
 
   // Public view - remove private data entirely  
   const filteredTransportation: Transportation = {
-    ...transportation,
-    // Remove private fields completely
-    privateNotes: undefined,
-    costTrackingLinks: undefined,
+    ...publicTransportation,
     // Preserve routePoints for public map display
     routePoints: transportation.routePoints,
     subRoutes: filteredSubRoutes
@@ -90,7 +96,7 @@ export function filterAccommodationForServer(
   accommodation: Accommodation,
   host: string | null
 ): Accommodation {
-  const isAdmin = isAdminRequest(host);
+  const isAdmin = isAdminHost(host);
 
   if (isAdmin) {
     return accommodation;
@@ -101,6 +107,7 @@ export function filterAccommodationForServer(
     accommodationData: accommodation.isAccommodationPublic ? accommodation.accommodationData : undefined,
     isAccommodationPublic: undefined,
     costTrackingLinks: undefined,
+    isReadOnly: undefined,
   };
 }
 
@@ -130,6 +137,7 @@ export function filterJourneyPeriodForServer(
  * Filter complete journey data based on request context (server-side only)
  */
 export function filterJourneyForServer(journey: Journey, host: string | null): Journey {
+  const isAdmin = isAdminHost(host);
   const filteredDays = journey.days.map(period => 
     filterJourneyPeriodForServer(period, host)
   );
@@ -137,9 +145,11 @@ export function filterJourneyForServer(journey: Journey, host: string | null): J
 
   return {
     ...journey,
-    accommodations: journeyWithAccommodations.accommodations?.map((accommodation: Accommodation) =>
-      filterAccommodationForServer(accommodation, host)
-    ),
+    accommodations: isAdmin
+      ? journeyWithAccommodations.accommodations
+      : journeyWithAccommodations.accommodations
+        ?.filter((accommodation: Accommodation) => accommodation.isAccommodationPublic)
+        .map((accommodation: Accommodation) => filterAccommodationForServer(accommodation, host)),
     days: filteredDays,
   } as Journey;
 }
@@ -148,7 +158,7 @@ export function filterJourneyForServer(journey: Journey, host: string | null): J
  * Filter travel data for server-side privacy
  */
 export function filterTravelDataForServer(travelData: TravelData, host: string | null): TravelData {
-  const isAdmin = isAdminRequest(host);
+  const isAdmin = isAdminHost(host);
   
   if (isAdmin) {
     return travelData; // Admin sees everything
@@ -160,9 +170,9 @@ export function filterTravelDataForServer(travelData: TravelData, host: string |
     const filteredJourney = filterJourneyForServer(travelData as unknown as Journey, host);
     return {
       ...filteredJourney,
-      accommodations: travelData.accommodations?.map((accommodation: Accommodation) =>
-        filterAccommodationForServer(accommodation, host)
-      ),
+      accommodations: travelData.accommodations
+        ?.filter((accommodation: Accommodation) => accommodation.isAccommodationPublic)
+        .map((accommodation: Accommodation) => filterAccommodationForServer(accommodation, host)),
       instagramUsername: undefined
     } as TravelData;
   }
@@ -183,9 +193,9 @@ export function filterTravelDataForServer(travelData: TravelData, host: string |
   }
 
   if (travelData.accommodations) {
-    filteredData.accommodations = travelData.accommodations.map((accommodation: Accommodation) =>
-      filterAccommodationForServer(accommodation, host)
-    );
+    filteredData.accommodations = travelData.accommodations
+      .filter((accommodation: Accommodation) => accommodation.isAccommodationPublic)
+      .map((accommodation: Accommodation) => filterAccommodationForServer(accommodation, host));
   }
 
   return filteredData;

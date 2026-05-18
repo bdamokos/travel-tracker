@@ -1,4 +1,8 @@
-import { filterJourneyForServer, filterTravelDataForServer } from '@/app/lib/serverPrivacyUtils';
+import {
+  filterAccommodationForServer,
+  filterJourneyForServer,
+  filterTravelDataForServer,
+} from '@/app/lib/serverPrivacyUtils';
 import { Accommodation } from '@/app/types';
 
 describe('server privacy utilities', () => {
@@ -45,7 +49,7 @@ describe('server privacy utilities', () => {
     });
   });
 
-  it('removes private accommodation expense links from public travel data', () => {
+  it('removes private accommodations from public travel data', () => {
     const result = filterTravelDataForServer(
       {
         accommodations: [privateAccommodation, publicAccommodation],
@@ -55,12 +59,6 @@ describe('server privacy utilities', () => {
 
     expect(result.accommodations).toEqual([
       {
-        ...privateAccommodation,
-        accommodationData: undefined,
-        isAccommodationPublic: undefined,
-        costTrackingLinks: undefined,
-      },
-      {
         ...publicAccommodation,
         isAccommodationPublic: undefined,
         costTrackingLinks: undefined,
@@ -68,17 +66,18 @@ describe('server privacy utilities', () => {
     ]);
   });
 
-  it('removes top-level accommodation expense links when journey days are present', () => {
+  it('removes top-level private accommodations when journey days are present', () => {
     const result = filterTravelDataForServer(
       {
         days: [],
-        accommodations: [privateAccommodation],
+        accommodations: [privateAccommodation, publicAccommodation],
       },
       'travel.example'
     );
 
+    expect(result.accommodations).toHaveLength(1);
+    expect(result.accommodations?.[0]?.id).toBe(publicAccommodation.id);
     expect(result.accommodations?.[0]?.costTrackingLinks).toBeUndefined();
-    expect(result.accommodations?.[0]?.accommodationData).toBeUndefined();
   });
 
   it('filters top-level accommodations when filtering journey data directly', () => {
@@ -88,13 +87,41 @@ describe('server privacy utilities', () => {
         title: 'Trip',
         startDate: new Date('2026-01-01T00:00:00.000Z'),
         days: [],
-        accommodations: [privateAccommodation],
+        accommodations: [privateAccommodation, publicAccommodation],
       } as never,
       'travel.example'
     ) as unknown as { accommodations?: Accommodation[] };
 
+    expect(result.accommodations).toHaveLength(1);
+    expect(result.accommodations?.[0]?.id).toBe(publicAccommodation.id);
     expect(result.accommodations?.[0]?.costTrackingLinks).toBeUndefined();
-    expect(result.accommodations?.[0]?.accommodationData).toBeUndefined();
+  });
+
+  it('removes accommodation references and shadow flags from public locations', () => {
+    const result = filterTravelDataForServer(
+      {
+        locations: [
+          {
+            id: 'loc-1',
+            name: 'City',
+            coordinates: [50, 4],
+            date: new Date('2026-01-01T00:00:00.000Z'),
+            accommodationIds: ['acc-private'],
+            accommodationData: 'private hotel note',
+            isAccommodationPublic: false,
+            isReadOnly: true,
+            costTrackingLinks: [{ expenseId: 'expense-1', description: 'private dinner' }],
+          },
+        ],
+      },
+      'travel.example'
+    );
+
+    expect(result.locations?.[0]?.accommodationIds).toBeUndefined();
+    expect(result.locations?.[0]?.accommodationData).toBeUndefined();
+    expect(result.locations?.[0]?.isAccommodationPublic).toBeUndefined();
+    expect(result.locations?.[0]?.isReadOnly).toBeUndefined();
+    expect(result.locations?.[0]?.costTrackingLinks).toBeUndefined();
   });
 
   it('preserves accommodation expense links for admin travel data', () => {
@@ -106,5 +133,13 @@ describe('server privacy utilities', () => {
     );
 
     expect(result.accommodations?.[0]?.costTrackingLinks).toEqual(privateAccommodation.costTrackingLinks);
+  });
+
+  it('keeps direct public accommodation filtering defensive', () => {
+    const result = filterAccommodationForServer(privateAccommodation, 'travel.example');
+
+    expect(result.accommodationData).toBeUndefined();
+    expect(result.isAccommodationPublic).toBeUndefined();
+    expect(result.costTrackingLinks).toBeUndefined();
   });
 });
