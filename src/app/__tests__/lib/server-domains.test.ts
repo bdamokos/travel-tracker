@@ -1,11 +1,13 @@
-import { isAdminHost } from '@/app/lib/server-domains';
+import { isAdminHost, isEmbedHost } from '@/app/lib/server-domains';
 
 describe('server domain helpers', () => {
   const originalAdminDomain = process.env.ADMIN_DOMAIN;
+  const originalEmbedDomain = process.env.EMBED_DOMAIN;
   const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     process.env.ADMIN_DOMAIN = 'Admin.Example.Test.';
+    process.env.EMBED_DOMAIN = 'https://Maps.Example.Test.';
     Object.defineProperty(process.env, 'NODE_ENV', {
       value: 'production',
       configurable: true,
@@ -17,6 +19,12 @@ describe('server domain helpers', () => {
       delete process.env.ADMIN_DOMAIN;
     } else {
       process.env.ADMIN_DOMAIN = originalAdminDomain;
+    }
+
+    if (originalEmbedDomain === undefined) {
+      delete process.env.EMBED_DOMAIN;
+    } else {
+      process.env.EMBED_DOMAIN = originalEmbedDomain;
     }
 
     Object.defineProperty(process.env, 'NODE_ENV', {
@@ -41,5 +49,14 @@ describe('server domain helpers', () => {
     expect(isAdminHost('admin.example.test:443.evil.example')).toBe(false);
     expect(isAdminHost('admin.example.test:evil')).toBe(false);
     expect(isAdminHost('admin.example.test:443')).toBe(true);
+  });
+
+  it('matches embed hosts with the same exact-host rules', () => {
+    expect(isEmbedHost('maps.example.test')).toBe(true);
+    expect(isEmbedHost('maps.example.test:443')).toBe(true);
+    expect(isEmbedHost('maps.example.test:3002')).toBe(true);
+    expect(isEmbedHost('maps.example.test.evil.example')).toBe(false);
+    expect(isEmbedHost('evil-maps.example.test')).toBe(false);
+    expect(isEmbedHost('maps.example.test:evil')).toBe(false);
   });
 });

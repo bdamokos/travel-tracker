@@ -39,6 +39,17 @@ export function isAdminHost(host: string | null): boolean {
   );
 }
 
+export function isEmbedHost(host: string | null): boolean {
+  if (!host) {
+    return false;
+  }
+
+  const embedDomain = process.env.EMBED_DOMAIN ? normalizeConfiguredHost(process.env.EMBED_DOMAIN) : undefined;
+  const normalizedHost = host.toLowerCase().replace(/\.$/, '');
+
+  return Boolean(embedDomain && hostMatchesConfiguredHost(normalizedHost, embedDomain));
+}
+
 export async function isAdminDomain(): Promise<boolean> {
   const headersList = await headers();
   const host = headersList.get('host') || '';
@@ -49,9 +60,6 @@ export async function isAdminDomain(): Promise<boolean> {
 export async function isEmbedDomain(): Promise<boolean> {
   const headersList = await headers();
   const host = headersList.get('host') || '';
-  
-  // Use environment variable for embed domain
-  const embedDomain = process.env.EMBED_DOMAIN?.replace(/^https?:\/\//, '');
-  
-  return Boolean(embedDomain && (host === embedDomain || host.startsWith(embedDomain + ':')));
+
+  return isEmbedHost(host);
 } 
