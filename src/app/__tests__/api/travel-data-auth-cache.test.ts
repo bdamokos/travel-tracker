@@ -57,6 +57,32 @@ const buildTrip = () => ({
   publicUpdates: []
 });
 
+const buildTripWithMigratedPrivateAccommodation = () => ({
+  ...buildTrip(),
+  accommodations: [
+    {
+      id: 'acc-private',
+      name: 'Recovered accommodation (Private expense merchant)',
+      locationId: 'location-1',
+      accommodationData: 'confirmation: private-booking-code',
+      isAccommodationPublic: false,
+      costTrackingLinks: [{ expenseId: 'expense-private', description: 'Private expense merchant' }],
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z'
+    },
+    {
+      id: 'acc-public',
+      name: 'Public Campsite',
+      locationId: 'location-1',
+      accommodationData: 'public note',
+      isAccommodationPublic: true,
+      costTrackingLinks: [{ expenseId: 'expense-public', description: 'Public linked expense' }],
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z'
+    }
+  ]
+});
+
 describe('travel-data API auth and cache boundary', () => {
   const originalAdminDomain = process.env.ADMIN_DOMAIN;
 
@@ -135,5 +161,30 @@ describe('travel-data API auth and cache boundary', () => {
     expect(result.instagramUsername).toBeUndefined();
     expect(result.locations[0].costTrackingLinks).toBeUndefined();
     expect(result.routes[0].privateNotes).toBeUndefined();
+  });
+
+  it('does not expose migrated private accommodation expense data in public travel responses', async () => {
+    mockLoadUnifiedTripData.mockResolvedValue(buildTripWithMigratedPrivateAccommodation());
+
+    const response = await GET(
+      new NextRequest('https://public.example.test/api/travel-data?id=trip-1', {
+        headers: { host: 'public.example.test' }
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result.accommodations).toEqual([
+      expect.objectContaining({
+        id: 'acc-public',
+        name: 'Public Campsite',
+        accommodationData: 'public note'
+      })
+    ]);
+    expect(JSON.stringify(result)).not.toContain('acc-private');
+    expect(JSON.stringify(result)).not.toContain('Private expense merchant');
+    expect(JSON.stringify(result)).not.toContain('private-booking-code');
+    expect(result.accommodations[0].costTrackingLinks).toBeUndefined();
+    expect(result.locations[0].accommodationIds).toBeUndefined();
   });
 });
