@@ -58,8 +58,25 @@ const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
   return { routes: normalized as RoutePayload[] };
 };
 
+const requireAdminDomain = async (operation: string) => {
+  const isAdmin = await isAdminDomain();
+  if (isAdmin) {
+    return null;
+  }
+
+  return NextResponse.json(
+    { error: `${operation} operation only allowed on admin domain` },
+    { status: 403 }
+  );
+};
+
 export async function POST(request: NextRequest) {
   try {
+    const forbidden = await requireAdminDomain('Create');
+    if (forbidden) {
+      return forbidden;
+    }
+
     const travelData = await request.json();
 
     const { routes, error } = normalizeCompositeRoutes(travelData.routes);
@@ -172,6 +189,11 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const forbidden = await requireAdminDomain('Update');
+    if (forbidden) {
+      return forbidden;
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
@@ -232,6 +254,11 @@ export async function PUT(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const forbidden = await requireAdminDomain('Patch');
+    if (forbidden) {
+      return forbidden;
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
@@ -434,13 +461,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check if request is from admin domain
-    const isAdmin = await isAdminDomain();
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: 'Delete operation only allowed on admin domain' },
-        { status: 403 }
-      );
+    const forbidden = await requireAdminDomain('Delete');
+    if (forbidden) {
+      return forbidden;
     }
 
     const { searchParams } = new URL(request.url);
