@@ -16,12 +16,19 @@ import {
 import fs from 'fs/promises';
 import path from 'path';
 import { getDataDir } from '@/app/lib/dataDirectory';
+import { isAdminDomain } from '@/app/lib/server-domains';
 
 const DEFAULT_REFRESH_CONFIG: RefreshJobConfig = {
   batchSize: 20, // Process 20 locations at a time
   delayBetweenRequests: 100, // 100ms delay between requests
   maxRetries: 3,
   timeoutMs: 30000, // 30 second timeout per location
+};
+
+const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
+  const isAdmin = await isAdminDomain();
+  if (isAdmin) return null;
+  return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
 };
 
 /**
@@ -171,9 +178,12 @@ async function processLocation(
  * Refresh Wikipedia data for all locations
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  console.log('Starting Wikipedia refresh job...');
-  
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) return forbidden;
+
+    console.log('Starting Wikipedia refresh job...');
+
     // Parse request body for configuration overrides
     const body = await request.json().catch(() => ({}));
     const config: RefreshJobConfig = { ...DEFAULT_REFRESH_CONFIG, ...body.config };
@@ -328,6 +338,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  */
 export async function GET(): Promise<NextResponse> {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) return forbidden;
+
     const metadata = await loadWikipediaMetadata();
     const cachedFiles = await wikipediaService.listCachedFiles();
     
