@@ -1,7 +1,9 @@
 import {
   buildCostDashboardAnalytics,
   collectUniqueDayKeysForPeriods,
+  enumerateLocalDayKeysBetween,
   getUniquePeriodDayCount,
+  MAX_DASHBOARD_DAY_ENUMERATION,
 } from '@/app/lib/costDashboardAnalytics';
 import { calculateCostSummary, calculateCountryBreakdowns } from '@/app/lib/costUtils';
 import type { CostTrackingData, Expense } from '@/app/types';
@@ -391,5 +393,41 @@ describe('costDashboardAnalytics', () => {
     );
 
     expect(dayKeys).toEqual(['2026-01-03', '2026-01-04', '2026-01-05']);
+  });
+
+  it('refuses to enumerate dashboard day ranges above the safety cap', () => {
+    const safeEnd = new Date('2036-01-08T00:00:00.000Z');
+    const unsafeEnd = new Date('2036-01-09T00:00:00.000Z');
+
+    expect(enumerateLocalDayKeysBetween('2026-01-01', safeEnd)).toHaveLength(MAX_DASHBOARD_DAY_ENUMERATION);
+    expect(enumerateLocalDayKeysBetween('2026-01-01', unsafeEnd)).toEqual([]);
+  });
+
+  it('treats oversized configured country periods as unavailable instead of looping through them', () => {
+    const dayKeys = collectUniqueDayKeysForPeriods([
+      {
+        id: 'oversized-period',
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
+        endDate: new Date('2076-01-01T00:00:00.000Z'),
+      },
+    ]);
+
+    expect(dayKeys).toEqual([]);
+  });
+
+  it('does not build an active dashboard window for oversized trip date spans', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2080-01-01T12:00:00.000Z'));
+
+    const costData = buildBaseCostData();
+    costData.tripStartDate = new Date('2026-01-01T00:00:00.000Z');
+    costData.tripEndDate = new Date('2080-01-01T00:00:00.000Z');
+
+    const costSummary = calculateCostSummary(costData);
+    const analytics = buildCostDashboardAnalytics(costSummary, costData, []);
+
+    expect(analytics.tripWindow.dayKeys).toEqual([]);
+    expect(analytics.tripWindow.dayCount).toBe(0);
+    expect(analytics.includedDays).toBe(0);
   });
 });
