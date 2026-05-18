@@ -5,6 +5,49 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { wikipediaService } from '@/app/services/wikipediaService';
+import { isAdminDomain } from '@/app/lib/server-domains';
+import { requireAdminDomain } from '@/app/lib/adminRouteGuard';
+
+const MAX_LOCATION_NAME_LENGTH = 120;
+const MAX_WIKIPEDIA_REF_LENGTH = 160;
+const coordinatePattern = /^[-+]?(?:\d+\.?\d*|\.\d+)$/;
+
+function badRequest(error: string): NextResponse {
+  return NextResponse.json({ success: false, error }, { status: 400 });
+}
+
+function parseCoordinate(value: string | null, min: number, max: number): number | null {
+  if (value == null || value.trim() !== value || !coordinatePattern.test(value)) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
+function parseCoordinates(lat: string | null, lon: string | null): [number, number] | null {
+  const parsedLat = parseCoordinate(lat, -90, 90);
+  const parsedLon = parseCoordinate(lon, -180, 180);
+  if (parsedLat == null || parsedLon == null) return null;
+  return [parsedLat, parsedLon];
+}
+
+function validateLocationName(locationName: string): NextResponse | null {
+  const trimmed = locationName.trim();
+  if (trimmed.length === 0) return badRequest('Location name is required');
+  if (trimmed.length > MAX_LOCATION_NAME_LENGTH) {
+    return badRequest(`Location name cannot exceed ${MAX_LOCATION_NAME_LENGTH} characters`);
+  }
+  return null;
+}
+
+function validateWikipediaRef(wikipediaRef: string | null): NextResponse | null {
+  if (wikipediaRef == null) return null;
+  const trimmed = wikipediaRef.trim();
+  if (trimmed.length === 0) return badRequest('Wikipedia reference cannot be blank');
+  if (trimmed.length > MAX_WIKIPEDIA_REF_LENGTH) {
+    return badRequest(`Wikipedia reference cannot exceed ${MAX_WIKIPEDIA_REF_LENGTH} characters`);
+  }
+  return null;
+}
 
 /**
  * GET /api/wikipedia/[locationName]
@@ -20,12 +63,8 @@ export async function GET(
     const { locationName: rawLocationName } = await params;
     locationName = decodeURIComponent(rawLocationName);
     
-    if (!locationName || locationName.trim().length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Location name is required',
-      }, { status: 400 });
-    }
+    const locationNameError = validateLocationName(locationName);
+    if (locationNameError) return locationNameError;
 
     // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -33,6 +72,19 @@ export async function GET(
     const lon = searchParams.get('lon');
     const forceRefresh = searchParams.get('refresh') === 'true';
     const wikipediaRef = searchParams.get('wikipediaRef');
+    const coordinates = parseCoordinates(lat, lon);
+
+    if (!coordinates) {
+      return badRequest('lat and lon must be finite coordinates in valid ranges');
+    }
+
+    const wikipediaRefError = validateWikipediaRef(wikipediaRef);
+    if (wikipediaRefError) return wikipediaRefError;
+
+    const isAdminRequest = await isAdminDomain();
+    if (forceRefresh && !isAdminRequest) {
+      return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
+    }
 
     const locale = request.headers.get('accept-language')?.split(',')[0]?.trim();
 
@@ -40,13 +92,16 @@ export async function GET(
     const location = {
       id: 'temp-id', // Temporary ID for API calls
       name: locationName,
-      coordinates: (lat && lon) ? [parseFloat(lat), parseFloat(lon)] as [number, number] : [0, 0] as [number, number],
-      wikipediaRef: wikipediaRef || undefined,
+      coordinates,
+      wikipediaRef: wikipediaRef?.trim() || undefined,
       date: new Date(), // Required by Location type
     };
 
-    // Get Wikipedia data (cached or fresh)
-    const wikipediaData = await wikipediaService.getLocationData(location, forceRefresh, locale);
+    // Public requests are cache-only to avoid turning the public API into an
+    // unauthenticated Wikipedia fetch-and-write proxy.
+    const wikipediaData = isAdminRequest
+      ? await wikipediaService.getLocationData(location, forceRefresh, locale)
+      : await wikipediaService.getCachedData(location);
 
     if (!wikipediaData) {
       return NextResponse.json({
@@ -97,26 +152,42 @@ export async function PUT(
   { params }: { params: Promise<{ locationName: string }> }
 ): Promise<NextResponse> {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) return forbidden;
+
     const { locationName: rawLocationName } = await params;
     const locationName = decodeURIComponent(rawLocationName);
-    const body = await request.json();
+
+    const locationNameError = validateLocationName(locationName);
+    if (locationNameError) return locationNameError;
+
+    const body = await request.json().catch(() => ({}));
     const locale = request.headers.get('accept-language')?.split(',')[0]?.trim();
     
     const { wikipediaRef, coordinates } = body;
 
-    if (!wikipediaRef) {
-      return NextResponse.json({
-        success: false,
-        error: 'Wikipedia reference is required',
-      }, { status: 400 });
+    if (typeof wikipediaRef !== 'string') {
+      return badRequest('Wikipedia reference is required');
+    }
+
+    const wikipediaRefError = validateWikipediaRef(wikipediaRef);
+    if (wikipediaRefError) return wikipediaRefError;
+
+    if (!Array.isArray(coordinates) || coordinates.length !== 2) {
+      return badRequest('coordinates are required');
+    }
+
+    const parsedCoordinates = parseCoordinates(String(coordinates[0]), String(coordinates[1]));
+    if (!parsedCoordinates) {
+      return badRequest('coordinates must be finite coordinates in valid ranges');
     }
 
     // Build location object with new reference
     const location = {
       id: 'temp-id',
       name: locationName,
-      coordinates: coordinates as [number, number] || [0, 0] as [number, number],
-      wikipediaRef,
+      coordinates: parsedCoordinates,
+      wikipediaRef: wikipediaRef.trim(),
       date: new Date(),
     };
 
@@ -157,8 +228,13 @@ export async function DELETE(
   { params }: { params: Promise<{ locationName: string }> }
 ): Promise<NextResponse> {
   try {
+    const forbidden = await requireAdminDomain();
+    if (forbidden) return forbidden;
+
     const { locationName: rawLocationName } = await params;
     const locationName = decodeURIComponent(rawLocationName);
+    const locationNameError = validateLocationName(locationName);
+    if (locationNameError) return locationNameError;
     
     // TODO: Implement cache deletion in WikipediaService
     // For now, return success
