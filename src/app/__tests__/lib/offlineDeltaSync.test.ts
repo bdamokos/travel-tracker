@@ -135,8 +135,19 @@ describe('offlineDeltaSync', () => {
   });
 
   it('syncs queued cost delta when server base has not changed', async () => {
-    const base = makeCostData();
-    const pending = makeCostData({ overallBudget: 1500 });
+    const base = makeCostData({
+      ynabConfig: {
+        apiKey: 'SECRET_SYNC_YNAB_KEY',
+        selectedBudgetId: 'budget-1'
+      }
+    });
+    const pending = makeCostData({
+      overallBudget: 1500,
+      ynabConfig: {
+        apiKey: 'SECRET_SYNC_YNAB_KEY',
+        selectedBudgetId: 'budget-1'
+      }
+    });
 
     const queued = queueCostDelta({
       id: base.id,
@@ -158,6 +169,7 @@ describe('offlineDeltaSync', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toContain('/api/cost-tracking?id=');
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'PATCH' });
+    expect(JSON.stringify(fetchMock.mock.calls[1][1])).not.toContain('SECRET_SYNC_YNAB_KEY');
   });
 
   it('redacts YNAB API keys from queued cost data in localStorage', () => {

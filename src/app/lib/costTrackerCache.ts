@@ -54,16 +54,7 @@ export function clearCachedCostTracker(id: string): void {
   const cacheKey = getCacheKey(id);
   memoryCache.delete(cacheKey);
   inFlightRequests.delete(cacheKey);
-
-  if (!canUseSessionStorage()) {
-    return;
-  }
-
-  try {
-    window.sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${cacheKey}`);
-  } catch (error) {
-    console.warn('Failed to clear cached cost tracker data:', error);
-  }
+  clearPersistedCostTracker(cacheKey);
 }
 
 function clearPersistedCostTracker(cacheKey: string): void {

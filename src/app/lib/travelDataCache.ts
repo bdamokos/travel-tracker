@@ -37,16 +37,7 @@ export function setCachedTravelData(travelData: TravelData): void {
 export function clearCachedTravelData(id: string): void {
   memoryCache.delete(id);
   inFlightRequests.delete(id);
-
-  if (!canUseSessionStorage()) {
-    return;
-  }
-
-  try {
-    window.sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${id}`);
-  } catch (error) {
-    console.warn('Failed to clear cached travel data:', error);
-  }
+  clearPersistedTravelData(id);
 }
 
 function clearPersistedTravelData(id: string): void {

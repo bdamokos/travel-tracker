@@ -2,7 +2,6 @@ import {
   createCostDataDelta,
   isCostDataDelta,
   isCostDataDeltaEmpty,
-  snapshotCostData,
   type CostDataDelta
 } from '@/app/lib/costDataDelta';
 import { cloneSerializable, isRecord } from '@/app/lib/collectionDelta';
@@ -540,9 +539,9 @@ export const queueCostDelta = ({ id, baseSnapshot, pendingSnapshot }: QueueCostD
   const now = new Date().toISOString();
 
   const canonicalBase = existingIndex >= 0 && queue[existingIndex].kind === 'cost'
-    ? redactCostSnapshotForBrowserStorage(snapshotCostData(queue[existingIndex].baseSnapshot))
-    : redactCostSnapshotForBrowserStorage(snapshotCostData(baseSnapshot));
-  const canonicalPending = redactCostSnapshotForBrowserStorage(snapshotCostData(pendingSnapshot));
+    ? redactCostSnapshotForBrowserStorage(queue[existingIndex].baseSnapshot)
+    : redactCostSnapshotForBrowserStorage(baseSnapshot);
+  const canonicalPending = redactCostSnapshotForBrowserStorage(pendingSnapshot);
   const mergedDelta = createCostDataDelta(canonicalBase, canonicalPending);
 
   if (!mergedDelta || isCostDataDeltaEmpty(mergedDelta)) {
@@ -629,7 +628,8 @@ const syncCostEntry = async (
     patchUrl: `/api/cost-tracking?id=${encodeURIComponent(entry.id)}`,
     baseSnapshot: entry.baseSnapshot,
     pendingDelta: entry.delta,
-    toComparable: toCostDeltaComparable,
+    toComparable: (candidate, fallback) =>
+      redactCostSnapshotForBrowserStorage(toCostDeltaComparable(candidate, fallback)),
     createDelta: createCostDataDelta,
     isDeltaEmpty: isCostDataDeltaEmpty
   });
