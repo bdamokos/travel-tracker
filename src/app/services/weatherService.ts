@@ -32,6 +32,8 @@ let rateLimitBackoffUntil = 0;
 let rateLimitQueue: Promise<void> = Promise.resolve();
 
 const OPEN_METEO_ARCHIVE_MIN_DATE = new Date(Date.UTC(2016, 0, 1));
+export const MAX_LOCATION_WEATHER_SPAN_DAYS = 370;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Ensure the local data directory exists by creating it and any missing parent directories.
@@ -48,6 +50,43 @@ function log(...args: unknown[]) {
 
 function toISODate(date: Date): string {
   return formatISO(date, { representation: 'date' });
+}
+
+function parseStrictISODate(value: string): Date | null {
+  if (!ISO_DATE_RE.test(value)) return null;
+  const parsed = parseISO(value);
+  if (!isValid(parsed) || toISODate(parsed) !== value) return null;
+  return parsed;
+}
+
+function validateCoordinates(coords: [number, number]): void {
+  const [lat, lon] = coords;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    throw new Error('Invalid coordinates');
+  }
+}
+
+function validateDateRange(start: Date, end: Date): { startISO: string; endISO: string; spanDays: number } {
+  if (!isValid(start) || !isValid(end)) {
+    throw new Error('Invalid weather date range');
+  }
+
+  const startISO = toISODate(start);
+  const endISO = toISODate(end);
+  const spanDays = daysBetweenInclusive(parseISO(startISO), parseISO(endISO));
+
+  if (spanDays < 1) {
+    throw new Error('Weather start date must be before or equal to end date');
+  }
+  if (spanDays > MAX_LOCATION_WEATHER_SPAN_DAYS) {
+    throw new Error(`Weather date range cannot exceed ${MAX_LOCATION_WEATHER_SPAN_DAYS} days`);
+  }
+
+  return { startISO, endISO, spanDays };
+}
+
+export function parseWeatherDateInput(value: string): Date | null {
+  return parseStrictISODate(value);
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -659,12 +698,10 @@ class WeatherService {
     location: Location,
     options?: { preferCache?: boolean }
   ): Promise<WeatherSummary> {
+    validateCoordinates(location.coordinates);
     const start = location.date ? new Date(location.date) : new Date();
     const end = location.endDate ? new Date(location.endDate) : start;
-    const clampedStart = start;
-    const clampedEnd = end;
-    const startISO = toISODate(clampedStart);
-    const endISO = toISODate(clampedEnd);
+    const { startISO, endISO } = validateDateRange(start, end);
     const key = buildCacheKey(location.coordinates, startISO, endISO);
     const preferCache = options?.preferCache === true;
 
@@ -750,6 +787,10 @@ class WeatherService {
   }
 
   async getWeatherForDate(coords: [number, number], date: Date): Promise<WeatherData> {
+    validateCoordinates(coords);
+    if (!isValid(date)) {
+      throw new Error('Invalid weather date');
+    }
     const dayISO = toISODate(date);
     const dayAsLocalDate = parseISO(dayISO);
     const [lat, lon] = coords;
@@ -784,6 +825,10 @@ class WeatherService {
   }
 
   async getWeatherForecast(coords: [number, number], days: number): Promise<WeatherData[]> {
+    validateCoordinates(coords);
+    if (!Number.isFinite(days)) {
+      throw new Error('Invalid forecast day count');
+    }
     const start = new Date();
     const end = addDays(start, Math.max(1, Math.min(16, days)) - 1);
     return fetchOpenMeteoRangeSmart(coords, toISODate(start), toISODate(end));
@@ -796,6 +841,7 @@ export const weatherServiceTestUtils = {
   parseRateLimitResetMs,
   getRateLimitHeaderDelayMs,
   needsForecastRefresh,
+  parseWeatherDateInput,
   resetRateLimitStateForTests
 };
 
