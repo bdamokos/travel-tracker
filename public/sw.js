@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v13';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -80,7 +80,7 @@ const isCacheableResponse = (response) => {
   }
 
   const cacheControl = response.headers.get('Cache-Control') || '';
-  return !cacheControl.includes('no-store');
+  return !cacheControl.toLowerCase().includes('no-store');
 };
 
 const isCacheableTileResponse = (response) => {
@@ -215,6 +215,12 @@ const scheduleTileCacheTrim = async () => {
 const isDataRequest = (url) =>
   url.origin === self.location.origin &&
   (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/api/'));
+const isPrivateDataRequest = (url) =>
+  url.origin === self.location.origin &&
+  (url.pathname.startsWith('/api/cost-tracking') ||
+    url.pathname.startsWith('/admin/api/') ||
+    (url.pathname === '/api/travel-data' && url.searchParams.has('id')) ||
+    url.pathname.includes('/expense-links'));
 const isAppRouteRequest = (url) =>
   url.origin === self.location.origin &&
   !isDataRequest(url) &&
@@ -452,7 +458,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
       throw new Error(`[sw] Redirect response blocked for ${request.url}`);
     }
 
-    if (fallbackToCacheOnHttpError && !response.ok) {
+    if (fallbackToCacheOnHttpError && !response.ok && response.status !== 401 && response.status !== 403) {
       const cachedHttpFallback = await getCachedNonRedirectResponse(cache, request);
       if (cachedHttpFallback) {
         return cachedHttpFallback;
@@ -500,6 +506,27 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
   }
+};
+
+const networkOnly = async (request) => {
+  try {
+    const networkResponse = await fetch(request);
+    const response = await toRuntimeSafeResponse(networkResponse);
+    if (response) {
+      return response;
+    }
+  } catch {
+    // Fall through to the explicit offline response below.
+  }
+
+  return new Response('Offline and no cached copy is available.', {
+    status: 503,
+    statusText: 'Offline',
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
 };
 
 const staleWhileRevalidate = async (event, request, cacheName, { isTileRequest = false } = {}) => {
@@ -608,6 +635,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isDataRequest(url)) {
+    if (isPrivateDataRequest(url)) {
+      event.respondWith(networkOnly(request));
+      return;
+    }
+
     event.respondWith(networkFirst(request, DATA_CACHE));
     return;
   }
