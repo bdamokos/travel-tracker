@@ -30,6 +30,13 @@ describe('calendar privacy helpers', () => {
           date: new Date('2026-01-04T00:00:00.000Z'),
           notes: '[PRIVATE] family address',
         },
+        {
+          id: 'loc-private-lowercase',
+          name: 'Private Lowercase Stop',
+          coordinates: [51.5074, -0.1278],
+          date: new Date('2026-01-05T00:00:00.000Z'),
+          notes: '[private] backup address',
+        },
       ],
       routes: [
         {
@@ -70,6 +77,15 @@ describe('calendar privacy helpers', () => {
           costTrackingLinks: [{ expenseId: 'expense-4' }],
           createdAt: '2026-01-01T00:00:00.000Z',
         },
+        {
+          id: 'acc-public',
+          name: 'Public Hotel',
+          locationId: 'loc-public',
+          accommodationData: 'public booking note',
+          isAccommodationPublic: true,
+          costTrackingLinks: [{ expenseId: 'expense-5' }],
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
       ],
     };
 
@@ -97,8 +113,10 @@ describe('calendar privacy helpers', () => {
       privateNotes: undefined,
       costTrackingLinks: undefined,
     });
+    expect(result.accommodations).toHaveLength(1);
     expect(result.accommodations[0]).toMatchObject({
-      accommodationData: undefined,
+      id: 'acc-public',
+      accommodationData: 'public booking note',
       isAccommodationPublic: undefined,
       costTrackingLinks: undefined,
     });

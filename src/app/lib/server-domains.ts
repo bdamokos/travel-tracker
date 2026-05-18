@@ -8,21 +8,34 @@ export async function getCurrentDomain(): Promise<string> {
   return `${protocol}://${host}`;
 }
 
+function normalizeConfiguredHost(host: string): string {
+  return host.replace(/^https?:\/\//, '').toLowerCase().replace(/\.$/, '');
+}
+
+function hostMatchesConfiguredHost(host: string, configuredHost: string): boolean {
+  if (host === configuredHost) {
+    return true;
+  }
+
+  if (configuredHost.includes(':')) {
+    return false;
+  }
+
+  return new RegExp(`^${configuredHost.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\d+$`).test(host);
+}
+
 export function isAdminHost(host: string | null): boolean {
   if (!host) {
     return false;
   }
 
   // Use environment variable for admin domain
-  const adminDomain = process.env.ADMIN_DOMAIN
-    ?.replace(/^https?:\/\//, '')
-    .toLowerCase()
-    .replace(/\.$/, '');
+  const adminDomain = process.env.ADMIN_DOMAIN ? normalizeConfiguredHost(process.env.ADMIN_DOMAIN) : undefined;
   const normalizedHost = host.toLowerCase().replace(/\.$/, '');
 
   return Boolean(
-    (adminDomain && (normalizedHost === adminDomain || normalizedHost.startsWith(`${adminDomain}:`))) ||
-    (process.env.NODE_ENV !== 'production' && (normalizedHost === 'localhost' || normalizedHost.startsWith('localhost:')))
+    (adminDomain && hostMatchesConfiguredHost(normalizedHost, adminDomain)) ||
+    (process.env.NODE_ENV !== 'production' && hostMatchesConfiguredHost(normalizedHost, 'localhost'))
   );
 }
 

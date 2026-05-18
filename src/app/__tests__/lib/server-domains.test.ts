@@ -36,4 +36,10 @@ describe('server domain helpers', () => {
     expect(isAdminHost('tt-admin.attacker.example')).toBe(false);
     expect(isAdminHost('public.example.test:3000')).toBe(false);
   });
+
+  it('only accepts numeric ports after a configured admin host', () => {
+    expect(isAdminHost('admin.example.test:443.evil.example')).toBe(false);
+    expect(isAdminHost('admin.example.test:evil')).toBe(false);
+    expect(isAdminHost('admin.example.test:443')).toBe(true);
+  });
 });

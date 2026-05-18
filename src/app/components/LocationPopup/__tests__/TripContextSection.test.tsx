@@ -21,6 +21,19 @@ const day: JourneyDay = {
   customNotes: 'Private side trip details',
 };
 
+const otherLocation: Location = {
+  id: 'loc-2',
+  name: 'London',
+  coordinates: [51.5074, -0.1278],
+  date: new Date('2026-01-03T00:00:00.000Z'),
+  endDate: new Date('2026-01-05T00:00:00.000Z'),
+};
+
+const transitionDay: JourneyDay = {
+  ...day,
+  locations: [location, otherLocation],
+};
+
 describe('TripContextSection privacy', () => {
   it('hides detailed itinerary fields for public views', () => {
     render(<TripContextSection location={location} day={day} tripId="trip-1" />);
@@ -39,6 +52,30 @@ describe('TripContextSection privacy', () => {
     expect(screen.getByText(/Stay:/)).toBeInTheDocument();
     expect(screen.getByText(/Arrival:/)).toBeInTheDocument();
     expect(screen.getByText('2026-01-01T08:30:00.000Z')).toBeInTheDocument();
+    expect(screen.getByText('Hotel door code 1234')).toBeInTheDocument();
+    expect(screen.getByText('Private side trip details')).toBeInTheDocument();
+  });
+
+  it('shows public transition names without detailed itinerary fields', () => {
+    render(<TripContextSection location={location} day={transitionDay} tripId="trip-1" />);
+
+    expect(screen.getByText('Transition Day Details')).toBeInTheDocument();
+    expect(screen.getByText('Departure:')).toBeInTheDocument();
+    expect(screen.getByText('Arrival:')).toBeInTheDocument();
+    expect(screen.getByText('London')).toBeInTheDocument();
+    expect(screen.queryByText(/Stay period:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Arrival to:/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Hotel door code 1234')).not.toBeInTheDocument();
+    expect(screen.queryByText('Private side trip details')).not.toBeInTheDocument();
+  });
+
+  it('shows detailed transition fields for admin views', () => {
+    render(<TripContextSection location={location} day={transitionDay} tripId="trip-1" isAdminView />);
+
+    expect(screen.getByText('Transition Day Details')).toBeInTheDocument();
+    expect(screen.getByText(/Departure from:/)).toBeInTheDocument();
+    expect(screen.getByText(/Arrival to:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Stay period:/)).toHaveLength(2);
     expect(screen.getByText('Hotel door code 1234')).toBeInTheDocument();
     expect(screen.getByText('Private side trip details')).toBeInTheDocument();
   });

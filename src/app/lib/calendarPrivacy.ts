@@ -1,7 +1,7 @@
 import { Location, Transportation, Trip } from '@/app/types';
 
 export function isPrivateCalendarLocation(location: Location): boolean {
-  return Boolean(location.notes?.includes('[PRIVATE]'));
+  return Boolean(location.notes && /\[private\]/i.test(location.notes));
 }
 
 export function sanitizeCalendarLocationForPublic(location: Location): Location {
@@ -42,11 +42,12 @@ export function buildPublicCalendarTrip(trip: Trip): Trip {
     routes: trip.routes
       .filter(route => !route.privateNotes)
       .map(sanitizeCalendarRouteForPublic),
-    accommodations: trip.accommodations.map(accommodation => ({
-      ...accommodation,
-      accommodationData: accommodation.isAccommodationPublic ? accommodation.accommodationData : undefined,
-      isAccommodationPublic: undefined,
-      costTrackingLinks: undefined,
-    })),
+    accommodations: trip.accommodations
+      .filter(accommodation => accommodation.isAccommodationPublic)
+      .map(accommodation => ({
+        ...accommodation,
+        isAccommodationPublic: undefined,
+        costTrackingLinks: undefined,
+      })),
   };
 }

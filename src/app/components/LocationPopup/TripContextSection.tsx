@@ -222,6 +222,17 @@ export default function TripContextSection({
                 </>
               )}
             </>
+          ) : isTransition ? (
+            <>
+              <p>
+                <span className="font-medium">Departure:</span> {location.name}
+              </p>
+              {secondaryLocation && (
+                <p>
+                  <span className="font-medium">Arrival:</span> {secondaryLocation.name}
+                </p>
+              )}
+            </>
           ) : isAdminView ? (
             <p>
               <span className="font-medium">Stay:</span> {formatDateRange(location.date, location.endDate)}
