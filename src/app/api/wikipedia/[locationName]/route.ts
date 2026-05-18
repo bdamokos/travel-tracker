@@ -6,16 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { wikipediaService } from '@/app/services/wikipediaService';
 import { isAdminDomain } from '@/app/lib/server-domains';
+import { requireAdminDomain } from '@/app/lib/adminRouteGuard';
 
 const MAX_LOCATION_NAME_LENGTH = 120;
 const MAX_WIKIPEDIA_REF_LENGTH = 160;
 const coordinatePattern = /^[-+]?(?:\d+\.?\d*|\.\d+)$/;
-
-const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
-  const isAdmin = await isAdminDomain();
-  if (isAdmin) return null;
-  return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
-};
 
 function badRequest(error: string): NextResponse {
   return NextResponse.json({ success: false, error }, { status: 400 });
@@ -157,15 +152,16 @@ export async function PUT(
   { params }: { params: Promise<{ locationName: string }> }
 ): Promise<NextResponse> {
   try {
-    const { locationName: rawLocationName } = await params;
-    const locationName = decodeURIComponent(rawLocationName);
     const forbidden = await requireAdminDomain();
     if (forbidden) return forbidden;
+
+    const { locationName: rawLocationName } = await params;
+    const locationName = decodeURIComponent(rawLocationName);
 
     const locationNameError = validateLocationName(locationName);
     if (locationNameError) return locationNameError;
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const locale = request.headers.get('accept-language')?.split(',')[0]?.trim();
     
     const { wikipediaRef, coordinates } = body;

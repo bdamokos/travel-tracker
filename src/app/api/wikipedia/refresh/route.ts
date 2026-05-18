@@ -16,19 +16,13 @@ import {
 import fs from 'fs/promises';
 import path from 'path';
 import { getDataDir } from '@/app/lib/dataDirectory';
-import { isAdminDomain } from '@/app/lib/server-domains';
+import { requireAdminDomain } from '@/app/lib/adminRouteGuard';
 
 const DEFAULT_REFRESH_CONFIG: RefreshJobConfig = {
   batchSize: 20, // Process 20 locations at a time
   delayBetweenRequests: 100, // 100ms delay between requests
   maxRetries: 3,
   timeoutMs: 30000, // 30 second timeout per location
-};
-
-const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | null> => {
-  const isAdmin = await isAdminDomain();
-  if (isAdmin) return null;
-  return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
 };
 
 /**

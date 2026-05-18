@@ -128,6 +128,8 @@ describe('wikipedia API boundary', () => {
   });
 
   it('rejects malformed public location coordinates before calling the service', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
     const request = buildRequest(
       'https://public.example.test/api/wikipedia/Paris?lat=48.8566&lon=2.3522evil'
     );
@@ -195,6 +197,22 @@ describe('wikipedia API boundary', () => {
 
     expect(putResponse.status).toBe(403);
     expect(deleteResponse.status).toBe(403);
+    expect(mockGetLocationData).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for malformed admin PUT JSON instead of 500', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
+    const request = buildRequest('https://admin.example.test/api/wikipedia/Paris', {
+      method: 'PUT',
+      body: '{',
+    });
+    const response = await PUT_WIKIPEDIA_LOCATION(request, routeParams());
+
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.success).toBe(false);
     expect(mockGetLocationData).not.toHaveBeenCalled();
   });
 });
