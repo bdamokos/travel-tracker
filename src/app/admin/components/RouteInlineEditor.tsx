@@ -54,6 +54,7 @@ export default function RouteInlineEditor({
   const [validationError, setValidationError] = useState<string>('');
   const [segmentRefreshStatus, setSegmentRefreshStatus] = useState<Record<string, string>>({});
   const [collapsedSubRoutes, setCollapsedSubRoutes] = useState<Record<string, boolean>>({});
+  const [dismissedManualGeometryWarnings, setDismissedManualGeometryWarnings] = useState<Record<string, string>>({});
   const [routeCoordOverrides, setRouteCoordOverrides] = useState<{ from: boolean; to: boolean }>({
     from: false,
     to: false
@@ -194,6 +195,92 @@ export default function RouteInlineEditor({
   };
 
   const isZeroCoords = (coords?: [number, number]) => !coords || (coords[0] === 0 && coords[1] === 0);
+
+  const isSameManualPoint = (left?: [number, number], right?: [number, number]) => {
+    if (!left || !right) return false;
+    return Math.abs(left[0] - right[0]) < 1e-6 && Math.abs(left[1] - right[1]) < 1e-6;
+  };
+
+  const interpolateEndpointBridge = (start: [number, number], end: [number, number]): [number, number][] => {
+    if (isSameManualPoint(start, end)) {
+      return [start];
+    }
+
+    const steps = 8;
+    return Array.from({ length: steps }, (_, index) => {
+      const ratio = index / (steps - 1);
+      return [
+        start[0] + ((end[0] - start[0]) * ratio),
+        start[1] + ((end[1] - start[1]) * ratio)
+      ] as [number, number];
+    });
+  };
+
+  const getManualGeometryMismatch = (
+    routeLike: Pick<TravelRoute | TravelRouteSegment, 'fromCoords' | 'toCoords' | 'routePoints' | 'useManualRoutePoints'>
+  ) => {
+    const routePoints = routeLike.routePoints;
+    if (!routeLike.useManualRoutePoints || !routePoints || routePoints.length < 2) {
+      return null;
+    }
+
+    const firstPoint = routePoints[0];
+    const lastPoint = routePoints[routePoints.length - 1];
+    const fromMismatch = Boolean(routeLike.fromCoords && !isSameManualPoint(routeLike.fromCoords, firstPoint));
+    const toMismatch = Boolean(routeLike.toCoords && !isSameManualPoint(routeLike.toCoords, lastPoint));
+
+    if (!fromMismatch && !toMismatch) {
+      return null;
+    }
+
+    return {
+      fromMismatch,
+      toMismatch,
+      signature: JSON.stringify({
+        fromCoords: routeLike.fromCoords ?? null,
+        toCoords: routeLike.toCoords ?? null,
+        firstPoint,
+        lastPoint
+      })
+    };
+  };
+
+  const extendManualGeometryToEndpoints = <T extends TravelRoute | TravelRouteSegment>(routeLike: T): T => {
+    const routePoints = routeLike.routePoints;
+    if (!routeLike.useManualRoutePoints || !routePoints || routePoints.length < 2) {
+      return routeLike;
+    }
+
+    let nextPoints = routePoints;
+    const firstPoint = nextPoints[0];
+    if (routeLike.fromCoords && !isSameManualPoint(routeLike.fromCoords, firstPoint)) {
+      nextPoints = [
+        ...interpolateEndpointBridge(routeLike.fromCoords, firstPoint),
+        ...nextPoints.slice(1)
+      ];
+    }
+
+    const lastPoint = nextPoints[nextPoints.length - 1];
+    if (routeLike.toCoords && !isSameManualPoint(routeLike.toCoords, lastPoint)) {
+      nextPoints = [
+        ...nextPoints.slice(0, -1),
+        ...interpolateEndpointBridge(lastPoint, routeLike.toCoords)
+      ];
+    }
+
+    return {
+      ...routeLike,
+      routePoints: nextPoints,
+      useManualRoutePoints: true
+    };
+  };
+
+  const dismissManualGeometryWarning = (warningKey: string, signature: string) => {
+    setDismissedManualGeometryWarnings(prev => ({ ...prev, [warningKey]: signature }));
+  };
+
+  const isManualGeometryWarningDismissed = (warningKey: string, signature: string) =>
+    dismissedManualGeometryWarnings[warningKey] === signature;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -543,6 +630,25 @@ export default function RouteInlineEditor({
     setSegmentImportError(prev => ({ ...prev, [segmentId]: '' }));
   };
 
+  const extendSubRouteManualRoute = (segmentId: string) => {
+    setFormData(prev => {
+      const subRoutes = prev.subRoutes?.map(segment =>
+        segment.id === segmentId
+          ? extendManualGeometryToEndpoints(segment)
+          : segment
+      );
+      return {
+        ...prev,
+        subRoutes
+      };
+    });
+    setDismissedManualGeometryWarnings(prev => {
+      const next = { ...prev };
+      delete next[`segment-${segmentId}`];
+      return next;
+    });
+  };
+
   const clearManualRoute = () => {
     setFormData(prev => ({
       ...prev,
@@ -551,6 +657,15 @@ export default function RouteInlineEditor({
     }));
     setImportStatus('');
     setImportError('');
+  };
+
+  const extendManualRoute = () => {
+    setFormData(prev => extendManualGeometryToEndpoints(prev));
+    setDismissedManualGeometryWarnings(prev => {
+      const next = { ...prev };
+      delete next.route;
+      return next;
+    });
   };
 
   const refreshSegmentCoords = async (index: number, key: 'fromCoords' | 'toCoords') => {
@@ -603,6 +718,11 @@ export default function RouteInlineEditor({
   const derivedRouteType = hasSubRoutes
     ? getCompositeTransportType(formData.subRoutes ?? [], formData.transportType || 'plane')
     : (formData.transportType || 'plane');
+
+  const routeManualMismatch = getManualGeometryMismatch(formData);
+  const showRouteManualMismatch = Boolean(
+    routeManualMismatch && !isManualGeometryWarningDismissed('route', routeManualMismatch.signature)
+  );
 
   const routeTransportOptions = hasSubRoutes
     ? [{ value: derivedRouteType, label: transportationLabels[derivedRouteType] }]
@@ -820,7 +940,14 @@ export default function RouteInlineEditor({
           </div>
           {hasSubRoutes ? (
             <div className="space-y-3">
-              {formData.subRoutes?.map((segment, index) => (
+              {formData.subRoutes?.map((segment, index) => {
+                const manualMismatch = getManualGeometryMismatch(segment);
+                const warningKey = `segment-${segment.id}`;
+                const showManualMismatch = Boolean(
+                  manualMismatch && !isManualGeometryWarningDismissed(warningKey, manualMismatch.signature)
+                );
+
+                return (
                 <div key={segment.id} className="border border-blue-200 dark:border-blue-600 rounded p-3 bg-white dark:bg-gray-800">
                   <div className="flex items-center justify-between">
                     <button
@@ -1159,16 +1286,48 @@ export default function RouteInlineEditor({
                       </div>
                     )}
                     {(segment.useManualRoutePoints && segment.routePoints?.length) ? (
-                      <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
-                        <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
-                        <button
-                          type="button"
-                          onClick={() => clearSubRouteManualRoute(segment.id)}
-                          className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                        >
-                          Clear manual route
-                        </button>
-                      </div>
+                      showManualMismatch && manualMismatch ? (
+                        <div className="rounded border border-amber-300 bg-amber-100/70 p-2 text-xs text-amber-900 dark:border-amber-600 dark:bg-amber-900/50 dark:text-amber-100">
+                          <div className="font-medium">Segment endpoints no longer match the manual route.</div>
+                          <div className="mt-1">
+                            Choose whether to keep the imported line, extend it with straight connector points, or remove it.
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => dismissManualGeometryWarning(warningKey, manualMismatch.signature)}
+                              className="px-2 py-1 bg-white text-amber-900 rounded hover:bg-amber-50 dark:bg-amber-800 dark:text-amber-100 dark:hover:bg-amber-700"
+                            >
+                              Keep as is
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => extendSubRouteManualRoute(segment.id)}
+                              className="px-2 py-1 bg-amber-700 text-white rounded hover:bg-amber-800"
+                            >
+                              Extend to endpoints
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => clearSubRouteManualRoute(segment.id)}
+                              className="px-2 py-1 bg-gray-200 text-gray-900 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+                            >
+                              Clear manual route
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
+                          <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
+                          <button
+                            type="button"
+                            onClick={() => clearSubRouteManualRoute(segment.id)}
+                            className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                          >
+                            Clear manual route
+                          </button>
+                        </div>
+                      )
                     ) : (
                       <div className="text-xs text-gray-600 dark:text-gray-300">
                         Tip: first feature with LineString is used; coordinates should be [lng, lat].
@@ -1195,7 +1354,8 @@ export default function RouteInlineEditor({
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-xs text-gray-600 dark:text-gray-300">
@@ -1350,16 +1510,48 @@ export default function RouteInlineEditor({
               </div>
             )}
             {(formData.useManualRoutePoints && formData.routePoints?.length) ? (
-              <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
-                <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
-                <button
-                  type="button"
-                  onClick={clearManualRoute}
-                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Clear manual route
-                </button>
-              </div>
+              showRouteManualMismatch && routeManualMismatch ? (
+                <div className="rounded border border-amber-300 bg-amber-100/70 p-2 text-xs text-amber-900 dark:border-amber-600 dark:bg-amber-900/50 dark:text-amber-100">
+                  <div className="font-medium">Route endpoints no longer match the manual route.</div>
+                  <div className="mt-1">
+                    Choose whether to keep the imported line, extend it with straight connector points, or remove it.
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => dismissManualGeometryWarning('route', routeManualMismatch.signature)}
+                      className="px-2 py-1 bg-white text-amber-900 rounded hover:bg-amber-50 dark:bg-amber-800 dark:text-amber-100 dark:hover:bg-amber-700"
+                    >
+                      Keep as is
+                    </button>
+                    <button
+                      type="button"
+                      onClick={extendManualRoute}
+                      className="px-2 py-1 bg-amber-700 text-white rounded hover:bg-amber-800"
+                    >
+                      Extend to endpoints
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearManualRoute}
+                      className="px-2 py-1 bg-gray-200 text-gray-900 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+                    >
+                      Clear manual route
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-200">
+                  <span>Manual route locked in; recalculation won&apos;t overwrite it unless you clear it.</span>
+                  <button
+                    type="button"
+                    onClick={clearManualRoute}
+                    className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Clear manual route
+                  </button>
+                </div>
+              )
             ) : (
               <div className="text-xs text-gray-600 dark:text-gray-300">
                 Tip: first feature with LineString is used; coordinates should be [lng, lat].
