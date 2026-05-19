@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import OfflineDeltaBanner from '@/app/components/OfflineDeltaBanner';
 import {
   getOfflineQueueEntries,
@@ -70,5 +70,33 @@ describe('OfflineDeltaBanner', () => {
     expect(getOfflineQueueEntries()).toHaveLength(0);
 
     confirmSpy.mockRestore();
+  });
+
+  it('refreshes conflict detail entries when a mounted banner receives a summary event', async () => {
+    const base = makeTravelData();
+    const pending = makeTravelData({ title: 'Offline Title Change' });
+    const serverChanged = makeTravelData({ description: 'Server changed while offline' });
+
+    queueTravelDelta({
+      id: base.id || 'trip-conflict-1',
+      baseSnapshot: base,
+      pendingSnapshot: pending
+    });
+
+    render(<OfflineDeltaBanner />);
+
+    expect(await screen.findByText(/offline change set\(s\) are pending/i)).toBeInTheDocument();
+
+    global.fetch = jest.fn().mockResolvedValueOnce(makeResponse(serverChanged)) as unknown as typeof fetch;
+
+    await act(async () => {
+      await syncOfflineDeltaQueue();
+    });
+
+    expect(await screen.findByText(/could not be synced because server data changed/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /review conflicts/i }));
+
+    expect(await screen.findByText(/travel map: trip-conflict-1/i)).toBeInTheDocument();
   });
 });
