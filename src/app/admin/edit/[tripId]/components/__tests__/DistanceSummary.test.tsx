@@ -248,6 +248,51 @@ describe('DistanceSummary', () => {
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
     });
 
+    it('includes valid zero-distance subRoutes in type summaries', () => {
+      const routeWithZeroDistanceSubRoute: TravelRoute = {
+        ...routeWithSubRoutes,
+        subRoutes: [
+          {
+            ...routeWithSubRoutes.subRoutes![0],
+            transportType: 'train',
+            distanceOverride: 0,
+            routePoints: [
+              [40.7128, -74.0060],
+              [45.0, -60.0],
+              [51.5074, -0.1278]
+            ]
+          }
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithZeroDistanceSubRoute]} />);
+
+      expect(screen.getByText(/By transportation type \(all routes\):/)).toBeInTheDocument();
+      expect(screen.getByText('Train')).toBeInTheDocument();
+      expect(screen.getByText('(1 route)')).toBeInTheDocument();
+      expect(screen.getAllByText('0.0 km').length).toBeGreaterThan(1);
+    });
+
+    it('does not add subRoutes with no valid distance source to type summaries', () => {
+      const routeWithMissingDistanceSubRoute: TravelRoute = {
+        ...routeWithSubRoutes,
+        subRoutes: [
+          {
+            ...routeWithSubRoutes.subRoutes![0],
+            transportType: 'train',
+            fromCoords: undefined,
+            toCoords: undefined,
+            routePoints: undefined
+          } as Partial<TravelRoute> as TravelRoute
+        ]
+      };
+
+      render(<DistanceSummary routes={[routeWithMissingDistanceSubRoute]} />);
+
+      expect(screen.queryByText(/By transportation type \(all routes\):/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Train')).not.toBeInTheDocument();
+    });
+
     it('normalizes malformed sub-route transport types before rendering breakdowns', () => {
       const malformedSubRoute = {
         ...routeWithSubRoutes,

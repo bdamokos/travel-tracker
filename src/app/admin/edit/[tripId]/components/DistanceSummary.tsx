@@ -36,10 +36,10 @@ function calculateDistanceFromPoints(points: [number, number][]): number {
  * Calculates the distance for a single route segment
  * Prefers distanceOverride if provided, then routePoints, then endpoint calculation
  * @param segment - TravelRouteSegment containing route data
- * @returns Distance in kilometers, doubled if doubleDistance flag is set
+ * @returns Distance in kilometers, doubled if doubleDistance flag is set, or null when no valid source exists
  */
-function getSegmentDistance(segment: TravelRoute): number {
-  let distance = 0;
+function getSegmentDistance(segment: TravelRoute): number | null {
+  let distance: number | null = null;
   const overrideDistance = segment.distanceOverride;
 
   if (typeof overrideDistance === 'number' && Number.isFinite(overrideDistance)) {
@@ -48,6 +48,10 @@ function getSegmentDistance(segment: TravelRoute): number {
     distance = calculateDistanceFromPoints(segment.routePoints);
   } else if (segment.fromCoords && segment.toCoords) {
     distance = calculateDistance(segment.fromCoords, segment.toCoords);
+  }
+
+  if (distance === null || !Number.isFinite(distance)) {
+    return null;
   }
 
   // Double the distance if the segment has doubleDistance flag set
@@ -120,7 +124,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
       if (route.subRoutes && route.subRoutes.length > 0) {
         route.subRoutes.forEach(subRoute => {
           const distance = getSegmentDistance(subRoute);
-          if (distance === 0) return;
+          if (distance === null) return;
 
           const type = normalizeTransportationType(subRoute.transportType);
           const existing = byType.get(type) || { distance: 0, count: 0 };
@@ -152,7 +156,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
         });
       } else {
         // For simple routes, use the route's transport type
-        const routeDistance = getSegmentDistance(route);
+        const routeDistance = getSegmentDistance(route) ?? 0;
         const type = normalizeTransportationType(route.transportType);
         const existing = byType.get(type) || { distance: 0, count: 0 };
         byType.set(type, {
