@@ -756,7 +756,7 @@ export default function RouteForm({
             <AriaComboBox
               id="route-from"
               name="from"
-              defaultValue={currentRoute.from || ''}
+              value={currentRoute.from || ''}
               onChange={(value) => handleRouteLocationChange('from', value)}
               required
               options={locationChoiceOptions}
@@ -783,7 +783,7 @@ export default function RouteForm({
             <AriaComboBox
               id="route-to"
               name="to"
-              defaultValue={currentRoute.to || ''}
+              value={currentRoute.to || ''}
               onChange={(value) => handleRouteLocationChange('to', value)}
               required
               options={locationChoiceOptions}
