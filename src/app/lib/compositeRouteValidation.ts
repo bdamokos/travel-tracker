@@ -54,12 +54,15 @@ const isSameCoords = (left?: [number, number], right?: [number, number]) => {
 };
 
 const getInvalidTransportField = (segment: RouteSegmentLike): 'type' | 'transportType' | null => {
-  if (segment.transportType !== undefined && !isTransportationType(segment.transportType)) {
-    return 'transportType';
-  }
+  const fields: Array<['transportType' | 'type', unknown]> = [
+    ['transportType', segment.transportType],
+    ['type', segment.type]
+  ];
 
-  if (segment.type !== undefined && !isTransportationType(segment.type)) {
-    return 'type';
+  for (const [field, value] of fields) {
+    if (value !== undefined && !isTransportationType(value)) {
+      return field;
+    }
   }
 
   return null;
