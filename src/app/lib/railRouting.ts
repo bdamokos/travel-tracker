@@ -201,6 +201,7 @@ const buildRailGraph = (
   }
 
   const edges = new Map<number, Edge[]>();
+  let edgeCount = 0;
 
   const addEdge = (fromId: number, toId: number, weight: number) => {
     edgeCount += 1;
@@ -214,8 +215,6 @@ const buildRailGraph = (
 
     edges.get(fromId)!.push({ to: toId, weight });
   };
-
-  let edgeCount = 0;
 
   for (const way of ways) {
     const nodeIds = way.nodes ?? [];

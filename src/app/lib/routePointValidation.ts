@@ -32,7 +32,7 @@ export const validateRoutePoints = (
   points: unknown,
   label = 'routePoints'
 ): RoutePointValidationResult => {
-  if (points === undefined) {
+  if (points === undefined || points === null) {
     return { ok: true, points: [] };
   }
 
