@@ -82,4 +82,25 @@ describe('unifiedDataService.updateCostData reserved budget persistence', () => 
 
     expect(reloaded?.costData?.reservedBudget).toBe(250);
   });
+
+  it('does not persist NaN for malformed reserved budget values', async () => {
+    const { updateCostData, loadUnifiedTripData } = await import('../../lib/unifiedDataService');
+
+    await seedCostTrip('reservedBudgetMalformed', 250);
+
+    await updateCostData('reservedBudgetMalformed', {
+      tripTitle: 'Reserved Budget Malformed',
+      tripStartDate: '2025-01-01',
+      tripEndDate: '2025-01-02',
+      overallBudget: 1000,
+      reservedBudget: 'not-a-number',
+      currency: 'EUR',
+      countryBudgets: [],
+      expenses: []
+    });
+
+    const reloaded = await loadUnifiedTripData('reservedBudgetMalformed');
+
+    expect(reloaded?.costData?.reservedBudget).toBe(0);
+  });
 });

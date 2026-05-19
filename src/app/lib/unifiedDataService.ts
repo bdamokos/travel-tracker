@@ -792,10 +792,11 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
   const overallBudget = Math.max(0, incomingOverall);
   const hasReservedBudgetUpdate = Object.prototype.hasOwnProperty.call(costUpdates, 'reservedBudget');
   const incomingReserved = costUpdates.reservedBudget;
+  const incomingReservedNumber = Number(incomingReserved);
   const reservedBudget = hasReservedBudgetUpdate
     ? incomingReserved === null || incomingReserved === undefined
       ? undefined
-      : Math.min(Math.max(0, incomingReserved as number), overallBudget)
+      : Math.min(Math.max(0, Number.isFinite(incomingReservedNumber) ? incomingReservedNumber : 0), overallBudget)
     : existing?.costData?.reservedBudget;
 
   const defaultData: UnifiedTripData = {
