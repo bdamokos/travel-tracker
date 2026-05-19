@@ -19,11 +19,17 @@ import { getCachedCostTracker, setCachedCostTracker } from '@/app/lib/costTracke
 function migrateCostData(costData: CostTrackingData): CostTrackingData {
   return {
     ...costData,
-    reservedBudget: costData.reservedBudget ?? 0,
     expenses: costData.expenses.map((expense) => ({
       ...expense,
       expenseType: expense.expenseType || 'actual'
     }))
+  };
+}
+
+function serializeCostDataForSave(costData: CostTrackingData): Omit<CostTrackingData, 'reservedBudget'> & { reservedBudget: number | null } {
+  return {
+    ...costData,
+    reservedBudget: costData.reservedBudget ?? null
   };
 }
 
@@ -207,7 +213,7 @@ export default function CostTrackingPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(costData),
+          body: JSON.stringify(serializeCostDataForSave(costData)),
         });
       } catch (error) {
         console.warn('Auto-save (full) network failure, queuing offline delta:', error);
@@ -392,8 +398,8 @@ export default function CostTrackingPage() {
       const url = isNewCostTracker ? `${baseUrl}/api/cost-tracking` : `${baseUrl}/api/cost-tracking?id=${costData.id}`;
       
       const dataToSave = isNewCostTracker 
-        ? { ...costData, id: undefined }
-        : costData;
+        ? { ...serializeCostDataForSave(costData), id: undefined }
+        : serializeCostDataForSave(costData);
       
       const response = await fetch(url, {
         method,
