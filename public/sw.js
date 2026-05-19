@@ -66,25 +66,14 @@ const isRedirectResponse = (response) => {
   return isHttpRedirectStatus(response.status);
 };
 
-const isCacheableResponse = (response) => {
+const isCacheableResponse = (response, options = {}) => {
+  const { allowRedirected = false } = options;
+
   if (!response || !response.ok) {
     return false;
   }
 
-  if (response.redirected) {
-    return false;
-  }
-
-  if (response.type !== 'basic' && response.type !== 'cors') {
-    return false;
-  }
-
-  const cacheControl = response.headers.get('Cache-Control') || '';
-  return !cacheControl.toLowerCase().includes('no-store');
-};
-
-const isCacheablePrecacheShellResponse = (response) => {
-  if (!response || !response.ok) {
+  if (response.redirected && !allowRedirected) {
     return false;
   }
 
@@ -314,7 +303,7 @@ const resolvePreCacheResponse = async (url) => {
 
     if (response.type === 'opaqueredirect') {
       const followedResponse = await fetchWithTimeout(requestUrl, { redirect: 'follow' });
-      if (!isCacheablePrecacheShellResponse(followedResponse)) {
+      if (!isCacheableResponse(followedResponse, { allowRedirected: true })) {
         break;
       }
 
