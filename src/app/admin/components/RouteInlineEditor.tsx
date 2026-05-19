@@ -8,6 +8,7 @@ import { coerceValidDate } from '@/app/lib/dateUtils';
 import { parseDistanceOverride } from '@/app/lib/distanceOverride';
 import { generateId } from '@/app/lib/costUtils';
 import { formatLocalDateLabel, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
+import { parseGeoJsonRouteImport, validateGeoJsonRouteImportFile } from '@/app/lib/geoJsonRouteImport';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -60,6 +61,10 @@ export default function RouteInlineEditor({
   const routeDateValue = useMemo(
     () => parseDateAsLocalDay(formData.date),
     [formData.date]
+  );
+  const subRouteTransportTypesKey = useMemo(
+    () => formData.subRoutes?.map(segment => segment.transportType).join('|') ?? '',
+    [formData.subRoutes]
   );
   const locationChoiceOptions = useMemo(
     () => locationOptions.map(location => ({ value: location.name, label: location.name })),
@@ -120,7 +125,7 @@ export default function RouteInlineEditor({
     });
   }, [
     formData.subRoutes?.length,
-    formData.subRoutes?.map(segment => segment.transportType).join('|')
+    subRouteTransportTypesKey
   ]);
 
   useEffect(() => {
@@ -467,76 +472,13 @@ export default function RouteInlineEditor({
     });
   };
 
-  const extractCoordinates = (geojson: unknown): [number, number][] | null => {
-    const toLatLng = (pair: unknown): [number, number] | null => {
-      if (!Array.isArray(pair) || pair.length < 2) return null;
-      const [lng, lat] = pair;
-      if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-      return [lat, lng];
-    };
-
-    const pickLine = (geometry: unknown): unknown[] | null => {
-      if (!geometry || typeof geometry !== 'object') return null;
-      const geom = geometry as { type?: unknown; coordinates?: unknown };
-      if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
-        return geom.coordinates;
-      }
-      if (
-        geom.type === 'MultiLineString' &&
-        Array.isArray(geom.coordinates) &&
-        Array.isArray((geom.coordinates as unknown[])[0])
-      ) {
-        return (geom.coordinates as unknown[])[0] as unknown[];
-      }
-      return null;
-    };
-
-    if (
-      geojson &&
-      typeof geojson === 'object' &&
-      (geojson as { type?: unknown }).type === 'FeatureCollection'
-    ) {
-      const features = (geojson as { features?: unknown }).features;
-      if (Array.isArray(features)) {
-        for (const feature of features) {
-          const geometry = (feature as { geometry?: unknown }).geometry;
-          const coords = pickLine(geometry);
-          if (coords) {
-            const normalized = coords.map(toLatLng).filter((val): val is [number, number] => Boolean(val));
-            if (normalized.length) return normalized;
-          }
-        }
-      }
-    }
-
-    if (geojson && typeof geojson === 'object' && (geojson as { type?: unknown }).type === 'Feature') {
-      const geometry = (geojson as { geometry?: unknown }).geometry;
-      const coords = pickLine(geometry);
-      if (coords) return coords.map(toLatLng).filter((val): val is [number, number] => Boolean(val));
-    }
-
-    if (geojson && typeof geojson === 'object') {
-      const type = (geojson as { type?: unknown }).type;
-      if (type === 'LineString' || type === 'MultiLineString') {
-        const coords = pickLine(geojson);
-        if (coords) return coords.map(toLatLng).filter((val): val is [number, number] => Boolean(val));
-      }
-    }
-
-    return null;
-  };
-
   const handleGeoJSONImport = async (file: File) => {
     setImportError('');
     setImportStatus('Importing...');
     try {
+      validateGeoJsonRouteImportFile(file);
       const text = await file.text();
-      const parsed = JSON.parse(text) as unknown;
-      const rawCoords = extractCoordinates(parsed);
-
-      if (!rawCoords || rawCoords.length === 0) {
-        throw new Error('No LineString coordinates found in GeoJSON');
-      }
+      const rawCoords = parseGeoJsonRouteImport(text);
 
       setFormData(prev => ({
         ...prev,
@@ -555,13 +497,9 @@ export default function RouteInlineEditor({
     setSegmentImportStatus(prev => ({ ...prev, [segmentId]: 'Importing...' }));
 
     try {
+      validateGeoJsonRouteImportFile(file);
       const text = await file.text();
-      const parsed = JSON.parse(text) as unknown;
-      const rawCoords = extractCoordinates(parsed);
-
-      if (!rawCoords || rawCoords.length === 0) {
-        throw new Error('No LineString coordinates found in GeoJSON');
-      }
+      const rawCoords = parseGeoJsonRouteImport(text);
 
       setFormData(prev => {
         const subRoutes = prev.subRoutes?.map(segment =>
