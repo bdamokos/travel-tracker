@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { TravelRoute, TransportationType } from '@/app/types';
-import { transportationConfig } from '@/app/lib/routeUtils';
+import { normalizeTransportationType, transportationConfig } from '@/app/lib/routeUtils';
 import { calculateDistance } from '@/app/services/geocoding';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -122,7 +122,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
           const distance = getSegmentDistance(subRoute);
           if (distance === 0) return;
 
-          const type = subRoute.transportType;
+          const type = normalizeTransportationType(subRoute.transportType);
           const existing = byType.get(type) || { distance: 0, count: 0 };
           byType.set(type, {
             distance: existing.distance + distance,
@@ -153,7 +153,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
       } else {
         // For simple routes, use the route's transport type
         const routeDistance = getSegmentDistance(route);
-        const type = route.transportType;
+        const type = normalizeTransportationType(route.transportType);
         const existing = byType.get(type) || { distance: 0, count: 0 };
         byType.set(type, {
           distance: existing.distance + routeDistance,
@@ -186,8 +186,8 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
           type,
           distance: data.distance,
           count: data.count,
-          label: transportationConfig[type]?.description || type,
-          color: transportationConfig[type]?.color || '#607D8B',
+          label: transportationConfig[type].description,
+          color: transportationConfig[type].color,
         }))
         .sort((a, b) => b.distance - a.distance);
     };
