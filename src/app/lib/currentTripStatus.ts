@@ -8,8 +8,8 @@ export type LocationTiming = {
 };
 
 export type RouteTiming = {
-  from: string;
-  to: string;
+  from: unknown;
+  to: unknown;
   date?: string | Date;
   departureTime?: string | Date;
   arrivalTime?: string | Date;
@@ -23,6 +23,14 @@ const normalizeDate = (value: string | Date | undefined | null): Date | null => 
 };
 
 const isSameDay = (a: Date, b: Date): boolean => a.getTime() === b.getTime();
+const getNonEmptyString = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim().length > 0 ? value : null;
+const getComparableName = (value: unknown): string | null => getNonEmptyString(value)?.trim().toLowerCase() ?? null;
+const hasSameName = (left: unknown, right: unknown): boolean => {
+  const normalizedLeft = getComparableName(left);
+  const normalizedRight = getComparableName(right);
+  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
+};
 
 export const getCurrentTripStatus = (
   locations: LocationTiming[],
@@ -36,12 +44,16 @@ export const getCurrentTripStatus = (
     const departure = normalizeDate(route.departureTime ?? route.date);
     const arrival = normalizeDate(route.arrivalTime ?? route.departureTime ?? route.date);
     if (!departure) continue;
+    const from = getNonEmptyString(route.from);
+    const to = getNonEmptyString(route.to);
+    if (!from || !to) continue;
+
     const routeEnd = arrival && arrival >= departure ? arrival : departure;
     if (today >= departure && today <= routeEnd) {
-      return `Current location: Travelling today between ${route.from} and ${route.to}`;
+      return `Current location: Travelling today between ${from} and ${to}`;
     }
     if (isSameDay(today, departure)) {
-      return `Current location: Travelling today between ${route.from} and ${route.to}`;
+      return `Current location: Travelling today between ${from} and ${to}`;
     }
   }
 
@@ -64,11 +76,11 @@ export const getCurrentTripStatus = (
     // Try to find a matching route between them
     const matchingRoute = routes.find(
       (r) =>
-        r.from.toLowerCase() === departing.name.toLowerCase() &&
-        r.to.toLowerCase() === arriving.name.toLowerCase()
+        hasSameName(r.from, departing.name) &&
+        hasSameName(r.to, arriving.name)
     );
-    const from = matchingRoute ? matchingRoute.from : departing.name;
-    const to = matchingRoute ? matchingRoute.to : arriving.name;
+    const from = getNonEmptyString(matchingRoute?.from) ?? departing.name;
+    const to = getNonEmptyString(matchingRoute?.to) ?? arriving.name;
     return `Current location: Travelling today between ${from} and ${to}`;
   }
 
@@ -77,10 +89,14 @@ export const getCurrentTripStatus = (
     if (isSameDay(today, end)) {
       // Last day at this location — check if there's a route departing from here
       const departingRoute = routes.find(
-        (r) => r.from.toLowerCase() === loc.name.toLowerCase()
+        (r) => hasSameName(r.from, loc.name)
       );
       if (departingRoute) {
-        return `Current location: Travelling today between ${departingRoute.from} and ${departingRoute.to}`;
+        const from = getNonEmptyString(departingRoute.from);
+        const to = getNonEmptyString(departingRoute.to);
+        if (from && to) {
+          return `Current location: Travelling today between ${from} and ${to}`;
+        }
       }
     }
     // Normal single location (or last day with no route)

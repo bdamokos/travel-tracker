@@ -95,6 +95,12 @@ const normalizeCompositeRoutes = (
     }
 
     switch (validation.error.code) {
+      case 'invalid_route_name':
+        return {
+          error: validation.error.segmentNumber
+            ? `Route ${route.id} sub-route ${validation.error.segmentNumber} ${validation.error.field} must be a non-empty string`
+            : `Route ${route.id} ${validation.error.field} must be a non-empty string`
+        };
       case 'from_mismatch':
         return { error: `Route ${route.id} from does not match sub-route start` };
       case 'to_mismatch':

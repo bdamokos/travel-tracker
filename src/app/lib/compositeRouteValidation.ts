@@ -1,6 +1,6 @@
 type RouteSegmentLike = {
-  from?: string;
-  to?: string;
+  from?: unknown;
+  to?: unknown;
   fromCoords?: [number, number];
   toCoords?: [number, number];
   distanceOverride?: number;
@@ -12,6 +12,7 @@ export type CompositeRouteLike = RouteSegmentLike & {
 };
 
 export type CompositeRouteValidationError =
+  | { code: 'invalid_route_name'; field: 'from' | 'to'; segmentNumber?: number }
   | { code: 'from_mismatch' }
   | { code: 'to_mismatch' }
   | { code: 'from_coords_mismatch' }
@@ -25,9 +26,13 @@ export type CompositeRouteValidationResult =
 // Allow sub-meter coordinate drift from serialization/geocoding differences.
 const COORD_EPSILON = 1e-6;
 
-const normalizeLocationName = (value?: string) => value?.trim().toLowerCase() || '';
+const isValidOptionalLocationName = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string';
 
-const isSameLocationName = (left?: string, right?: string) => {
+const normalizeLocationName = (value?: unknown) => typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+const isSameLocationName = (left?: unknown, right?: unknown) => {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
   if (!left || !right) return false;
   return normalizeLocationName(left) === normalizeLocationName(right);
 };
@@ -57,9 +62,28 @@ const findDisconnectedSegmentNumber = (subRoutes: RouteSegmentLike[]): number | 
 };
 
 export const validateAndNormalizeCompositeRoute = (route: CompositeRouteLike): CompositeRouteValidationResult => {
+  if (!isValidOptionalLocationName(route.from)) {
+    return { ok: false, error: { code: 'invalid_route_name', field: 'from' } };
+  }
+
+  if (!isValidOptionalLocationName(route.to)) {
+    return { ok: false, error: { code: 'invalid_route_name', field: 'to' } };
+  }
+
   const subRoutes = route.subRoutes;
   if (!subRoutes?.length) {
     return { ok: true, normalizedRoute: route };
+  }
+
+  for (let index = 0; index < subRoutes.length; index += 1) {
+    const segment = subRoutes[index];
+    if (!isValidOptionalLocationName(segment.from)) {
+      return { ok: false, error: { code: 'invalid_route_name', field: 'from', segmentNumber: index + 1 } };
+    }
+
+    if (!isValidOptionalLocationName(segment.to)) {
+      return { ok: false, error: { code: 'invalid_route_name', field: 'to', segmentNumber: index + 1 } };
+    }
   }
 
   const first = subRoutes[0];
