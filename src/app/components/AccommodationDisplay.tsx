@@ -5,6 +5,7 @@ import { parseAccommodationData, PrivacyOptions } from '@/app/lib/privacyUtils';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { CostTrackingData } from '@/app/types';
 import { formatCurrency } from '@/app/lib/costUtils';
+import { isSafePublicHttpUrl } from '@/app/lib/publicUrlValidation';
 
 interface AccommodationDisplayProps {
   accommodationData?: string;
@@ -64,6 +65,9 @@ export default function AccommodationDisplay({
     }
 
     const data = parsedAccommodationData.data;
+    const safeWebsiteUrl = data.website && isSafePublicHttpUrl(data.website)
+      ? data.website
+      : null;
     
     return (
       <div className={`space-y-2 ${className}`}>
@@ -98,14 +102,20 @@ export default function AccommodationDisplay({
           {data.website && (
             <div className="flex items-center gap-2 text-sm">
               <span>🌐</span>
-              <a 
-                href={data.website} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline"
-              >
-                {data.website}
-              </a>
+              {safeWebsiteUrl ? (
+                <a 
+                  href={safeWebsiteUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  {data.website}
+                </a>
+              ) : (
+                <span className="text-gray-800 dark:text-gray-200">
+                  {data.website}
+                </span>
+              )}
             </div>
           )}
           

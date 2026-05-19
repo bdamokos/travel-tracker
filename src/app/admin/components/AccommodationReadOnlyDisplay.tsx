@@ -2,6 +2,7 @@
 
 import { Accommodation, CostTrackingData } from '@/app/types';
 import { parseAccommodationData } from '@/app/lib/privacyUtils';
+import { isSafePublicHttpUrl } from '@/app/lib/publicUrlValidation';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import { formatCurrency } from '@/app/lib/costUtils';
 import { useExpenseLinksForTravelItem } from '@/app/hooks/useExpenseLinks';
@@ -22,6 +23,9 @@ export default function AccommodationReadOnlyDisplay({
   className = ''
 }: AccommodationReadOnlyDisplayProps) {
   const parsedData = parseAccommodationData(accommodation.accommodationData || '');
+  const safeWebsiteUrl = parsedData.data?.website && isSafePublicHttpUrl(parsedData.data.website)
+    ? parsedData.data.website
+    : null;
   
   // Use our new SWR hooks for real-time data
   const { expenseLinks } = useExpenseLinksForTravelItem(tripId, accommodation.id);
@@ -58,14 +62,20 @@ export default function AccommodationReadOnlyDisplay({
         {data.website && (
           <div className="flex items-center gap-2 text-sm">
             <span>🌐</span>
-            <a 
-              href={data.website} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              {data.website}
-            </a>
+            {safeWebsiteUrl ? (
+              <a 
+                href={safeWebsiteUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                {data.website}
+              </a>
+            ) : (
+              <span className="text-gray-800 dark:text-gray-200">
+                {data.website}
+              </span>
+            )}
           </div>
         )}
         
