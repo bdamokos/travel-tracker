@@ -62,6 +62,26 @@ describe('toMapRouteSegment', () => {
     expect(defaultMapped.fromCoords).toEqual([0, 0]);
     expect(defaultMapped.toCoords).toEqual([0, 0]);
   });
+
+  it('normalizes invalid route and segment transport types to other', () => {
+    const mapped = toMapRouteSegment({
+      id: 'route-invalid-type',
+      from: 'A',
+      to: 'B',
+      transportType: 'sidecar',
+      subRoutes: [
+        {
+          id: 'segment-invalid-type',
+          from: 'A',
+          to: 'B',
+          type: 'wagon'
+        }
+      ]
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    expect(mapped.transportType).toBe('other');
+    expect(mapped.subRoutes?.[0].transportType).toBe('other');
+  });
 });
 
 describe('normalizeMapTravelData', () => {

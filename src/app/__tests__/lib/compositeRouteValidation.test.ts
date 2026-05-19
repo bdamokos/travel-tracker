@@ -134,4 +134,69 @@ describe('validateAndNormalizeCompositeRoute', () => {
     }
     expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from', segmentNumber: 2 });
   });
+
+  it('rejects unsupported top-level transport types', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'B',
+      transportType: 'sidecar'
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected invalid transport type validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_transport_type', field: 'transportType' });
+  });
+
+  it('rejects unsupported legacy route types even when transportType is valid', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'B',
+      transportType: 'train',
+      type: 'sidecar'
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected invalid legacy route type validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_transport_type', field: 'type' });
+  });
+
+  it('rejects unsupported legacy top-level route types', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'B',
+      type: 'sidecar'
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected invalid legacy route type validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_transport_type', field: 'type' });
+  });
+
+  it('rejects unsupported sub-route transport types', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'C',
+      transportType: 'train',
+      subRoutes: [
+        { from: 'A', to: 'B', transportType: 'train' },
+        { from: 'B', to: 'C', transportType: { label: 'sidecar' } }
+      ]
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected invalid sub-route transport type validation failure');
+    }
+    expect(result.error).toEqual({
+      code: 'invalid_transport_type',
+      field: 'transportType',
+      segmentNumber: 2
+    });
+  });
 });

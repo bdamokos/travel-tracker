@@ -99,8 +99,8 @@ export const transportationColors = Object.fromEntries(
 );
 
 // Get route style for a transportation type
-export const getRouteStyle = (type: Transportation['type']) => {
-  const config = transportationConfig[type] || transportationConfig.other;
+export const getRouteStyle = (type: unknown) => {
+  const config = transportationConfig[normalizeTransportationType(type)] || transportationConfig.other;
   return {
     color: config.color,
     weight: config.weight,
@@ -115,8 +115,19 @@ export const transportationLabels = Object.fromEntries(
   Object.entries(transportationConfig).map(([key, config]) => [key, config.description])
 );
 
+export const isTransportationType = (value: unknown): value is Transportation['type'] =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(transportationConfig, value);
+
+export const normalizeTransportationType = (
+  value: unknown,
+  fallback: Transportation['type'] = 'other'
+): Transportation['type'] => isTransportationType(value) ? value : fallback;
+
+export const getTransportationLabel = (value: unknown): string =>
+  transportationLabels[normalizeTransportationType(value)];
+
 // Get emoji icon for a transport type
-export const getTransportIcon = (type: Transportation['type']): string => {
+export const getTransportIcon = (type: unknown): string => {
   const icons: Record<Transportation['type'], string> = {
     plane: '✈️',
     car: '🚗',
@@ -131,25 +142,25 @@ export const getTransportIcon = (type: Transportation['type']): string => {
     multimodal: '🔀',
     other: '🚙'
   };
-  return icons[type] || '🚙';
+  return icons[normalizeTransportationType(type)];
 };
 
 // Get emoji for multimodal routes (concatenated from segment emojis)
-export const getMultiSegmentEmoji = <T extends { transportType?: Transportation['type']; type?: Transportation['type'] }>(
+export const getMultiSegmentEmoji = <T extends { transportType?: unknown; type?: unknown }>(
   segments: T[]
 ): string => {
-  return segments.map(segment => getTransportIcon(segment.transportType || segment.type || 'other')).join('');
+  return segments.map(segment => getTransportIcon(segment.transportType || segment.type)).join('');
 };
 
 // Resolve a composite transport type for multi-segment routes
-export const getCompositeTransportType = <T extends { transportType?: Transportation['type']; type?: Transportation['type'] }>(
+export const getCompositeTransportType = <T extends { transportType?: unknown; type?: unknown }>(
   segments: T[],
   fallback: Transportation['type'] = 'other'
 ): Transportation['type'] => {
   const types = new Set(
     segments
       .map(segment => segment.transportType || segment.type)
-      .filter((type): type is Transportation['type'] => Boolean(type))
+      .filter(isTransportationType)
   );
 
   if (types.size === 0) return fallback;

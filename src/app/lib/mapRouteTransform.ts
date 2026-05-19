@@ -4,6 +4,7 @@ import {
   type MapTravelData,
   type MapTravelLocation
 } from '@/app/types';
+import { normalizeTransportationType } from '@/app/lib/routeUtils';
 
 type RouteLike = {
   id: string;
@@ -32,7 +33,8 @@ const resolveCoords = (
   legacy?: [number, number]
 ): [number, number] => primary || legacy || [0, 0];
 
-const resolveTransportType = (route: RouteLike): string => route.transportType || route.type || 'other';
+const resolveTransportType = (route: RouteLike): string =>
+  normalizeTransportationType(route.transportType || route.type);
 
 const resolveDate = (route: RouteLike): string => {
   const value = route.date || route.departureTime;

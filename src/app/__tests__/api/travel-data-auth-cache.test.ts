@@ -259,4 +259,83 @@ describe('travel-data API auth and cache boundary', () => {
     expect(mockLoadUnifiedTripData).not.toHaveBeenCalled();
     expect(mockUpdateTravelData).not.toHaveBeenCalled();
   });
+
+  it('coerces stale stored route transport types before validating unrelated delta PATCH updates', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockLoadUnifiedTripData.mockResolvedValue({
+      ...buildTrip(),
+      travelData: {
+        ...buildTrip().travelData,
+        locations: [
+          {
+            id: 'location-1',
+            name: 'Admin Location',
+            coordinates: [52.52, 13.405]
+          }
+        ],
+        routes: [
+          {
+            id: 'route-1',
+            from: 'A',
+            to: 'B',
+            transportType: 'sidecar',
+            subRoutes: [
+              {
+                id: 'segment-1',
+                from: 'A',
+                to: 'B',
+                type: 'wagon'
+              }
+            ]
+          }
+        ]
+      }
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    const response = await PATCH(
+      new NextRequest('https://admin.example.test/api/travel-data?id=trip-1', {
+        method: 'PATCH',
+        headers: { host: 'admin.example.test' },
+        body: JSON.stringify({
+          deltaUpdate: {
+            locations: {
+              updated: [
+                {
+                  id: 'location-1',
+                  name: 'Renamed Location'
+                }
+              ]
+            }
+          }
+        })
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result).toEqual({
+      success: true,
+      message: 'Delta applied successfully'
+    });
+    expect(mockUpdateTravelData).toHaveBeenCalledWith('trip-1', expect.objectContaining({
+      locations: [
+        expect.objectContaining({
+          id: 'location-1',
+          name: 'Renamed Location'
+        })
+      ],
+      routes: [
+        expect.objectContaining({
+          id: 'route-1',
+          transportType: 'other',
+          subRoutes: [
+            expect.objectContaining({
+              id: 'segment-1',
+              type: 'other'
+            })
+          ]
+        })
+      ]
+    }));
+  });
 });
