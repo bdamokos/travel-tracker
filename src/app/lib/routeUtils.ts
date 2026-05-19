@@ -149,7 +149,7 @@ export const getTransportIcon = (type: unknown): string => {
 export const getMultiSegmentEmoji = <T extends { transportType?: unknown; type?: unknown }>(
   segments: T[]
 ): string => {
-  return segments.map(segment => getTransportIcon(segment.transportType || segment.type || 'other')).join('');
+  return segments.map(segment => getTransportIcon(segment.transportType || segment.type)).join('');
 };
 
 // Resolve a composite transport type for multi-segment routes
