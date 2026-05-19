@@ -21,6 +21,8 @@ const SAFE_TRIP_ID_PATTERN = /^[A-Za-z0-9]+$/;
 type RouteSegmentPayload = {
   from: string;
   to: string;
+  type?: unknown;
+  transportType?: unknown;
   fromCoords?: [number, number];
   toCoords?: [number, number];
   routePoints?: [number, number][];
@@ -100,6 +102,12 @@ const normalizeCompositeRoutes = (
           error: validation.error.segmentNumber
             ? `Route ${route.id} sub-route ${validation.error.segmentNumber} ${validation.error.field} must be a non-empty string`
             : `Route ${route.id} ${validation.error.field} must be a non-empty string`
+        };
+      case 'invalid_transport_type':
+        return {
+          error: validation.error.segmentNumber
+            ? `Route ${route.id} sub-route ${validation.error.segmentNumber} ${validation.error.field} must be a supported transportation type`
+            : `Route ${route.id} ${validation.error.field} must be a supported transportation type`
         };
       case 'from_mismatch':
         return { error: `Route ${route.id} from does not match sub-route start` };

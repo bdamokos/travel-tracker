@@ -1,7 +1,14 @@
 'use client';
 
 import { TravelRoute } from '@/app/types';
-import { transportationLabels, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel, getCompositeTransportType } from '@/app/lib/routeUtils';
+import {
+  getTransportationLabel,
+  getTransportIcon,
+  getMultiSegmentEmoji,
+  getMultiSegmentAriaLabel,
+  getCompositeTransportType,
+  normalizeTransportationType
+} from '@/app/lib/routeUtils';
 import { formatUtcDate } from '@/app/lib/dateUtils';
 
 interface RouteDisplayProps {
@@ -32,20 +39,21 @@ export default function RouteDisplay({
   };
 
   const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
+  const routeTransportType = normalizeTransportationType(route.transportType);
   const compositeType = hasSubRoutes && route.subRoutes
-    ? getCompositeTransportType(route.subRoutes, route.transportType)
-    : route.transportType;
+    ? getCompositeTransportType(route.subRoutes, routeTransportType)
+    : routeTransportType;
   const hasManualSegments = route.subRoutes?.some(segment => segment.useManualRoutePoints) || false;
 
   // Get the emoji to display (single for regular routes, concatenated for multimodal)
   const displayEmoji = hasSubRoutes && route.subRoutes
     ? getMultiSegmentEmoji(route.subRoutes)
-    : getTransportIcon(route.transportType);
+    : getTransportIcon(routeTransportType);
 
   // Get accessibility label for screen readers
   const ariaLabel = hasSubRoutes && route.subRoutes
     ? getMultiSegmentAriaLabel(route.subRoutes.length, compositeType)
-    : transportationLabels[route.transportType];
+    : getTransportationLabel(routeTransportType);
 
   return (
     <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
@@ -60,9 +68,9 @@ export default function RouteDisplay({
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             {hasSubRoutes ? (
-              <span>{transportationLabels[compositeType]}</span>
+              <span>{getTransportationLabel(compositeType)}</span>
             ) : (
-              <span>{transportationLabels[route.transportType]}</span>
+              <span>{getTransportationLabel(routeTransportType)}</span>
             )}
             <span className="mx-2">•</span>
             <span>{formatDate(route.date)}</span>

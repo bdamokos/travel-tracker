@@ -1,6 +1,10 @@
+import { isTransportationType } from '@/app/lib/routeUtils';
+
 type RouteSegmentLike = {
   from?: unknown;
   to?: unknown;
+  type?: unknown;
+  transportType?: unknown;
   fromCoords?: [number, number];
   toCoords?: [number, number];
   distanceOverride?: number;
@@ -13,6 +17,7 @@ export type CompositeRouteLike = RouteSegmentLike & {
 
 export type CompositeRouteValidationError =
   | { code: 'invalid_route_name'; field: 'from' | 'to'; segmentNumber?: number }
+  | { code: 'invalid_transport_type'; field: 'type' | 'transportType'; segmentNumber?: number }
   | { code: 'from_mismatch' }
   | { code: 'to_mismatch' }
   | { code: 'from_coords_mismatch' }
@@ -48,6 +53,18 @@ const isSameCoords = (left?: [number, number], right?: [number, number]) => {
   return Math.abs(left[0] - right[0]) < COORD_EPSILON && Math.abs(left[1] - right[1]) < COORD_EPSILON;
 };
 
+const getInvalidTransportField = (segment: RouteSegmentLike): 'type' | 'transportType' | null => {
+  if (segment.transportType !== undefined && !isTransportationType(segment.transportType)) {
+    return 'transportType';
+  }
+
+  if (segment.type !== undefined && !isTransportationType(segment.type)) {
+    return 'type';
+  }
+
+  return null;
+};
+
 const findDisconnectedSegmentNumber = (subRoutes: RouteSegmentLike[]): number | null => {
   for (let index = 1; index < subRoutes.length; index += 1) {
     const previous = subRoutes[index - 1];
@@ -79,6 +96,11 @@ export const validateAndNormalizeCompositeRoute = (route: CompositeRouteLike): C
     return { ok: false, error: { code: 'invalid_route_name', field: 'to' } };
   }
 
+  const invalidRouteTransportField = getInvalidTransportField(route);
+  if (invalidRouteTransportField) {
+    return { ok: false, error: { code: 'invalid_transport_type', field: invalidRouteTransportField } };
+  }
+
   if (!subRoutes?.length) {
     return { ok: true, normalizedRoute: route };
   }
@@ -91,6 +113,18 @@ export const validateAndNormalizeCompositeRoute = (route: CompositeRouteLike): C
 
     if (!isValidOptionalLocationName(segment.to)) {
       return { ok: false, error: { code: 'invalid_route_name', field: 'to', segmentNumber: index + 1 } };
+    }
+
+    const invalidSegmentTransportField = getInvalidTransportField(segment);
+    if (invalidSegmentTransportField) {
+      return {
+        ok: false,
+        error: {
+          code: 'invalid_transport_type',
+          field: invalidSegmentTransportField,
+          segmentNumber: index + 1
+        }
+      };
     }
   }
 

@@ -1,4 +1,4 @@
-import { generateRoutePoints } from './routeUtils';
+import { generateRoutePoints, normalizeTransportationType } from './routeUtils';
 import { Transportation } from '@/app/types';
 
 // Preload routes for a journey to populate the cache
@@ -36,7 +36,7 @@ export const preloadRoutes = async (routes: Array<{
     try {
       const transportation: Transportation = {
         id: route.id || 'route',
-        type: route.transportType as Transportation['type'],
+        type: normalizeTransportationType(route.transportType),
         from: route.from,
         to: route.to,
         fromCoordinates: route.fromCoords,
