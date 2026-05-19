@@ -68,6 +68,10 @@ const secondaryActionClassName = [
   'dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
 ].join(' ');
 
+const categoryListsEqual = (left: readonly string[], right: readonly string[]): boolean => {
+  return left.length === right.length && left.every((category, index) => category === right[index]);
+};
+
 const primaryActionClassName = [
   'inline-flex min-h-10 items-center justify-center rounded-md bg-blue-600 px-4 py-2',
   'text-sm font-semibold text-white transition hover:bg-blue-700',
@@ -201,6 +205,7 @@ export default function CostTrackerEditor({
   
   const [newCategory, setNewCategory] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  const [pendingSaveAfterCategoryRepair, setPendingSaveAfterCategoryRepair] = useState(false);
   
   // YNAB Import state
   const [showYnabImport, setShowYnabImport] = useState(false);
@@ -217,19 +222,59 @@ export default function CostTrackerEditor({
     return ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
   };
   
-  const ensureCategoriesInitialized = () => {
+  const ensureCategoriesInitialized = (): void => {
     const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
-    if (!costData.customCategories) {
-      setCostData(prev => ({
-        ...prev,
-        customCategories: categories
-      }));
-    } else if (categories.length !== costData.customCategories.length) {
+    if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
       setCostData(prev => ({
         ...prev,
         customCategories: ensureManagedExpenseCategories(prev.customCategories ?? EXPENSE_CATEGORIES)
       }));
+      setHasUnsavedChanges(true);
     }
+  };
+
+  useEffect(() => {
+    ensureCategoriesInitialized();
+  });
+
+  useEffect(() => {
+    if (!pendingSaveAfterCategoryRepair) {
+      return;
+    }
+
+    const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
+    if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
+      return;
+    }
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      setPendingSaveAfterCategoryRepair(false);
+      onSave();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [costData.customCategories, onSave, pendingSaveAfterCategoryRepair]);
+
+  const handleSave = (): void => {
+    const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
+    if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
+      setPendingSaveAfterCategoryRepair(true);
+      setCostData(prev => ({
+        ...prev,
+        customCategories: ensureManagedExpenseCategories(prev.customCategories ?? EXPENSE_CATEGORIES)
+      }));
+      setHasUnsavedChanges(true);
+      return;
+    }
+
+    onSave();
   };
 
   const getExistingCountries = (): string[] => {
@@ -723,7 +768,7 @@ export default function CostTrackerEditor({
             )}
             <button
               type="button"
-              onClick={onSave}
+              onClick={handleSave}
               disabled={!canSave}
               className={primaryActionClassName}
             >

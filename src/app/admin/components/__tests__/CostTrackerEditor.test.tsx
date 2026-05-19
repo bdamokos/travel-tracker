@@ -227,4 +227,57 @@ describe('CostTrackerEditor', () => {
     expect(screen.getByTestId('category-manager')).toHaveTextContent('Local currency held in cash');
     expect(screen.getByTestId('category-manager')).toHaveTextContent('Refunds');
   });
+
+  it('persists repaired managed categories when legacy category counts already match', async () => {
+    const initialCostData: CostTrackingData = {
+      id: 'cost-1',
+      tripId: 'trip-1',
+      tripTitle: 'Test Trip',
+      tripStartDate: new Date('2026-03-01T00:00:00.000Z'),
+      tripEndDate: new Date('2026-03-10T00:00:00.000Z'),
+      overallBudget: 1000,
+      currency: 'EUR',
+      countryBudgets: [],
+      expenses: [],
+      customCategories: ['Food', 'Food', 'Local currency held in cash'],
+      createdAt: '2026-03-01T00:00:00.000Z'
+    };
+
+    const existingTrip = {
+      id: 'trip-1',
+      title: 'Test Trip',
+      startDate: '2026-03-01',
+      endDate: '2026-03-10'
+    } as ExistingTrip;
+
+    const setCostData = jest.fn();
+    const setHasUnsavedChanges = jest.fn();
+
+    render(
+      <CostTrackerEditor
+        costData={initialCostData}
+        setCostData={setCostData}
+        onSave={() => undefined}
+        existingTrips={[existingTrip]}
+        selectedTrip={existingTrip}
+        setSelectedTrip={() => undefined}
+        mode="edit"
+        autoSaving={false}
+        setHasUnsavedChanges={setHasUnsavedChanges}
+      />
+    );
+
+    await waitFor(() => expect(setCostData).toHaveBeenCalled());
+
+    const updater = setCostData.mock.calls[0][0] as React.SetStateAction<CostTrackingData>;
+    const updatedCostData =
+      typeof updater === 'function' ? updater(initialCostData) : updater;
+
+    expect(updatedCostData.customCategories).toEqual([
+      'Food',
+      'Local currency held in cash',
+      'Refunds'
+    ]);
+    expect(setHasUnsavedChanges).toHaveBeenCalledWith(true);
+  });
 });
