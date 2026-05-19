@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import { CostTrackingData, Journey, JourneyDay, Transportation } from '@/app/types';
 import { transportationColors, getTransportIcon, getMultiSegmentEmoji, getMultiSegmentAriaLabel, getCompositeTransportType } from '@/app/lib/routeUtils';
@@ -8,6 +8,7 @@ import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
 import AccommodationDisplay from '@/app/components/AccommodationDisplay';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import { formatCurrency } from '@/app/lib/costUtils';
+import { isSafePublicHttpUrl } from '@/app/lib/publicUrlValidation';
 
 interface TimelineProps {
   journey: Journey | null;
@@ -18,6 +19,34 @@ interface TimelineProps {
   travelLookup?: ExpenseTravelLookup | null;
   costData?: CostTrackingData | null;
 }
+
+interface SafeExternalLinkProps {
+  url: string;
+  className: string;
+  title?: string;
+  children: ReactNode;
+}
+
+const SafeExternalLink: React.FC<SafeExternalLinkProps> = ({ url, className, title, children }) => {
+  if (!isSafePublicHttpUrl(url)) {
+    return null;
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      title={title}
+    >
+      {children}
+    </a>
+  );
+};
+
+const safePosts = <T extends { url: string }>(posts?: T[]): T[] =>
+  (posts ?? []).filter(post => isSafePublicHttpUrl(post.url));
 
 const Timeline: React.FC<TimelineProps> = ({ journey, selectedDayId, onDaySelect, onAddDay, isAdminView = false, travelLookup, costData }) => {
   const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
@@ -87,6 +116,8 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
   const formattedDate = format(new Date(day.date), 'MMM d, yyyy');
   const headerId = `timeline-day-${day.id}-header`;
   const panelId = `timeline-day-${day.id}-panel`;
+  const safeDayInstagramPosts = safePosts(day.instagramPosts);
+  const safeDayTikTokPosts = safePosts(day.tikTokPosts);
   
   return (
     <div 
@@ -132,7 +163,12 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
             <div className="mb-3">
               <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Locations</h4>
               <div className="space-y-2">
-                {day.locations.map(location => (
+                {day.locations.map(location => {
+                  const safeLocationBlogPosts = safePosts(location.blogPosts);
+                  const safeLocationInstagramPosts = safePosts(location.instagramPosts);
+                  const safeLocationTikTokPosts = safePosts(location.tikTokPosts);
+
+                  return (
                   <div key={location.id} className="flex items-start">
                     <div className="shrink-0 mt-1">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-red-500">
@@ -150,21 +186,19 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                       )}
                       
                       {/* Display Blog Posts */}
-                      {location.blogPosts && location.blogPosts.length > 0 && (
+                      {safeLocationBlogPosts.length > 0 && (
                         <div className="mt-2">
                           <div className="text-xs font-semibold text-green-700 mb-1">📝 Blog Posts:</div>
                           <div className="space-y-1">
-                            {location.blogPosts.map((post, index) => (
+                            {safeLocationBlogPosts.map((post, index) => (
                               <div key={post.id || index}>
-                                <a
-                                  href={post.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <SafeExternalLink
+                                  url={post.url}
                                   className="text-green-600 hover:text-green-800 text-xs underline block"
                                   title={post.title}
                                 >
                                   {post.title.length > 40 ? `${post.title.substring(0, 40)}...` : post.title}
-                                </a>
+                                </SafeExternalLink>
                               </div>
                             ))}
                           </div>
@@ -172,21 +206,19 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                       )}
                       
                       {/* Display Instagram Posts */}
-                      {location.instagramPosts && location.instagramPosts.length > 0 && (
+                      {safeLocationInstagramPosts.length > 0 && (
                         <div className="mt-2">
                           <div className="text-xs font-semibold text-blue-700 mb-1">📸 Instagram:</div>
                           <div className="space-y-1">
-                            {location.instagramPosts.map((post, index) => (
+                            {safeLocationInstagramPosts.map((post, index) => (
                               <div key={post.id || index}>
-                                <a
-                                  href={post.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <SafeExternalLink
+                                  url={post.url}
                                   className="text-blue-600 hover:text-blue-800 text-xs underline block"
                                   title={post.url}
                                 >
-                                  View Post {location.instagramPosts!.length > 1 ? `#${index + 1}` : ''}
-                                </a>
+                                  View Post {safeLocationInstagramPosts.length > 1 ? `#${index + 1}` : ''}
+                                </SafeExternalLink>
                               </div>
                             ))}
                           </div>
@@ -194,24 +226,22 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                       )}
 
                       {/* Display TikTok Posts */}
-                      {location.tikTokPosts && location.tikTokPosts.length > 0 && (
+                      {safeLocationTikTokPosts.length > 0 && (
                         <div className="mt-2">
                           <div className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
                             <TikTokIcon containerClassName="w-4 h-4" iconClassName="w-2.5 h-2.5" ariaLabel="TikTok" />
                             <span>TikTok:</span>
                           </div>
                           <div className="space-y-1">
-                            {location.tikTokPosts.map((post, index) => (
+                            {safeLocationTikTokPosts.map((post, index) => (
                               <div key={post.id || index}>
-                                <a
-                                  href={post.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <SafeExternalLink
+                                  url={post.url}
                                   className="text-gray-700 hover:text-gray-900 text-xs underline block"
                                   title={post.caption || post.url}
                                 >
-                                  Watch Clip {location.tikTokPosts!.length > 1 ? `#${index + 1}` : ''}
-                                </a>
+                                  Watch Clip {safeLocationTikTokPosts.length > 1 ? `#${index + 1}` : ''}
+                                </SafeExternalLink>
                                 {post.caption && (
                                   <p className="text-[10px] text-gray-500">{post.caption}</p>
                                 )}
@@ -230,7 +260,8 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
                       />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -248,15 +279,15 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
           )}
           
           {/* Instagram Posts */}
-          {day.instagramPosts && day.instagramPosts.length > 0 && (
+          {safeDayInstagramPosts.length > 0 && (
             <div className="mb-3">
               <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Instagram Posts</h4>
               <div className="space-y-2">
-                {day.instagramPosts.map(post => (
+                {safeDayInstagramPosts.map(post => (
                   <div key={post.id} className="border border-gray-200 dark:border-gray-700 rounded-sm p-2">
-                    <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 dark:text-blue-400 text-sm hover:underline">
+                    <SafeExternalLink url={post.url} className="text-blue-500 dark:text-blue-400 text-sm hover:underline">
                       View Instagram Post
-                    </a>
+                    </SafeExternalLink>
                   </div>
                 ))}
               </div>
@@ -264,20 +295,18 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, isSelected, onClick,
           )}
 
           {/* TikTok Posts */}
-          {day.tikTokPosts && day.tikTokPosts.length > 0 && (
+          {safeDayTikTokPosts.length > 0 && (
             <div className="mb-3">
               <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">TikTok Posts</h4>
               <div className="space-y-2">
-                {day.tikTokPosts.map(post => (
+                {safeDayTikTokPosts.map(post => (
                   <div key={post.id} className="border border-gray-200 dark:border-gray-700 rounded-sm p-2">
-                    <a
-                      href={post.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <SafeExternalLink
+                      url={post.url}
                       className="text-gray-700 dark:text-gray-200 text-sm hover:underline"
                     >
                       View TikTok Post
-                    </a>
+                    </SafeExternalLink>
                     {post.caption && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{post.caption}</p>
                     )}
