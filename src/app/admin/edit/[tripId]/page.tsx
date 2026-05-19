@@ -7,6 +7,7 @@ import { formatDateRange } from '@/app/lib/dateUtils';
 import { formatDate } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation } from '@/app/lib/expenseTravelLookup';
 import { combineAccommodationDescriptions } from '@/app/lib/combineAccommodationDescriptions';
+import { formatLocationTimingForExport } from '@/app/lib/itineraryExport';
 import { formatLocalDateInput, getLocalDateSortValue } from '@/app/lib/localDateUtils';
 import DeleteWarningDialog from '@/app/admin/components/DeleteWarningDialog';
 import ReassignmentDialog from '@/app/admin/components/ReassignmentDialog';
@@ -328,22 +329,12 @@ export default function TripEditorPage() {
         if (location.arrivalTime || location.departureTime) {
           const startDay = formatLocalDateInput(location.date);
           const endDay = formatLocalDateInput(location.endDate) || startDay;
-          const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
-          const isTimeOfDay = (value: string) => value.includes(':');
-
-          const arrivalValue = location.arrivalTime || '';
-          const departureValue = location.departureTime || '';
-          const arrivalIsRedundantDate = arrivalValue && isDateOnly(arrivalValue) && arrivalValue === startDay;
-          const departureIsRedundantDate = departureValue && isDateOnly(departureValue) && departureValue === endDay;
-
-          const timing = [
-            arrivalValue && (isTimeOfDay(arrivalValue) || (!isDateOnly(arrivalValue) && !arrivalIsRedundantDate))
-              ? `arrive ${arrivalValue}`
-              : null,
-            departureValue && (isTimeOfDay(departureValue) || (!isDateOnly(departureValue) && !departureIsRedundantDate))
-              ? `depart ${departureValue}`
-              : null
-          ].filter(Boolean).join(' / ');
+          const timing = formatLocationTimingForExport({
+            arrivalTime: location.arrivalTime,
+            departureTime: location.departureTime,
+            startDay,
+            endDay
+          });
           if (timing) {
             lines.push(`   - Timing: ${timing}`);
           }
