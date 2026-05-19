@@ -749,9 +749,9 @@ export function isManagedExpenseCategory(category: string): boolean {
 }
 
 export function ensureManagedExpenseCategories(categories: readonly string[]): string[] {
-  const managedCategories = new Set(categories);
-  MANAGED_EXPENSE_CATEGORIES.forEach(category => managedCategories.add(category));
-  return Array.from(managedCategories);
+  const allCategories = new Set(categories);
+  MANAGED_EXPENSE_CATEGORIES.forEach(category => allCategories.add(category));
+  return Array.from(allCategories);
 }
 
 export const EXPENSE_CATEGORIES = [

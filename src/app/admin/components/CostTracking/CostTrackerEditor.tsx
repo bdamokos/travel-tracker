@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Accommodation,
   CostTrackingData,
@@ -217,13 +217,16 @@ export default function CostTrackerEditor({
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
   const [tripLocations, setTripLocations] = useState<Location[]>([]);
   const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([]);
+  const categories = useMemo(
+    () => ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES),
+    [costData.customCategories]
+  );
   
-  const getCategories = (): string[] => {
-    return ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
-  };
+  const getCategories = useCallback((): string[] => {
+    return categories;
+  }, [categories]);
   
   const ensureCategoriesInitialized = (): void => {
-    const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
     if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
       setCostData(prev => ({
         ...prev,
@@ -242,7 +245,6 @@ export default function CostTrackerEditor({
       return;
     }
 
-    const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
     if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
       return;
     }
@@ -260,10 +262,9 @@ export default function CostTrackerEditor({
     return () => {
       cancelled = true;
     };
-  }, [costData.customCategories, onSave, pendingSaveAfterCategoryRepair]);
+  }, [categories, costData.customCategories, onSave, pendingSaveAfterCategoryRepair]);
 
   const handleSave = (): void => {
-    const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
     if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
       setPendingSaveAfterCategoryRepair(true);
       setCostData(prev => ({
