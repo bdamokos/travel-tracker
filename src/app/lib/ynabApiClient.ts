@@ -14,6 +14,51 @@ function buildUrl(path: string, query?: Record<string, string | number | undefin
   return url.toString();
 }
 
+function getSubtransactionKey(sub: { id?: string; transaction_id?: string; amount?: number; category_id?: string | null }, index: number): string {
+  return sub.id || `${sub.transaction_id || 'unknown'}-${index}-${sub.amount ?? 'amount'}-${sub.category_id || 'category'}`;
+}
+
+function mergeDuplicateTransaction(existing: YnabApiTransaction, incoming: YnabApiTransaction): YnabApiTransaction {
+  const existingSubtransactions = existing.subtransactions || [];
+  const incomingSubtransactions = incoming.subtransactions || [];
+
+  if (existingSubtransactions.length === 0 && incomingSubtransactions.length === 0) {
+    return incoming;
+  }
+
+  const mergedSubtransactions = new Map<string, NonNullable<YnabApiTransaction['subtransactions']>[number]>();
+
+  existingSubtransactions.forEach((sub, index) => {
+    mergedSubtransactions.set(getSubtransactionKey(sub, index), sub);
+  });
+
+  incomingSubtransactions.forEach((sub, index) => {
+    mergedSubtransactions.set(getSubtransactionKey(sub, existingSubtransactions.length + index), sub);
+  });
+
+  return {
+    ...existing,
+    ...incoming,
+    subtransactions: Array.from(mergedSubtransactions.values())
+  };
+}
+
+function deduplicateTransactionsById(transactions: YnabApiTransaction[]): YnabApiTransaction[] {
+  const uniqueTransactions = new Map<string, YnabApiTransaction>();
+
+  transactions.forEach(txn => {
+    const existing = uniqueTransactions.get(txn.id);
+    uniqueTransactions.set(txn.id, existing ? mergeDuplicateTransaction(existing, txn) : txn);
+  });
+
+  return Array.from(uniqueTransactions.values());
+}
+
+function buildSubtransactionImportId(parentImportId: string | undefined, subId: string | undefined, index: number): string | undefined {
+  if (!parentImportId) return undefined;
+  return `${parentImportId}:split:${subId || index}`;
+}
+
 // YNAB API client wrapper with error handling and delta sync support
 export class YnabApiClient {
   private api: ynab.API;
@@ -207,11 +252,7 @@ export class YnabApiClient {
       
       // Flatten and deduplicate transactions (in case of overlaps)
       const allTransactions = categoryResults.flatMap(result => result.transactions);
-      const uniqueTransactions = new Map<string, YnabApiTransaction>();
-      
-      allTransactions.forEach(txn => {
-        uniqueTransactions.set(txn.id, txn);
-      });
+      const uniqueTransactions = deduplicateTransactionsById(allTransactions);
 
       // Use the highest server knowledge from all category responses
       const maxServerKnowledge = Math.max(
@@ -220,7 +261,7 @@ export class YnabApiClient {
       );
 
       return {
-        transactions: Array.from(uniqueTransactions.values()),
+        transactions: uniqueTransactions,
         serverKnowledge: maxServerKnowledge
       };
     } catch (error) {
@@ -340,6 +381,7 @@ export const ynabUtils = {
             category_name: sub.category_name ?? undefined,
             transfer_account_id: sub.transfer_account_id ?? undefined,
             transfer_transaction_id: sub.transfer_transaction_id ?? undefined,
+            import_id: buildSubtransactionImportId(txn.import_id, sub.id, index),
             parent_transaction_id: txn.id,
             subtransaction_index: index,
             subtransactions: undefined
@@ -363,5 +405,7 @@ export const ynabUtils = {
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36);
-  }
+  },
+
+  deduplicateTransactionsById
 };
