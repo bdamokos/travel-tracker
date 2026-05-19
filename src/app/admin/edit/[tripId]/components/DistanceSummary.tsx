@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { TravelRoute, TransportationType } from '@/app/types';
-import { getTransportationLabel, normalizeTransportationType, transportationConfig } from '@/app/lib/routeUtils';
+import { normalizeTransportationType, transportationConfig } from '@/app/lib/routeUtils';
 import { calculateDistance } from '@/app/services/geocoding';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -186,7 +186,7 @@ export default function DistanceSummary({ routes }: DistanceSummaryProps) {
           type,
           distance: data.distance,
           count: data.count,
-          label: getTransportationLabel(type),
+          label: transportationConfig[type].description,
           color: transportationConfig[type].color,
         }))
         .sort((a, b) => b.distance - a.distance);
