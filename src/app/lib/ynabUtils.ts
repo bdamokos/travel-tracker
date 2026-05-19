@@ -71,11 +71,21 @@ export function convertYnabDateToISO(ynabDate: string): string {
     return '';
   }
 
+  const parsedDate = new Date(Date.UTC(yearNum, monthNum - 1, dayNum));
+  parsedDate.setUTCFullYear(yearNum);
+  if (
+    parsedDate.getUTCFullYear() !== yearNum ||
+    parsedDate.getUTCMonth() !== monthNum - 1 ||
+    parsedDate.getUTCDate() !== dayNum
+  ) {
+    return '';
+  }
+
   // Pad with zeros and return in ISO format
-  const paddedDay = day.padStart(2, '0');
-  const paddedMonth = month.padStart(2, '0');
+  const paddedDay = String(dayNum).padStart(2, '0');
+  const paddedMonth = String(monthNum).padStart(2, '0');
   
-  return `${yearNum}-${paddedMonth}-${paddedDay}`;
+  return `${year}-${paddedMonth}-${paddedDay}`;
 }
 
 export function parseYnabFile(fileContent: string): YnabParseResult {
@@ -281,10 +291,8 @@ export function findLatestTransaction(
   transactions: ProcessedYnabTransaction[]
 ): ProcessedYnabTransaction | null {
   if (transactions.length === 0) return null;
-  
+
   return transactions.reduce((latest, current) => {
     return new Date(current.date) > new Date(latest.date) ? current : latest;
   });
 }
-
- 
