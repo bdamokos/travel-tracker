@@ -66,12 +66,14 @@ const isRedirectResponse = (response) => {
   return isHttpRedirectStatus(response.status);
 };
 
-const isCacheableResponse = (response) => {
+const isCacheableResponse = (response, options = {}) => {
+  const { allowRedirected = false } = options;
+
   if (!response || !response.ok) {
     return false;
   }
 
-  if (response.redirected) {
+  if (response.redirected && !allowRedirected) {
     return false;
   }
 
@@ -301,7 +303,7 @@ const resolvePreCacheResponse = async (url) => {
 
     if (response.type === 'opaqueredirect') {
       const followedResponse = await fetchWithTimeout(requestUrl, { redirect: 'follow' });
-      if (!isCacheableResponse(followedResponse)) {
+      if (!isCacheableResponse(followedResponse, { allowRedirected: true })) {
         break;
       }
 

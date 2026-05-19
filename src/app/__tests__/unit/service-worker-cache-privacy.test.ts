@@ -20,6 +20,19 @@ const makeRequestLike = (url: string, mode = 'same-origin') => ({
   headers: new Headers()
 });
 
+const makeBasicResponse = (body: BodyInit | null, url: string, init: ResponseInit = {}): Response => {
+  const response = new Response(body, init);
+  Object.defineProperty(response, 'type', { value: 'basic' });
+  Object.defineProperty(response, 'url', { value: url });
+  return response;
+};
+
+const makeRedirectedBasicResponse = (body: BodyInit | null, url: string, init: ResponseInit = {}): Response => {
+  const response = makeBasicResponse(body, url, init);
+  Object.defineProperty(response, 'redirected', { value: true });
+  return response;
+};
+
 const loadServiceWorker = (cache: CacheMock, fetchMock: jest.Mock): ListenerMap => {
   const listeners: ListenerMap = {};
   const swPath = path.join(process.cwd(), 'public/sw.js');
@@ -47,6 +60,7 @@ const loadServiceWorker = (cache: CacheMock, fetchMock: jest.Mock): ListenerMap 
     Headers,
     URL,
     Uint8Array,
+    AbortController,
     setTimeout,
     clearTimeout,
     console
@@ -68,6 +82,17 @@ const dispatchFetch = async (listeners: ListenerMap, request: ReturnType<typeof 
 
   expect(respondWith).toHaveBeenCalledTimes(1);
   return await respondWith.mock.calls[0][0];
+};
+
+const dispatchInstall = async (listeners: ListenerMap): Promise<void> => {
+  const waitUntil = jest.fn();
+
+  listeners.install({
+    waitUntil
+  });
+
+  expect(waitUntil).toHaveBeenCalledTimes(1);
+  await waitUntil.mock.calls[0][0];
 };
 
 describe('service worker cache privacy', () => {
@@ -178,5 +203,71 @@ describe('service worker cache privacy', () => {
     expect(await response.text()).toBe('forbidden');
     expect(cache.match).not.toHaveBeenCalled();
     expect(cache.put).not.toHaveBeenCalled();
+  });
+
+  it('pre-caches root shell entries that resolve through same-origin Location redirects', async () => {
+    const cache: CacheMock = {
+      match: jest.fn().mockResolvedValue(null),
+      put: jest.fn().mockResolvedValue(undefined),
+      keys: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(true)
+    };
+    const fetchMock = jest.fn().mockImplementation((url: string) => {
+      if (url === 'https://admin.example.test/') {
+        return Promise.resolve(new Response(null, {
+          status: 308,
+          headers: { Location: '/admin' }
+        }));
+      }
+
+      return Promise.resolve(makeBasicResponse(`shell ${url}`, url, { status: 200 }));
+    });
+    const listeners = loadServiceWorker(cache, fetchMock);
+
+    await dispatchInstall(listeners);
+
+    const rootPutCall = cache.put.mock.calls.find(([url]) => url === '/');
+    expect(rootPutCall).toBeDefined();
+    const cachedRootResponse = rootPutCall?.[1] as Response;
+    expect(cachedRootResponse.redirected).toBe(false);
+    expect(await cachedRootResponse.text()).toBe('shell https://admin.example.test/admin');
+  });
+
+  it('pre-caches root shell entries when manual redirects are opaque but followed fetches stay same-origin', async () => {
+    const cache: CacheMock = {
+      match: jest.fn().mockResolvedValue(null),
+      put: jest.fn().mockResolvedValue(undefined),
+      keys: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(true)
+    };
+    const fetchMock = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === 'https://admin.example.test/' && init?.redirect === 'manual') {
+        return Promise.resolve({
+          ok: false,
+          status: 0,
+          type: 'opaqueredirect',
+          redirected: false,
+          headers: new Headers()
+        });
+      }
+
+      if (url === 'https://admin.example.test/' && init?.redirect === 'follow') {
+        return Promise.resolve(makeRedirectedBasicResponse('followed admin shell', 'https://admin.example.test/admin', {
+          status: 200
+        }));
+      }
+
+      return Promise.resolve(makeBasicResponse(`shell ${url}`, url, { status: 200 }));
+    });
+    const listeners = loadServiceWorker(cache, fetchMock);
+
+    await dispatchInstall(listeners);
+
+    const rootPutCall = cache.put.mock.calls.find(([url]) => url === '/');
+    expect(rootPutCall).toBeDefined();
+    const cachedRootResponse = rootPutCall?.[1] as Response;
+    expect(cachedRootResponse.redirected).toBe(false);
+    expect(cachedRootResponse.headers.get('X-Travel-Tracker-Original-Url')).toBe('https://admin.example.test/admin');
+    expect(await cachedRootResponse.text()).toBe('followed admin shell');
   });
 });
