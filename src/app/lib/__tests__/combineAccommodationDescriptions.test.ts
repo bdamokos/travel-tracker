@@ -16,4 +16,21 @@ describe('combineAccommodationDescriptions', () => {
   it('trims and ignores empty values', () => {
     expect(combineAccommodationDescriptions(['  A  ', ''], '   ')).toEqual(['A']);
   });
+
+  it('ignores malformed accommodation names without dropping valid values', () => {
+    expect(
+      combineAccommodationDescriptions([
+        'Hotel',
+        null,
+        undefined,
+        { name: 'bad shape' },
+        42,
+        '  Guesthouse  '
+      ], 'Legacy place')
+    ).toEqual(['Hotel', 'Guesthouse', 'Legacy place']);
+  });
+
+  it('ignores malformed legacy accommodation data', () => {
+    expect(combineAccommodationDescriptions(['Hotel'], { text: 'Legacy place' })).toEqual(['Hotel']);
+  });
 });

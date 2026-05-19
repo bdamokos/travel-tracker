@@ -7,12 +7,12 @@
  * - Deduplicates case-insensitively
  */
 export function combineAccommodationDescriptions(
-  accommodationNames: string[],
-  legacyAccommodation?: string | null
+  accommodationNames: unknown[],
+  legacyAccommodation?: unknown
 ): string[] {
-  const combined = [...accommodationNames];
+  const combined = accommodationNames.filter((name): name is string => typeof name === 'string');
 
-  const legacy = (legacyAccommodation || '').trim();
+  const legacy = typeof legacyAccommodation === 'string' ? legacyAccommodation.trim() : '';
   if (legacy) {
     combined.push(legacy);
   }
