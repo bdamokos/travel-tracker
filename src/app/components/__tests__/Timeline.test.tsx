@@ -72,5 +72,7 @@ describe('Timeline post links', () => {
     expect(hrefs).not.toContain('javascript:alert(1)');
     expect(hrefs).not.toContain('data:text/html,<script>alert(1)</script>');
     expect(hrefs).not.toContain('vbscript:msgbox(1)');
+    expect(screen.queryByText('Unsafe blog post')).not.toBeInTheDocument();
+    expect(screen.queryByText('unsafe clip')).not.toBeInTheDocument();
   });
 });
