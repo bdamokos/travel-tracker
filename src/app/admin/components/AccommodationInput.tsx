@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { parseAccommodationData, generateAccommodationTemplate } from '@/app/lib/privacyUtils';
+import { isSafePublicHttpUrl } from '@/app/lib/publicUrlValidation';
 
 interface AccommodationInputProps {
   accommodationData?: string;
@@ -50,6 +51,10 @@ export default function AccommodationInput({
     }
 
     const data = parsedData.data;
+    const safeWebsiteUrl = data.website && isSafePublicHttpUrl(data.website)
+      ? data.website
+      : null;
+
     return (
       <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-md">
         <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Structured View:</h5>
@@ -63,14 +68,18 @@ export default function AccommodationInput({
           {data.website && (
             <div>
               <span className="font-medium">Website:</span>{' '}
-              <a 
-                href={data.website} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline"
-              >
-                {data.website}
-              </a>
+              {safeWebsiteUrl ? (
+                <a 
+                  href={safeWebsiteUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  {data.website}
+                </a>
+              ) : (
+                <span>{data.website}</span>
+              )}
             </div>
           )}
           {data.phone && (
