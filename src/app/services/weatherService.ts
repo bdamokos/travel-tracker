@@ -731,7 +731,7 @@ class WeatherService {
       const forecastRefreshNeeded = needsForecastRefresh(cached.summary);
       if (forecastRefreshNeeded) reasons.push('needs-forecast');
 
-      if (!hasData && isFreshEmptyCacheEntry(cached, now)) {
+      if (isFreshEmptyCacheEntry(cached, now)) {
         log('cache:negative-hit', { key });
         return {
           ...cached.summary,
