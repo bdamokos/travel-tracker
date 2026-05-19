@@ -1,6 +1,6 @@
 type RouteSegmentLike = {
-  from?: string;
-  to?: string;
+  from?: unknown;
+  to?: unknown;
   fromCoords?: [number, number];
   toCoords?: [number, number];
   distanceOverride?: number;
@@ -12,6 +12,7 @@ export type CompositeRouteLike = RouteSegmentLike & {
 };
 
 export type CompositeRouteValidationError =
+  | { code: 'invalid_route_name'; field: 'from' | 'to'; segmentNumber?: number }
   | { code: 'from_mismatch' }
   | { code: 'to_mismatch' }
   | { code: 'from_coords_mismatch' }
@@ -25,11 +26,21 @@ export type CompositeRouteValidationResult =
 // Allow sub-meter coordinate drift from serialization/geocoding differences.
 const COORD_EPSILON = 1e-6;
 
-const normalizeLocationName = (value?: string) => value?.trim().toLowerCase() || '';
+const isValidOptionalLocationName = (
+  value: unknown,
+  options: { allowBlank?: boolean } = {}
+): value is string | undefined => {
+  if (value === undefined) return true;
+  if (typeof value !== 'string') return false;
+  return options.allowBlank || value.trim().length > 0;
+};
 
-const isSameLocationName = (left?: string, right?: string) => {
-  if (!left || !right) return false;
-  return normalizeLocationName(left) === normalizeLocationName(right);
+const normalizeLocationName = (value?: unknown) => typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+const isSameLocationName = (left?: unknown, right?: unknown) => {
+  const normalizedLeft = normalizeLocationName(left);
+  const normalizedRight = normalizeLocationName(right);
+  return normalizedLeft !== '' && normalizedLeft === normalizedRight;
 };
 
 const isSameCoords = (left?: [number, number], right?: [number, number]) => {
@@ -58,8 +69,29 @@ const findDisconnectedSegmentNumber = (subRoutes: RouteSegmentLike[]): number | 
 
 export const validateAndNormalizeCompositeRoute = (route: CompositeRouteLike): CompositeRouteValidationResult => {
   const subRoutes = route.subRoutes;
+  const hasSubRoutes = Boolean(subRoutes?.length);
+
+  if (!isValidOptionalLocationName(route.from, { allowBlank: hasSubRoutes })) {
+    return { ok: false, error: { code: 'invalid_route_name', field: 'from' } };
+  }
+
+  if (!isValidOptionalLocationName(route.to, { allowBlank: hasSubRoutes })) {
+    return { ok: false, error: { code: 'invalid_route_name', field: 'to' } };
+  }
+
   if (!subRoutes?.length) {
     return { ok: true, normalizedRoute: route };
+  }
+
+  for (let index = 0; index < subRoutes.length; index += 1) {
+    const segment = subRoutes[index];
+    if (!isValidOptionalLocationName(segment.from)) {
+      return { ok: false, error: { code: 'invalid_route_name', field: 'from', segmentNumber: index + 1 } };
+    }
+
+    if (!isValidOptionalLocationName(segment.to)) {
+      return { ok: false, error: { code: 'invalid_route_name', field: 'to', segmentNumber: index + 1 } };
+    }
   }
 
   const first = subRoutes[0];

@@ -53,6 +53,36 @@ describe('validateAndNormalizeCompositeRoute', () => {
     expect(result.normalizedRoute.to).toBe('Known End');
   });
 
+  it('rejects blank standalone route names', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: '',
+      to: 'B'
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected blank route name validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from' });
+  });
+
+  it('rejects blank sub-route names', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'C',
+      subRoutes: [
+        { from: 'A', to: 'B' },
+        { from: ' ', to: 'C' }
+      ]
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected blank sub-route validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from', segmentNumber: 2 });
+  });
+
   it('preserves segment distance overrides after normalization', () => {
     const result = validateAndNormalizeCompositeRoute({
       from: 'A',
@@ -70,5 +100,38 @@ describe('validateAndNormalizeCompositeRoute', () => {
 
     expect(result.normalizedRoute.subRoutes?.[0].distanceOverride).toBe(12.5);
     expect(result.normalizedRoute.subRoutes?.[1].distanceOverride).toBe(8.25);
+  });
+
+  it('rejects malformed route names without throwing', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: { label: 'A' },
+      to: 'B',
+      subRoutes: [
+        { from: 'A', to: 'B' }
+      ]
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected malformed route name validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from' });
+  });
+
+  it('rejects malformed sub-route names without throwing', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'C',
+      subRoutes: [
+        { from: 'A', to: 'B' },
+        { from: null, to: 'C' }
+      ]
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected malformed sub-route validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from', segmentNumber: 2 });
   });
 });
