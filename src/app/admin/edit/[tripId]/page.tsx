@@ -123,14 +123,20 @@ export default function TripEditorPage() {
   }, []);
 
   const accommodationsByLocation = useMemo(() => {
-    const map = new Map<string, string[]>();
+    const map = new Map<string, unknown[]>();
     (travelData.accommodations || []).forEach(accommodation => {
-      if (!accommodation.locationId) {
+      if (!accommodation || typeof accommodation !== 'object') {
         return;
       }
-      const existing = map.get(accommodation.locationId) || [];
-      existing.push(accommodation.name);
-      map.set(accommodation.locationId, existing);
+
+      const { locationId, name } = accommodation as { locationId?: unknown; name?: unknown };
+      if (typeof locationId !== 'string' || !locationId) {
+        return;
+      }
+
+      const existing = map.get(locationId) || [];
+      existing.push(name);
+      map.set(locationId, existing);
     });
     return map;
   }, [travelData.accommodations]);
@@ -203,8 +209,8 @@ export default function TripEditorPage() {
     return totals;
   }, [costData, travelLookup]);
 
-  const collapseText = useCallback((text?: string) => {
-    if (!text) {
+  const collapseText = useCallback((text?: unknown) => {
+    if (typeof text !== 'string') {
       return '';
     }
     return text.replace(/\s+/g, ' ').trim();
