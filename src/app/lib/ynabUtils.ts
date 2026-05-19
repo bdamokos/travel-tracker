@@ -266,6 +266,33 @@ export function filterNewTransactions(
   };
 }
 
+export function filterAvailableTransactionsAfterLastImport(
+  processedTransactions: ProcessedYnabTransaction[],
+  availableImportKeys: Set<string>,
+  lastImportedHash?: string
+): YnabTransactionFilterResult {
+  if (!lastImportedHash) {
+    return {
+      newTransactions: processedTransactions.filter(transaction =>
+        availableImportKeys.has(getTransactionImportKey(transaction))
+      ),
+      filteredCount: processedTransactions.length - availableImportKeys.size,
+      lastTransactionFound: false
+    };
+  }
+
+  const chronologicalResult = filterNewTransactions(processedTransactions, lastImportedHash);
+  const newTransactions = chronologicalResult.newTransactions.filter(transaction =>
+    availableImportKeys.has(getTransactionImportKey(transaction))
+  );
+
+  return {
+    ...chronologicalResult,
+    newTransactions,
+    filteredCount: processedTransactions.length - newTransactions.length
+  };
+}
+
 /**
  * Update import tracking to reflect newly imported transactions.
  *
