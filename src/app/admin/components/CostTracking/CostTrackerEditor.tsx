@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Accommodation,
   CostTrackingData,
@@ -13,7 +13,7 @@ import {
   YnabCategoryMapping,
   YnabConfig
 } from '@/app/types';
-import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, ensureManagedExpenseCategories } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { filterExpensesByExcludedCountries } from '@/app/lib/countryInclusions';
 import BudgetSetup from '@/app/admin/components/CostTracking/BudgetSetup';
@@ -67,6 +67,10 @@ const secondaryActionClassName = [
   'hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
   'dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
 ].join(' ');
+
+const categoryListsEqual = (left: readonly string[], right: readonly string[]): boolean => {
+  return left.length === right.length && left.every((category, index) => category === right[index]);
+};
 
 const primaryActionClassName = [
   'inline-flex min-h-10 items-center justify-center rounded-md bg-blue-600 px-4 py-2',
@@ -201,6 +205,7 @@ export default function CostTrackerEditor({
   
   const [newCategory, setNewCategory] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  const [pendingSaveAfterCategoryRepair, setPendingSaveAfterCategoryRepair] = useState(false);
   
   // YNAB Import state
   const [showYnabImport, setShowYnabImport] = useState(false);
@@ -212,27 +217,65 @@ export default function CostTrackerEditor({
   const [travelLookup, setTravelLookup] = useState<ExpenseTravelLookup | null>(null);
   const [tripLocations, setTripLocations] = useState<Location[]>([]);
   const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([]);
+  const categories = useMemo(
+    () => ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES),
+    [costData.customCategories]
+  );
   
-  const getCategories = (): string[] => {
-    const baseCategories = costData.customCategories ? [...costData.customCategories] : [...EXPENSE_CATEGORIES];
-    if (!baseCategories.includes(CASH_CATEGORY_NAME)) {
-      baseCategories.push(CASH_CATEGORY_NAME);
+  const getCategories = useCallback((): string[] => {
+    return categories;
+  }, [categories]);
+  
+  const ensureCategoriesInitialized = (): void => {
+    if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
+      setCostData(prev => ({
+        ...prev,
+        customCategories: ensureManagedExpenseCategories(prev.customCategories ?? EXPENSE_CATEGORIES)
+      }));
+      setHasUnsavedChanges(true);
     }
-    return baseCategories;
   };
-  
-  const ensureCategoriesInitialized = () => {
-    if (!costData.customCategories) {
-      setCostData(prev => ({
-        ...prev,
-        customCategories: Array.from(new Set([...EXPENSE_CATEGORIES, CASH_CATEGORY_NAME]))
-      }));
-    } else if (!costData.customCategories.includes(CASH_CATEGORY_NAME)) {
-      setCostData(prev => ({
-        ...prev,
-        customCategories: [...prev.customCategories!, CASH_CATEGORY_NAME]
-      }));
+
+  useEffect(() => {
+    ensureCategoriesInitialized();
+  });
+
+  useEffect(() => {
+    if (!pendingSaveAfterCategoryRepair) {
+      return;
     }
+
+    if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
+      return;
+    }
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      setPendingSaveAfterCategoryRepair(false);
+      onSave();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [categories, costData.customCategories, onSave, pendingSaveAfterCategoryRepair]);
+
+  const handleSave = (): void => {
+    if (!costData.customCategories || !categoryListsEqual(costData.customCategories, categories)) {
+      setPendingSaveAfterCategoryRepair(true);
+      setCostData(prev => ({
+        ...prev,
+        customCategories: ensureManagedExpenseCategories(prev.customCategories ?? EXPENSE_CATEGORIES)
+      }));
+      setHasUnsavedChanges(true);
+      return;
+    }
+
+    onSave();
   };
 
   const getExistingCountries = (): string[] => {
@@ -726,7 +769,7 @@ export default function CostTrackerEditor({
             )}
             <button
               type="button"
-              onClick={onSave}
+              onClick={handleSave}
               disabled={!canSave}
               className={primaryActionClassName}
             >

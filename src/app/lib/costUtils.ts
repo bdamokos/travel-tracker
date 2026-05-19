@@ -742,6 +742,17 @@ export function calculateDailySpendingTrend(expenses: Expense[]): { date: string
  */
 export const CASH_CATEGORY_NAME = 'Local currency held in cash';
 export const REFUNDS_CATEGORY_NAME = 'Refunds';
+export const MANAGED_EXPENSE_CATEGORIES = [CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME] as const;
+
+export function isManagedExpenseCategory(category: string): boolean {
+  return MANAGED_EXPENSE_CATEGORIES.includes(category as (typeof MANAGED_EXPENSE_CATEGORIES)[number]);
+}
+
+export function ensureManagedExpenseCategories(categories: readonly string[]): string[] {
+  const allCategories = new Set(categories);
+  MANAGED_EXPENSE_CATEGORIES.forEach(category => allCategories.add(category));
+  return Array.from(allCategories);
+}
 
 export const EXPENSE_CATEGORIES = [
   'Accommodation',
@@ -754,7 +765,7 @@ export const EXPENSE_CATEGORIES = [
   'Medical',
   'Entertainment',
   'Miscellaneous',
-  CASH_CATEGORY_NAME
+  ...MANAGED_EXPENSE_CATEGORIES
 ] as const;
 
 /**

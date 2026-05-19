@@ -1,7 +1,7 @@
 'use client';
 
 import { CostTrackingData } from '@/app/types';
-import { CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { isManagedExpenseCategory } from '@/app/lib/costUtils';
 
 interface CategoryManagerProps {
   costData: CostTrackingData;
@@ -38,16 +38,16 @@ export default function CategoryManager({
       alert('This category already exists.');
       return;
     }
-    if (newCategory.trim() === CASH_CATEGORY_NAME) {
-      alert(`"${CASH_CATEGORY_NAME}" is automatically managed and cannot be added manually.`);
+    if (isManagedExpenseCategory(newCategory.trim())) {
+      alert(`"${newCategory.trim()}" is automatically managed and cannot be added manually.`);
       return;
     }
 
     if (editingCategoryIndex !== null) {
       // Edit existing category
       const updatedCategories = [...currentCategories];
-      if (updatedCategories[editingCategoryIndex] === CASH_CATEGORY_NAME) {
-        alert(`"${CASH_CATEGORY_NAME}" cannot be renamed.`);
+      if (isManagedExpenseCategory(updatedCategories[editingCategoryIndex])) {
+        alert(`"${updatedCategories[editingCategoryIndex]}" cannot be renamed.`);
         return;
       }
       updatedCategories[editingCategoryIndex] = newCategory.trim();
@@ -73,8 +73,8 @@ export default function CategoryManager({
   const deleteCategory = (index: number) => {
     const currentCategories = getCategories();
     const categoryToDelete = currentCategories[index];
-    if (categoryToDelete === CASH_CATEGORY_NAME) {
-      alert(`"${CASH_CATEGORY_NAME}" is required for cash handling and cannot be deleted.`);
+    if (isManagedExpenseCategory(categoryToDelete)) {
+      alert(`"${categoryToDelete}" is required for cash/refund handling and cannot be deleted.`);
       return;
     }
     
@@ -139,7 +139,7 @@ export default function CategoryManager({
                 <div key={category} className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 rounded-sm border dark:border-gray-700">
                   <span className="font-medium text-sm">
                     {category}
-                    {category === CASH_CATEGORY_NAME && (
+                    {isManagedExpenseCategory(category) && (
                       <span className="ml-2 text-xs text-yellow-700 dark:text-yellow-300">(required)</span>
                     )}
                   </span>
@@ -147,14 +147,14 @@ export default function CategoryManager({
                     <button
                       onClick={() => editCategory(index)}
                       className="text-blue-500 hover:text-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={category === CASH_CATEGORY_NAME}
+                      disabled={isManagedExpenseCategory(category)}
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => deleteCategory(index)}
                       className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={category === CASH_CATEGORY_NAME}
+                      disabled={isManagedExpenseCategory(category)}
                     >
                       Delete
                     </button>
