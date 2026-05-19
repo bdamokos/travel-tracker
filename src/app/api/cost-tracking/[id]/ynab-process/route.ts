@@ -9,8 +9,15 @@ import {
   ExpenseType,
   YnabTransactionFilterResult
 } from '@/app/types';
-import { createTransactionHash, filterNewTransactions, getTransactionImportKey, updateLastImportedTransaction } from '@/app/lib/ynabUtils';
-import { convertYnabDateToISO } from '@/app/lib/ynabUtils';
+import {
+  consumeLegacyImportedHash,
+  convertYnabDateToISO,
+  createTransactionHash,
+  filterNewTransactions,
+  getLegacyImportedHashCounts,
+  getTransactionImportKey,
+  updateLastImportedTransaction
+} from '@/app/lib/ynabUtils';
 import { cleanupTempFile, cleanupOldTempFiles } from '@/app/lib/ynabServerUtils';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
@@ -127,11 +134,8 @@ async function handleProcessTransactions(
   const costData = unifiedTrip.costData;
 
   const existingHashes = costData.ynabImportData?.importedTransactionHashes || [];
-  const existingBaseHashes = new Set(
-    existingHashes
-      .map((value: string) => value.match(/^([0-9a-f]{64})(?:-\d+)?$/i)?.[1])
-      .filter((value: string | undefined): value is string => Boolean(value))
-  );
+  const existingHashSet = new Set(existingHashes);
+  const legacyImportedHashCounts = getLegacyImportedHashCounts(existingHashes);
   const lastImportedHash = costData.ynabImportData?.lastImportedTransactionHash;
 
   // Process transactions based on mappings
@@ -147,7 +151,9 @@ async function handleProcessTransactions(
 
     const hash = createTransactionHash(transaction);
     const instanceId = `${hash}-${index}`;
-    const isAlreadyImported = existingHashes.includes(instanceId) || existingBaseHashes.has(hash);
+    const hasImportedInstance = existingHashSet.has(instanceId);
+    const hasLegacyImportedHash = consumeLegacyImportedHash(legacyImportedHashCounts, hash);
+    const isAlreadyImported = hasImportedInstance || hasLegacyImportedHash;
 
     const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
     if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
@@ -315,24 +321,24 @@ async function handleImportTransactions(
   const usedIndexes = new Set<number>();
   const importedTrackingKeys = costData.ynabImportData.importedTransactionHashes ?? [];
   const importedKeySet = new Set(importedTrackingKeys);
-  const importedBaseHashSet = new Set(
-    importedTrackingKeys
-      .map((value: string) => value.match(/^([0-9a-f]{64})(?:-\d+)?$/i)?.[1])
-      .filter((value: string | undefined): value is string => Boolean(value))
-  );
+  const legacyImportedHashCounts = getLegacyImportedHashCounts(importedTrackingKeys);
   const newKeySet = new Set<string>();
-  const newBaseHashSet = new Set<string>();
   const linkOperations: Array<{ expenseId: string; travelLinkInfo: TravelLinkInfo }> = [];
 
   for (const selectedTxn of selectedTransactions) {
     const { transactionHash, transactionId, transactionSourceIndex, expenseCategory, travelLinkInfo } = selectedTxn;
     const targetIndex = typeof transactionSourceIndex === 'number' ? transactionSourceIndex : undefined;
 
-    if (
-      importedBaseHashSet.has(transactionHash) ||
-      newBaseHashSet.has(transactionHash) ||
-      (transactionId ? importedKeySet.has(transactionId) || newKeySet.has(transactionId) : false)
-    ) {
+    if (transactionId && importedKeySet.has(transactionId)) {
+      consumeLegacyImportedHash(legacyImportedHashCounts, transactionHash);
+      continue;
+    }
+
+    if (transactionId && newKeySet.has(transactionId)) {
+      continue;
+    }
+
+    if (consumeLegacyImportedHash(legacyImportedHashCounts, transactionHash)) {
       continue;
     }
 
@@ -448,7 +454,6 @@ async function handleImportTransactions(
     newExpenses.push(expense);
     importedTransactions.push(processedTxn);
     newKeySet.add(importKey);
-    newBaseHashSet.add(transactionHash);
     if (travelLinkInfo) {
       linkOperations.push({ expenseId: expense.id, travelLinkInfo });
     }

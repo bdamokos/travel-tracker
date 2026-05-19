@@ -1,5 +1,12 @@
 import { describe, it, expect } from '@jest/globals';
-import { convertYnabDateToISO, filterNewTransactions, updateLastImportedTransaction, findLatestTransaction } from '@/app/lib/ynabUtils';
+import {
+  consumeLegacyImportedHash,
+  convertYnabDateToISO,
+  filterNewTransactions,
+  findLatestTransaction,
+  getLegacyImportedHashCounts,
+  updateLastImportedTransaction
+} from '@/app/lib/ynabUtils';
 import { ProcessedYnabTransaction, YnabImportData } from '@/app/types';
 
 // Mock data helpers
@@ -35,6 +42,33 @@ const createMockTransactions = (): ProcessedYnabTransaction[] => [
 ];
 
 describe('YNAB Transaction Filtering', () => {
+  describe('legacy imported transaction counts', () => {
+    const hashA = 'a'.repeat(64);
+    const hashB = 'b'.repeat(64);
+
+    it('counts base hash entries even when instance keys exist for that hash', () => {
+      const counts = getLegacyImportedHashCounts([
+        hashA,
+        `${hashA}-0`,
+        hashB,
+        'not-a-ynab-import-key'
+      ]);
+
+      expect(counts.get(hashA)).toBe(1);
+      expect(counts.get(hashB)).toBe(1);
+    });
+
+    it('consumes one base-hash import at a time', () => {
+      const counts = getLegacyImportedHashCounts([hashA, hashA, `${hashA}-0`]);
+
+      expect(consumeLegacyImportedHash(counts, hashA)).toBe(true);
+      expect(counts.get(hashA)).toBe(1);
+      expect(consumeLegacyImportedHash(counts, hashA)).toBe(true);
+      expect(counts.has(hashA)).toBe(false);
+      expect(consumeLegacyImportedHash(counts, hashA)).toBe(false);
+    });
+  });
+
   describe('convertYnabDateToISO', () => {
     it('converts valid YNAB dates to ISO dates', () => {
       expect(convertYnabDateToISO('5/7/2025')).toBe('2025-07-05');

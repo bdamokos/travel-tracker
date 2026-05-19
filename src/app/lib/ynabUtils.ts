@@ -28,6 +28,37 @@ export function getTransactionImportKey(
   return transaction.hash;
 }
 
+const YNAB_IMPORT_KEY_PATTERN = /^([0-9a-f]{64})(?:-(\d+))?$/i;
+
+export function getLegacyImportedHashCounts(importKeys: string[]): Map<string, number> {
+  const legacyCounts = new Map<string, number>();
+  for (const importKey of importKeys) {
+    const match = importKey.match(YNAB_IMPORT_KEY_PATTERN);
+    if (!match?.[1] || match[2] !== undefined) {
+      continue;
+    }
+
+    legacyCounts.set(match[1], (legacyCounts.get(match[1]) ?? 0) + 1);
+  }
+
+  return legacyCounts;
+}
+
+export function consumeLegacyImportedHash(legacyCounts: Map<string, number>, hash: string): boolean {
+  const remaining = legacyCounts.get(hash) ?? 0;
+  if (remaining <= 0) {
+    return false;
+  }
+
+  if (remaining === 1) {
+    legacyCounts.delete(hash);
+  } else {
+    legacyCounts.set(hash, remaining - 1);
+  }
+
+  return true;
+}
+
 /**
  * Produces a deterministic fingerprint for a YNAB transaction used for deduplication.
  *
