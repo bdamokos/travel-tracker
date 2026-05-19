@@ -64,6 +64,7 @@ describe('ynabUtils.flattenTransactions', () => {
     expect(first.memo).toBe('Parent memo');
     expect(first.payee_name).toBe('Grocer');
     expect(first.category_id).toBe('cat-1');
+    expect(first.import_id).toBe('import-1:split:sub-1');
     expect(first.parent_transaction_id).toBe('txn-1');
     expect(first.subtransaction_index).toBe(0);
 
@@ -72,6 +73,7 @@ describe('ynabUtils.flattenTransactions', () => {
     expect(second.memo).toBe('Specific memo');
     expect(second.payee_name).toBe('Bakery');
     expect(second.category_id).toBe('cat-2');
+    expect(second.import_id).toBe('import-1:split:sub-2');
     expect(second.parent_transaction_id).toBe('txn-1');
     expect(second.subtransaction_index).toBe(1);
   });
@@ -81,5 +83,73 @@ describe('ynabUtils.flattenTransactions', () => {
     const hashes = flattened.map(ynabUtils.generateTransactionHash);
 
     expect(new Set(hashes).size).toBe(flattened.length);
+  });
+
+  it('creates unique import ids for split siblings that share the parent import id', () => {
+    const flattened = ynabUtils.flattenTransactions([baseTransaction]);
+    const importIds = flattened.map(txn => txn.import_id);
+
+    expect(importIds).toEqual(['import-1:split:sub-1', 'import-1:split:sub-2']);
+    expect(new Set(importIds).size).toBe(flattened.length);
+  });
+});
+
+describe('ynabUtils.deduplicateTransactionsById', () => {
+  const parentFields: Omit<YnabApiTransaction, 'id' | 'subtransactions'> = {
+    date: '2024-01-01',
+    amount: -5000,
+    memo: 'Parent memo',
+    cleared: 'cleared',
+    approved: true,
+    account_id: 'acct-1',
+    account_name: 'Checking',
+    payee_id: 'payee-1',
+    payee_name: 'Grocer',
+    category_id: undefined,
+    category_name: undefined,
+    transfer_account_id: undefined,
+    transfer_transaction_id: undefined,
+    matched_transaction_id: undefined,
+    import_id: 'import-1',
+    import_payee_name: undefined,
+    import_payee_name_original: undefined,
+    debt_transaction_type: undefined,
+    deleted: false
+  };
+
+  it('merges subtransactions from duplicate split parents returned by category endpoints', () => {
+    const deduplicated = ynabUtils.deduplicateTransactionsById([
+      {
+        ...parentFields,
+        id: 'txn-1',
+        subtransactions: [
+          {
+            id: 'sub-1',
+            transaction_id: 'txn-1',
+            amount: -2000,
+            category_id: 'cat-1',
+            category_name: 'Groceries',
+            deleted: false
+          }
+        ]
+      },
+      {
+        ...parentFields,
+        id: 'txn-1',
+        subtransactions: [
+          {
+            id: 'sub-2',
+            transaction_id: 'txn-1',
+            amount: -3000,
+            category_id: 'cat-2',
+            category_name: 'Treats',
+            deleted: false
+          }
+        ]
+      }
+    ]);
+
+    expect(deduplicated).toHaveLength(1);
+    expect(deduplicated[0].subtransactions?.map(sub => sub.id)).toEqual(['sub-1', 'sub-2']);
   });
 });
