@@ -59,6 +59,13 @@ const DEFAULT_OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter'
 ];
 
+class RailGraphSizeLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RailGraphSizeLimitError';
+  }
+}
+
 const getOverpassEndpoints = (): string[] => {
   const configured = (
     process.env.NEXT_PUBLIC_RAIL_OVERPASS_ENDPOINTS ??
@@ -168,7 +175,7 @@ const buildRailGraph = (
   data: OverpassResponse
 ): { nodes: Map<number, Coordinate>; edges: Map<number, Edge[]> } => {
   if ((data.elements?.length ?? 0) > MAX_RAIL_GRAPH_ELEMENTS) {
-    throw new Error(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_ELEMENTS} elements`);
+    throw new RailGraphSizeLimitError(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_ELEMENTS} elements`);
   }
 
   const nodes = new Map<number, Coordinate>();
@@ -189,7 +196,7 @@ const buildRailGraph = (
   for (const element of data.elements ?? []) {
     if (isNode(element)) {
       if (nodes.size >= MAX_RAIL_GRAPH_NODES) {
-        throw new Error(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_NODES} nodes`);
+        throw new RailGraphSizeLimitError(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_NODES} nodes`);
       }
       nodes.set(element.id, [element.lat, element.lon]);
       continue;
@@ -206,7 +213,7 @@ const buildRailGraph = (
   const addEdge = (fromId: number, toId: number, weight: number) => {
     edgeCount += 1;
     if (edgeCount > MAX_RAIL_GRAPH_EDGES) {
-      throw new Error(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_EDGES} edges`);
+      throw new RailGraphSizeLimitError(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_EDGES} edges`);
     }
 
     if (!edges.has(fromId)) {
@@ -447,6 +454,9 @@ export const generateRailRoutePoints = async (
       return ensureEndpoints(fromCoordinates, toCoordinates, pathPoints);
     } catch (error) {
       console.warn('[railRouting] Failed to generate OSM rail route:', error);
+      if (error instanceof RailGraphSizeLimitError) {
+        break;
+      }
     }
   }
 
