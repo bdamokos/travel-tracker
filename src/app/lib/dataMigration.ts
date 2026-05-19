@@ -5,6 +5,7 @@
  */
 
 import { Journey, CostTrackingData, Location, Transportation, Accommodation, Expense, TripUpdate } from '@/app/types';
+import { logMigrationSummary } from '@/app/lib/migrationLogUtils';
 
 /**
  * Unified data model that contains both travel and cost data
@@ -130,9 +131,7 @@ export function migrateFromV6ToV7(data: UnifiedTripData): UnifiedTripData {
     ensureAccommodation(accommodationId, null, expense.travelReference.description || expense.description || null);
   }
 
-  if (created.length > 0) {
-    console.log(`Trip ${tripId} v6→v7 migration created placeholder accommodations:`, created);
-  }
+  logMigrationSummary(`Trip ${tripId} v6→v7 migration created placeholder accommodations`, 'placeholder', created.length);
 
   return {
     ...data,
@@ -347,7 +346,7 @@ export function migrateFromV2ToV3(data: UnifiedTripData): UnifiedTripData {
  */
 export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
   const tripId = data.id;
-  const cleanupLog: string[] = [];
+  let cleanupCount = 0;
   
   // Clean up locations
   if (data.travelData?.locations) {
@@ -357,7 +356,7 @@ export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
         const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
         const isValid = !!expense; // Expense must exist in same trip
         if (!isValid) {
-          cleanupLog.push(`Removed invalid expense link ${link.expenseId} from location ${location.id}`);
+          cleanupCount += 1;
         }
         return isValid;
       })
@@ -372,7 +371,7 @@ export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
         const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
         const isValid = !!expense;
         if (!isValid) {
-          cleanupLog.push(`Removed invalid expense link ${link.expenseId} from accommodation ${accommodation.id}`);
+          cleanupCount += 1;
         }
         return isValid;
       })
@@ -387,17 +386,14 @@ export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
         const expense = data.costData?.expenses?.find(e => e.id === link.expenseId);
         const isValid = !!expense;
         if (!isValid) {
-          cleanupLog.push(`Removed invalid expense link ${link.expenseId} from route ${route.id}`);
+          cleanupCount += 1;
         }
         return isValid;
       })
     }));
   }
   
-  // Log cleanup actions
-  if (cleanupLog.length > 0) {
-    console.log(`Trip ${tripId} v3→v4 migration cleanup:`, cleanupLog);
-  }
+  logMigrationSummary(`Trip ${tripId} v3→v4 migration cleanup`, 'invalid expense link', cleanupCount);
   
   return {
     ...data,
@@ -414,7 +410,7 @@ export function migrateFromV3ToV4(data: UnifiedTripData): UnifiedTripData {
  */
 export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
   const tripId = data.id;
-  const syncLog: string[] = [];
+  let syncCount = 0;
   
   // Helper function to get travel item by type and ID
   const getTravelItem = (type: string, id: string) => {
@@ -453,10 +449,10 @@ export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
                 expenseId: expense.id,
                 description: description || expense.description || ''
               });
-              syncLog.push(`Added missing costTrackingLink for expense ${expense.id} to ${type} ${travelItemId}`);
+              syncCount += 1;
             }
           } else {
-            syncLog.push(`Warning: Expense ${expense.id} references non-existent ${type} ${travelItemId}`);
+            syncCount += 1;
           }
         }
       }
@@ -485,7 +481,7 @@ export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
           break;
       }
       
-      syncLog.push(`Added missing travelReference for expense ${expense.id} to ${travelItemType} ${travelItemId}`);
+      syncCount += 1;
     }
   };
   
@@ -532,10 +528,7 @@ export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
     });
   }
   
-  // Log synchronization actions
-  if (syncLog.length > 0) {
-    console.log(`Trip ${tripId} v4→v5 migration synchronization:`, syncLog);
-  }
+  logMigrationSummary(`Trip ${tripId} v4→v5 migration synchronization`, 'travel reference update', syncCount);
   
   return {
     ...data,
@@ -551,7 +544,8 @@ export function migrateFromV4ToV5(data: UnifiedTripData): UnifiedTripData {
  */
 export function migrateFromV5ToV6(data: UnifiedTripData): UnifiedTripData {
   const tripId = data.id;
-  const fixLog: string[] = [];
+  let fixedCount = 0;
+  let missingParentCount = 0;
   
   if (!data.accommodations || !data.travelData?.locations) {
     return {
@@ -573,21 +567,19 @@ export function migrateFromV5ToV6(data: UnifiedTripData): UnifiedTripData {
     );
     
     if (parentLocation) {
-      fixLog.push(`Fixed accommodation ${accommodation.id} (${accommodation.name}): temp-location → ${parentLocation.id} (${parentLocation.name})`);
+      fixedCount += 1;
       return {
         ...accommodation,
         locationId: parentLocation.id
       };
     } else {
-      fixLog.push(`Could not find parent location for accommodation ${accommodation.id} (${accommodation.name})`);
+      missingParentCount += 1;
       return accommodation;
     }
   });
   
-  // Log fix actions
-  if (fixLog.length > 0) {
-    console.log(`Trip ${tripId} v5→v6 migration temp-location fixes:`, fixLog);
-  }
+  logMigrationSummary(`Trip ${tripId} v5→v6 migration temp-location fixes`, 'accommodation reassignment', fixedCount);
+  logMigrationSummary(`Trip ${tripId} v5→v6 migration temp-location unresolved`, 'accommodation', missingParentCount);
   
   return {
     ...data,
