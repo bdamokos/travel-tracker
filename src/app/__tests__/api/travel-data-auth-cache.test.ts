@@ -4,8 +4,9 @@
 
 import { NextRequest } from 'next/server';
 
-import { DELETE, GET, PATCH } from '@/app/api/travel-data/route';
+import { DELETE, GET, PATCH, PUT } from '@/app/api/travel-data/route';
 import { deleteTripWithBackup, loadUnifiedTripData, updateTravelData } from '@/app/lib/unifiedDataService';
+import { MAX_ROUTE_POINTS_PER_ROUTE } from '@/app/lib/routePointValidation';
 
 jest.mock('@/app/lib/server-domains', () => ({
   __esModule: true,
@@ -204,5 +205,58 @@ describe('travel-data API auth and cache boundary', () => {
     expect(JSON.stringify(result)).not.toContain('private-booking-code');
     expect(result.accommodations[0].costTrackingLinks).toBeUndefined();
     expect(result.locations[0].accommodationIds).toBeUndefined();
+  });
+
+  it('rejects oversized route point geometry on full trip updates', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
+    const response = await PUT(
+      new NextRequest('https://admin.example.test/api/travel-data?id=trip-1', {
+        method: 'PUT',
+        headers: { host: 'admin.example.test' },
+        body: JSON.stringify({
+          title: 'Trip',
+          routes: [
+            {
+              id: 'route-1',
+              from: 'A',
+              to: 'B',
+              routePoints: Array.from(
+                { length: MAX_ROUTE_POINTS_PER_ROUTE + 1 },
+                () => [48.8566, 2.3522]
+              )
+            }
+          ]
+        })
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(result.error).toContain(`more than ${MAX_ROUTE_POINTS_PER_ROUTE} points`);
+    expect(mockUpdateTravelData).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed route point geometry on route-point PATCH updates', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
+    const response = await PATCH(
+      new NextRequest('https://admin.example.test/api/travel-data?id=trip-1', {
+        method: 'PATCH',
+        headers: { host: 'admin.example.test' },
+        body: JSON.stringify({
+          routeUpdate: {
+            routeId: 'route-1',
+            routePoints: [[91, 2.3522]]
+          }
+        })
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(result.error).toBe('Route route-1 routePoints[0] must be a valid [latitude, longitude] pair');
+    expect(mockLoadUnifiedTripData).not.toHaveBeenCalled();
+    expect(mockUpdateTravelData).not.toHaveBeenCalled();
   });
 });

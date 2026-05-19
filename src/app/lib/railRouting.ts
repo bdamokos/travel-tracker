@@ -1,4 +1,9 @@
 import type { Transportation } from '@/app/types';
+import {
+  MAX_RAIL_GRAPH_EDGES,
+  MAX_RAIL_GRAPH_ELEMENTS,
+  MAX_RAIL_GRAPH_NODES
+} from '@/app/lib/routePointValidation';
 
 type Coordinate = [number, number];
 
@@ -53,6 +58,13 @@ const DEFAULT_OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter'
 ];
+
+class RailGraphSizeLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RailGraphSizeLimitError';
+  }
+}
 
 const getOverpassEndpoints = (): string[] => {
   const configured = (
@@ -162,6 +174,10 @@ const fetchOverpass = async (query: string): Promise<OverpassResponse> => {
 const buildRailGraph = (
   data: OverpassResponse
 ): { nodes: Map<number, Coordinate>; edges: Map<number, Edge[]> } => {
+  if ((data.elements?.length ?? 0) > MAX_RAIL_GRAPH_ELEMENTS) {
+    throw new RailGraphSizeLimitError(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_ELEMENTS} elements`);
+  }
+
   const nodes = new Map<number, Coordinate>();
   const ways: OverpassWay[] = [];
 
@@ -179,6 +195,9 @@ const buildRailGraph = (
 
   for (const element of data.elements ?? []) {
     if (isNode(element)) {
+      if (nodes.size >= MAX_RAIL_GRAPH_NODES) {
+        throw new RailGraphSizeLimitError(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_NODES} nodes`);
+      }
       nodes.set(element.id, [element.lat, element.lon]);
       continue;
     }
@@ -189,8 +208,14 @@ const buildRailGraph = (
   }
 
   const edges = new Map<number, Edge[]>();
+  let edgeCount = 0;
 
   const addEdge = (fromId: number, toId: number, weight: number) => {
+    edgeCount += 1;
+    if (edgeCount > MAX_RAIL_GRAPH_EDGES) {
+      throw new RailGraphSizeLimitError(`Overpass rail response exceeded ${MAX_RAIL_GRAPH_EDGES} edges`);
+    }
+
     if (!edges.has(fromId)) {
       edges.set(fromId, []);
     }
@@ -429,6 +454,9 @@ export const generateRailRoutePoints = async (
       return ensureEndpoints(fromCoordinates, toCoordinates, pathPoints);
     } catch (error) {
       console.warn('[railRouting] Failed to generate OSM rail route:', error);
+      if (error instanceof RailGraphSizeLimitError) {
+        break;
+      }
     }
   }
 
