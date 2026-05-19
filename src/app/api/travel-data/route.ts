@@ -10,6 +10,7 @@ import {
   MAX_ROUTE_POINTS_PER_UPDATE,
   validateRoutePoints
 } from '@/app/lib/routePointValidation';
+import { normalizeTransportationType } from '@/app/lib/routeUtils';
 import type { TravelData } from '@/app/types';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -32,6 +33,25 @@ type RoutePayload = RouteSegmentPayload & {
   id: string;
   subRoutes?: RouteSegmentPayload[];
 };
+
+const normalizeStoredRouteTransportFields = (route: RoutePayload): RoutePayload => ({
+  ...route,
+  ...(route.transportType !== undefined && {
+    transportType: normalizeTransportationType(route.transportType)
+  }),
+  ...(route.type !== undefined && {
+    type: normalizeTransportationType(route.type)
+  }),
+  subRoutes: route.subRoutes?.map((segment) => ({
+    ...segment,
+    ...(segment.transportType !== undefined && {
+      transportType: normalizeTransportationType(segment.transportType)
+    }),
+    ...(segment.type !== undefined && {
+      type: normalizeTransportationType(segment.type)
+    })
+  }))
+});
 
 const validateSubmittedRoutePoints = (
   routes?: Array<Partial<RoutePayload> & { id?: string }>,
@@ -397,7 +417,8 @@ export async function PATCH(request: NextRequest) {
         endDate: parseDateAsLocalDay(unifiedData.endDate) ?? new Date(),
         instagramUsername: unifiedData.travelData?.instagramUsername,
         locations: unifiedData.travelData?.locations || [],
-        routes: (unifiedData.travelData?.routes || []) as unknown as TravelData['routes']
+        routes: ((unifiedData.travelData?.routes || []) as unknown as RoutePayload[])
+          .map(normalizeStoredRouteTransportFields) as unknown as TravelData['routes']
       } as TravelData;
 
       // Defensive merge: apply only explicit add/update/remove operations from the delta.

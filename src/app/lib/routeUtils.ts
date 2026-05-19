@@ -142,7 +142,7 @@ export const getTransportIcon = (type: unknown): string => {
     multimodal: '🔀',
     other: '🚙'
   };
-  return icons[normalizeTransportationType(type)] || '🚙';
+  return icons[normalizeTransportationType(type)];
 };
 
 // Get emoji for multimodal routes (concatenated from segment emojis)

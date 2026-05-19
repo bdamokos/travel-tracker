@@ -149,6 +149,21 @@ describe('validateAndNormalizeCompositeRoute', () => {
     expect(result.error).toEqual({ code: 'invalid_transport_type', field: 'transportType' });
   });
 
+  it('rejects unsupported legacy route types even when transportType is valid', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'B',
+      transportType: 'train',
+      type: 'sidecar'
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected invalid legacy route type validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_transport_type', field: 'type' });
+  });
+
   it('rejects unsupported legacy top-level route types', () => {
     const result = validateAndNormalizeCompositeRoute({
       from: 'A',
