@@ -53,6 +53,36 @@ describe('validateAndNormalizeCompositeRoute', () => {
     expect(result.normalizedRoute.to).toBe('Known End');
   });
 
+  it('rejects blank standalone route names', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: '',
+      to: 'B'
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected blank route name validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from' });
+  });
+
+  it('rejects blank sub-route names', () => {
+    const result = validateAndNormalizeCompositeRoute({
+      from: 'A',
+      to: 'C',
+      subRoutes: [
+        { from: 'A', to: 'B' },
+        { from: ' ', to: 'C' }
+      ]
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('Expected blank sub-route validation failure');
+    }
+    expect(result.error).toEqual({ code: 'invalid_route_name', field: 'from', segmentNumber: 2 });
+  });
+
   it('preserves segment distance overrides after normalization', () => {
     const result = validateAndNormalizeCompositeRoute({
       from: 'A',

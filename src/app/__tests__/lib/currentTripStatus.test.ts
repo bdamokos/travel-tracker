@@ -17,6 +17,20 @@ describe('getCurrentTripStatus', () => {
     );
   });
 
+  it('trims route endpoint names before rendering current travel status', () => {
+    const locations: LocationTiming[] = [
+      { name: 'Puno', date: utc('2024-02-04'), endDate: utc('2024-02-06') },
+    ];
+    const routes: RouteTiming[] = [
+      { from: '  Puno  ', to: '  Cusco ', departureTime: utc('2024-02-06') },
+    ];
+    const now = new Date('2024-02-06T10:00:00Z');
+
+    expect(getCurrentTripStatus(locations, routes, now)).toBe(
+      'Current location: Travelling today between Puno and Cusco'
+    );
+  });
+
   it('returns travel message when two locations overlap today', () => {
     const locations: LocationTiming[] = [
       { name: 'Puno', date: utc('2024-02-04'), endDate: utc('2024-02-06') },

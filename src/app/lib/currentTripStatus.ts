@@ -24,8 +24,8 @@ const normalizeDate = (value: string | Date | undefined | null): Date | null => 
 
 const isSameDay = (a: Date, b: Date): boolean => a.getTime() === b.getTime();
 const getNonEmptyString = (value: unknown): string | null =>
-  typeof value === 'string' && value.trim().length > 0 ? value : null;
-const getComparableName = (value: unknown): string | null => getNonEmptyString(value)?.trim().toLowerCase() ?? null;
+  typeof value === 'string' ? (value.trim() || null) : null;
+const getComparableName = (value: unknown): string | null => getNonEmptyString(value)?.toLowerCase() ?? null;
 const hasSameName = (left: unknown, right: unknown): boolean => {
   const normalizedLeft = getComparableName(left);
   const normalizedRight = getComparableName(right);

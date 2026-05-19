@@ -26,15 +26,21 @@ export type CompositeRouteValidationResult =
 // Allow sub-meter coordinate drift from serialization/geocoding differences.
 const COORD_EPSILON = 1e-6;
 
-const isValidOptionalLocationName = (value: unknown): value is string | undefined =>
-  value === undefined || typeof value === 'string';
+const isValidOptionalLocationName = (
+  value: unknown,
+  options: { allowBlank?: boolean } = {}
+): value is string | undefined => {
+  if (value === undefined) return true;
+  if (typeof value !== 'string') return false;
+  return options.allowBlank || value.trim().length > 0;
+};
 
 const normalizeLocationName = (value?: unknown) => typeof value === 'string' ? value.trim().toLowerCase() : '';
 
 const isSameLocationName = (left?: unknown, right?: unknown) => {
-  if (typeof left !== 'string' || typeof right !== 'string') return false;
-  if (!left || !right) return false;
-  return normalizeLocationName(left) === normalizeLocationName(right);
+  const normalizedLeft = normalizeLocationName(left);
+  const normalizedRight = normalizeLocationName(right);
+  return normalizedLeft !== '' && normalizedLeft === normalizedRight;
 };
 
 const isSameCoords = (left?: [number, number], right?: [number, number]) => {
@@ -62,15 +68,17 @@ const findDisconnectedSegmentNumber = (subRoutes: RouteSegmentLike[]): number | 
 };
 
 export const validateAndNormalizeCompositeRoute = (route: CompositeRouteLike): CompositeRouteValidationResult => {
-  if (!isValidOptionalLocationName(route.from)) {
+  const subRoutes = route.subRoutes;
+  const hasSubRoutes = Boolean(subRoutes?.length);
+
+  if (!isValidOptionalLocationName(route.from, { allowBlank: hasSubRoutes })) {
     return { ok: false, error: { code: 'invalid_route_name', field: 'from' } };
   }
 
-  if (!isValidOptionalLocationName(route.to)) {
+  if (!isValidOptionalLocationName(route.to, { allowBlank: hasSubRoutes })) {
     return { ok: false, error: { code: 'invalid_route_name', field: 'to' } };
   }
 
-  const subRoutes = route.subRoutes;
   if (!subRoutes?.length) {
     return { ok: true, normalizedRoute: route };
   }
