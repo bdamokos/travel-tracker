@@ -2,6 +2,7 @@ export type RoutePoint = [number, number];
 
 export const MAX_ROUTE_POINTS_PER_ROUTE = 100000;
 export const MAX_ROUTE_POINTS_PER_UPDATE = 250000;
+export const MAX_ROUTE_POINTS_PER_TRIP = 1000000;
 export const MAX_RAIL_GRAPH_ELEMENTS = 50000;
 export const MAX_RAIL_GRAPH_NODES = 40000;
 export const MAX_RAIL_GRAPH_EDGES = 100000;

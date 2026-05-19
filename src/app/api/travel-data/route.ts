@@ -5,7 +5,11 @@ import { isAdminDomain, isAdminHost } from '@/app/lib/server-domains';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { applyTravelDataDelta, isTravelDataDelta, isTravelDataDeltaEmpty } from '@/app/lib/travelDataDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
-import { MAX_ROUTE_POINTS_PER_UPDATE, validateRoutePoints } from '@/app/lib/routePointValidation';
+import {
+  MAX_ROUTE_POINTS_PER_TRIP,
+  MAX_ROUTE_POINTS_PER_UPDATE,
+  validateRoutePoints
+} from '@/app/lib/routePointValidation';
 import type { TravelData } from '@/app/types';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -28,11 +32,15 @@ type RoutePayload = RouteSegmentPayload & {
 };
 
 const validateSubmittedRoutePoints = (
-  routes?: Array<Partial<RoutePayload> & { id?: string }>
+  routes?: Array<Partial<RoutePayload> & { id?: string }>,
+  options: { totalLimit?: number; totalLabel?: string } = {}
 ): { error?: string } => {
   if (!routes) return {};
 
+  const totalLimit = options.totalLimit ?? MAX_ROUTE_POINTS_PER_UPDATE;
+  const totalLabel = options.totalLabel ?? 'Route update';
   let totalRoutePoints = 0;
+
   for (const route of routes) {
     const routeId = route.id ?? 'unknown';
     const routePointValidation = validateRoutePoints(route.routePoints, `Route ${routeId} routePoints`);
@@ -54,9 +62,9 @@ const validateSubmittedRoutePoints = (
       totalRoutePoints += segmentPointValidation.points.length;
     }
 
-    if (totalRoutePoints > MAX_ROUTE_POINTS_PER_UPDATE) {
+    if (totalRoutePoints > totalLimit) {
       return {
-        error: `Route update cannot contain more than ${MAX_ROUTE_POINTS_PER_UPDATE} total route points`
+        error: `${totalLabel} cannot contain more than ${totalLimit} total route points`
       };
     }
   }
@@ -66,12 +74,15 @@ const validateSubmittedRoutePoints = (
 
 const normalizeCompositeRoutes = (
   routes?: RoutePayload[],
-  options: { validateRoutePoints?: boolean } = {}
+  options: { validateRoutePoints?: boolean; totalRoutePointsLimit?: number; totalLabel?: string } = {}
 ) => {
   if (!routes) return { routes };
 
   if (options.validateRoutePoints ?? true) {
-    const routePointValidation = validateSubmittedRoutePoints(routes);
+    const routePointValidation = validateSubmittedRoutePoints(routes, {
+      totalLimit: options.totalRoutePointsLimit ?? MAX_ROUTE_POINTS_PER_TRIP,
+      totalLabel: options.totalLabel ?? 'Trip'
+    });
     if (routePointValidation.error) {
       return { error: routePointValidation.error };
     }
@@ -381,10 +392,7 @@ export async function PATCH(request: NextRequest) {
       // accommodation endpoints and not part of TravelDataDelta.
       const merged = applyTravelDataDelta(baseTravelData, delta);
 
-      const { routes, error } = normalizeCompositeRoutes(
-        merged.routes as unknown as RoutePayload[],
-        { validateRoutePoints: false }
-      );
+      const { routes, error } = normalizeCompositeRoutes(merged.routes as unknown as RoutePayload[]);
       if (error) {
         return NextResponse.json(
           { error },
@@ -466,6 +474,17 @@ export async function PATCH(request: NextRequest) {
         }
         
         if (updatedCount > 0) {
+          const routePointValidation = validateSubmittedRoutePoints(
+            unifiedData.travelData.routes as unknown as RoutePayload[],
+            { totalLimit: MAX_ROUTE_POINTS_PER_TRIP, totalLabel: 'Trip' }
+          );
+          if (routePointValidation.error) {
+            return NextResponse.json(
+              { error: routePointValidation.error },
+              { status: 400 }
+            );
+          }
+
           console.log('[PATCH] Saving %d route updates to trip %s', updatedCount, id);
           // Save the updated data - pass only the route updates
           try {
@@ -522,6 +541,17 @@ export async function PATCH(request: NextRequest) {
         const routeIndex = unifiedData.travelData.routes.findIndex((route: { id: string }) => route.id === routeId);
         if (routeIndex >= 0) {
           (unifiedData.travelData.routes[routeIndex] as { routePoints?: [number, number][] }).routePoints = routePoints;
+
+          const routePointValidation = validateSubmittedRoutePoints(
+            unifiedData.travelData.routes as unknown as RoutePayload[],
+            { totalLimit: MAX_ROUTE_POINTS_PER_TRIP, totalLabel: 'Trip' }
+          );
+          if (routePointValidation.error) {
+            return NextResponse.json(
+              { error: routePointValidation.error },
+              { status: 400 }
+            );
+          }
           
           // Save the updated data - pass only the route updates
           await updateTravelData(id, {
