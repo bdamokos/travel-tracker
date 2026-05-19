@@ -184,6 +184,12 @@ export default function RouteForm({
   };
 
   const isZeroCoords = (coords?: [number, number]) => !coords || (coords[0] === 0 && coords[1] === 0);
+  const hasUsableCoords = (coords?: [number, number]) => (
+    Boolean(coords)
+    && Number.isFinite(coords?.[0])
+    && Number.isFinite(coords?.[1])
+    && !isZeroCoords(coords)
+  );
 
   const handleRouteLocationChange = (field: 'from' | 'to', value: string) => {
     const locationMatch = locationOptions.find(loc => loc.name === value);
@@ -260,6 +266,10 @@ export default function RouteForm({
         const segment = subRoutes[i];
         if (segment.from === segment.to) {
           setValidationError(`Segment ${i + 1}: From and To locations must be different.`);
+          return;
+        }
+        if (!hasUsableCoords(segment.fromCoords) || !hasUsableCoords(segment.toCoords)) {
+          setValidationError(`Segment ${i + 1}: Please set valid coordinates for both endpoints.`);
           return;
         }
       }
@@ -549,7 +559,7 @@ export default function RouteForm({
         setCurrentRoute(prev => ({
           ...prev,
           subRoutes: prev.subRoutes?.map((s) =>
-            s.id === segmentId
+            s.id === segmentId && s[field] === locationName
               ? { ...s, [`${field}Coords`]: location.coordinates }
               : s
           )
@@ -561,7 +571,7 @@ export default function RouteForm({
           setCurrentRoute(prev => ({
             ...prev,
             subRoutes: prev.subRoutes?.map((s) =>
-              s.id === segmentId
+              s.id === segmentId && s[field] === locationName
                 ? { ...s, [`${field}Coords`]: coords }
                 : s
             )
@@ -570,7 +580,7 @@ export default function RouteForm({
           setCurrentRoute(prev => ({
             ...prev,
             subRoutes: prev.subRoutes?.map((s) =>
-              s.id === segmentId
+              s.id === segmentId && s[field] === locationName
                 ? { ...s, [`${field}Coords`]: [0, 0] }
                 : s
             )
