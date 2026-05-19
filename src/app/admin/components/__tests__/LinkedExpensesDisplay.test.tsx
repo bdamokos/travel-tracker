@@ -234,6 +234,63 @@ describe('LinkedExpensesDisplay', () => {
     });
   });
 
+  it('should display allocated negative refund amount for equal multi-link expenses', async () => {
+    mockUseExpenses.mockReturnValue({
+      expenses: [
+        {
+          id: 'refund-1',
+          date: '2024-01-04',
+          amount: -100,
+          currency: 'EUR',
+          category: 'Food',
+          country: 'France',
+          description: 'Shared dinner refund',
+          expenseType: 'actual'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn(),
+    });
+
+    mockUseExpenseLinks.mockReturnValue({
+      expenseLinks: [
+        {
+          expenseId: 'refund-1',
+          travelItemId: 'route-1',
+          travelItemName: 'A → B',
+          travelItemType: 'route',
+          splitMode: 'equal'
+        },
+        {
+          expenseId: 'refund-1',
+          travelItemId: 'location-1',
+          travelItemName: 'Test Location',
+          travelItemType: 'location',
+          splitMode: 'equal'
+        }
+      ],
+      isLoading: false,
+      isError: undefined,
+      mutate: jest.fn()
+    });
+
+    render(
+      <LinkedExpensesDisplay
+        itemId="location-1"
+        itemType="location"
+        tripId={mockTripId}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('💰 Linked Expenses (1)')).toBeInTheDocument();
+      expect(screen.getByText('Total: EUR -50.00')).toBeInTheDocument();
+      expect(screen.getByText('Shared dinner refund')).toBeInTheDocument();
+      expect(screen.getByText('EUR -50.00')).toBeInTheDocument();
+    });
+  });
+
   it('should not render when no expenses are linked', async () => {
     mockUseExpenseLinks.mockReturnValue({
       expenseLinks: [],
