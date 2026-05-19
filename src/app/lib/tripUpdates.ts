@@ -1,6 +1,7 @@
 import { formatDateRange, normalizeUtcDateToLocalDay } from './dateUtils';
 import { Location, Transportation, TripUpdate, TripUpdateLink, InstagramPost, TikTokPost, BlogPost } from '@/app/types';
 import { UnifiedTripData } from './dataMigration';
+import { isSafePublicHttpUrl } from './publicUrlValidation';
 
 type RouteLike = Transportation & { transportType?: string };
 
@@ -60,16 +61,6 @@ const isBlogPost = (post: InstagramPost | TikTokPost | BlogPost): post is BlogPo
   return 'title' in post && typeof post.title === 'string';
 };
 
-// Validate URL to prevent XSS attacks - only allow http(s) protocols
-const isValidHttpUrl = (url: string): boolean => {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-};
-
 const addPostUpdate = (
   updates: TripUpdate[],
   location: Location,
@@ -82,7 +73,7 @@ const addPostUpdate = (
 
   // Extract links from posts, validating URLs to prevent XSS
   const links: TripUpdateLink[] = posts
-    .filter(post => isValidHttpUrl(post.url))
+    .filter(post => isSafePublicHttpUrl(post.url))
     .map(post => {
       if (isBlogPost(post)) {
         // Truncate blog titles to 80 chars for UI consistency

@@ -1,5 +1,6 @@
 import { Accommodation, Journey, Location, Transportation, JourneyPeriod } from '@/app/types';
 import { isAdminHost } from '@/app/lib/server-domains';
+import { filterSafePublicLinks } from '@/app/lib/publicUrlValidation';
 
 interface TravelData {
   locations?: Location[];
@@ -35,6 +36,9 @@ export function filterLocationForServer(location: Location, host: string | null)
     // Remove private fields completely
     accommodationIds: undefined,
     costTrackingLinks: undefined,
+    instagramPosts: filterSafePublicLinks(location.instagramPosts),
+    tikTokPosts: filterSafePublicLinks(location.tikTokPosts),
+    blogPosts: filterSafePublicLinks(location.blogPosts),
     // Handle accommodation privacy
     accommodationData: location.isAccommodationPublic ? location.accommodationData : undefined,
     isAccommodationPublic: undefined, // Don't expose the privacy flag itself
@@ -128,6 +132,8 @@ export function filterJourneyPeriodForServer(
 
   return {
     ...period,
+    instagramPosts: filterSafePublicLinks(period.instagramPosts),
+    tikTokPosts: filterSafePublicLinks(period.tikTokPosts),
     locations: filteredLocations,
     transportation: filteredTransportation,
   };
