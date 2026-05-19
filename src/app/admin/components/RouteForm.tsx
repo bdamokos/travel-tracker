@@ -7,6 +7,7 @@ import { coerceValidDate } from '@/app/lib/dateUtils';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { parseDistanceOverride } from '@/app/lib/distanceOverride';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
+import { summarizeSegmentDurations } from '@/app/lib/routeDurationDisplay';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -94,6 +95,10 @@ export default function RouteForm({
     () => coerceValidDate(currentRoute.date),
     [currentRoute.date]
   );
+  const subRouteTransportTypesKey = useMemo(
+    () => currentRoute.subRoutes?.map(segment => segment.transportType).join('|') ?? '',
+    [currentRoute.subRoutes]
+  );
 
   const locationChoiceOptions = useMemo(
     () => locationOptions.map(location => ({ value: location.name, label: location.name })),
@@ -129,7 +134,7 @@ export default function RouteForm({
     });
   }, [
     currentRoute.subRoutes?.length,
-    currentRoute.subRoutes?.map(segment => segment.transportType).join('|'),
+    subRouteTransportTypesKey,
     setCurrentRoute
   ]);
 
@@ -140,8 +145,9 @@ export default function RouteForm({
 
   // Cleanup all debounced functions on unmount
   useEffect(() => {
+    const geocodingDebouncers = geocodingDebouncersRef.current;
     return () => {
-      Object.values(geocodingDebouncersRef.current).forEach(debouncer => debouncer.cancel());
+      Object.values(geocodingDebouncers).forEach(debouncer => debouncer.cancel());
     };
   }, []);
 
@@ -838,7 +844,7 @@ export default function RouteForm({
               Duration
             </div>
             <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
-              {currentRoute.subRoutes?.map(s => s.duration?.trim()).filter(Boolean).join(' + ') || 'Set duration on each segment'}
+              {summarizeSegmentDurations(currentRoute.subRoutes)}
             </div>
             <p className="text-xs text-gray-500 mt-1">Duration is derived from segments.</p>
           </div>

@@ -9,6 +9,7 @@ import { parseDistanceOverride } from '@/app/lib/distanceOverride';
 import { generateId } from '@/app/lib/costUtils';
 import { formatLocalDateLabel, getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 import { parseGeoJsonRouteImport, validateGeoJsonRouteImportFile } from '@/app/lib/geoJsonRouteImport';
+import { summarizeSegmentDurations } from '@/app/lib/routeDurationDisplay';
 import CostTrackingLinksManager from './CostTrackingLinksManager';
 import AriaSelect from './AriaSelect';
 import AriaComboBox from './AriaComboBox';
@@ -1210,7 +1211,7 @@ export default function RouteInlineEditor({
 	              Duration
 	            </div>
 	            <div className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-	              {formData.subRoutes?.map(s => s.duration?.trim()).filter(Boolean).join(' + ') || 'Set duration on each segment'}
+	              {summarizeSegmentDurations(formData.subRoutes)}
 	            </div>
 	            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Duration is derived from segments.</p>
 	          </div>
