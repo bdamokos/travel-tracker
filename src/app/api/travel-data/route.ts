@@ -5,6 +5,7 @@ import { isAdminDomain, isAdminHost } from '@/app/lib/server-domains';
 import { validateAndNormalizeCompositeRoute } from '@/app/lib/compositeRouteValidation';
 import { applyTravelDataDelta, isTravelDataDelta, isTravelDataDeltaEmpty } from '@/app/lib/travelDataDelta';
 import { dateReviver } from '@/app/lib/jsonDateReviver';
+import { MAX_ROUTE_POINTS_PER_UPDATE, validateRoutePoints } from '@/app/lib/routePointValidation';
 import type { TravelData } from '@/app/types';
 import { parseDateAsLocalDay } from '@/app/lib/localDateUtils';
 
@@ -18,6 +19,7 @@ type RouteSegmentPayload = {
   to: string;
   fromCoords?: [number, number];
   toCoords?: [number, number];
+  routePoints?: [number, number][];
 };
 
 type RoutePayload = RouteSegmentPayload & {
@@ -25,8 +27,55 @@ type RoutePayload = RouteSegmentPayload & {
   subRoutes?: RouteSegmentPayload[];
 };
 
-const normalizeCompositeRoutes = (routes?: RoutePayload[]) => {
+const validateSubmittedRoutePoints = (
+  routes?: Array<Partial<RoutePayload> & { id?: string }>
+): { error?: string } => {
+  if (!routes) return {};
+
+  let totalRoutePoints = 0;
+  for (const route of routes) {
+    const routeId = route.id ?? 'unknown';
+    const routePointValidation = validateRoutePoints(route.routePoints, `Route ${routeId} routePoints`);
+    if (!routePointValidation.ok) {
+      return { error: routePointValidation.error };
+    }
+    totalRoutePoints += routePointValidation.points.length;
+
+    const subRoutes = route.subRoutes ?? [];
+    for (let index = 0; index < subRoutes.length; index += 1) {
+      const segment = subRoutes[index];
+      const segmentPointValidation = validateRoutePoints(
+        segment.routePoints,
+        `Route ${routeId} sub-route ${index + 1} routePoints`
+      );
+      if (!segmentPointValidation.ok) {
+        return { error: segmentPointValidation.error };
+      }
+      totalRoutePoints += segmentPointValidation.points.length;
+    }
+
+    if (totalRoutePoints > MAX_ROUTE_POINTS_PER_UPDATE) {
+      return {
+        error: `Route update cannot contain more than ${MAX_ROUTE_POINTS_PER_UPDATE} total route points`
+      };
+    }
+  }
+
+  return {};
+};
+
+const normalizeCompositeRoutes = (
+  routes?: RoutePayload[],
+  options: { validateRoutePoints?: boolean } = {}
+) => {
   if (!routes) return { routes };
+
+  if (options.validateRoutePoints ?? true) {
+    const routePointValidation = validateSubmittedRoutePoints(routes);
+    if (routePointValidation.error) {
+      return { error: routePointValidation.error };
+    }
+  }
 
   const normalized = routes.map((route) => {
     const validation = validateAndNormalizeCompositeRoute(route);
@@ -296,6 +345,17 @@ export async function PATCH(request: NextRequest) {
         });
       }
 
+      const routePointValidation = validateSubmittedRoutePoints([
+        ...(delta.routes?.added ?? []),
+        ...(delta.routes?.updated ?? [])
+      ] as Array<Partial<RoutePayload> & { id?: string }>);
+      if (routePointValidation.error) {
+        return NextResponse.json(
+          { error: routePointValidation.error },
+          { status: 400 }
+        );
+      }
+
       const unifiedData = await loadUnifiedTripData(id);
       if (!unifiedData) {
         return NextResponse.json(
@@ -321,7 +381,10 @@ export async function PATCH(request: NextRequest) {
       // accommodation endpoints and not part of TravelDataDelta.
       const merged = applyTravelDataDelta(baseTravelData, delta);
 
-      const { routes, error } = normalizeCompositeRoutes(merged.routes as unknown as RoutePayload[]);
+      const { routes, error } = normalizeCompositeRoutes(
+        merged.routes as unknown as RoutePayload[],
+        { validateRoutePoints: false }
+      );
       if (error) {
         return NextResponse.json(
           { error },
@@ -349,6 +412,25 @@ export async function PATCH(request: NextRequest) {
     // Handle batch route point updates
     if (updateRequest.batchRouteUpdate) {
       const updates = updateRequest.batchRouteUpdate as Array<{routeId: string, routePoints: [number, number][]}>;
+      let totalRoutePoints = 0;
+      for (const update of updates) {
+        const validation = validateRoutePoints(update.routePoints, `Route ${update.routeId} routePoints`);
+        if (!validation.ok) {
+          return NextResponse.json(
+            { error: validation.error },
+            { status: 400 }
+          );
+        }
+
+        totalRoutePoints += validation.points.length;
+        if (totalRoutePoints > MAX_ROUTE_POINTS_PER_UPDATE) {
+          return NextResponse.json(
+            { error: `Route update cannot contain more than ${MAX_ROUTE_POINTS_PER_UPDATE} total route points` },
+            { status: 400 }
+          );
+        }
+      }
+
       console.log('[PATCH] Processing batch route update for trip %s with %d routes', id, updates.length);
       
       // Load current unified data
@@ -418,6 +500,13 @@ export async function PATCH(request: NextRequest) {
     // Handle single route point updates (backwards compatibility)
     if (updateRequest.routeUpdate) {
       const { routeId, routePoints } = updateRequest.routeUpdate;
+      const validation = validateRoutePoints(routePoints, `Route ${routeId} routePoints`);
+      if (!validation.ok) {
+        return NextResponse.json(
+          { error: validation.error },
+          { status: 400 }
+        );
+      }
       
       // Load current unified data
       const unifiedData = await loadUnifiedTripData(id);
