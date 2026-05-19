@@ -2,9 +2,11 @@ import { describe, it, expect } from '@jest/globals';
 import {
   consumeLegacyImportedHash,
   convertYnabDateToISO,
+  filterAvailableTransactionsAfterLastImport,
   filterNewTransactions,
   findLatestTransaction,
   getLegacyImportedHashCounts,
+  getTransactionImportKey,
   updateLastImportedTransaction
 } from '@/app/lib/ynabUtils';
 import { ProcessedYnabTransaction, YnabImportData } from '@/app/types';
@@ -175,6 +177,51 @@ describe('YNAB Transaction Filtering', () => {
       // Should return hash4 and hash5 (after hash3 chronologically)
       expect(result.newTransactions[0].hash).toBe('hash4');
       expect(result.newTransactions[1].hash).toBe('hash5');
+    });
+  });
+
+  describe('filterAvailableTransactionsAfterLastImport', () => {
+    it('finds the last imported anchor in the full processed list even when it is not available', () => {
+      const processedTransactions = createMockTransactions().map((transaction, index) => ({
+        ...transaction,
+        sourceIndex: index
+      }));
+      const availableImportKeys = new Set(
+        processedTransactions
+          .filter(transaction => transaction.hash === 'hash4' || transaction.hash === 'hash5')
+          .map(transaction => getTransactionImportKey(transaction))
+      );
+
+      const result = filterAvailableTransactionsAfterLastImport(
+        processedTransactions,
+        availableImportKeys,
+        'hash3'
+      );
+
+      expect(result.lastTransactionFound).toBe(true);
+      expect(result.newTransactions.map(transaction => transaction.hash)).toEqual(['hash4', 'hash5']);
+      expect(result.filteredCount).toBe(3);
+    });
+
+    it('returns all available transactions when the last imported anchor is missing', () => {
+      const processedTransactions = createMockTransactions().map((transaction, index) => ({
+        ...transaction,
+        sourceIndex: index
+      }));
+      const availableImportKeys = new Set([
+        getTransactionImportKey(processedTransactions[1]),
+        getTransactionImportKey(processedTransactions[3])
+      ]);
+
+      const result = filterAvailableTransactionsAfterLastImport(
+        processedTransactions,
+        availableImportKeys,
+        'missing-hash'
+      );
+
+      expect(result.lastTransactionFound).toBe(false);
+      expect(result.newTransactions.map(transaction => transaction.hash)).toEqual(['hash2', 'hash4']);
+      expect(result.filteredCount).toBe(3);
     });
   });
 

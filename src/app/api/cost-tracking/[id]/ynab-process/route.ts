@@ -13,7 +13,7 @@ import {
   consumeLegacyImportedHash,
   convertYnabDateToISO,
   createTransactionHash,
-  filterNewTransactions,
+  filterAvailableTransactionsAfterLastImport,
   getLegacyImportedHashCounts,
   getTransactionImportKey,
   updateLastImportedTransaction
@@ -141,6 +141,7 @@ async function handleProcessTransactions(
   // Process transactions based on mappings
   const processedTransactions: ProcessedYnabTransaction[] = [];
   const uniqueTransactions: ProcessedYnabTransaction[] = [];
+  const uniqueTransactionKeys = new Set<string>();
   let alreadyImportedCount = 0;
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
@@ -189,6 +190,7 @@ async function handleProcessTransactions(
     // Only include if not already imported
     if (!isAlreadyImported) {
       uniqueTransactions.push(processedTxn);
+      uniqueTransactionKeys.add(getTransactionImportKey(processedTxn));
     } else {
       alreadyImportedCount += 1;
     }
@@ -213,9 +215,12 @@ async function handleProcessTransactions(
       lastTransactionFound: false
     };
   } else if (lastImportedHash) {
-    // Apply chronological filtering to `uniqueTransactions` (hash-based filtering already removed previously imported items).
-    filteredResult = filterNewTransactions(uniqueTransactions, lastImportedHash);
-    filteredCount += filteredResult.filteredCount;
+    filteredResult = filterAvailableTransactionsAfterLastImport(
+      processedTransactions,
+      uniqueTransactionKeys,
+      lastImportedHash
+    );
+    filteredCount = filteredResult.filteredCount;
   } else {
     filteredResult = {
       newTransactions: uniqueTransactions,
