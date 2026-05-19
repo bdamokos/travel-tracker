@@ -15,7 +15,7 @@ export type CostDataDelta = {
   tripStartDate?: Date | string;
   tripEndDate?: Date | string;
   overallBudget?: number;
-  reservedBudget?: number;
+  reservedBudget?: number | null;
   currency?: string;
   customCategories?: string[];
   countryBudgets?: CollectionDelta<BudgetItem>;
@@ -72,7 +72,7 @@ export const createCostDataDelta = (
   }
 
   if (serialize(previous.reservedBudget) !== serialize(current.reservedBudget)) {
-    delta.reservedBudget = current.reservedBudget;
+    delta.reservedBudget = current.reservedBudget ?? null;
   }
 
   if (serialize(previous.currency) !== serialize(current.currency)) {
@@ -131,7 +131,7 @@ export const applyCostDataDelta = (
   }
 
   if (Object.prototype.hasOwnProperty.call(delta, 'reservedBudget')) {
-    next.reservedBudget = delta.reservedBudget;
+    next.reservedBudget = delta.reservedBudget ?? undefined;
   }
 
   if (Object.prototype.hasOwnProperty.call(delta, 'currency') && delta.currency !== undefined) {
@@ -160,7 +160,7 @@ export const isCostDataDelta = (value: unknown): value is CostDataDelta => {
   if (value.tripStartDate !== undefined && !isDateLike(value.tripStartDate)) return false;
   if (value.tripEndDate !== undefined && !isDateLike(value.tripEndDate)) return false;
   if (value.overallBudget !== undefined && !isFiniteNumber(value.overallBudget)) return false;
-  if (value.reservedBudget !== undefined && !isFiniteNumber(value.reservedBudget)) return false;
+  if (value.reservedBudget !== undefined && value.reservedBudget !== null && !isFiniteNumber(value.reservedBudget)) return false;
   if (value.currency !== undefined && typeof value.currency !== 'string') return false;
 
   if (value.countryBudgets !== undefined && !isCollectionDeltaShape(value.countryBudgets)) {

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const legacyData = {
       id,
       ...costData,
-      reservedBudget: costData.reservedBudget || 0,
+      reservedBudget: costData.reservedBudget ?? undefined,
       createdAt: unifiedData.createdAt
     };
     
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       tripStartDate: unifiedData.startDate,
       tripEndDate: unifiedData.endDate,
       overallBudget: unifiedData.costData.overallBudget,
-      reservedBudget: unifiedData.costData.reservedBudget || 0,
+      reservedBudget: unifiedData.costData.reservedBudget,
       currency: unifiedData.costData.currency,
       customCategories: unifiedData.costData.customCategories,
       countryBudgets: unifiedData.costData.countryBudgets,
@@ -160,7 +160,7 @@ export async function PUT(request: NextRequest) {
     const legacyData = {
       id: cleanId,
       ...updatedData,
-      reservedBudget: updatedData.reservedBudget || 0,
+      reservedBudget: updatedData.reservedBudget ?? undefined,
       updatedAt: unifiedData.updatedAt
     };
     
@@ -237,7 +237,7 @@ export async function PATCH(request: NextRequest) {
       tripStartDate: parseDateAsLocalDay(unifiedData.startDate) ?? new Date(),
       tripEndDate: parseDateAsLocalDay(unifiedData.endDate) ?? new Date(),
       overallBudget: unifiedData.costData.overallBudget,
-      reservedBudget: unifiedData.costData.reservedBudget || 0,
+      reservedBudget: unifiedData.costData.reservedBudget,
       currency: unifiedData.costData.currency,
       customCategories: unifiedData.costData.customCategories,
       countryBudgets: unifiedData.costData.countryBudgets,

@@ -123,12 +123,34 @@ describe('costDataDelta', () => {
     expect(merged.countryBudgets).toHaveLength(1);
   });
 
+  it('serializes a cleared reserved budget as null so JSON PATCH preserves the clear intent', () => {
+    const previous = buildCostData();
+    const current: CostTrackingData = {
+      ...previous,
+      reservedBudget: undefined
+    };
+
+    const delta = createCostDataDelta(previous, current);
+
+    expect(delta).toEqual({ reservedBudget: null });
+    expect(JSON.stringify({ deltaUpdate: delta })).toContain('"reservedBudget":null');
+  });
+
+  it('applies null reserved budget deltas as a cleared reserved budget', () => {
+    const previous = buildCostData();
+
+    const merged = applyCostDataDelta(previous, { reservedBudget: null });
+
+    expect(merged.reservedBudget).toBeUndefined();
+  });
+
   it('validates delta payload shape', () => {
     expect(isCostDataDelta({ expenses: { added: [] } })).toBe(true);
     expect(isCostDataDelta({ countryBudgets: [] })).toBe(false);
     expect(isCostDataDelta({ customCategories: 'not-array' })).toBe(false);
     expect(isCostDataDelta({ overallBudget: 'not-a-number' })).toBe(false);
     expect(isCostDataDelta({ reservedBudget: Number.NaN })).toBe(false);
+    expect(isCostDataDelta({ reservedBudget: null })).toBe(true);
     expect(isCostDataDelta({ customCategories: ['Food', 123] })).toBe(false);
   });
 

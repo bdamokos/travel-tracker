@@ -790,8 +790,14 @@ export async function updateCostData(tripId: string, costUpdates: Record<string,
 
   const incomingOverall = (costUpdates.overallBudget as number) ?? existing?.costData?.overallBudget ?? 0;
   const overallBudget = Math.max(0, incomingOverall);
-  const incomingReserved = (costUpdates.reservedBudget as number) ?? existing?.costData?.reservedBudget ?? 0;
-  const reservedBudget = Math.min(Math.max(0, incomingReserved), overallBudget);
+  const hasReservedBudgetUpdate = Object.prototype.hasOwnProperty.call(costUpdates, 'reservedBudget');
+  const incomingReserved = costUpdates.reservedBudget;
+  const incomingReservedNumber = Number(incomingReserved);
+  const reservedBudget = hasReservedBudgetUpdate
+    ? incomingReserved === null || incomingReserved === undefined
+      ? undefined
+      : Math.min(Math.max(0, Number.isFinite(incomingReservedNumber) ? incomingReservedNumber : 0), overallBudget)
+    : existing?.costData?.reservedBudget;
 
   const defaultData: UnifiedTripData = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
