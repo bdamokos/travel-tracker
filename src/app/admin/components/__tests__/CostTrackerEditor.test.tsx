@@ -18,7 +18,9 @@ jest.mock('@/app/admin/components/CostTracking/CountryBudgetManager', () => ({
 
 jest.mock('@/app/admin/components/CostTracking/CategoryManager', () => ({
   __esModule: true,
-  default: () => <div data-testid="category-manager" />
+  default: ({ getCategories }: { getCategories: () => string[] }) => (
+    <div data-testid="category-manager">{getCategories().join('|')}</div>
+  )
 }));
 
 jest.mock('@/app/admin/components/CostTracking/CostSummaryDashboard', () => ({
@@ -172,5 +174,57 @@ describe('CostTrackerEditor', () => {
 
     expect(screen.getByTestId('refund-count')).toHaveTextContent('1');
     expect(screen.getByTestId('fee-count')).toHaveTextContent('1');
+  });
+
+  it('keeps refund categories in the managed category list for legacy custom categories', () => {
+    const sourceExpense = createCashSourceExpense({
+      id: 'cash-source-cop',
+      date: new Date('2026-03-01T00:00:00.000Z'),
+      baseAmount: 20,
+      localAmount: 61000,
+      localCurrency: 'COP',
+      trackingCurrency: 'EUR',
+      country: 'Colombia',
+      description: 'ATM withdrawal'
+    });
+
+    const initialCostData: CostTrackingData = {
+      id: 'cost-1',
+      tripId: '',
+      tripTitle: 'Test Trip',
+      tripStartDate: new Date('2026-03-01T00:00:00.000Z'),
+      tripEndDate: new Date('2026-03-10T00:00:00.000Z'),
+      overallBudget: 1000,
+      currency: 'EUR',
+      countryBudgets: [],
+      expenses: [sourceExpense],
+      customCategories: ['Food'],
+      createdAt: '2026-03-01T00:00:00.000Z'
+    };
+
+    const existingTrip = {
+      id: 'trip-1',
+      title: 'Test Trip',
+      startDate: '2026-03-01',
+      endDate: '2026-03-10'
+    } as ExistingTrip;
+
+    render(
+      <CostTrackerEditor
+        costData={initialCostData}
+        setCostData={() => undefined}
+        onSave={() => undefined}
+        existingTrips={[existingTrip]}
+        selectedTrip={existingTrip}
+        setSelectedTrip={() => undefined}
+        mode="create"
+        autoSaving={false}
+        setHasUnsavedChanges={() => undefined}
+      />
+    );
+
+    expect(screen.getByTestId('category-manager')).toHaveTextContent('Food');
+    expect(screen.getByTestId('category-manager')).toHaveTextContent('Local currency held in cash');
+    expect(screen.getByTestId('category-manager')).toHaveTextContent('Refunds');
   });
 });

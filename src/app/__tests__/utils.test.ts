@@ -24,7 +24,9 @@ import {
   calculateCostSummary,
   generateId,
   getExpensesByCountry,
-  EXPENSE_CATEGORIES
+  EXPENSE_CATEGORIES,
+  REFUNDS_CATEGORY_NAME,
+  ensureManagedExpenseCategories
 } from '@/app/lib/costUtils';
 
 import { parseAccommodationData } from '@/app/lib/privacyUtils';
@@ -397,7 +399,16 @@ Some	Invalid	Data`;
       expect(EXPENSE_CATEGORIES).toContain('Accommodation');
       expect(EXPENSE_CATEGORIES).toContain('Transportation');
       expect(EXPENSE_CATEGORIES).toContain('Activities & Tours');
+      expect(EXPENSE_CATEGORIES).toContain(REFUNDS_CATEGORY_NAME);
       expect(EXPENSE_CATEGORIES.length).toBeGreaterThan(5);
+    });
+
+    it('should restore managed refund categories to legacy custom category lists', () => {
+      expect(ensureManagedExpenseCategories(['Food & Dining'])).toEqual([
+        'Food & Dining',
+        'Local currency held in cash',
+        REFUNDS_CATEGORY_NAME
+      ]);
     });
   });
 

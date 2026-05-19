@@ -13,7 +13,7 @@ import {
   YnabCategoryMapping,
   YnabConfig
 } from '@/app/types';
-import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, CASH_CATEGORY_NAME } from '@/app/lib/costUtils';
+import { calculateCostSummary, generateId, EXPENSE_CATEGORIES, ensureManagedExpenseCategories } from '@/app/lib/costUtils';
 import { calculateExpenseTotalsByLocation, ExpenseTravelLookup, TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { filterExpensesByExcludedCountries } from '@/app/lib/countryInclusions';
 import BudgetSetup from '@/app/admin/components/CostTracking/BudgetSetup';
@@ -214,23 +214,20 @@ export default function CostTrackerEditor({
   const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([]);
   
   const getCategories = (): string[] => {
-    const baseCategories = costData.customCategories ? [...costData.customCategories] : [...EXPENSE_CATEGORIES];
-    if (!baseCategories.includes(CASH_CATEGORY_NAME)) {
-      baseCategories.push(CASH_CATEGORY_NAME);
-    }
-    return baseCategories;
+    return ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
   };
   
   const ensureCategoriesInitialized = () => {
+    const categories = ensureManagedExpenseCategories(costData.customCategories ?? EXPENSE_CATEGORIES);
     if (!costData.customCategories) {
       setCostData(prev => ({
         ...prev,
-        customCategories: Array.from(new Set([...EXPENSE_CATEGORIES, CASH_CATEGORY_NAME]))
+        customCategories: categories
       }));
-    } else if (!costData.customCategories.includes(CASH_CATEGORY_NAME)) {
+    } else if (categories.length !== costData.customCategories.length) {
       setCostData(prev => ({
         ...prev,
-        customCategories: [...prev.customCategories!, CASH_CATEGORY_NAME]
+        customCategories: ensureManagedExpenseCategories(prev.customCategories ?? EXPENSE_CATEGORIES)
       }));
     }
   };
