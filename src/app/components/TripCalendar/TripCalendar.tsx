@@ -59,8 +59,8 @@ const getSortedLegendItems = (
     const cleanNameA = normalizeLocationName(nameA);
     const cleanNameB = normalizeLocationName(nameB);
 
-    const actualDateA = locationDates.get(cleanNameA);
-    const actualDateB = locationDates.get(cleanNameB);
+    const actualDateA = locationDates.get(nameA) ?? locationDates.get(cleanNameA);
+    const actualDateB = locationDates.get(nameB) ?? locationDates.get(cleanNameB);
 
     if (!actualDateA && !actualDateB) return 0;
     if (!actualDateA) return 1;
