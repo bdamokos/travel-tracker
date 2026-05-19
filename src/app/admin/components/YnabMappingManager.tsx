@@ -140,14 +140,8 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
       setExtractedCategories(categoryList);
 
       // Don't automatically create mappings! Just track what's unmapped
-      console.log('DEBUG: Current mappings:', mappings);
-      console.log('DEBUG: Extracted categories:', categoryList);
-      
       const existingCategoryNames = new Set(mappings.map(m => m.ynabCategory?.trim()));
-      console.log('DEBUG: Existing category names:', existingCategoryNames);
-      
       const unmappedCategories = categoryList.filter(category => !existingCategoryNames.has(category?.trim()));
-      console.log('DEBUG: Unmapped categories found:', unmappedCategories);
 
       const alreadyMappedCount = categoryList.length - unmappedCategories.length;
       alert(`Extracted ${categoryList.length} categories from YNAB file. ${alreadyMappedCount} already mapped, ${unmappedCategories.length} unmapped categories found.`);
@@ -465,7 +459,7 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
         <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
           <h3 className="text-lg font-semibold mb-2 text-yellow-800 dark:text-yellow-200">YNAB API Not Configured</h3>
           <p className="text-sm text-yellow-700 dark:text-yellow-300">
-            To load categories directly from YNAB, please setup your YNAB API connection first using the "Setup YNAB API" button in the cost tracker.
+            To load categories directly from YNAB, please setup your YNAB API connection first using the &quot;Setup YNAB API&quot; button in the cost tracker.
           </p>
         </div>
       )}
@@ -482,7 +476,6 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
               <div className="space-y-2">
                 {(() => {
                   const unmappedCats = extractedCategories.filter(cat => !mappings.some(m => m.ynabCategory === cat));
-                  console.log('DEBUG: Unmapped categories for dropdown:', unmappedCats);
                   return (
                     <AriaSelect
                       id={`${id}-ynab-category-select`}
@@ -606,10 +599,6 @@ export default function YnabMappingManager({ isOpen, costData, onSave, onClose }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                     placeholder="Enter YNAB category name"
                   />
-                  {/* DEBUG INFO
-                  <div className="text-xs text-red-500 mt-1">
-                    DEBUG: "{mapping.ynabCategory}" (type: {typeof mapping.ynabCategory}) (empty: {!mapping.ynabCategory})
-                  </div> */}
                 </div>
 
                 <div className="min-w-[200px]">
