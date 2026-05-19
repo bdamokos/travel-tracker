@@ -7,11 +7,28 @@ import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/routing/osrm/route';
 
 const buildRequest = (query: string): NextRequest =>
-  new NextRequest(`http://localhost/api/routing/osrm?${query}`);
+  new NextRequest(`http://localhost/api/routing/osrm?${query}`, {
+    headers: { host: 'localhost' }
+  });
 
 describe('OSRM routing proxy validation', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('rejects requests outside the admin domain before proxying upstream', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    const response = await GET(
+      new NextRequest(
+        'https://public.example.test/api/routing/osrm?profile=car&fromLat=51.5&fromLng=-0.1&toLat=48.8&toLng=2.3',
+        { headers: { host: 'public.example.test' } }
+      )
+    );
+
+    await expect(response.json()).resolves.toEqual({ error: 'Admin domain required' });
+    expect(response.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('rejects profiles outside the server allowlist', async () => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAdminHost } from '@/app/lib/server-domains';
 
 type OsrmProfile = 'car' | 'bike' | 'foot';
 
@@ -41,6 +42,10 @@ const getOsrmBaseUrl = (): string => {
 };
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  if (!isAdminHost(request.headers.get('host'))) {
+    return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
+  }
+
   const sp = request.nextUrl.searchParams;
   const rawProfile = sp.get('profile');
   const fromLat = parseFinite(sp.get('fromLat'));
