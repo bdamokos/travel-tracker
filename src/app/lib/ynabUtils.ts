@@ -72,6 +72,7 @@ export function convertYnabDateToISO(ynabDate: string): string {
   }
 
   const parsedDate = new Date(Date.UTC(yearNum, monthNum - 1, dayNum));
+  parsedDate.setUTCFullYear(yearNum);
   if (
     parsedDate.getUTCFullYear() !== yearNum ||
     parsedDate.getUTCMonth() !== monthNum - 1 ||
@@ -84,7 +85,7 @@ export function convertYnabDateToISO(ynabDate: string): string {
   const paddedDay = String(dayNum).padStart(2, '0');
   const paddedMonth = String(monthNum).padStart(2, '0');
   
-  return `${yearNum}-${paddedMonth}-${paddedDay}`;
+  return `${year}-${paddedMonth}-${paddedDay}`;
 }
 
 export function parseYnabFile(fileContent: string): YnabParseResult {

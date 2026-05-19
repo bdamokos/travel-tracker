@@ -39,6 +39,7 @@ describe('YNAB Transaction Filtering', () => {
     it('converts valid YNAB dates to ISO dates', () => {
       expect(convertYnabDateToISO('5/7/2025')).toBe('2025-07-05');
       expect(convertYnabDateToISO('29/02/2024')).toBe('2024-02-29');
+      expect(convertYnabDateToISO('1/1/0001')).toBe('0001-01-01');
     });
 
     it('rejects impossible calendar dates instead of normalizing them', () => {
