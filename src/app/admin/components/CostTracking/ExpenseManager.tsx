@@ -14,6 +14,7 @@ import {
   getAllocationsForSource,
   isCashAllocation,
   isCashSource,
+  removeCashSourceAndLinkedAllocations,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
 import ExpenseForm from '@/app/admin/components/ExpenseForm';
@@ -308,8 +309,8 @@ export default function ExpenseManager({
         }
       }
 
+      const updatedExpenses = removeCashSourceAndLinkedAllocations(costData.expenses, expense.id);
       const removalIds = new Set<string>([expense.id, ...linkedAllocations.map(allocation => allocation.id)]);
-      const updatedExpenses = costData.expenses.filter(item => !removalIds.has(item.id));
 
       setCostData(prev => ({ ...prev, expenses: updatedExpenses }));
       setHasUnsavedChanges(true);

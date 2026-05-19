@@ -10,6 +10,8 @@ import { formatLocalDateLabel, getLocalDateSortValue } from './localDateUtils';
 
 const CURRENCY_EPSILON = 0.000001;
 
+type CashAllocationExpense = Expense & { cashTransaction: CashTransactionAllocationDetails };
+
 export function roundCurrency(value: number, precision: number = 2): number {
   const factor = Math.pow(10, precision);
   return Math.round((value + Number.EPSILON) * factor) / factor;
@@ -582,10 +584,30 @@ export function getCashSourceUsages(
  * @param sourceId - The id of the cash source to match in allocation segments
  * @returns All allocation expenses that contain at least one segment with `sourceExpenseId` equal to `sourceId`
  */
-export function getAllocationsForSource(expenses: Expense[], sourceId: string): Expense[] {
+export function getAllocationsForSource(expenses: Expense[], sourceId: string): CashAllocationExpense[] {
   return expenses
     .filter(isCashAllocation)
     .filter(expense => getAllocationSegments(expense.cashTransaction).some(segment => segment.sourceExpenseId === sourceId));
+}
+
+export function removeCashSourceAndLinkedAllocations(expenses: Expense[], sourceId: string): Expense[] {
+  const source = expenses.find(expense => expense.id === sourceId);
+  if (!isCashSource(source)) {
+    return expenses;
+  }
+
+  const linkedAllocations = getAllocationsForSource(expenses, sourceId);
+  const restoredExpenses = linkedAllocations.reduce((currentExpenses, allocation) => {
+    const segments = getAllocationSegments(allocation.cashTransaction);
+    return restoreAllocationSegmentsOnSources(currentExpenses, segments, allocation.id);
+  }, expenses);
+
+  const removalIds = new Set<string>([
+    sourceId,
+    ...linkedAllocations.map(allocation => allocation.id)
+  ]);
+
+  return restoredExpenses.filter(expense => !removalIds.has(expense.id));
 }
 
 export function getCashSourceDateEditConflict(

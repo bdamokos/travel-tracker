@@ -6,6 +6,7 @@ import {
   createCashRefundToBase,
   createCashSourceExpense,
   getCashSourceDateEditConflict,
+  removeCashSourceAndLinkedAllocations,
   restoreAllocationSegmentsOnSources
 } from '@/app/lib/cashTransactions';
 import { CASH_CATEGORY_NAME, REFUNDS_CATEGORY_NAME } from '@/app/lib/costUtils';
@@ -211,6 +212,57 @@ describe('cash transaction utilities', () => {
 
     expect(restored[0].cashTransaction.remainingLocalAmount).toBeCloseTo(17000, 5);
     expect(restored[1].cashTransaction.remainingLocalAmount).toBeCloseTo(20000, 5);
+  });
+
+  test('removing a source restores deleted multi-source allocation balances on remaining sources', () => {
+    const firstSource = createCashSourceExpense({
+      id: 'cash-source-delete-1',
+      date: baseDate,
+      baseAmount: 10,
+      localAmount: 10000,
+      localCurrency: 'ARS',
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const secondSource = createCashSourceExpense({
+      id: 'cash-source-delete-2',
+      date: localDay('2024-01-02'),
+      baseAmount: 20,
+      localAmount: 20000,
+      localCurrency: 'ARS',
+      trackingCurrency: 'EUR',
+      country: 'Argentina'
+    });
+
+    const { expense: allocationExpense, segments } = createCashAllocationExpense({
+      id: 'cash-allocation-delete-1',
+      sources: [firstSource, secondSource],
+      localAmount: 15000,
+      date: localDay('2024-01-03'),
+      trackingCurrency: 'EUR',
+      category: 'Food & Dining'
+    });
+
+    const spentSources = applyAllocationSegmentsToSources(
+      [firstSource, secondSource],
+      segments,
+      allocationExpense.id
+    );
+
+    expect(spentSources[0].cashTransaction.remainingLocalAmount).toBeCloseTo(0, 5);
+    expect(spentSources[1].cashTransaction.remainingLocalAmount).toBeCloseTo(15000, 5);
+    expect(spentSources[1].cashTransaction.allocationIds).toContain(allocationExpense.id);
+
+    const remainingExpenses = removeCashSourceAndLinkedAllocations(
+      [...spentSources, allocationExpense],
+      firstSource.id
+    );
+
+    expect(remainingExpenses.map(expense => expense.id)).toEqual([secondSource.id]);
+    expect(remainingExpenses[0].cashTransaction?.remainingLocalAmount).toBeCloseTo(20000, 5);
+    expect(remainingExpenses[0].cashTransaction?.remainingBaseAmount).toBeCloseTo(20, 5);
+    expect(remainingExpenses[0].cashTransaction?.allocationIds).not.toContain(allocationExpense.id);
   });
 
   test('cash allocation uses remaining balances when spanning multiple exchanges', () => {
