@@ -44,6 +44,7 @@ export default function OfflineDeltaBanner() {
       const customEvent = event as CustomEvent<unknown>;
       if (isQueueSummary(customEvent.detail)) {
         setSummary(customEvent.detail);
+        setEntries(getOfflineQueueEntries());
         return;
       }
       refresh();
