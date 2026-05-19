@@ -1,20 +1,32 @@
 #!/usr/bin/env bash
+
+if [[ -n "${ZSH_EVAL_CONTEXT:-}" && ":${ZSH_EVAL_CONTEXT}:" == *":file:"* ]]; then
+  echo "Run this script directly instead of sourcing it: ./deploy/start-worktree.sh <branch> [target-dir] [base-branch]" >&2
+  # Return success so callers that already use errexit do not lose their shell.
+  return 0
+fi
+
+if [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
+  echo "Run this script directly instead of sourcing it: ./deploy/start-worktree.sh <branch> [target-dir] [base-branch]" >&2
+  # Return success so callers that already use errexit do not lose their shell.
+  return 0
+fi
+
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: source ./start-worktree.sh <branch> [target-dir] [base-branch]
+Usage: ./deploy/start-worktree.sh <branch> [target-dir] [base-branch]
 
 Creates a new git worktree for the given branch. If the branch does not exist,
 it is created from the base branch (defaults to the current branch or main).
 
-Note: This script does not change your shell directory. After it finishes,
-run "cd <target_dir>" yourself or source start-worktree.sh in your shell.
+Note: This script does not change your shell directory. After it finishes, run
+"cd <target_dir>" yourself.
 
 Examples:
-  ./start-worktree.sh feature/new-map
-  ./start-worktree.sh feature/new-map ./.worktrees/new-map main
-  source ./start-worktree.sh feature/new-map
+  ./deploy/start-worktree.sh feature/new-map
+  ./deploy/start-worktree.sh feature/new-map ./.worktrees/new-map main
 EOF
 }
 
