@@ -388,6 +388,30 @@ describe('calculateSplitAmount', () => {
     expect(calculateSplitAmount(expenseAmount, links[2], links)).toBe(35);
   });
 
+  it('splits negative refund amounts across equal links', () => {
+    const expenseAmount = -100;
+    const links: CostTrackingLink[] = [
+      { expenseId: 'refund', splitMode: 'equal' },
+      { expenseId: 'refund', splitMode: 'equal' }
+    ];
+
+    expect(calculateSplitAmount(expenseAmount, links[0], links)).toBe(-50);
+    expect(calculateSplitAmount(expenseAmount, links[1], links)).toBe(-50);
+  });
+
+  it('splits remaining negative refund amount after explicit allocations', () => {
+    const expenseAmount = -100;
+    const links: CostTrackingLink[] = [
+      { expenseId: 'refund', splitMode: 'fixed', splitValue: -30 },
+      { expenseId: 'refund', splitMode: 'equal' },
+      { expenseId: 'refund', splitMode: 'equal' }
+    ];
+
+    expect(calculateSplitAmount(expenseAmount, links[0], links)).toBe(-30);
+    expect(calculateSplitAmount(expenseAmount, links[1], links)).toBe(-35);
+    expect(calculateSplitAmount(expenseAmount, links[2], links)).toBe(-35);
+  });
+
   it('clamps equal-share remainder to 0 when explicit allocations exceed total', () => {
     const expenseAmount = 100;
     const links: CostTrackingLink[] = [
@@ -396,6 +420,17 @@ describe('calculateSplitAmount', () => {
     ];
 
     expect(calculateSplitAmount(expenseAmount, links[0], links)).toBe(110);
+    expect(calculateSplitAmount(expenseAmount, links[1], links)).toBe(0);
+  });
+
+  it('clamps negative equal-share remainder to 0 when explicit allocations exceed refund total', () => {
+    const expenseAmount = -100;
+    const links: CostTrackingLink[] = [
+      { expenseId: 'refund', splitMode: 'fixed', splitValue: -110 },
+      { expenseId: 'refund', splitMode: 'equal' }
+    ];
+
+    expect(calculateSplitAmount(expenseAmount, links[0], links)).toBe(-110);
     expect(calculateSplitAmount(expenseAmount, links[1], links)).toBe(0);
   });
 });
