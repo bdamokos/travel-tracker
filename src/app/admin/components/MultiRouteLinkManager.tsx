@@ -20,6 +20,16 @@ interface LinkWithConfig extends TravelLinkInfo {
   tempId: string; // For React key management
 }
 
+const getLinksNotificationSignature = (links: TravelLinkInfo[]): string => JSON.stringify(
+  links.map((link) => ({
+    id: link.id,
+    type: link.type,
+    name: link.name,
+    splitMode: link.splitMode ?? null,
+    splitValue: link.splitValue ?? null
+  }))
+);
+
 export default function MultiRouteLinkManager({
   expenseId,
   tripId,
@@ -39,6 +49,7 @@ export default function MultiRouteLinkManager({
   // Refs to prevent infinite loops when syncing with parent
   const isInternalUpdate = useRef(false);
   const prevExpenseId = useRef<string | undefined>(expenseId);
+  const lastNotifiedLinks = useRef<string | null>(null);
 
   // Initialize from props - only when expense actually changes
   useEffect(() => {
@@ -47,6 +58,7 @@ export default function MultiRouteLinkManager({
     
     if (expenseChanged) {
       prevExpenseId.current = expenseId;
+      lastNotifiedLinks.current = null;
       // If switching expenses, we always want to load the new links,
       // ignoring any pending internal update flags
       isInternalUpdate.current = false;
@@ -75,8 +87,8 @@ export default function MultiRouteLinkManager({
         }
       } else {
         // Clear state when navigating to an expense with no links
-        setLinks([]);
-        setSplitMode('equal');
+        setLinks((currentLinks) => currentLinks.length === 0 ? currentLinks : []);
+        setSplitMode((currentMode) => currentMode === 'equal' ? currentMode : 'equal');
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,14 +158,31 @@ export default function MultiRouteLinkManager({
 
   // Notify parent of changes - mark as internal update to prevent loop
   useEffect(() => {
+    let nextLinks: TravelLinkInfo[] | null = null;
+
+    if (validation.valid && links.length > 0) {
+      nextLinks = linksWithSplitValues;
+    } else if (links.length === 0) {
+      if (initialLinks.length > 0) {
+        return;
+      }
+
+      nextLinks = [];
+    }
+
+    if (!nextLinks) {
+      return;
+    }
+
+    const nextSignature = getLinksNotificationSignature(nextLinks);
+    if (lastNotifiedLinks.current === nextSignature) {
+      return;
+    }
+
+    lastNotifiedLinks.current = nextSignature;
     // Mark that the next prop change is a result of this update
     isInternalUpdate.current = true;
-    
-    if (validation.valid && links.length > 0) {
-      onLinksChange(linksWithSplitValues);
-    } else if (links.length === 0) {
-      onLinksChange([]);
-    }
+    onLinksChange(nextLinks);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linksWithSplitValues, validation.valid, links.length]);
 

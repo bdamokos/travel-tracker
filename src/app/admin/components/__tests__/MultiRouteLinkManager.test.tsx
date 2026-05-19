@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { useState } from 'react';
 import MultiRouteLinkManager from '@/app/admin/components/MultiRouteLinkManager';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 
@@ -258,6 +259,36 @@ describe('MultiRouteLinkManager', () => {
       
       // Should not have excessive calls (infinite loop would cause many calls)
       expect(onLinksChange.mock.calls.length).toBeLessThan(5);
+    });
+
+    it('does not re-emit equivalent links when parent stores a fresh array', async () => {
+      const onLinksChange = jest.fn();
+      const initialLinks: TravelLinkInfo[] = [
+        { id: 'route-1', type: 'route', name: 'Route 1' },
+      ];
+
+      function Parent() {
+        const [parentLinks, setParentLinks] = useState<TravelLinkInfo[]>(initialLinks);
+
+        return (
+          <MultiRouteLinkManager
+            {...defaultProps}
+            initialLinks={parentLinks}
+            onLinksChange={(nextLinks) => {
+              onLinksChange(nextLinks);
+              setParentLinks([...nextLinks]);
+            }}
+          />
+        );
+      }
+
+      render(<Parent />);
+
+      expect(await screen.findByText('Route 1')).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(onLinksChange).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('preserves user edits when parent re-renders with same expense', async () => {
