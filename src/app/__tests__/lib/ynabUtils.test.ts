@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { filterNewTransactions, updateLastImportedTransaction, findLatestTransaction } from '@/app/lib/ynabUtils';
+import { convertYnabDateToISO, filterNewTransactions, updateLastImportedTransaction, findLatestTransaction } from '@/app/lib/ynabUtils';
 import { ProcessedYnabTransaction, YnabImportData } from '@/app/types';
 
 // Mock data helpers
@@ -35,6 +35,26 @@ const createMockTransactions = (): ProcessedYnabTransaction[] => [
 ];
 
 describe('YNAB Transaction Filtering', () => {
+  describe('convertYnabDateToISO', () => {
+    it('converts valid YNAB dates to ISO dates', () => {
+      expect(convertYnabDateToISO('5/7/2025')).toBe('2025-07-05');
+      expect(convertYnabDateToISO('29/02/2024')).toBe('2024-02-29');
+    });
+
+    it('rejects impossible calendar dates instead of normalizing them', () => {
+      expect(convertYnabDateToISO('31/02/2025')).toBe('');
+      expect(convertYnabDateToISO('29/02/2025')).toBe('');
+      expect(convertYnabDateToISO('31/04/2025')).toBe('');
+    });
+
+    it('rejects malformed or out-of-range dates', () => {
+      expect(convertYnabDateToISO('')).toBe('');
+      expect(convertYnabDateToISO('2025-07-05')).toBe('');
+      expect(convertYnabDateToISO('00/07/2025')).toBe('');
+      expect(convertYnabDateToISO('05/13/2025')).toBe('');
+    });
+  });
+
   describe('filterNewTransactions', () => {
     it('should return all transactions when no last imported hash provided', () => {
       const transactions = createMockTransactions();
