@@ -41,8 +41,37 @@ const getOsrmBaseUrl = (): string => {
   return DEFAULT_OSRM_BASE_URL;
 };
 
+const normalizeHostForInternalCheck = (host: string | null): string => {
+  const normalized = host?.trim().toLowerCase().replace(/\.$/, '') ?? '';
+  const ipv6Match = normalized.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (ipv6Match) {
+    return ipv6Match[1];
+  }
+
+  return normalized.replace(/:\d+$/, '');
+};
+
+const isLocalProxyHost = (host: string | null): boolean => {
+  const hostname = normalizeHostForInternalCheck(host);
+  return hostname === 'localhost' || hostname === '::1' || hostname === '127.0.0.1';
+};
+
+const getForwardedHost = (request: NextRequest): string | null => {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  return forwardedHost?.split(',')[0]?.trim() || null;
+};
+
+const isAdminOsrmRequest = (request: NextRequest): boolean => {
+  const host = request.headers.get('host');
+  if (isAdminHost(host)) {
+    return true;
+  }
+
+  return isLocalProxyHost(host) && isAdminHost(getForwardedHost(request));
+};
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  if (!isAdminHost(request.headers.get('host'))) {
+  if (!isAdminOsrmRequest(request)) {
     return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
   }
 
