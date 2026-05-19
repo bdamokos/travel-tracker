@@ -88,6 +88,22 @@ describe('DistanceSummary', () => {
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
     });
 
+    it('normalizes malformed route transport types before rendering breakdowns', () => {
+      const malformedTypeRoute = {
+        ...mockRoute,
+        transportType: 'sidecar',
+        routePoints: [
+          [40.7128, -74.0060],
+          [51.5074, -0.1278]
+        ]
+      } as unknown as TravelRoute;
+
+      render(<DistanceSummary routes={[malformedTypeRoute]} />);
+
+      expect(screen.getAllByText('Other').length).toBeGreaterThan(0);
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+    });
+
     it('uses distance override when provided', () => {
       const routeWithOverride: TravelRoute = {
         ...mockRoute,
@@ -229,6 +245,27 @@ describe('DistanceSummary', () => {
 
       render(<DistanceSummary routes={[routeMixed]} />);
 
+      expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
+    });
+
+    it('normalizes malformed sub-route transport types before rendering breakdowns', () => {
+      const malformedSubRoute = {
+        ...routeWithSubRoutes,
+        subRoutes: [
+          {
+            ...routeWithSubRoutes.subRoutes![0],
+            transportType: { label: 'sidecar' },
+            routePoints: [
+              [40.7128, -74.0060],
+              [51.5074, -0.1278]
+            ]
+          }
+        ]
+      } as unknown as TravelRoute;
+
+      render(<DistanceSummary routes={[malformedSubRoute]} />);
+
+      expect(screen.getAllByText('Other').length).toBeGreaterThan(0);
       expect(screen.getByText(/Total distance across 1 route/)).toBeInTheDocument();
     });
   });
