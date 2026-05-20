@@ -1,4 +1,4 @@
-import { createCountMarkerIcon, getMarkerLegendSvgMarkup } from '@/app/lib/mapIconUtils';
+import { createCountMarkerIcon, getDominantMarkerTone, getMarkerLegendSvgMarkup } from '@/app/lib/mapIconUtils';
 
 describe('getMarkerLegendSvgMarkup', () => {
   it('renders past marker legend SVG with expected tone styling', () => {
@@ -23,6 +23,23 @@ describe('getMarkerLegendSvgMarkup', () => {
     const markup = getMarkerLegendSvgMarkup('present', { width: 10, height: 16 });
     expect(markup).toContain('width="10"');
     expect(markup).toContain('height="16"');
+  });
+});
+
+describe('getDominantMarkerTone', () => {
+  it('returns present for empty groups', () => {
+    expect(getDominantMarkerTone([])).toBe('present');
+  });
+
+  it('uses the most frequent marker tone', () => {
+    expect(getDominantMarkerTone(['future', 'future', 'present'])).toBe('future');
+    expect(getDominantMarkerTone(['past', 'past', 'future'])).toBe('past');
+  });
+
+  it('keeps present, future, past tie priority when counts are equal', () => {
+    expect(getDominantMarkerTone(['past', 'future'])).toBe('future');
+    expect(getDominantMarkerTone(['past', 'present'])).toBe('present');
+    expect(getDominantMarkerTone(['past', 'future', 'present'])).toBe('present');
   });
 });
 

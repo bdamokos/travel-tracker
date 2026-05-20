@@ -259,19 +259,19 @@ export const getMarkerDistanceBucket = (distanceDays: number) => {
 export const getDominantMarkerTone = (tones: MarkerTone[]): MarkerTone => {
   if (tones.length === 0) return 'present';
 
-  let hasPresent = false;
-  let hasFuture = false;
-  let hasPast = false;
+  const counts: Record<MarkerTone, number> = {
+    past: 0,
+    present: 0,
+    future: 0,
+  };
 
   tones.forEach(tone => {
-    if (tone === 'present') hasPresent = true;
-    else if (tone === 'future') hasFuture = true;
-    else hasPast = true;
+    counts[tone] += 1;
   });
 
-  if (hasPresent) return 'present';
-  if (hasFuture) return 'future';
-  return hasPast ? 'past' : 'present';
+  return (['present', 'future', 'past'] as const).reduce((dominantTone, tone) =>
+    counts[tone] > counts[dominantTone] ? tone : dominantTone
+  );
 };
 
 export const createMarkerIcon = (
