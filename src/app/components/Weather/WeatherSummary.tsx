@@ -26,6 +26,13 @@ export default function WeatherSummary({ summary }: Props) {
     const hasHistAvg = sourceDays.some(d => d.dataSource === 'historical-average');
     const hasForecast = sourceDays.some(d => d.isForecast);
     const hasRecorded = sourceDays.some(d => d.isHistorical && d.dataSource !== 'historical-average');
+    const hasExplicitSourceMetadata = sourceDays.some(d =>
+      d.dataSource === 'historical-average' ||
+      d.dataSource === 'open-meteo' ||
+      d.dataSource === 'cache' ||
+      typeof d.isForecast === 'boolean' ||
+      typeof d.isHistorical === 'boolean'
+    );
 
     if (hasHistAvg && hasForecast && hasRecorded) return 'Recorded + Forecast + Hist. avg.';
     if (hasHistAvg && hasForecast) return 'Forecast + Hist. avg.';
@@ -34,6 +41,9 @@ export default function WeatherSummary({ summary }: Props) {
     if (hasHistAvg) return 'Hist. avg.';
     if (hasForecast) return 'Forecast';
     if (hasRecorded) return 'Recorded';
+    if (!hasExplicitSourceMetadata) {
+      return sourceDays.every(d => d.date > todayISO) ? 'Hist. avg.' : 'Recorded';
+    }
     return '';
   })();
   return (
