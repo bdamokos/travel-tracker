@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { formatCurrency } from '@/app/lib/costUtils';
 import { useDialog } from '@react-aria/dialog';
-import { useModal, OverlayContainer, useOverlay, usePreventScroll } from '@react-aria/overlays';
+import { ariaHideOutside, OverlayContainer, useModal, useOverlay, usePreventScroll } from '@react-aria/overlays';
 import { FocusScope } from '@react-aria/focus';
 
 interface ReassignmentDialogProps {
@@ -27,6 +27,32 @@ export default function ReassignmentDialog({
   onReassign,
   onCancel
 }: ReassignmentDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <OverlayContainer>
+      <ReassignmentDialogContent
+        isOpen={isOpen}
+        itemType={itemType}
+        fromItemName={fromItemName}
+        linkedExpenses={linkedExpenses}
+        availableItems={availableItems}
+        onReassign={onReassign}
+        onCancel={onCancel}
+      />
+    </OverlayContainer>
+  );
+}
+
+function ReassignmentDialogContent({
+  isOpen,
+  itemType,
+  fromItemName,
+  linkedExpenses,
+  availableItems,
+  onReassign,
+  onCancel
+}: ReassignmentDialogProps) {
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,7 +65,7 @@ export default function ReassignmentDialog({
     shouldCloseOnInteractOutside: () => true,
   }, ref);
   usePreventScroll();
-  useModal();
+  const { modalProps } = useModal();
   const { dialogProps, titleProps } = useDialog({
     'aria-label': `Reassign Linked Expenses`
   }, ref);
@@ -56,7 +82,10 @@ export default function ReassignmentDialog({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onCancel]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen || !ref.current) return;
+    return ariaHideOutside([ref.current]);
+  }, [isOpen]);
 
   const totalAmount = linkedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const currency = linkedExpenses[0]?.currency || 'EUR';
@@ -69,11 +98,11 @@ export default function ReassignmentDialog({
   };
 
   return (
-    <OverlayContainer>
-      <FocusScope contain restoreFocus autoFocus>
-        <div {...underlayProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <FocusScope contain restoreFocus autoFocus>
+      <div {...underlayProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
             {...overlayProps}
+            {...modalProps}
             {...dialogProps}
             ref={ref}
             className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto outline-none"
@@ -195,7 +224,6 @@ export default function ReassignmentDialog({
             </div>
           </div>
         </div>
-      </FocusScope>
-    </OverlayContainer>
+    </FocusScope>
   );
 }
