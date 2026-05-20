@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { formatCurrency, formatDate } from '@/app/lib/costUtils';
 import { useDialog } from '@react-aria/dialog';
-import { useModal, OverlayContainer, useOverlay, usePreventScroll } from '@react-aria/overlays';
+import { ariaHideOutside, OverlayContainer, useModal, useOverlay, usePreventScroll } from '@react-aria/overlays';
 import { FocusScope } from '@react-aria/focus';
 
 interface DeleteWarningDialogProps {
@@ -16,6 +16,28 @@ interface DeleteWarningDialogProps {
 }
 
 export default function DeleteWarningDialog({
+  isOpen,
+  itemType,
+  itemName,
+  linkedExpenses,
+  onChoice
+}: DeleteWarningDialogProps) {
+  if (!isOpen) return null;
+
+  return (
+    <OverlayContainer>
+      <DeleteWarningDialogContent
+        isOpen={isOpen}
+        itemType={itemType}
+        itemName={itemName}
+        linkedExpenses={linkedExpenses}
+        onChoice={onChoice}
+      />
+    </OverlayContainer>
+  );
+}
+
+function DeleteWarningDialogContent({
   isOpen,
   itemType,
   itemName,
@@ -34,7 +56,7 @@ export default function DeleteWarningDialog({
     shouldCloseOnInteractOutside: () => true,
   }, ref);
   usePreventScroll();
-  useModal();
+  const { modalProps } = useModal();
   const { dialogProps, titleProps } = useDialog({
     'aria-label': `Delete ${itemType}`
   }, ref);
@@ -51,17 +73,20 @@ export default function DeleteWarningDialog({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onChoice]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen || !ref.current) return;
+    return ariaHideOutside([ref.current]);
+  }, [isOpen]);
 
   const totalAmount = linkedExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const currency = linkedExpenses[0]?.currency || 'EUR';
 
   return (
-    <OverlayContainer>
-      <FocusScope contain restoreFocus autoFocus>
-        <div {...underlayProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <FocusScope contain restoreFocus autoFocus>
+      <div {...underlayProps} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div
             {...overlayProps}
+            {...modalProps}
             {...dialogProps}
             ref={ref}
             className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto outline-none"
@@ -208,7 +233,6 @@ export default function DeleteWarningDialog({
             </div>
           </div>
         </div>
-      </FocusScope>
-    </OverlayContainer>
+    </FocusScope>
   );
 }
