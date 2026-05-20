@@ -7,7 +7,7 @@ import { Location, InstagramPost, BlogPost, TikTokPost, TravelRoute, TravelRoute
 import { getLinkedExpenses, cleanupExpenseLinks, reassignExpenseLinks, LinkedExpense } from '@/app/lib/costLinkCleanup';
 import { CostTrackingData } from '@/app/types';
 import { ExpenseTravelLookup } from '@/app/lib/expenseTravelLookup';
-import { generateRoutePoints, getCompositeTransportType } from '@/app/lib/routeUtils';
+import { generateRoutePoints, getCompositeTransportType, normalizeTransportationType } from '@/app/lib/routeUtils';
 import { generateId } from '@/app/lib/costUtils';
 import { geocodeLocation as geocodeLocationService } from '@/app/services/geocoding';
 import { getTodayLocalDay, parseDateAsLocalDay } from '@/app/lib/localDateUtils';
@@ -191,11 +191,14 @@ export function useTripEditor(tripId: string | null) {
     })) || [];
 
     // Migrate routes to new format if they don't have IDs
-    const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute>) => {
+    type LegacyRouteFields = { type?: unknown };
+
+    const migratedRoutes = tripData.routes?.map((route: Partial<TravelRoute> & LegacyRouteFields) => {
       const hasSubRoutes = (route.subRoutes?.length || 0) > 0;
+      const routeLegacyTransportType = normalizeTransportationType(route.transportType ?? route.type, 'car');
       const routeTransportType = hasSubRoutes
-        ? getCompositeTransportType(route.subRoutes ?? [], route.transportType || 'car')
-        : (route.transportType || 'car');
+        ? getCompositeTransportType(route.subRoutes ?? [], routeLegacyTransportType)
+        : routeLegacyTransportType;
 
       return {
         id: route.id || generateId(),
@@ -213,13 +216,16 @@ export function useTripEditor(tripId: string | null) {
         routePoints: route.routePoints, // Preserve existing routePoints
         useManualRoutePoints: route.useManualRoutePoints,
         isReturn: route.isReturn,
-        subRoutes: route.subRoutes?.map((segment: Partial<TravelRouteSegment>) => ({
+        subRoutes: route.subRoutes?.map((segment: Partial<TravelRouteSegment> & LegacyRouteFields) => ({
           id: segment.id || generateId(),
           from: segment.from || '',
           to: segment.to || '',
           fromCoords: segment.fromCoords || [0, 0] as [number, number],
           toCoords: segment.toCoords || [0, 0] as [number, number],
-          transportType: segment.transportType || (routeTransportType !== 'multimodal' ? routeTransportType : undefined) || 'car',
+          transportType: normalizeTransportationType(
+            segment.transportType ?? segment.type,
+            routeLegacyTransportType
+          ),
           date: segment.date
             ? (parseDateAsLocalDay(segment.date) || getTodayLocalDay())
             : (parseDateAsLocalDay(route.date) || getTodayLocalDay()),
