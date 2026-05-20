@@ -310,6 +310,7 @@ export default function TravelItemSelector({
           return;
         }
         console.error('Error loading travel items:', error);
+        setTravelItems([]);
         if (error instanceof Error && error.name === 'AbortError') {
           setLoadError('Loading travel items timed out. Please try again.');
         } else {

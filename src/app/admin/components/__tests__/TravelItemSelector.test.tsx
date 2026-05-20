@@ -175,4 +175,66 @@ describe('TravelItemSelector', () => {
       expect(screen.getByLabelText('Location')).toBeInTheDocument();
     });
   });
+
+  it('clears stale travel items after a later trip load fails', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          title: 'First Trip',
+          locations: [
+            {
+              id: 'location-1',
+              name: 'Paris',
+              notes: '',
+              date: '2024-01-02'
+            }
+          ],
+          routes: [],
+          accommodations: []
+        })
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: async () => 'server error'
+      } as Response);
+
+    const { rerender } = render(
+      <TravelItemSelector
+        expenseId="expense-1"
+        tripId="first-trip-id"
+        onReferenceChange={mockOnReferenceChange}
+        loadExistingLink={false}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/travel-data?id=first-trip-id',
+        expect.objectContaining({ signal: expect.anything() })
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText('Link to Travel Item (Optional)'), {
+      target: { value: 'location' }
+    });
+
+    expect(await screen.findByText('Paris - 2024-01-02')).toBeInTheDocument();
+
+    rerender(
+      <TravelItemSelector
+        expenseId="expense-1"
+        tripId="failed-trip-id"
+        onReferenceChange={mockOnReferenceChange}
+        loadExistingLink={false}
+      />
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load travel items');
+
+    await waitFor(() => {
+      expect(screen.queryByText('Paris - 2024-01-02')).not.toBeInTheDocument();
+    });
+  });
 });
