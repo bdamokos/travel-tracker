@@ -282,7 +282,7 @@ async function readCache(key: string): Promise<CacheEntry | null> {
       const exp = parseISO(d.expiresAt);
       return isValid(exp) && isAfter(exp, today);
     });
-    const summary: WeatherSummary = { ...parsed.summary, dailyWeather: filtered };
+    const summary = normalizeCachedWeatherSummary({ ...parsed.summary, dailyWeather: filtered });
     const fetchedAt = typeof parsed.fetchedAt === 'string' ? parsed.fetchedAt : LEGACY_FETCHED_AT;
     const entry: CacheEntry = {
       key: parsed.key || key,
@@ -344,6 +344,48 @@ function computeSources(daily: WeatherData[]): CacheSources {
     }
   });
   return result;
+}
+
+function isKnownWeatherDataSource(value: unknown): value is WeatherData['dataSource'] {
+  return value === 'open-meteo' || value === 'cache' || value === 'historical-average';
+}
+
+function normalizeCachedWeatherSummary(summary: WeatherSummary, today: Date = new Date()): WeatherSummary {
+  const todayISO = toISODate(today);
+  const hasExplicitSourceMetadata = summary.dailyWeather.some(day => {
+    const rawDay = day as Partial<WeatherData>;
+    return (
+      isKnownWeatherDataSource(rawDay.dataSource) ||
+      typeof rawDay.isForecast === 'boolean' ||
+      typeof rawDay.isHistorical === 'boolean'
+    );
+  });
+  const legacyAllFuture = !hasExplicitSourceMetadata && summary.dailyWeather.every(day => day.date > todayISO);
+
+  return {
+    ...summary,
+    dailyWeather: summary.dailyWeather.map(day => {
+      const rawDay = day as Partial<WeatherData>;
+      const dataSource = isKnownWeatherDataSource(rawDay.dataSource)
+        ? rawDay.dataSource
+        : legacyAllFuture
+          ? 'historical-average'
+          : 'open-meteo';
+      const isHistorical = typeof rawDay.isHistorical === 'boolean'
+        ? rawDay.isHistorical
+        : dataSource === 'historical-average' || day.date <= todayISO;
+      const isForecast = typeof rawDay.isForecast === 'boolean'
+        ? rawDay.isForecast
+        : dataSource === 'open-meteo' && !isHistorical;
+
+      return {
+        ...day,
+        dataSource,
+        isHistorical,
+        isForecast,
+      };
+    }),
+  };
 }
 
 function enumerateDateStrings(startISO: string, endISO: string): string[] {
@@ -844,6 +886,7 @@ export const weatherServiceTestUtils = {
   getRateLimitHeaderDelayMs,
   needsForecastRefresh,
   isFreshEmptyCacheEntry,
+  normalizeCachedWeatherSummary,
   resetRateLimitStateForTests
 };
 
