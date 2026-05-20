@@ -199,4 +199,67 @@ describe('useTripEditor delete confirmations', () => {
 
     expect(result.current.hasUnsavedChanges).toBe(true);
   });
+
+  it('preserves a legacy parent route transport type for sub-routes missing their own type', async () => {
+    const legacyTrip = {
+      id: 'trip-legacy',
+      title: 'Legacy Trip',
+      description: '',
+      startDate: '2025-01-01',
+      endDate: '2025-01-02',
+      instagramUsername: '',
+      locations: [],
+      routes: [
+        {
+          id: 'route-1',
+          type: 'train',
+          from: 'Paris',
+          to: 'Rome',
+          fromCoords: [48.8566, 2.3522],
+          toCoords: [41.9028, 12.4964],
+          date: '2025-01-02',
+          subRoutes: [
+            {
+              id: 'segment-1',
+              from: 'Paris',
+              to: 'Milan',
+              fromCoords: [48.8566, 2.3522],
+              toCoords: [45.4642, 9.19],
+              date: '2025-01-02'
+            },
+            {
+              id: 'segment-2',
+              from: 'Milan',
+              to: 'Rome',
+              fromCoords: [45.4642, 9.19],
+              toCoords: [41.9028, 12.4964],
+              date: '2025-01-02'
+            }
+          ]
+        }
+      ],
+      accommodations: []
+    };
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => legacyTrip
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({})
+      } as Response);
+
+    const { result } = renderHook(() => useTripEditor('trip-legacy'));
+
+    await waitFor(() => {
+      expect(result.current.travelData.routes).toHaveLength(1);
+    });
+
+    const migratedRoute = result.current.travelData.routes[0];
+    expect(migratedRoute.transportType).toBe('train');
+    expect(migratedRoute.subRoutes?.map(segment => segment.transportType)).toEqual(['train', 'train']);
+  });
 });
