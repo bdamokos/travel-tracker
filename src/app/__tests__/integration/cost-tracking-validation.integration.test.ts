@@ -182,7 +182,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
         .mockResolvedValueOnce(mockTrip2);
 
       const request = new NextRequest('http://localhost/api/cost-tracking/list');
-      const response = await costTrackingListGET(new NextRequest('http://localhost/api/cost-tracking/list'));
+      const response = await costTrackingListGET(request);
       const result = await response.json();
 
       expect(response.status).toBe(200);

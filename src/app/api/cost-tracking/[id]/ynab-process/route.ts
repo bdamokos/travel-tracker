@@ -47,8 +47,7 @@ function isValidTempFileId(tempFileId: unknown): tempFileId is string {
 }
 
 function getValidYnabISODate(ynabDate: string): string | null {
-  const isoDate = convertYnabDateToISO(ynabDate);
-  return isoDate ? isoDate : null;
+  return convertYnabDateToISO(ynabDate) || null;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -148,6 +147,7 @@ async function handleProcessTransactions(
   const uniqueTransactions: ProcessedYnabTransaction[] = [];
   const uniqueTransactionKeys = new Set<string>();
   let alreadyImportedCount = 0;
+  let invalidDateCount = 0;
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
   for (const [index, transaction] of tempData.transactions.entries()) {
@@ -155,20 +155,20 @@ async function handleProcessTransactions(
       continue; // Skip unmapped categories
     }
 
-    const hash = createTransactionHash(transaction);
-    const instanceId = `${hash}-${index}`;
-    const hasImportedInstance = existingHashSet.has(instanceId);
-    const hasLegacyImportedHash = consumeLegacyImportedHash(legacyImportedHashCounts, hash);
-    const isAlreadyImported = hasImportedInstance || hasLegacyImportedHash;
-
     const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
     if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
 
     const isoDate = getValidYnabISODate(transaction.Date);
     if (!isoDate) {
-      alreadyImportedCount += 1;
+      invalidDateCount += 1;
       continue;
     }
+
+    const hash = createTransactionHash(transaction);
+    const instanceId = `${hash}-${index}`;
+    const hasImportedInstance = existingHashSet.has(instanceId);
+    const hasLegacyImportedHash = consumeLegacyImportedHash(legacyImportedHashCounts, hash);
+    const isAlreadyImported = hasImportedInstance || hasLegacyImportedHash;
 
     // Calculate amount - handle both outflows and inflows
     let amount = 0;
@@ -246,6 +246,7 @@ async function handleProcessTransactions(
       totalCount: 0,
       alreadyImportedCount,
       filteredCount,
+      invalidDateCount,
       lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
       totalTransactions: processedTransactions.length,
       message: 'No transactions available for import. This may be because all categories are mapped to "None" or all transactions have already been imported.'
@@ -257,6 +258,7 @@ async function handleProcessTransactions(
     totalCount: filteredResult.newTransactions.length,
     alreadyImportedCount,
     filteredCount,
+    invalidDateCount,
     lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
     totalTransactions: processedTransactions.length
   });

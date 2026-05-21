@@ -431,10 +431,10 @@ function needsForecastRefresh(summary: WeatherSummary): boolean {
   });
 }
 
-function isFreshEmptyCacheEntry(cached: CacheEntry, now: Date): boolean {
-  void now;
-  if (cached.summary.dailyWeather.length > 0) return false;
-
+function isFreshEmptyCacheEntry(_cached: CacheEntry, _now: Date): boolean {
+  // Negative caching for empty weather lookups is disabled.
+  void _cached;
+  void _now;
   return false;
 }
 
@@ -770,14 +770,6 @@ class WeatherService {
       if (missingDates.length > 0) reasons.push('missing-dates');
       const forecastRefreshNeeded = needsForecastRefresh(cached.summary);
       if (forecastRefreshNeeded) reasons.push('needs-forecast');
-
-      if (isFreshEmptyCacheEntry(cached, now)) {
-        log('cache:negative-hit', { key });
-        return {
-          ...cached.summary,
-          summary: summarize(cached.summary.dailyWeather)
-        };
-      }
 
       if (preferCache && hasData) {
         log('cache:prefer-hit', { key, count: cached.summary.dailyWeather.length });

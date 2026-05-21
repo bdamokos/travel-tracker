@@ -29,7 +29,7 @@ describe('weatherService negative cache helpers', () => {
     }, now)).toBe(false);
   });
 
-  it('expires empty cache entries after the negative cache TTL', () => {
+  it('returns false for older empty cache entries too', () => {
     const now = new Date('2026-06-01T12:20:00.000Z');
 
     expect(weatherServiceTestUtils.isFreshEmptyCacheEntry({
