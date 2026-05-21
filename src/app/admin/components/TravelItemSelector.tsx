@@ -311,6 +311,17 @@ export default function TravelItemSelector({
         }
         console.error('Error loading travel items:', error);
         setTravelItems([]);
+        if (
+          initialValue ||
+          selectionStateRef.current.selectedType ||
+          selectionStateRef.current.selectedItem ||
+          selectionStateRef.current.description
+        ) {
+          setSelectedType('');
+          setSelectedItem('');
+          setDescription('');
+          onReferenceChangeRef.current(undefined);
+        }
         if (error instanceof Error && error.name === 'AbortError') {
           setLoadError('Loading travel items timed out. Please try again.');
         } else {
@@ -335,7 +346,7 @@ export default function TravelItemSelector({
         window.clearTimeout(timeoutId);
       }
     };
-  }, [tripId, reloadToken]);
+  }, [initialValue, tripId, reloadToken]);
 
   const normalizedTransactionDates = useMemo(() => {
     const values: Array<Date | string | null | undefined> = [transactionDate];

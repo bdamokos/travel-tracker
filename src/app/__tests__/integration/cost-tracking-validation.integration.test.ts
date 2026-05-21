@@ -13,6 +13,7 @@ import { Expense, BudgetItem, YnabCategoryMapping, YnabTransaction } from '@/app
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { getDataDir } from '@/app/lib/dataDirectory';
+import { createTransactionHash } from '@/app/lib/ynabUtils';
 
 // Mock the admin domain check
 jest.mock('@/app/lib/server-domains', () => ({
@@ -100,7 +101,8 @@ describe('Cost Tracking API Validation Integration Tests', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    (mockIsAdminDomain as jest.Mock).mockResolvedValue(true);
   });
 
   describe('Cost Tracking Main Endpoint', () => {
@@ -180,7 +182,7 @@ describe('Cost Tracking API Validation Integration Tests', () => {
         .mockResolvedValueOnce(mockTrip2);
 
       const request = new NextRequest('http://localhost/api/cost-tracking/list');
-      const response = await costTrackingListGET();
+      const response = await costTrackingListGET(new NextRequest('http://localhost/api/cost-tracking/list'));
       const result = await response.json();
 
       expect(response.status).toBe(200);
@@ -295,6 +297,116 @@ describe('Cost Tracking API Validation Integration Tests', () => {
             })
           ]),
           updatedAt: expect.any(String)
+        })
+      );
+    });
+
+    it('skips invalid YNAB dates instead of persisting null expense dates', async () => {
+      const mockData = createMockUnifiedTripData(false);
+      const updatedData = { ...mockData, updatedAt: new Date().toISOString() };
+      mockLoadUnifiedTripData.mockResolvedValue(mockData);
+      mockUpdateCostData.mockResolvedValue(updatedData);
+
+      const transaction: YnabTransaction = {
+        Date: '31/02/2025',
+        Payee: 'Impossible Date Merchant',
+        Category: 'Food',
+        Outflow: '€25.00',
+        Inflow: '',
+        Memo: 'Invalid date'
+      };
+      const tempFileId = await createTempYnabFile([transaction]);
+
+      const mappings: YnabCategoryMapping[] = [{
+        ynabCategory: 'Food',
+        mappingType: 'country',
+        countryName: 'Germany'
+      }];
+
+      const request = new NextRequest(`http://localhost/api/cost-tracking/${mockTripId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'import',
+          tempFileId,
+          mappings,
+          selectedTransactions: [{
+            transactionHash: createTransactionHash(transaction),
+            transactionSourceIndex: 0,
+            expenseCategory: 'Food'
+          }]
+        })
+      });
+
+      const response = await ynabProcessPOST(request, { params: Promise.resolve({ id: mockTripId }) });
+      const result = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(result.importedCount).toBe(0);
+      expect(result.skippedCount).toBe(1);
+      expect(mockUpdateCostData).toHaveBeenCalledWith(
+        mockTripId,
+        expect.objectContaining({
+          expenses: []
+        })
+      );
+    });
+
+    it('imports an instance-keyed duplicate even when a legacy base hash exists', async () => {
+      const transaction: YnabTransaction = {
+        Date: '01/05/2024',
+        Payee: 'Duplicate Merchant',
+        Category: 'Food',
+        Outflow: '€30.00',
+        Inflow: '',
+        Memo: 'Duplicate'
+      };
+      const transactionHash = createTransactionHash(transaction);
+      const mockData = createMockUnifiedTripData(false);
+      mockData.costData!.ynabImportData = {
+        mappings: [],
+        importedTransactionHashes: [transactionHash]
+      };
+      const updatedData = { ...mockData, updatedAt: new Date().toISOString() };
+      mockLoadUnifiedTripData.mockResolvedValue(mockData);
+      mockUpdateCostData.mockResolvedValue(updatedData);
+      const tempFileId = await createTempYnabFile([transaction, transaction]);
+
+      const mappings: YnabCategoryMapping[] = [{
+        ynabCategory: 'Food',
+        mappingType: 'country',
+        countryName: 'Germany'
+      }];
+
+      const request = new NextRequest(`http://localhost/api/cost-tracking/${mockTripId}/ynab-process`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'import',
+          tempFileId,
+          mappings,
+          selectedTransactions: [{
+            transactionHash,
+            transactionId: `${transactionHash}-1`,
+            transactionSourceIndex: 1,
+            expenseCategory: 'Food'
+          }]
+        })
+      });
+
+      const response = await ynabProcessPOST(request, { params: Promise.resolve({ id: mockTripId }) });
+      const result = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(result.importedCount).toBe(1);
+      expect(mockUpdateCostData).toHaveBeenCalledWith(
+        mockTripId,
+        expect.objectContaining({
+          expenses: expect.arrayContaining([
+            expect.objectContaining({
+              id: `ynab-${transactionHash}-1`,
+              hash: transactionHash,
+              description: 'Duplicate Merchant'
+            })
+          ])
         })
       );
     });

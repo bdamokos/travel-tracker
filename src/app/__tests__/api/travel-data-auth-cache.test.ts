@@ -260,6 +260,54 @@ describe('travel-data API auth and cache boundary', () => {
     expect(mockUpdateTravelData).not.toHaveBeenCalled();
   });
 
+  it('normalizes null route point geometry on batch route-point PATCH updates', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockLoadUnifiedTripData.mockResolvedValue({
+      ...buildTrip(),
+      travelData: {
+        ...buildTrip().travelData,
+        routes: [
+          {
+            id: 'route-1',
+            from: 'A',
+            to: 'B',
+            routePoints: [[52.52, 13.405]]
+          }
+        ]
+      }
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    const response = await PATCH(
+      new NextRequest('https://admin.example.test/api/travel-data?id=trip-1', {
+        method: 'PATCH',
+        headers: { host: 'admin.example.test' },
+        body: JSON.stringify({
+          batchRouteUpdate: [
+            {
+              routeId: 'route-1',
+              routePoints: null
+            }
+          ]
+        })
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result).toEqual({
+      success: true,
+      message: '1 route(s) updated successfully'
+    });
+    expect(mockUpdateTravelData).toHaveBeenCalledWith('trip-1', expect.objectContaining({
+      routes: [
+        expect.objectContaining({
+          id: 'route-1',
+          routePoints: []
+        })
+      ]
+    }));
+  });
+
   it('coerces stale stored route transport types before validating unrelated delta PATCH updates', async () => {
     mockIsAdminDomain.mockResolvedValue(true);
     mockLoadUnifiedTripData.mockResolvedValue({

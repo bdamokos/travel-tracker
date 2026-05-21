@@ -27,7 +27,6 @@ const RATE_LIMIT_BASE_BACKOFF_MS = 2000;
 const RATE_LIMIT_MAX_BACKOFF_MS = 60_000;
 const RATE_LIMIT_MAX_RETRIES = 4;
 const HISTORICAL_AVERAGE_FORECAST_REFRESH_MS = 6 * 60 * 60 * 1000;
-const EMPTY_WEATHER_CACHE_TTL_MS = 15 * 60 * 1000;
 let lastRequestTime = 0;
 let rateLimitBackoffUntil = 0;
 let rateLimitQueue: Promise<void> = Promise.resolve();
@@ -433,11 +432,10 @@ function needsForecastRefresh(summary: WeatherSummary): boolean {
 }
 
 function isFreshEmptyCacheEntry(cached: CacheEntry, now: Date): boolean {
+  void now;
   if (cached.summary.dailyWeather.length > 0) return false;
-  if (cached.fetchedAt === LEGACY_FETCHED_AT) return false;
 
-  const fetchedAt = parseISO(cached.fetchedAt);
-  return isValid(fetchedAt) && now.getTime() - fetchedAt.getTime() < EMPTY_WEATHER_CACHE_TTL_MS;
+  return false;
 }
 
 /**
@@ -826,9 +824,6 @@ class WeatherService {
       }
     }
 
-    if (fetched.length === 0) {
-      log('fetch:failed-no-data', { key });
-    }
     const summary: WeatherSummary = {
       locationId: location.id,
       startDate: startISO,
@@ -836,8 +831,12 @@ class WeatherService {
       dailyWeather: fetched,
       summary: summarize(fetched)
     };
-    await writeCache(key, summary);
-    log(fetched.length > 0 ? 'cache:write' : 'cache:write-empty', { key, count: fetched.length });
+    if (fetched.length > 0) {
+      await writeCache(key, summary);
+      log('cache:write', { key, count: fetched.length });
+    } else {
+      log('fetch:failed-no-data', { key });
+    }
     return summary;
   }
 
