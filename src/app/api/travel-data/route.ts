@@ -455,6 +455,7 @@ export async function PATCH(request: NextRequest) {
     // Handle batch route point updates
     if (updateRequest.batchRouteUpdate) {
       const updates = updateRequest.batchRouteUpdate as Array<{routeId: string, routePoints: [number, number][]}>;
+      const validatedUpdates: Array<{ routeId: string; routePoints: [number, number][] }> = [];
       let totalRoutePoints = 0;
       for (const update of updates) {
         const validation = validateRoutePoints(update.routePoints, `Route ${update.routeId} routePoints`);
@@ -466,6 +467,10 @@ export async function PATCH(request: NextRequest) {
         }
 
         totalRoutePoints += validation.points.length;
+        validatedUpdates.push({
+          routeId: update.routeId,
+          routePoints: validation.points
+        });
         if (totalRoutePoints > MAX_ROUTE_POINTS_PER_UPDATE) {
           return NextResponse.json(
             { error: `Route update cannot contain more than ${MAX_ROUTE_POINTS_PER_UPDATE} total route points` },
@@ -474,7 +479,7 @@ export async function PATCH(request: NextRequest) {
         }
       }
 
-      console.log('[PATCH] Processing batch route update for trip %s with %d routes', id, updates.length);
+      console.log('[PATCH] Processing batch route update for trip %s with %d routes', id, validatedUpdates.length);
       
       // Load current unified data
       const unifiedData = await loadUnifiedTripData(id);
@@ -492,7 +497,7 @@ export async function PATCH(request: NextRequest) {
       if (unifiedData.travelData && unifiedData.travelData.routes) {
         let updatedCount = 0;
         
-        for (const update of updates) {
+        for (const update of validatedUpdates) {
           const routeIndex = unifiedData.travelData.routes.findIndex((route: { id: string }) => route.id === update.routeId);
           if (routeIndex >= 0) {
             console.log(
@@ -575,7 +580,7 @@ export async function PATCH(request: NextRequest) {
       if (unifiedData.travelData && unifiedData.travelData.routes) {
         const routeIndex = unifiedData.travelData.routes.findIndex((route: { id: string }) => route.id === routeId);
         if (routeIndex >= 0) {
-          (unifiedData.travelData.routes[routeIndex] as { routePoints?: [number, number][] }).routePoints = routePoints;
+          (unifiedData.travelData.routes[routeIndex] as { routePoints?: [number, number][] }).routePoints = validation.points;
 
           const routePointValidation = validateSubmittedRoutePoints(
             unifiedData.travelData.routes as unknown as RoutePayload[],

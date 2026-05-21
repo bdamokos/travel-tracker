@@ -61,13 +61,26 @@ const getForwardedHost = (request: NextRequest): string | null => {
   return forwardedHost?.split(',')[0]?.trim() || null;
 };
 
+const hasTrustedForwardedHostSecret = (request: NextRequest): boolean => {
+  const expectedSecret = process.env.ADMIN_PROXY_SECRET?.trim();
+  if (!expectedSecret) {
+    return false;
+  }
+
+  return request.headers.get('x-travel-tracker-admin-proxy-secret') === expectedSecret;
+};
+
 const isAdminOsrmRequest = (request: NextRequest): boolean => {
   const host = request.headers.get('host');
   if (isAdminHost(host)) {
     return true;
   }
 
-  return isLocalProxyHost(host) && isAdminHost(getForwardedHost(request));
+  return (
+    isLocalProxyHost(host) &&
+    hasTrustedForwardedHostSecret(request) &&
+    isAdminHost(getForwardedHost(request))
+  );
 };
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

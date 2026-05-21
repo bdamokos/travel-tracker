@@ -14,7 +14,7 @@ const emptySummary: WeatherSummary = {
 };
 
 describe('weatherService negative cache helpers', () => {
-  it('treats recent empty cache entries as fresh negative results', () => {
+  it('does not treat recent empty cache entries as fresh negative results', () => {
     const now = new Date('2026-06-01T12:00:00.000Z');
 
     expect(weatherServiceTestUtils.isFreshEmptyCacheEntry({
@@ -26,10 +26,10 @@ describe('weatherService negative cache helpers', () => {
         hasForecast: false,
         hasRecorded: false
       }
-    }, now)).toBe(true);
+    }, now)).toBe(false);
   });
 
-  it('expires empty cache entries after the negative cache TTL', () => {
+  it('returns false for older empty cache entries too', () => {
     const now = new Date('2026-06-01T12:20:00.000Z');
 
     expect(weatherServiceTestUtils.isFreshEmptyCacheEntry({

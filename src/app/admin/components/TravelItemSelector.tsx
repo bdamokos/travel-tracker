@@ -124,6 +124,10 @@ export default function TravelItemSelector({
     selectedItem: '',
     description: ''
   });
+  const initialValueId = initialValue?.id ?? '';
+  const initialValueType = initialValue?.type ?? '';
+  const initialValueName = initialValue?.name ?? '';
+  const hasInitialValue = Boolean(initialValue);
 
   useEffect(() => {
     onReferenceChangeRef.current = onReferenceChange;
@@ -145,10 +149,10 @@ export default function TravelItemSelector({
   useEffect(() => {
     queueMicrotask(() => {
       // First, try to use initialValue if provided
-      if (initialValue) {
-        setSelectedType(initialValue.type);
-        setSelectedItem(initialValue.id);
-        setDescription(initialValue.name || '');
+      if (initialValueType && initialValueId) {
+        setSelectedType(initialValueType);
+        setSelectedItem(initialValueId);
+        setDescription(initialValueName);
         return;
       }
 
@@ -180,7 +184,9 @@ export default function TravelItemSelector({
   }, [
     expenseLinksForHydration,
     expenseId,
-    initialValue,
+    initialValueId,
+    initialValueName,
+    initialValueType,
     loadExistingLink
   ]);
 
@@ -311,6 +317,17 @@ export default function TravelItemSelector({
         }
         console.error('Error loading travel items:', error);
         setTravelItems([]);
+        if (
+          hasInitialValue ||
+          selectionStateRef.current.selectedType ||
+          selectionStateRef.current.selectedItem ||
+          selectionStateRef.current.description
+        ) {
+          setSelectedType('');
+          setSelectedItem('');
+          setDescription('');
+          onReferenceChangeRef.current(undefined);
+        }
         if (error instanceof Error && error.name === 'AbortError') {
           setLoadError('Loading travel items timed out. Please try again.');
         } else {
@@ -335,7 +352,7 @@ export default function TravelItemSelector({
         window.clearTimeout(timeoutId);
       }
     };
-  }, [tripId, reloadToken]);
+  }, [hasInitialValue, tripId, reloadToken]);
 
   const normalizedTransactionDates = useMemo(() => {
     const values: Array<Date | string | null | undefined> = [transactionDate];

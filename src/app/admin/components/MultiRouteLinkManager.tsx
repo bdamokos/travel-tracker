@@ -163,10 +163,6 @@ export default function MultiRouteLinkManager({
     if (validation.valid && links.length > 0) {
       nextLinks = linksWithSplitValues;
     } else if (links.length === 0) {
-      if (initialLinks.length > 0) {
-        return;
-      }
-
       nextLinks = [];
     }
 

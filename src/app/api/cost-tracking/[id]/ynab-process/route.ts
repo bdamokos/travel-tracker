@@ -46,6 +46,10 @@ function isValidTempFileId(tempFileId: unknown): tempFileId is string {
   );
 }
 
+function getValidYnabISODate(ynabDate: string): string | null {
+  return convertYnabDateToISO(ynabDate) || null;
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Check if request is from admin domain
@@ -143,6 +147,7 @@ async function handleProcessTransactions(
   const uniqueTransactions: ProcessedYnabTransaction[] = [];
   const uniqueTransactionKeys = new Set<string>();
   let alreadyImportedCount = 0;
+  let invalidDateCount = 0;
   const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
 
   for (const [index, transaction] of tempData.transactions.entries()) {
@@ -150,14 +155,20 @@ async function handleProcessTransactions(
       continue; // Skip unmapped categories
     }
 
+    const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
+    if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
+
+    const isoDate = getValidYnabISODate(transaction.Date);
+    if (!isoDate) {
+      invalidDateCount += 1;
+      continue;
+    }
+
     const hash = createTransactionHash(transaction);
     const instanceId = `${hash}-${index}`;
     const hasImportedInstance = existingHashSet.has(instanceId);
     const hasLegacyImportedHash = consumeLegacyImportedHash(legacyImportedHashCounts, hash);
     const isAlreadyImported = hasImportedInstance || hasLegacyImportedHash;
-
-    const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
-    if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
 
     // Calculate amount - handle both outflows and inflows
     let amount = 0;
@@ -175,7 +186,7 @@ async function handleProcessTransactions(
     const processedTxn: ProcessedYnabTransaction = {
       originalTransaction: transaction,
       amount: amount,
-      date: convertYnabDateToISO(transaction.Date),
+      date: isoDate,
       description: transaction.Payee,
       memo: transaction.Memo,
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
@@ -235,6 +246,7 @@ async function handleProcessTransactions(
       totalCount: 0,
       alreadyImportedCount,
       filteredCount,
+      invalidDateCount,
       lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
       totalTransactions: processedTransactions.length,
       message: 'No transactions available for import. This may be because all categories are mapped to "None" or all transactions have already been imported.'
@@ -246,6 +258,7 @@ async function handleProcessTransactions(
     totalCount: filteredResult.newTransactions.length,
     alreadyImportedCount,
     filteredCount,
+    invalidDateCount,
     lastImportedTransactionFound: showAll ? false : lastImportedTransactionFound || filteredResult.lastTransactionFound,
     totalTransactions: processedTransactions.length
   });
@@ -333,6 +346,7 @@ async function handleImportTransactions(
   for (const selectedTxn of selectedTransactions) {
     const { transactionHash, transactionId, transactionSourceIndex, expenseCategory, travelLinkInfo } = selectedTxn;
     const targetIndex = typeof transactionSourceIndex === 'number' ? transactionSourceIndex : undefined;
+    const hasSpecificSelection = Boolean(transactionId) || targetIndex !== undefined;
 
     if (transactionId && importedKeySet.has(transactionId)) {
       consumeLegacyImportedHash(legacyImportedHashCounts, transactionHash);
@@ -343,7 +357,7 @@ async function handleImportTransactions(
       continue;
     }
 
-    if (consumeLegacyImportedHash(legacyImportedHashCounts, transactionHash)) {
+    if (!hasSpecificSelection && consumeLegacyImportedHash(legacyImportedHashCounts, transactionHash)) {
       continue;
     }
 
@@ -367,6 +381,11 @@ async function handleImportTransactions(
     }
 
     if (originalTxn === undefined) {
+      continue;
+    }
+
+    const isoDate = getValidYnabISODate(originalTxn.Date);
+    if (!isoDate) {
       continue;
     }
 
@@ -406,7 +425,7 @@ async function handleImportTransactions(
     const processedTxn: ProcessedYnabTransaction = {
       originalTransaction: originalTxn,
       amount: amount,
-      date: convertYnabDateToISO(originalTxn.Date),
+      date: isoDate,
       description: originalTxn.Payee,
       memo: originalTxn.Memo,
       mappedCountry: mapping.mappingType === 'general' ? '' : (mapping.countryName || ''),
@@ -420,7 +439,7 @@ async function handleImportTransactions(
     const travelReference = buildTravelReference(travelLinkInfo);
     const expense: Expense = {
       id: `ynab-${importKey}`,
-      date: new Date(convertYnabDateToISO(originalTxn.Date)),
+      date: new Date(isoDate),
       amount: amount,
       currency: costData.currency,
       category: expenseCategory,
