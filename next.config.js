@@ -17,13 +17,13 @@ const nextConfig = {
   },
   async headers() {
     return [
-      // Public map pages – allow CDN caching for a day
+      // Map pages are host-sensitive: admin hosts include planning/shadow data.
       {
         source: '/map/:id*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
+            value: 'no-store'
           }
         ],
       },
@@ -47,13 +47,13 @@ const nextConfig = {
           }
         ],
       },
-      // Calendar pages
+      // Calendar pages are host-sensitive: admin hosts include planning/shadow data.
       {
         source: '/calendars/:tripId*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800'
+            value: 'no-store'
           }
         ],
       },

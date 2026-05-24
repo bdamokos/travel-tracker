@@ -758,15 +758,14 @@ export async function updateTravelData(tripId: string, travelUpdates: Record<str
         );
 
         if (parentLocation) {
-          tempLocationFixLog.push(`Fixed accommodation ${accommodation.id} (${accommodation.name}): temp-location → ${parentLocation.id} (${parentLocation.name})`);
+          tempLocationFixLog.push(`Fixed accommodation ${accommodation.id}: temp-location -> ${parentLocation.id}`);
           return {
             ...accommodation,
             locationId: parentLocation.id,
             updatedAt: new Date().toISOString()
           };
         } else {
-          // Log warning if no parent location found
-          tempLocationFixLog.push(`Warning: Could not find parent location for accommodation ${accommodation.id} (${accommodation.name}) with temp-location`);
+          tempLocationFixLog.push(`Warning: Could not find parent location for accommodation ${accommodation.id} with temp-location`);
         }
       }
       return accommodation;

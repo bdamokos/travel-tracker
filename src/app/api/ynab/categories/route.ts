@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
             error: 'Invalid API key. Please check your YNAB Personal Access Token.',
             code: 'INVALID_API_KEY'
           },
-          { status: 401 }
+          { status: 401, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
             error: 'Budget not found. Please check the budget ID.',
             code: 'BUDGET_NOT_FOUND'
           },
-          { status: 404 }
+          { status: 404, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
             error: 'Rate limit exceeded. Please wait a moment and try again.',
             code: 'RATE_LIMIT'
           },
-          { status: 429 }
+          { status: 429, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
           error: `YNAB API Error: ${error.detail}`,
           code: 'YNAB_API_ERROR'
         },
-        { status: 500 }
+        { status: 500, headers: PRIVATE_JSON_HEADERS }
       );
     }
 
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         error: 'Failed to fetch YNAB categories',
         code: 'CATEGORIES_ERROR'
       },
-      { status: 500 }
+      { status: 500, headers: PRIVATE_JSON_HEADERS }
     );
   }
 }
