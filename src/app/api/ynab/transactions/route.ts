@@ -4,6 +4,33 @@ import { YnabApiError, ProcessedYnabTransaction, CategoryMapping } from '@/app/t
 import { PRIVATE_JSON_HEADERS } from '@/app/lib/ynabConfigSecurity';
 import { requireAdminYnabConfig } from '@/app/lib/ynabServerConfig';
 
+const MAX_TRANSACTION_CATEGORY_IDS = 25;
+
+const normalizeMappedCategory = (mapping: unknown): CategoryMapping | null => {
+  if (!mapping || typeof mapping !== 'object') {
+    return null;
+  }
+
+  const candidate = mapping as Partial<CategoryMapping>;
+  if (typeof candidate.mappingType !== 'string' || candidate.mappingType === 'none') {
+    return null;
+  }
+  if (typeof candidate.ynabCategoryId !== 'string') {
+    return null;
+  }
+
+  const ynabCategoryId = candidate.ynabCategoryId.trim();
+  if (ynabCategoryId.length === 0) {
+    return null;
+  }
+
+  return {
+    ...candidate,
+    ynabCategoryId,
+    mappingType: candidate.mappingType
+  } as CategoryMapping;
+};
+
 /**
  * Retrieve YNAB transactions filtered by mapped category IDs and return them in ProcessedYnabTransaction format.
  *
@@ -56,16 +83,25 @@ export async function POST(request: NextRequest) {
     if (!categoryMappings || !Array.isArray(categoryMappings)) {
       return NextResponse.json(
         { error: 'Category mappings are required' },
-        { status: 400 }
+        { status: 400, headers: PRIVATE_JSON_HEADERS }
       );
     }
 
+    const normalizedCategoryMappings = categoryMappings
+      .map(normalizeMappedCategory)
+      .filter((mapping): mapping is CategoryMapping => mapping !== null);
+
     // Extract category IDs from mappings that are not 'none'
-    const mappedCategoryIds = categoryMappings
-      .filter((mapping: CategoryMapping) => 
-        mapping.mappingType !== 'none' && mapping.ynabCategoryId
-      )
-      .map((mapping: CategoryMapping) => mapping.ynabCategoryId!);
+    const mappedCategoryIds = Array.from(new Set(
+      normalizedCategoryMappings.map(mapping => mapping.ynabCategoryId!)
+    ));
+
+    if (mappedCategoryIds.length > MAX_TRANSACTION_CATEGORY_IDS) {
+      return NextResponse.json(
+        { error: `Cannot sync more than ${MAX_TRANSACTION_CATEGORY_IDS} YNAB categories at once` },
+        { status: 400, headers: PRIVATE_JSON_HEADERS }
+      );
+    }
 
     if (mappedCategoryIds.length === 0) {
       return NextResponse.json({
@@ -91,10 +127,8 @@ export async function POST(request: NextRequest) {
 
       // Create a lookup map for category mappings
       const categoryMappingLookup = new Map();
-      categoryMappings.forEach((mapping: CategoryMapping) => {
-        if (mapping.ynabCategoryId) {
-          categoryMappingLookup.set(mapping.ynabCategoryId, mapping);
-        }
+      normalizedCategoryMappings.forEach((mapping: CategoryMapping) => {
+        categoryMappingLookup.set(mapping.ynabCategoryId, mapping);
       });
 
       // Convert YNAB transactions to ProcessedYnabTransaction format with country mapping
@@ -157,7 +191,7 @@ export async function POST(request: NextRequest) {
             error: 'Invalid API key. Please check your YNAB Personal Access Token.',
             code: 'INVALID_API_KEY'
           },
-          { status: 401 }
+          { status: 401, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -167,7 +201,7 @@ export async function POST(request: NextRequest) {
             error: 'Budget not found. Please check the budget ID.',
             code: 'BUDGET_NOT_FOUND'
           },
-          { status: 404 }
+          { status: 404, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -177,7 +211,7 @@ export async function POST(request: NextRequest) {
             error: 'Rate limit exceeded. Please wait a moment and try again.',
             code: 'RATE_LIMIT'
           },
-          { status: 429 }
+          { status: 429, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -187,7 +221,7 @@ export async function POST(request: NextRequest) {
           error: `YNAB API Error: ${error.detail}`,
           code: 'YNAB_API_ERROR'
         },
-        { status: 500 }
+        { status: 500, headers: PRIVATE_JSON_HEADERS }
       );
     }
 
@@ -198,7 +232,7 @@ export async function POST(request: NextRequest) {
         error: 'Failed to process YNAB transaction request',
         code: 'TRANSACTIONS_POST_ERROR'
       },
-      { status: 500 }
+      { status: 500, headers: PRIVATE_JSON_HEADERS }
     );
   }
 }

@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server';
 import { GET as costTrackingGET } from '@/app/api/cost-tracking/route';
 import { GET as costTrackingListGET } from '@/app/api/cost-tracking/list/route';
 import { POST as ynabCategoriesPOST } from '@/app/api/ynab/categories/route';
+import { POST as ynabSetupPOST } from '@/app/api/ynab/setup/route';
 import {
   GET as ynabTransactionsGET,
   POST as ynabTransactionsPOST,
@@ -17,6 +18,7 @@ import { YnabApiClient } from '@/app/lib/ynabApiClient';
 import { maybeSyncPendingYnabTransactions } from '@/app/lib/ynabPendingSync';
 
 const mockGetCategories = jest.fn();
+const mockGetTransactionsByCategories = jest.fn();
 
 jest.mock('@/app/lib/server-domains', () => ({
   __esModule: true,
@@ -44,11 +46,17 @@ jest.mock('@/app/lib/ynabApiClient', () => ({
   YnabApiClient: Object.assign(
     jest.fn().mockImplementation(() => ({
       getCategories: mockGetCategories,
+      getTransactionsByCategories: mockGetTransactionsByCategories,
     })),
     {
       convertMilliUnitsToCurrency: jest.fn((amount: number) => amount / 1000),
     }
   ),
+  ynabUtils: {
+    flattenTransactions: jest.fn((transactions) => transactions),
+    milliunitsToAmount: jest.fn((amount: number) => amount / 1000),
+    generateTransactionHash: jest.fn((transaction) => `hash-${transaction.id || 'unknown'}`),
+  },
 }));
 
 const { isAdminDomain: mockIsAdminDomain } = jest.requireMock('@/app/lib/server-domains');
@@ -212,6 +220,113 @@ describe('YNAB token boundary', () => {
 
     expect(response.status).toBe(403);
     expect(mockYnabApiClient).not.toHaveBeenCalled();
+  });
+
+  it('caps YNAB transaction category fan-out before contacting YNAB', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockLoadUnifiedTripData.mockResolvedValue(buildTrip());
+
+    const response = await ynabTransactionsPOST(
+      new NextRequest('https://admin.example.test/api/ynab/transactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          costTrackerId: 'cost-trip-1',
+          categoryMappings: Array.from({ length: 26 }, (_, index) => ({
+            ynabCategoryId: `cat-${index}`,
+            mappingType: 'general',
+          })),
+        }),
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(result.error).toContain('Cannot sync more than 25 YNAB categories');
+    expect(mockGetTransactionsByCategories).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates mapped YNAB category IDs before transaction sync', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockLoadUnifiedTripData.mockResolvedValue(buildTrip());
+    mockGetTransactionsByCategories.mockResolvedValue({
+      transactions: [
+        {
+          id: 'txn-1',
+          account_name: 'Checking',
+          amount: -1230,
+          category_id: 'cat-1',
+          category_name: 'Food',
+          cleared: 'cleared',
+          date: '2026-05-20',
+          payee_name: 'Cafe',
+        },
+      ],
+      serverKnowledge: 43,
+    });
+
+    const response = await ynabTransactionsPOST(
+      new NextRequest('https://admin.example.test/api/ynab/transactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          costTrackerId: 'cost-trip-1',
+          categoryMappings: [
+            { ynabCategoryId: ' cat-1 ', mappingType: 'country', countryName: 'Belgium' },
+            { ynabCategoryId: 'cat-1 ', mappingType: 'country', countryName: 'Belgium' },
+            { ynabCategoryId: 'cat-2', mappingType: 'none' },
+            { ynabCategoryId: 'cat-3', mappingType: 'general' },
+          ],
+        }),
+      })
+    );
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result).toMatchObject({ success: true, serverKnowledge: 43 });
+    expect(result.transactions[0]).toMatchObject({
+      mappedCountry: 'Belgium',
+      isGeneralExpense: false,
+    });
+    expect(mockGetTransactionsByCategories).toHaveBeenCalledWith(
+      'budget-1',
+      ['cat-1', 'cat-3'],
+      undefined,
+      undefined
+    );
+  });
+
+  it('keeps YNAB setup validation errors out of shared caches', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
+    const response = await ynabSetupPOST(
+      new NextRequest('https://admin.example.test/api/ynab/setup', {
+        method: 'POST',
+        body: JSON.stringify({ costTrackerId: 'cost-trip-1' }),
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(mockYnabApiClient).not.toHaveBeenCalled();
+  });
+
+  it('keeps YNAB upstream errors out of shared caches', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+    mockLoadUnifiedTripData.mockResolvedValue(buildTrip());
+    mockGetCategories.mockRejectedValue({
+      id: '429',
+      detail: 'rate limited',
+    });
+
+    const response = await ynabCategoriesPOST(
+      new NextRequest('https://admin.example.test/api/ynab/categories', {
+        method: 'POST',
+        body: JSON.stringify({ costTrackerId: 'cost-trip-1' }),
+      })
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
 
   it('loads YNAB categories using the server-stored token for admin callers', async () => {

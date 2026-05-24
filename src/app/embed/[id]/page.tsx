@@ -9,6 +9,7 @@ import InstagramIcon from '@/app/components/icons/InstagramIcon';
 import TikTokIcon from '@/app/components/icons/TikTokIcon';
 import type { MapTravelData } from '@/app/types';
 import { normalizeMapTravelData } from '@/app/lib/mapRouteTransform';
+import { isSafePublicHttpUrl } from '@/app/lib/publicUrlValidation';
 
 
 async function getTravelData(id: string): Promise<MapTravelData | null> {
@@ -258,9 +259,13 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                       </div>
                       {location.instagramPosts.map((post, postIndex) => (
                         <div key={postIndex} className="post-link">
-                          <a href={post.url} target="_blank" rel="noopener">
-                            {post.caption || 'View Post'}
-                          </a>
+                          {isSafePublicHttpUrl(post.url) ? (
+                            <a href={post.url} target="_blank" rel="noopener">
+                              {post.caption || 'View Post'}
+                            </a>
+                          ) : (
+                            <span>{post.caption || 'View Post'}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -275,9 +280,13 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                       </div>
                       {location.tikTokPosts.map((post, postIndex) => (
                         <div key={postIndex} className="post-link">
-                          <a href={post.url} target="_blank" rel="noopener">
-                            {post.caption || 'Watch Clip'}
-                          </a>
+                          {isSafePublicHttpUrl(post.url) ? (
+                            <a href={post.url} target="_blank" rel="noopener">
+                              {post.caption || 'Watch Clip'}
+                            </a>
+                          ) : (
+                            <span>{post.caption || 'Watch Clip'}</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -289,9 +298,13 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
                       <div className="posts-header">📝 Blog:</div>
                       {location.blogPosts.map((post, postIndex) => (
                         <div key={postIndex} className="post-link">
-                          <a href={post.url} target="_blank" rel="noopener">
-                            {post.title}
-                          </a>
+                          {isSafePublicHttpUrl(post.url) ? (
+                            <a href={post.url} target="_blank" rel="noopener">
+                              {post.title}
+                            </a>
+                          ) : (
+                            <span>{post.title}</span>
+                          )}
                           {post.excerpt && (
                             <div className="post-excerpt">{post.excerpt}</div>
                           )}

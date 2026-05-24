@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
     if (!apiKey || typeof apiKey !== 'string') {
       return NextResponse.json(
         { error: 'API key is required' },
-        { status: 400 }
+        { status: 400, headers: PRIVATE_JSON_HEADERS }
       );
     }
 
     if (!costTrackerId || typeof costTrackerId !== 'string') {
       return NextResponse.json(
         { error: 'Cost tracker ID is required for data isolation' },
-        { status: 400 }
+        { status: 400, headers: PRIVATE_JSON_HEADERS }
       );
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
             error: 'Invalid API key. Please check your YNAB Personal Access Token.',
             code: 'INVALID_API_KEY'
           },
-          { status: 401 }
+          { status: 401, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
             error: 'Rate limit exceeded. Please wait a moment and try again.',
             code: 'RATE_LIMIT'
           },
-          { status: 429 }
+          { status: 429, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
             error: 'Access denied. Please check your YNAB subscription status.',
             code: 'ACCESS_DENIED'
           },
-          { status: 403 }
+          { status: 403, headers: PRIVATE_JSON_HEADERS }
         );
       }
 
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
           error: `YNAB API Error: ${error.detail}`,
           code: 'YNAB_API_ERROR'
         },
-        { status: 500 }
+        { status: 500, headers: PRIVATE_JSON_HEADERS }
       );
     }
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         error: 'Failed to setup YNAB connection',
         code: 'SETUP_ERROR'
       },
-      { status: 500 }
+      { status: 500, headers: PRIVATE_JSON_HEADERS }
     );
   }
 }

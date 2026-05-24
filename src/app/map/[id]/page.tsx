@@ -10,6 +10,7 @@ import { filterUpdatesForPublic } from '@/app/lib/updateFilters';
 import { SHADOW_LOCATION_PREFIX } from '@/app/lib/shadowConstants';
 import { isAdminHost } from '@/app/lib/server-domains';
 import { loadMapTravelDataForServer } from '@/app/lib/mapShadowData';
+import { isSafePublicHttpUrl } from '@/app/lib/publicUrlValidation';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -149,15 +150,21 @@ export default async function MapPage({
                       <div className="space-y-2">
                         {location.blogPosts.map((post, postIndex) => (
                           <div key={post.id || postIndex}>
-                            <a
-                              href={post.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-green-700 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200 text-sm font-medium underline block"
-                              title={post.title}
-                            >
-                              📝 {post.title}
-                            </a>
+                            {isSafePublicHttpUrl(post.url) ? (
+                              <a
+                                href={post.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-green-700 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200 text-sm font-medium underline block"
+                                title={post.title}
+                              >
+                                📝 {post.title}
+                              </a>
+                            ) : (
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
+                                📝 {post.title}
+                              </span>
+                            )}
                             {post.excerpt && (
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{post.excerpt}</p>
                             )}
@@ -173,20 +180,31 @@ export default async function MapPage({
                       <div className="space-y-2">
                         {location.instagramPosts.map((post, postIndex) => (
                           <div key={post.id || postIndex}>
-                            <a
-                              href={post.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium underline"
-                              title={post.caption || post.url}
-                            >
-                              <InstagramIcon
-                                containerClassName="w-6 h-6"
-                                iconClassName="w-3.5 h-3.5"
-                                ariaLabel="Instagram"
-                              />
-                              <span>{post.caption || 'Instagram Post'}</span>
-                            </a>
+                            {isSafePublicHttpUrl(post.url) ? (
+                              <a
+                                href={post.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium underline"
+                                title={post.caption || post.url}
+                              >
+                                <InstagramIcon
+                                  containerClassName="w-6 h-6"
+                                  iconClassName="w-3.5 h-3.5"
+                                  ariaLabel="Instagram"
+                                />
+                                <span>{post.caption || 'Instagram Post'}</span>
+                              </a>
+                            ) : (
+                              <span className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <InstagramIcon
+                                  containerClassName="w-6 h-6"
+                                  iconClassName="w-3.5 h-3.5"
+                                  ariaLabel="Instagram"
+                                />
+                                <span>{post.caption || 'Instagram Post'}</span>
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -199,20 +217,31 @@ export default async function MapPage({
                       <div className="space-y-2">
                         {location.tikTokPosts.map((post, postIndex) => (
                           <div key={post.id || postIndex}>
-                            <a
-                              href={post.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm font-medium underline"
-                              title={post.caption || post.url}
-                            >
-                              <TikTokIcon
-                                containerClassName="w-6 h-6"
-                                iconClassName="w-3.5 h-3.5"
-                                ariaLabel="TikTok"
-                              />
-                              <span>{post.caption || 'TikTok Clip'}</span>
-                            </a>
+                            {isSafePublicHttpUrl(post.url) ? (
+                              <a
+                                href={post.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm font-medium underline"
+                                title={post.caption || post.url}
+                              >
+                                <TikTokIcon
+                                  containerClassName="w-6 h-6"
+                                  iconClassName="w-3.5 h-3.5"
+                                  ariaLabel="TikTok"
+                                />
+                                <span>{post.caption || 'TikTok Clip'}</span>
+                              </a>
+                            ) : (
+                              <span className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <TikTokIcon
+                                  containerClassName="w-6 h-6"
+                                  iconClassName="w-3.5 h-3.5"
+                                  ariaLabel="TikTok"
+                                />
+                                <span>{post.caption || 'TikTok Clip'}</span>
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
