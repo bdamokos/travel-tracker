@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { generateRoutePoints } from '@/app/lib/routeUtils';
 import { generateRailRoutePoints } from '@/app/lib/railRouting';
 import type { Transportation } from '@/app/types';
@@ -10,9 +14,15 @@ const mockedGenerateRailRoutePoints = generateRailRoutePoints as jest.MockedFunc
 
 describe('routeUtils rail integration', () => {
   const originalFetch = global.fetch;
+  const originalOsrmBaseUrl = process.env.OSRM_BASE_URL;
 
   afterEach(() => {
     jest.resetAllMocks();
+    if (originalOsrmBaseUrl === undefined) {
+      delete process.env.OSRM_BASE_URL;
+    } else {
+      process.env.OSRM_BASE_URL = originalOsrmBaseUrl;
+    }
   });
 
   afterAll(() => {
@@ -50,6 +60,7 @@ describe('routeUtils rail integration', () => {
   });
 
   it('falls back to OSRM when rail routing returns null', async () => {
+    process.env.OSRM_BASE_URL = 'https://private-osrm.example.test';
     const transportation: Transportation = {
       id: 'train-2',
       type: 'train',
@@ -80,10 +91,34 @@ describe('routeUtils rail integration', () => {
 
     const result = await generateRoutePoints(transportation);
 
-    expect(global.fetch).toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://private-osrm.example.test/route/v1/car/10,10;11,11?overview=full&geometries=geojson'
+    );
     expect(result).toEqual([
       [10, 10],
       [10.5, 10.5],
+      [11, 11]
+    ]);
+  });
+
+  it('falls back to straight lines instead of public OSRM when no server backend is configured', async () => {
+    delete process.env.OSRM_BASE_URL;
+    const transportation: Transportation = {
+      id: 'car-1',
+      type: 'car',
+      from: 'A',
+      to: 'B',
+      fromCoordinates: [10, 10],
+      toCoordinates: [11, 11]
+    };
+
+    global.fetch = jest.fn() as unknown as typeof fetch;
+
+    const result = await generateRoutePoints(transportation);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      [10, 10],
       [11, 11]
     ]);
   });

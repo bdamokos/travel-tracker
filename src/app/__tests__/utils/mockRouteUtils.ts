@@ -177,7 +177,13 @@ export const isExternalApiAvailable = async (): Promise<boolean> => {
   
   // Test OSRM API connectivity with a short timeout
   try {
-    const testUrl = 'https://router.project-osrm.org/route/v1/car/-0.1278,51.5074;2.3522,48.8566?overview=full&geometries=geojson';
+    const osrmBaseUrl = process.env.OSRM_BASE_URL?.trim().replace(/\/+$/, '');
+    if (!osrmBaseUrl) {
+      (global as typeof globalThis & { __EXTERNAL_API_AVAILABLE__?: boolean }).__EXTERNAL_API_AVAILABLE__ = false;
+      return false;
+    }
+
+    const testUrl = `${osrmBaseUrl}/route/v1/car/-0.1278,51.5074;2.3522,48.8566?overview=full&geometries=geojson`;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
