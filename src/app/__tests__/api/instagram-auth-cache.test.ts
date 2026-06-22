@@ -37,8 +37,8 @@ const instagramPayload = {
   },
 };
 
-const buildRequest = (host: string): NextRequest =>
-  new NextRequest(`https://${host}/api/instagram?username=demo_user`, {
+const buildRequest = (host: string, username = 'demo_user'): NextRequest =>
+  new NextRequest(`https://${host}/api/instagram?username=${encodeURIComponent(username)}`, {
     headers: { host },
   });
 
@@ -75,26 +75,16 @@ describe('instagram API auth and cache boundary', () => {
     }
   });
 
-  it('does not attach operator Instagram cookies for public requests', async () => {
+  it('rejects public requests before reaching Instagram', async () => {
     mockIsAdminDomain.mockResolvedValue(false);
 
     const response = await GET(buildRequest('public.example.test'));
     const result = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe(
-      'public, s-maxage=600, stale-while-revalidate=300'
-    );
-    expect(result.posts).toHaveLength(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://www.instagram.com/api/v1/users/web_profile_info/?username=demo_user',
-      expect.objectContaining({
-        headers: expect.not.objectContaining({
-          Cookie: expect.any(String),
-        }),
-        next: { revalidate: 600 },
-      })
-    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(result).toEqual({ error: 'Instagram import is only available on the admin domain.' });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('attaches operator Instagram cookies only for admin-domain requests', async () => {
@@ -122,6 +112,22 @@ describe('instagram API auth and cache boundary', () => {
         headers: expect.objectContaining({
           Cookie: 'sessionid=operator-session; csrftoken=operator-csrf; ds_user_id=12345',
         }),
+      })
+    );
+  });
+
+  it('normalizes Instagram URL usernames for admin-domain requests', async () => {
+    mockIsAdminDomain.mockResolvedValue(true);
+
+    const response = await GET(
+      buildRequest('admin.example.test', 'https://www.instagram.com/demo_user/?hl=en')
+    );
+
+    expect(response.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://www.instagram.com/api/v1/users/web_profile_info/?username=demo_user',
+      expect.objectContaining({
+        cache: 'no-store',
       })
     );
   });

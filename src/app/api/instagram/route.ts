@@ -20,6 +20,9 @@ const INSTAGRAM_HEADERS = {
   'Accept': 'application/json',
   'X-Requested-With': 'XMLHttpRequest'
 };
+const PRIVATE_NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store'
+};
 
 const getInstagramPayloadFailureMessage = (payload: unknown): string | null => {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
@@ -41,26 +44,35 @@ const getInstagramPayloadFailureMessage = (payload: unknown): string | null => {
 };
 
 export async function GET(request: NextRequest) {
+  const isAdminRequest = await isAdminDomain();
+  if (!isAdminRequest) {
+    return NextResponse.json(
+      { error: 'Instagram import is only available on the admin domain.' },
+      {
+        status: 403,
+        headers: PRIVATE_NO_STORE_HEADERS,
+      }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const rawUsername = searchParams.get('username') ?? '';
   const username = normalizeInstagramUsername(rawUsername);
   const instagramAppId = process.env.INSTAGRAM_APP_ID?.trim() || DEFAULT_INSTAGRAM_APP_ID;
   const envCookieHeader = buildInstagramCookieHeaderFromEnv();
-  let isAdminRequest: boolean | undefined;
-  if (envCookieHeader) {
-    isAdminRequest = await isAdminDomain();
-  }
-  const cookieHeader = isAdminRequest ? envCookieHeader : undefined;
-  const usePrivateCache = Boolean(cookieHeader);
+  const cookieHeader = envCookieHeader || undefined;
 
   if (!username) {
-    return NextResponse.json({ error: 'Username is required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Username is required' },
+      { status: 400, headers: PRIVATE_NO_STORE_HEADERS }
+    );
   }
 
   if (!isValidInstagramUsername(username)) {
     return NextResponse.json(
       { error: 'Invalid Instagram username format' },
-      { status: 400 }
+      { status: 400, headers: PRIVATE_NO_STORE_HEADERS }
     );
   }
 
@@ -80,11 +92,7 @@ export async function GET(request: NextRequest) {
         },
       };
 
-      if (usePrivateCache) {
-        fetchOptions.cache = 'no-store';
-      } else {
-        fetchOptions.next = { revalidate: 600 };
-      }
+      fetchOptions.cache = 'no-store';
 
       let response: Response;
       try {
@@ -151,47 +159,44 @@ export async function GET(request: NextRequest) {
         },
         {
           headers: {
-            'Cache-Control': usePrivateCache
-              ? 'private, no-store'
-              : 'public, s-maxage=600, stale-while-revalidate=300'
+            ...PRIVATE_NO_STORE_HEADERS
           }
         }
       );
     }
 
     if (sawLoginRequirement) {
-      isAdminRequest ??= await isAdminDomain();
-
       return NextResponse.json(
         {
-          error: isAdminRequest
-            ? 'Instagram is requiring a logged-in session. Configure INSTAGRAM_SESSIONID (and optionally INSTAGRAM_CSRFTOKEN / INSTAGRAM_DS_USER_ID).'
-            : 'This Instagram profile is not publicly accessible.'
+          error: 'Instagram is requiring a logged-in session. Configure INSTAGRAM_SESSIONID (and optionally INSTAGRAM_CSRFTOKEN / INSTAGRAM_DS_USER_ID).'
         },
-        { status: 403 }
+        { status: 403, headers: PRIVATE_NO_STORE_HEADERS }
       );
     }
 
     if (sawRateLimit) {
       return NextResponse.json(
         { error: 'Instagram temporarily rate-limited profile requests. Try again shortly.' },
-        { status: 429 }
+        { status: 429, headers: PRIVATE_NO_STORE_HEADERS }
       );
     }
 
     if (sawNotFound) {
       return NextResponse.json(
         { error: 'Instagram profile not found or not publicly accessible.' },
-        { status: 404 }
+        { status: 404, headers: PRIVATE_NO_STORE_HEADERS }
       );
     }
 
     return NextResponse.json(
       { error: 'Failed to fetch Instagram profile from available endpoints' },
-      { status: 502 }
+      { status: 502, headers: PRIVATE_NO_STORE_HEADERS }
     );
   } catch (error) {
     console.error('Error fetching Instagram profile:', error);
-    return NextResponse.json({ error: 'Failed to fetch Instagram profile' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch Instagram profile' },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS }
+    );
   }
 }
