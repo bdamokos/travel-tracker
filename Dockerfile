@@ -11,8 +11,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install dependencies based on the preferred package manager
 COPY package.json bun.lock* bun.lockb* ./
-RUN --mount=type=cache,target=/root/.bun \
-    bun install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -25,8 +24,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application with telemetry disabled
-RUN --mount=type=cache,target=/app/.next/cache \
-    bun run build
+RUN bun run build
 
 # Production image - optimized Alpine
 FROM ${BUN_IMAGE} AS runner
