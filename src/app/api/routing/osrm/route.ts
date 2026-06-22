@@ -5,6 +5,7 @@ type OsrmProfile = 'car' | 'bike' | 'foot';
 
 const DEFAULT_OSRM_BASE_URL = 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = 15_000;
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
 const OSRM_PROFILE_PATHS = {
   car: 'car',
   bike: 'bike',
@@ -85,7 +86,7 @@ const isAdminOsrmRequest = (request: NextRequest): boolean => {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isAdminOsrmRequest(request)) {
-    return NextResponse.json({ error: 'Admin domain required' }, { status: 403 });
+    return NextResponse.json({ error: 'Admin domain required' }, { status: 403, headers: PRIVATE_NO_STORE_HEADERS });
   }
 
   const sp = request.nextUrl.searchParams;
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const profilePath = getOsrmProfilePath(rawProfile);
 
   if (!profilePath) {
-    return NextResponse.json({ error: 'Invalid profile' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid profile' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS });
   }
 
   if (
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     !isValidLatitude(toLat) ||
     !isValidLongitude(toLng)
   ) {
-    return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS });
   }
 
   const upstreamUrl = new URL(
@@ -146,17 +147,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(payload, {
       status: upstreamResponse.status,
-      headers: {
-        'Cache-Control': 'public, max-age=0, s-maxage=86400, stale-while-revalidate=604800',
-      },
+      headers: PRIVATE_NO_STORE_HEADERS,
     });
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      return NextResponse.json({ error: 'OSRM upstream timed out' }, { status: 504 });
+      return NextResponse.json({ error: 'OSRM upstream timed out' }, { status: 504, headers: PRIVATE_NO_STORE_HEADERS });
     }
 
     console.warn('[OSRMProxy] upstream request failed:', error);
-    return NextResponse.json({ error: 'OSRM upstream request failed' }, { status: 502 });
+    return NextResponse.json({ error: 'OSRM upstream request failed' }, { status: 502, headers: PRIVATE_NO_STORE_HEADERS });
   } finally {
     clearTimeout(timeoutId);
   }
