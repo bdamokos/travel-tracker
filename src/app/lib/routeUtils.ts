@@ -295,12 +295,20 @@ const getRouteCacheKey = (
   return `${type}-${from[0]},${from[1]}-${to[0]},${to[1]}`;
 };
 
-const buildDirectOSRMUrl = (
+const DEFAULT_OSRM_BASE_URL = 'https://router.project-osrm.org';
+
+const getOsrmBaseUrl = (): string => {
+  const configuredBaseUrl = process.env.OSRM_BASE_URL?.trim();
+  return configuredBaseUrl ? configuredBaseUrl.replace(/\/+$/, '') : DEFAULT_OSRM_BASE_URL;
+};
+
+const buildServerOSRMUrl = (
   fromCoords: [number, number],
   toCoords: [number, number],
   profile: 'car' | 'bike' | 'foot'
 ): string => {
-  return `https://router.project-osrm.org/route/v1/${profile}/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`;
+  const osrmBaseUrl = getOsrmBaseUrl();
+  return `${osrmBaseUrl}/route/v1/${profile}/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`;
 };
 
 const buildBrowserOSRMProxyUrl = (
@@ -327,7 +335,7 @@ const getOSRMRoute = async (
 ): Promise<[number, number][]> => {
   try {
     const url = typeof window === 'undefined'
-      ? buildDirectOSRMUrl(fromCoords, toCoords, profile)
+      ? buildServerOSRMUrl(fromCoords, toCoords, profile)
       : buildBrowserOSRMProxyUrl(fromCoords, toCoords, profile);
     
     const response = await fetch(url);

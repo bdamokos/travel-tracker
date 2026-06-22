@@ -14,6 +14,7 @@ const buildRequest = (query: string): NextRequest =>
 describe('OSRM routing proxy validation', () => {
   const originalAdminDomain = process.env.ADMIN_DOMAIN;
   const originalAdminProxySecret = process.env.ADMIN_PROXY_SECRET;
+  const originalOsrmBaseUrl = process.env.OSRM_BASE_URL;
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -26,6 +27,11 @@ describe('OSRM routing proxy validation', () => {
       delete process.env.ADMIN_PROXY_SECRET;
     } else {
       process.env.ADMIN_PROXY_SECRET = originalAdminProxySecret;
+    }
+    if (originalOsrmBaseUrl === undefined) {
+      delete process.env.OSRM_BASE_URL;
+    } else {
+      process.env.OSRM_BASE_URL = originalOsrmBaseUrl;
     }
   });
 
@@ -112,6 +118,7 @@ describe('OSRM routing proxy validation', () => {
   it('accepts forwarded admin hosts only from trusted local proxy hops', async () => {
     process.env.ADMIN_DOMAIN = 'admin.example.test';
     process.env.ADMIN_PROXY_SECRET = 'proxy-secret';
+    process.env.OSRM_BASE_URL = 'https://private-osrm.example.test';
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ routes: [] }), {
         status: 200,
@@ -134,7 +141,33 @@ describe('OSRM routing proxy validation', () => {
 
     await expect(response.json()).resolves.toEqual({ routes: [] });
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses public OSRM by default to keep route previews enabled', async () => {
+    delete process.env.OSRM_BASE_URL;
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ routes: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const response = await GET(buildRequest(
+      'profile=foot&fromLat=51.5&fromLng=-0.1&toLat=48.8&toLng=2.3'
+    ));
+
+    await expect(response.json()).resolves.toEqual({ routes: [] });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://router.project-osrm.org/route/v1/foot/-0.1,51.5;2.3,48.8?overview=full&geometries=geojson',
+      expect.objectContaining({
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      })
+    );
   });
 
   it('rejects profiles outside the server allowlist', async () => {
@@ -186,6 +219,7 @@ describe('OSRM routing proxy validation', () => {
   });
 
   it('builds upstream URLs from validated server-owned profile values', async () => {
+    process.env.OSRM_BASE_URL = 'https://private-osrm.example.test/';
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ routes: [] }), {
         status: 200,
@@ -199,8 +233,9 @@ describe('OSRM routing proxy validation', () => {
 
     await expect(response.json()).resolves.toEqual({ routes: [] });
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(fetchSpy).toHaveBeenCalledWith(
-      'https://router.project-osrm.org/route/v1/bike/-0.1,51.5;2.3,48.8?overview=full&geometries=geojson',
+      'https://private-osrm.example.test/route/v1/bike/-0.1,51.5;2.3,48.8?overview=full&geometries=geojson',
       expect.objectContaining({
         cache: 'no-store',
         headers: { Accept: 'application/json' },
