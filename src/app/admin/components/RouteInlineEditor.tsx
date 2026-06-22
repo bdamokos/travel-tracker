@@ -253,7 +253,11 @@ export default function RouteInlineEditor({
 
     let nextPoints = routePoints;
     const firstPoint = nextPoints[0];
-    if (routeLike.fromCoords && !isSameManualPoint(routeLike.fromCoords, firstPoint)) {
+    if (
+      routeLike.fromCoords
+      && !isZeroCoords(routeLike.fromCoords)
+      && !isSameManualPoint(routeLike.fromCoords, firstPoint)
+    ) {
       nextPoints = [
         ...interpolateEndpointBridge(routeLike.fromCoords, firstPoint),
         ...nextPoints.slice(1)
@@ -261,7 +265,11 @@ export default function RouteInlineEditor({
     }
 
     const lastPoint = nextPoints[nextPoints.length - 1];
-    if (routeLike.toCoords && !isSameManualPoint(routeLike.toCoords, lastPoint)) {
+    if (
+      routeLike.toCoords
+      && !isZeroCoords(routeLike.toCoords)
+      && !isSameManualPoint(routeLike.toCoords, lastPoint)
+    ) {
       nextPoints = [
         ...nextPoints.slice(0, -1),
         ...interpolateEndpointBridge(lastPoint, routeLike.toCoords)

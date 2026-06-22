@@ -148,6 +148,38 @@ describe('RouteInlineEditor manual route geometry', () => {
     expect(resolveMapRouteSegmentPoints(savedRoute)).toEqual(routePoints);
   });
 
+  it('does not extend manual geometry to unresolved zero endpoint coordinates on save', async () => {
+    const onSave = jest.fn();
+    const routePoints: [number, number][] = [[10, 20], [15, 25], [30, 40]];
+    render(
+      <RouteInlineEditor
+        route={{
+          ...baseRoute,
+          from: 'Custom unresolved start',
+          fromCoords: [0, 0],
+          routePoints,
+          useManualRoutePoints: true
+        }}
+        onSave={onSave}
+        onCancel={jest.fn()}
+        locationOptions={locationOptions}
+      />
+    );
+
+    expect(screen.getByText('Route endpoints no longer match the manual route.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Dismiss warning'));
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const savedRoute = onSave.mock.calls[0][0] as TravelRoute;
+    expect(savedRoute.fromCoords).toEqual([0, 0]);
+    expect(savedRoute.routePoints).toEqual(routePoints);
+    expect(savedRoute.routePoints?.[0]).not.toEqual([0, 0]);
+    expect(resolveMapRouteSegmentPoints(savedRoute)).toEqual(routePoints);
+  });
+
   it('can extend simple-route manual geometry to changed endpoint coordinates', async () => {
     const onSave = jest.fn();
     render(
