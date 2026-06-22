@@ -3,8 +3,9 @@ import { isAdminHost } from '@/app/lib/server-domains';
 
 type OsrmProfile = 'car' | 'bike' | 'foot';
 
+const DEFAULT_OSRM_BASE_URL = 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = 15_000;
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
 const OSRM_PROFILE_PATHS = {
   car: 'car',
   bike: 'bike',
@@ -32,13 +33,13 @@ const getOsrmProfilePath = (value: string | null): string | null => {
 const isValidLatitude = (value: number): boolean => value >= -90 && value <= 90;
 const isValidLongitude = (value: number): boolean => value >= -180 && value <= 180;
 
-const getOsrmBaseUrl = (): string | null => {
+const getOsrmBaseUrl = (): string => {
   const configuredBaseUrl = process.env.OSRM_BASE_URL?.trim();
   if (configuredBaseUrl) {
     return configuredBaseUrl.replace(/\/+$/, '');
   }
 
-  return null;
+  return DEFAULT_OSRM_BASE_URL;
 };
 
 const normalizeHostForInternalCheck = (host: string | null): string => {
@@ -85,7 +86,7 @@ const isAdminOsrmRequest = (request: NextRequest): boolean => {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!isAdminOsrmRequest(request)) {
-    return NextResponse.json({ error: 'Admin domain required' }, { status: 403, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: 'Admin domain required' }, { status: 403, headers: PRIVATE_NO_STORE_HEADERS });
   }
 
   const sp = request.nextUrl.searchParams;
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const profilePath = getOsrmProfilePath(rawProfile);
 
   if (!profilePath) {
-    return NextResponse.json({ error: 'Invalid profile' }, { status: 400, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: 'Invalid profile' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS });
   }
 
   if (
@@ -110,20 +111,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     !isValidLatitude(toLat) ||
     !isValidLongitude(toLng)
   ) {
-    return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400, headers: NO_STORE_HEADERS });
-  }
-
-  const osrmBaseUrl = getOsrmBaseUrl();
-  if (!osrmBaseUrl) {
-    return NextResponse.json(
-      { error: 'OSRM routing is disabled' },
-      { status: 503, headers: NO_STORE_HEADERS }
-    );
+    return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400, headers: PRIVATE_NO_STORE_HEADERS });
   }
 
   const upstreamUrl = new URL(
     `/route/v1/${profilePath}/${fromLng},${fromLat};${toLng},${toLat}`,
-    osrmBaseUrl
+    getOsrmBaseUrl()
   );
   upstreamUrl.searchParams.set('overview', 'full');
   upstreamUrl.searchParams.set('geometries', 'geojson');
@@ -154,15 +147,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(payload, {
       status: upstreamResponse.status,
-      headers: NO_STORE_HEADERS,
+      headers: PRIVATE_NO_STORE_HEADERS,
     });
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      return NextResponse.json({ error: 'OSRM upstream timed out' }, { status: 504, headers: NO_STORE_HEADERS });
+      return NextResponse.json({ error: 'OSRM upstream timed out' }, { status: 504, headers: PRIVATE_NO_STORE_HEADERS });
     }
 
     console.warn('[OSRMProxy] upstream request failed:', error);
-    return NextResponse.json({ error: 'OSRM upstream request failed' }, { status: 502, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: 'OSRM upstream request failed' }, { status: 502, headers: PRIVATE_NO_STORE_HEADERS });
   } finally {
     clearTimeout(timeoutId);
   }

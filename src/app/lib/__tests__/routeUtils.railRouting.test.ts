@@ -101,7 +101,7 @@ describe('routeUtils rail integration', () => {
     ]);
   });
 
-  it('falls back to straight lines instead of public OSRM when no server backend is configured', async () => {
+  it('uses public OSRM by default when no server backend is configured', async () => {
     delete process.env.OSRM_BASE_URL;
     const transportation: Transportation = {
       id: 'car-1',
@@ -112,13 +112,31 @@ describe('routeUtils rail integration', () => {
       toCoordinates: [11, 11]
     };
 
-    global.fetch = jest.fn() as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        routes: [
+          {
+            geometry: {
+              coordinates: [
+                [10, 10],
+                [10.25, 10.5],
+                [11, 11]
+              ]
+            }
+          }
+        ]
+      })
+    }) as unknown as typeof fetch;
 
     const result = await generateRoutePoints(transportation);
 
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://router.project-osrm.org/route/v1/car/10,10;11,11?overview=full&geometries=geojson'
+    );
     expect(result).toEqual([
       [10, 10],
+      [10.5, 10.25],
       [11, 11]
     ]);
   });

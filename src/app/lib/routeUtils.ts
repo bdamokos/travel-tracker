@@ -295,21 +295,19 @@ const getRouteCacheKey = (
   return `${type}-${from[0]},${from[1]}-${to[0]},${to[1]}`;
 };
 
-const getConfiguredOsrmBaseUrl = (): string | null => {
+const DEFAULT_OSRM_BASE_URL = 'https://router.project-osrm.org';
+
+const getOsrmBaseUrl = (): string => {
   const configuredBaseUrl = process.env.OSRM_BASE_URL?.trim();
-  return configuredBaseUrl ? configuredBaseUrl.replace(/\/+$/, '') : null;
+  return configuredBaseUrl ? configuredBaseUrl.replace(/\/+$/, '') : DEFAULT_OSRM_BASE_URL;
 };
 
 const buildServerOSRMUrl = (
   fromCoords: [number, number],
   toCoords: [number, number],
   profile: 'car' | 'bike' | 'foot'
-): string | null => {
-  const osrmBaseUrl = getConfiguredOsrmBaseUrl();
-  if (!osrmBaseUrl) {
-    return null;
-  }
-
+): string => {
+  const osrmBaseUrl = getOsrmBaseUrl();
   return `${osrmBaseUrl}/route/v1/${profile}/${fromCoords[1]},${fromCoords[0]};${toCoords[1]},${toCoords[0]}?overview=full&geometries=geojson`;
 };
 
@@ -339,10 +337,6 @@ const getOSRMRoute = async (
     const url = typeof window === 'undefined'
       ? buildServerOSRMUrl(fromCoords, toCoords, profile)
       : buildBrowserOSRMProxyUrl(fromCoords, toCoords, profile);
-
-    if (!url) {
-      throw new Error('OSRM routing disabled: OSRM_BASE_URL is not configured');
-    }
     
     const response = await fetch(url);
     if (!response.ok) {

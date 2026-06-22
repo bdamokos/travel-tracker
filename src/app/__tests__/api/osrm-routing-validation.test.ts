@@ -141,21 +141,33 @@ describe('OSRM routing proxy validation', () => {
 
     await expect(response.json()).resolves.toEqual({ routes: [] });
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('does not proxy private coordinates to public OSRM when no backend is configured', async () => {
+  it('uses public OSRM by default to keep route previews enabled', async () => {
     delete process.env.OSRM_BASE_URL;
-    const fetchSpy = jest.spyOn(global, 'fetch');
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ routes: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
 
     const response = await GET(buildRequest(
-      'profile=car&fromLat=51.5&fromLng=-0.1&toLat=48.8&toLng=2.3'
+      'profile=foot&fromLat=51.5&fromLng=-0.1&toLat=48.8&toLng=2.3'
     ));
 
-    await expect(response.json()).resolves.toEqual({ error: 'OSRM routing is disabled' });
-    expect(response.status).toBe(503);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
-    expect(fetchSpy).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({ routes: [] });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://router.project-osrm.org/route/v1/foot/-0.1,51.5;2.3,48.8?overview=full&geometries=geojson',
+      expect.objectContaining({
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      })
+    );
   });
 
   it('rejects profiles outside the server allowlist', async () => {
@@ -221,7 +233,7 @@ describe('OSRM routing proxy validation', () => {
 
     await expect(response.json()).resolves.toEqual({ routes: [] });
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://private-osrm.example.test/route/v1/bike/-0.1,51.5;2.3,48.8?overview=full&geometries=geojson',
       expect.objectContaining({
