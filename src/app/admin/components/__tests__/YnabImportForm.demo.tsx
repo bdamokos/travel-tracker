@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import YnabImportForm from '@/app/admin/components/YnabImportForm';
 import { CostTrackingData } from '@/app/types';
 

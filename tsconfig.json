@@ -52,7 +52,6 @@
   "exclude": [
     "node_modules",
     ".worktrees",
-    "src/app/demo",
     "src/app/__tests__",
     "src/**/__tests__",
     "**/*.test.ts",
