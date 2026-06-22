@@ -275,6 +275,9 @@ export default function RouteInlineEditor({
     };
   };
 
+  const normalizeManualGeometryForSave = <T extends TravelRoute | TravelRouteSegment>(routeLike: T): T =>
+    extendManualGeometryToEndpoints(routeLike);
+
   const dismissManualGeometryWarning = (warningKey: string, signature: string) => {
     setDismissedManualGeometryWarnings(prev => ({ ...prev, [warningKey]: signature }));
   };
@@ -348,7 +351,8 @@ export default function RouteInlineEditor({
         setValidationError('Sub-route coordinates do not align with route endpoints.');
         return;
       }
-      const normalizedSubRoutes = validation.normalizedRoute.subRoutes as TravelRouteSegment[];
+      const normalizedSubRoutes = (validation.normalizedRoute.subRoutes as TravelRouteSegment[])
+        .map(normalizeManualGeometryForSave);
       const first = normalizedSubRoutes[0];
       const last = normalizedSubRoutes[normalizedSubRoutes.length - 1];
 
@@ -376,11 +380,11 @@ export default function RouteInlineEditor({
       ? (formData.toCoords as [number, number])
       : await resolveLocationCoords(formData.to, formData.toCoords);
 
-    onSave({
+    onSave(normalizeManualGeometryForSave({
       ...formData,
       fromCoords,
       toCoords
-    });
+    }));
   };
 
   const updateSubRoute = (index: number, updates: Partial<TravelRouteSegment>) => {
@@ -1290,7 +1294,7 @@ export default function RouteInlineEditor({
                         <div className="rounded border border-amber-300 bg-amber-100/70 p-2 text-xs text-amber-900 dark:border-amber-600 dark:bg-amber-900/50 dark:text-amber-100">
                           <div className="font-medium">Segment endpoints no longer match the manual route.</div>
                           <div className="mt-1">
-                            Choose whether to keep the imported line, extend it with straight connector points, or remove it.
+                            Save will extend the imported line with straight connector points, or you can extend or clear it now.
                           </div>
                           <div className="mt-2 flex flex-wrap gap-2">
                             <button
@@ -1298,7 +1302,7 @@ export default function RouteInlineEditor({
                               onClick={() => dismissManualGeometryWarning(warningKey, manualMismatch.signature)}
                               className="px-2 py-1 bg-white text-amber-900 rounded hover:bg-amber-50 dark:bg-amber-800 dark:text-amber-100 dark:hover:bg-amber-700"
                             >
-                              Keep as is
+                              Dismiss warning
                             </button>
                             <button
                               type="button"
@@ -1514,7 +1518,7 @@ export default function RouteInlineEditor({
                 <div className="rounded border border-amber-300 bg-amber-100/70 p-2 text-xs text-amber-900 dark:border-amber-600 dark:bg-amber-900/50 dark:text-amber-100">
                   <div className="font-medium">Route endpoints no longer match the manual route.</div>
                   <div className="mt-1">
-                    Choose whether to keep the imported line, extend it with straight connector points, or remove it.
+                    Save will extend the imported line with straight connector points, or you can extend or clear it now.
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
@@ -1522,7 +1526,7 @@ export default function RouteInlineEditor({
                       onClick={() => dismissManualGeometryWarning('route', routeManualMismatch.signature)}
                       className="px-2 py-1 bg-white text-amber-900 rounded hover:bg-amber-50 dark:bg-amber-800 dark:text-amber-100 dark:hover:bg-amber-700"
                     >
-                      Keep as is
+                      Dismiss warning
                     </button>
                     <button
                       type="button"
