@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RouteInlineEditor from '@/app/admin/components/RouteInlineEditor';
+import { resolveMapRouteSegmentPoints } from '@/app/lib/mapRouteDisplay';
 import type { TravelRoute } from '@/app/types';
 
 jest.mock('../AriaSelect', () => ({
@@ -87,7 +88,7 @@ describe('RouteInlineEditor manual route geometry', () => {
     { name: 'End', coordinates: [30, 40] as [number, number] }
   ];
 
-  it('lets users keep simple-route manual geometry when endpoint coordinates change', async () => {
+  it('extends simple-route manual geometry on save when endpoint coordinates change', async () => {
     const onSave = jest.fn();
     const routePoints: [number, number][] = [[10, 20], [15, 25], [30, 40]];
     render(
@@ -106,16 +107,77 @@ describe('RouteInlineEditor manual route geometry', () => {
     fireEvent.change(screen.getByLabelText('From latitude'), { target: { value: '11' } });
     expect(screen.getByText('Route endpoints no longer match the manual route.')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Keep as is'));
+    fireEvent.click(screen.getByText('Dismiss warning'));
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
 
-    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
+    const savedRoute = onSave.mock.calls[0][0] as TravelRoute;
+    expect(savedRoute).toEqual(expect.objectContaining({
       fromCoords: [11, 20],
-      routePoints,
       useManualRoutePoints: true
     }));
+    expect(savedRoute.routePoints?.[0]).toEqual([11, 20]);
+    expect(savedRoute.routePoints?.at(-1)).toEqual([30, 40]);
+    expect(savedRoute.routePoints).not.toEqual(routePoints);
+    expect(resolveMapRouteSegmentPoints(savedRoute)[0]).toEqual([11, 20]);
+  });
+
+  it('keeps valid simple-route manual geometry unchanged on save', async () => {
+    const onSave = jest.fn();
+    const routePoints: [number, number][] = [[10, 20], [15, 25], [30, 40]];
+    render(
+      <RouteInlineEditor
+        route={{
+          ...baseRoute,
+          routePoints,
+          useManualRoutePoints: true
+        }}
+        onSave={onSave}
+        onCancel={jest.fn()}
+        locationOptions={locationOptions}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const savedRoute = onSave.mock.calls[0][0] as TravelRoute;
+    expect(savedRoute.routePoints).toEqual(routePoints);
+    expect(resolveMapRouteSegmentPoints(savedRoute)).toEqual(routePoints);
+  });
+
+  it('does not extend manual geometry to unresolved zero endpoint coordinates on save', async () => {
+    const onSave = jest.fn();
+    const routePoints: [number, number][] = [[10, 20], [15, 25], [30, 40]];
+    render(
+      <RouteInlineEditor
+        route={{
+          ...baseRoute,
+          from: 'Custom unresolved start',
+          fromCoords: [0, 0],
+          routePoints,
+          useManualRoutePoints: true
+        }}
+        onSave={onSave}
+        onCancel={jest.fn()}
+        locationOptions={locationOptions}
+      />
+    );
+
+    expect(screen.getByText('Route endpoints no longer match the manual route.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Dismiss warning'));
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const savedRoute = onSave.mock.calls[0][0] as TravelRoute;
+    expect(savedRoute.fromCoords).toEqual([0, 0]);
+    expect(savedRoute.routePoints).toEqual(routePoints);
+    expect(savedRoute.routePoints?.[0]).not.toEqual([0, 0]);
+    expect(resolveMapRouteSegmentPoints(savedRoute)).toEqual(routePoints);
   });
 
   it('can extend simple-route manual geometry to changed endpoint coordinates', async () => {
