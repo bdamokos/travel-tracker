@@ -139,6 +139,8 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
+- Next.js 16.3.3 requires regenerating `bun.lock`, including its Next/SWC and Sharp dependencies. Active build CI uses `bun install --frozen-lockfile` to detect manifest-only Dependabot updates. Docker uses Bun 1.3.14 for installation and serving, with Node installed only in the builder stage because Bun-native Next.js 16.3.3 builds crash on Alpine (Bun 1.3.4 during page collection; 1.3.14 on build exit).
+
 - Added `distanceOverride` on travel route segments to support manual distance overrides in admin route editors and distance summaries.
 - Date handling in admin trip/cost editors should use browser-local calendar-day semantics. Prefer helpers in `src/app/lib/localDateUtils.ts` (`parseDateAsLocalDay`, `formatLocalDateInput`, `getTodayLocalDay`, `getLocalDateSortValue`) over raw `new Date('YYYY-MM-DD')` and `toISOString().split('T')[0]` in editor flows.
 - Running Jest in this repo may hit haste map collisions from `.worktrees/` and `.next/standalone`; when running targeted suites locally, pass `--modulePathIgnorePatterns="<rootDir>/.worktrees"` and `--modulePathIgnorePatterns="<rootDir>/.next"` if needed.

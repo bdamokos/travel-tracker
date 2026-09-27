@@ -1,5 +1,5 @@
 # Multi-stage build for production
-ARG BUN_IMAGE=oven/bun:1.3.4-alpine
+ARG BUN_IMAGE=oven/bun:1.3.14-alpine
 FROM ${BUN_IMAGE} AS base
 
 # Install dependencies only when needed
@@ -15,6 +15,8 @@ RUN bun install --frozen-lockfile
 
 # Rebuild the source code only when needed
 FROM base AS builder
+# Next.js 16.3 builds crash under Bun on Alpine; use Node for the build CLI.
+RUN apk add --no-cache nodejs
 WORKDIR /app
 
 # Disable telemetry for build stage
