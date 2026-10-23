@@ -139,6 +139,8 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
+- Next.js 16.4.1 raises the optional Sharp dependency floor to `^0.35.5`. Verify the effective lockfile/platform package separately from Next's version; image optimization is reachable directly through `/_next/image` even without `next/image` imports.
+
 - Next.js 16.3.3 requires regenerating `bun.lock`, including its Next/SWC and Sharp dependencies. Active build CI uses `bun install --frozen-lockfile` to detect manifest-only Dependabot updates. Docker uses Bun 1.3.14 for installation and serving, with Node installed only in the builder stage because Bun-native Next.js 16.3.3 builds crash on Alpine (Bun 1.3.4 during page collection; 1.3.14 on build exit).
 
 - Added `distanceOverride` on travel route segments to support manual distance overrides in admin route editors and distance summaries.
