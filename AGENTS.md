@@ -140,6 +140,8 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
 - `deploy/start-worktree.sh` must not read, copy, or modify the main repository's `deploy/.env`: selected branches control destination filesystem entries, including symlinks. It preserves Bun's existing project environment-file behavior during lifecycle-disabled dependency installation. Provision any needed deployment configuration separately through the approved secrets workflow.
+- Restore SSH and SCP must enforce `StrictHostKeyChecking=yes` in their shared authentication wrapper, with DNS auto-trust, connection reuse and localhost/proxy host-authentication bypasses disabled so every connection checks its independently verified known-host entry. Unknown or changed keys must stop before authentication; exercise every transport stage through the synthetic restore harness.
+
 - Restore authentication must keep passwords out of process arguments, exported environment variables and remote command text: use `sshpass -d` with a pipe-backed descriptor and send sudo input through SSH stdin. Run `python3 tools/tests/test_restore_auth.py` for synthetic-only transport, archive-stream and failure-path coverage; never test against real credentials or a host.
 
 - CSV cell quoting must include bare CR as well as LF, commas and quotes after formula-prefix sanitization; otherwise CR-aware readers can turn embedded expense/payee text into new records. Export regression tests roundtrip actual helpers through Python's standard-library CSV reader, so local test environments need `python3`.

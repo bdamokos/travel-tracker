@@ -15,6 +15,9 @@
 # Restore specific file:    ./restore.sh backups/data-20241227-120000.tar.gz
 # Interactive mode:         ./restore.sh
 #
+# The destination must already have an independently verified known-host entry.
+# Unknown or changed server keys are rejected; this utility never enrolls keys.
+#
 # ==============================================================================
 
 # Exit on error
@@ -59,10 +62,20 @@ get_password() {
     else
         echo "✅ Password retrieved from Keychain."
         # Test the password before proceeding
-        if ! test_ssh_connection; then
-            echo "❌ Keychain password appears to be incorrect."
-            echo "🔄 Please enter the correct password:"
-            prompt_for_password
+        if test_ssh_connection; then
+            return 0
+        else
+            case $? in
+                6|7|255)
+                    echo "❌ SSH connection could not be verified. Check connectivity and the independently verified known-host entry."
+                    exit 1
+                    ;;
+                *)
+                    echo "❌ Keychain password appears to be incorrect."
+                    echo "🔄 Please enter the correct password:"
+                    prompt_for_password
+                    ;;
+            esac
         fi
     fi
 }
@@ -89,24 +102,30 @@ test_ssh_connection() {
         exit 1
     fi
     
-    if run_with_password ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $PI_USER@$PI_HOST "echo 'SSH ok'" >/dev/null 2>&1; then
-        return 0
-    else
-        return 1
-    fi
+    run_with_password ssh -o ConnectTimeout=10 "$PI_USER@$PI_HOST" "echo 'SSH ok'" >/dev/null 2>&1
 }
 
 # Function to run SSH commands with password
 run_with_password() {
+    local transport="$1"
+    shift
     case "$PASSWORD" in
         *$'\n'*) echo "❌ Password must be a single line." >&2; return 1 ;;
     esac
     # A pipe-backed descriptor avoids argv, environment and credential files.
-    sshpass -d 3 "$@" 3< <(printf '%s\n' "$PASSWORD")
+    # Require a known-host match on every fresh connection, including SCP.
+    # Disable ambient trust shortcuts; IgnoreUnknown keeps Apple's proxy option
+    # portable without disabling verification on clients that support it.
+    sshpass -d 3 "$transport" -o StrictHostKeyChecking=yes \
+        -o VerifyHostKeyDNS=no -o ControlPath=none \
+        -o NoHostAuthenticationForLocalhost=no \
+        -o IgnoreUnknown=NoHostAuthenticationForProxyCommand \
+        -o NoHostAuthenticationForProxyCommand=no \
+        "$@" 3< <(printf '%s\n' "$PASSWORD")
 }
 
 run_ssh() {
-    run_with_password ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "$1"
+    run_with_password ssh "$PI_USER@$PI_HOST" "$1"
 }
 
 run_sudo() {
@@ -240,7 +259,7 @@ run_sudo "rm -rf \"$REMOTE_DATA_PATH\"/*"
 echo "📦 Uploading backup file..."
 TEMP_REMOTE_FILE="/tmp/restore-upload-$(date +%s).tar.gz"
 
-if run_with_password scp -o StrictHostKeyChecking=no "$BACKUP_FILE" $PI_USER@$PI_HOST:"$TEMP_REMOTE_FILE"; then
+if run_with_password scp "$BACKUP_FILE" "$PI_USER@$PI_HOST:$TEMP_REMOTE_FILE"; then
     echo "✅ Backup uploaded to $TEMP_REMOTE_FILE"
 else
     echo "❌ Failed to upload backup file."

@@ -25,13 +25,45 @@ assert "PASSWORD" not in os.environ, "exported password"
 with (root / "calls.jsonl").open("a") as log:
     log.write(json.dumps([name, args]) + "\n")
 mode = os.environ.get("FAIL_STAGE", "")
+if name in ("ssh", "scp"):
+    calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
+    connection = sum(name in ("ssh", "scp") for name, _ in calls)
+    def event(kind):
+        with (root / "events.jsonl").open("a") as log:
+            log.write(json.dumps([kind, name, connection]) + "\n")
+    options = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "-o"]
+    effective = {}
+    for option in options:
+        key, value = option.split("=", 1)
+        if key == "NoHostAuthenticationForProxyCommand" and os.environ["SSH_CLIENT"] == "portable":
+            assert key in effective.get("IgnoreUnknown", "").split(","), "unsupported Apple option"
+            continue
+        effective.setdefault(key, value)
+    ambient = os.environ["AMBIENT_TRUST"]
+    bypass = (
+        (ambient == "localhost" and effective.get("NoHostAuthenticationForLocalhost", "yes") == "yes") or
+        (ambient == "proxy" and os.environ["SSH_CLIENT"] == "apple" and
+         effective.get("NoHostAuthenticationForProxyCommand", "yes") == "yes") or
+        (ambient == "dns" and effective.get("VerifyHostKeyDNS", "yes") == "yes") or
+        (ambient == "multiplex" and effective.get("ControlPath", "configured-socket") != "none")
+    )
+    key_state = os.environ["HOST_KEY_STATE"]
+    if key_state != "pinned" and connection >= int(os.environ["REJECT_AT"]):
+        # Model OpenSSH rejecting identity before its password prompt or remote action.
+        if effective.get("StrictHostKeyChecking") == "yes" and not bypass:
+            event("host-rejected")
+            sys.exit(int(os.environ["HOST_FAILURE_STATUS"]))
+    event("password-prompt")
+    assert os.read(3, 65536) == (password + "\n").encode(), "incorrect auth FD"
+    os.close(3)
+    event("password-read")
+    event("remote-action")
 if name == "security":
     if mode != "missing-keychain": print(password)
 elif name == "sshpass":
     assert args[:2] == ["-d", "3"]
-    assert os.read(3, 65536) == (password + "\n").encode(), "incorrect auth FD"
-    os.close(3)
-    sys.exit(subprocess.call(args[2:]))
+    # Defer reading the synthetic authentication FD until the peer is verified.
+    sys.exit(subprocess.call(args[2:], pass_fds=(3,)))
 elif name == "ssh":
     command = args[-1]
     if command == "echo 'SSH ok'":
@@ -78,7 +110,9 @@ else:
 
 
 class RestoreAuthenticationTest(unittest.TestCase):
-    def run_fixture(self, stage="", interactive=False, cancel=False, password=FAKE_PASSWORD):
+    def run_fixture(self, stage="", interactive=False, cancel=False, password=FAKE_PASSWORD,
+                    host_key="pinned", reject_at=1, host_failure_status=255,
+                    ambient_trust="default", ssh_client="apple"):
         with tempfile.TemporaryDirectory(prefix="travel-restore-test-") as directory:
             root = Path(directory)
             deploy = root / "deploy"
@@ -107,6 +141,9 @@ class RestoreAuthenticationTest(unittest.TestCase):
                 "PI_HOST": "test-only.invalid", "PI_USER": "test-only-user",
                 "DEPLOY_PATH": "/test-only/deploy", "BACKUPS_DIR": str(backup_dir),
                 "FAIL_STAGE": stage,
+                "HOST_KEY_STATE": host_key, "REJECT_AT": str(reject_at),
+                "HOST_FAILURE_STATUS": str(host_failure_status),
+                "AMBIENT_TRUST": ambient_trust, "SSH_CLIENT": ssh_client,
                 # Ensure even an inherited exported variable is removed.
                 "PASSWORD": "test-only-inherited-value",
             }
@@ -124,10 +161,34 @@ class RestoreAuthenticationTest(unittest.TestCase):
             self.assertNotIn("test-only-inherited-value", result.stdout + result.stderr + logs)
             calls = [json.loads(line) for line in logs.splitlines()]
             self.assertTrue(any(name == "sshpass" for name, _ in calls))
-            success = not cancel and stage not in (
+            events = [json.loads(line) for line in (root / "events.jsonl").read_text().splitlines()]
+            transports = [args for name, args in calls if name in ("ssh", "scp")]
+            rejected = host_key != "pinned"
+            success = not rejected and not cancel and stage not in (
                 "safety", "upload", "extract", "wipe", "permissions", "authentication")
-            self.assertEqual(result.returncode, 0 if success or cancel else 1,
-                             result.stdout + result.stderr)
+            if rejected:
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(["host-rejected", "scp" if reject_at == 6 else "ssh", reject_at], events)
+                self.assertFalse(any(kind != "host-rejected" and number >= reject_at
+                                     for kind, _, number in events), events)
+                if reject_at <= 6:
+                    self.assertFalse((root / "uploaded.tar.gz").exists())
+                if reject_at == 1:
+                    self.assertFalse(any(kind != "host-rejected" for kind, _, _ in events))
+                    self.assertEqual(len(transports), 1)
+                    if stage != "missing-keychain":
+                        self.assertNotIn("Enter your SSH password", result.stdout)
+                    self.assertNotIn("Are you SURE", result.stdout)
+            else:
+                self.assertEqual(result.returncode, 0 if success or cancel else 1,
+                                 result.stdout + result.stderr)
+            for args in transports:
+                self.assertEqual(args[:2], ["-o", "StrictHostKeyChecking=yes"])
+                for option in ("VerifyHostKeyDNS=no", "ControlPath=none",
+                               "NoHostAuthenticationForLocalhost=no",
+                               "NoHostAuthenticationForProxyCommand=no"):
+                    self.assertIn(option, args)
+                self.assertNotIn("StrictHostKeyChecking=no", args)
             self.assertEqual((root / "restarted").exists(), success)
             self.assertEqual("Restore Complete!" in result.stdout, success)
             safety = list(backup_dir.glob("data-safety-*.tar.gz"))
@@ -143,7 +204,7 @@ class RestoreAuthenticationTest(unittest.TestCase):
                 self.assertEqual(len(sudo_calls), 6)
                 self.assertTrue(any("770" in args for args in sudo_calls))
                 self.assertTrue(any("660" in args for args in sudo_calls))
-            if stage in ("safety", "authentication") or cancel:
+            if stage in ("safety", "authentication") or cancel or (rejected and reject_at <= 4):
                 self.assertFalse((root / "wiped").exists())
                 self.assertFalse(safety)
             if stage == "extract": self.assertTrue((root / "cleaned").exists())
@@ -168,6 +229,40 @@ class RestoreAuthenticationTest(unittest.TestCase):
     def test_failures_stop_restore(self):
         for stage in ("safety", "upload", "extract", "wipe", "permissions", "authentication"):
             with self.subTest(stage=stage): self.run_fixture(stage)
+
+    def test_unverified_keys_abort_every_connection_before_authentication(self):
+        for key in ("unknown", "changed"):
+            # Probe, stop, path lookup, backup, wipe, upload, extract, cleanup,
+            # ownership, directory modes, file modes, and restart.
+            for connection in range(1, 13):
+                with self.subTest(key=key, connection=connection):
+                    self.run_fixture(host_key=key, reject_at=connection)
+
+    def test_host_key_failures_do_not_prompt_for_another_password(self):
+        for key, status in (("unknown", 6), ("changed", 7)):
+            with self.subTest(key=key, status=status):
+                self.run_fixture(host_key=key, host_failure_status=status)
+
+    def test_key_rejected_after_password_retry(self):
+        for key in ("unknown", "changed"):
+            with self.subTest(key=key):
+                self.run_fixture(stage="retry", host_key=key, reject_at=2)
+
+    def test_unverified_key_with_manually_entered_password(self):
+        for key in ("unknown", "changed"):
+            with self.subTest(key=key):
+                self.run_fixture(stage="missing-keychain", host_key=key)
+
+    def test_ambient_trust_cannot_bypass_known_hosts(self):
+        for ambient in ("localhost", "proxy", "dns", "multiplex"):
+            for key in ("unknown", "changed"):
+                for connection in (1, 4, 6):
+                    with self.subTest(ambient=ambient, key=key, connection=connection):
+                        self.run_fixture(host_key=key, reject_at=connection, ambient_trust=ambient)
+
+    def test_portable_client_ignores_only_apple_specific_option(self):
+        self.run_fixture(ssh_client="portable")
+        self.run_fixture(ssh_client="portable", host_key="unknown", reject_at=6)
 
 
 if __name__ == "__main__":
