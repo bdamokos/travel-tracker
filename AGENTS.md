@@ -139,6 +139,8 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
+- Restore authentication must keep passwords out of process arguments, exported environment variables and remote command text: use `sshpass -d` with a pipe-backed descriptor and send sudo input through SSH stdin. Run `python3 tools/tests/test_restore_auth.py` for synthetic-only transport, archive-stream and failure-path coverage; never test against real credentials or a host.
+
 - CSV cell quoting must include bare CR as well as LF, commas and quotes after formula-prefix sanitization; otherwise CR-aware readers can turn embedded expense/payee text into new records. Export regression tests roundtrip actual helpers through Python's standard-library CSV reader, so local test environments need `python3`.
 - YNAB file preview must index category mappings once and retain the first entry for each exact category name, including `none`; overwriting duplicate names changes preview/import agreement. Keep original transaction indices when processing so instance import keys remain stable.
 - Private shadow-trip and backup API families must use network-only service-worker handling and `private, no-store` responses. Cache-safety migrations must bump `CACHE_VERSION` and evict private entries from surviving caches as well as deleting old versions; response headers alone cannot remove legacy Cache Storage copies.
