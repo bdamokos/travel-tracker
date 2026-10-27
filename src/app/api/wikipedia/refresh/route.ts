@@ -25,6 +25,37 @@ const DEFAULT_REFRESH_CONFIG: RefreshJobConfig = {
   timeoutMs: 30000, // 30 second timeout per location
 };
 
+// Cap concurrency, retries and timeouts at their shipped defaults, while
+// allowing slower batch pacing with a bounded delay.
+const REFRESH_CONFIG_LIMITS: Record<keyof RefreshJobConfig, { min: number; max: number }> = {
+  batchSize: { min: 1, max: 20 },
+  delayBetweenRequests: { min: 0, max: 30000 },
+  maxRetries: { min: 0, max: 3 },
+  timeoutMs: { min: 1, max: 30000 },
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseRefreshConfig(body: unknown): RefreshJobConfig | null {
+  if (!isRecord(body)) return null;
+  const overrides = Object.hasOwn(body, 'config') ? body.config : {};
+  if (!isRecord(overrides)) return null;
+
+  const config = { ...DEFAULT_REFRESH_CONFIG };
+  for (const key of Object.keys(REFRESH_CONFIG_LIMITS) as Array<keyof RefreshJobConfig>) {
+    if (!Object.hasOwn(overrides, key)) continue;
+    const value = overrides[key];
+    const { min, max } = REFRESH_CONFIG_LIMITS[key];
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+      return null;
+    }
+    config[key] = value;
+  }
+  return config;
+}
+
 /**
  * Load or create Wikipedia metadata
  */
@@ -176,11 +207,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const forbidden = await requireAdminDomain();
     if (forbidden) return forbidden;
 
-    console.log('Starting Wikipedia refresh job...');
+    // The hook sends a bodyless POST; only that empty-body case selects defaults.
+    let body: unknown;
+    try {
+      const text = await request.text();
+      body = text.trim() === '' ? {} : JSON.parse(text);
+    } catch {
+      return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const config = parseRefreshConfig(body);
+    if (!config) {
+      return NextResponse.json({
+        success: false,
+        error: 'config must be an object with integer batchSize (1-20), delayBetweenRequests (0-30000), maxRetries (0-3), and timeoutMs (1-30000); fields may be omitted',
+      }, { status: 400 });
+    }
 
-    // Parse request body for configuration overrides
-    const body = await request.json().catch(() => ({}));
-    const config: RefreshJobConfig = { ...DEFAULT_REFRESH_CONFIG, ...body.config };
+    console.log('Starting Wikipedia refresh job...');
 
     const startTime = Date.now();
     const results: RefreshResult[] = [];
