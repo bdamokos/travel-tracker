@@ -70,17 +70,9 @@ export function filterTransportationForServer(
   delete publicTransportation.isReadOnly;
   delete publicTransportation.subRoutes;
 
-  const filteredSubRoutes = transportationWithPrivateFields.subRoutes?.map(subRoute => {
-    const publicSubRoute: TransportationWithPrivateRuntimeFields = { ...subRoute };
-    delete publicSubRoute.privateNotes;
-    delete publicSubRoute.costTrackingLinks;
-    delete publicSubRoute.isReadOnly;
-
-    return {
-      ...publicSubRoute,
-      routePoints: subRoute.routePoints
-    };
-  });
+  const filteredSubRoutes = transportationWithPrivateFields.subRoutes?.map(subRoute =>
+    filterTransportationForServer(subRoute, host)
+  );
 
   // Public view - remove private data entirely  
   const filteredTransportation: Transportation = {
@@ -143,21 +135,7 @@ export function filterJourneyPeriodForServer(
  * Filter complete journey data based on request context (server-side only)
  */
 export function filterJourneyForServer(journey: Journey, host: string | null): Journey {
-  const isAdmin = isAdminHost(host);
-  const filteredDays = journey.days.map(period => 
-    filterJourneyPeriodForServer(period, host)
-  );
-  const journeyWithAccommodations = journey as Journey & { accommodations?: Accommodation[] };
-
-  return {
-    ...journey,
-    accommodations: isAdmin
-      ? journeyWithAccommodations.accommodations
-      : journeyWithAccommodations.accommodations
-        ?.filter((accommodation: Accommodation) => accommodation.isAccommodationPublic)
-        .map((accommodation: Accommodation) => filterAccommodationForServer(accommodation, host)),
-    days: filteredDays,
-  } as Journey;
+  return filterTravelDataForServer({ ...journey }, host) as Journey;
 }
 
 /**
@@ -170,21 +148,12 @@ export function filterTravelDataForServer(travelData: TravelData, host: string |
     return travelData; // Admin sees everything
   }
 
-  // Handle both new Journey format and legacy format
-  if (travelData.days) {
-    // New format with JourneyPeriods
-    const filteredJourney = filterJourneyForServer(travelData as unknown as Journey, host);
-    return {
-      ...filteredJourney,
-      accommodations: travelData.accommodations
-        ?.filter((accommodation: Accommodation) => accommodation.isAccommodationPublic)
-        .map((accommodation: Accommodation) => filterAccommodationForServer(accommodation, host)),
-      instagramUsername: undefined
-    } as TravelData;
-  }
-
-  // Legacy format - filter locations and routes directly
+  // Mixed records can contain both journey days and legacy sibling collections.
   const filteredData = { ...travelData, instagramUsername: undefined };
+
+  if (travelData.days) {
+    filteredData.days = travelData.days.map(period => filterJourneyPeriodForServer(period, host));
+  }
 
   if (travelData.locations) {
     filteredData.locations = travelData.locations.map((location: Location) => 
