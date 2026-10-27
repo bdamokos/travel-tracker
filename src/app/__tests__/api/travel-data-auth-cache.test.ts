@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server';
 import { DELETE, GET, PATCH, PUT } from '@/app/api/travel-data/route';
 import { deleteTripWithBackup, loadUnifiedTripData, updateTravelData } from '@/app/lib/unifiedDataService';
 import { MAX_ROUTE_POINTS_PER_ROUTE } from '@/app/lib/routePointValidation';
+import { buildMixedJourneyPrivacyFixture } from '@/app/__tests__/utils/mixedJourneyPrivacyFixture';
 
 jest.mock('@/app/lib/server-domains', () => ({
   __esModule: true,
@@ -91,6 +92,49 @@ describe('travel-data API auth and cache boundary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.ADMIN_DOMAIN = 'admin.example.test';
+  });
+
+  it.each([false, true])('sanitizes every public collection with populated days=%s', async (populatedDays) => {
+    const trip = buildMixedJourneyPrivacyFixture(populatedDays);
+    mockLoadUnifiedTripData.mockResolvedValue(trip);
+
+    const response = await GET(new NextRequest('https://public.example.test/api/travel-data?id=mixed-privacy-trip', {
+      headers: { host: 'public.example.test' },
+    }));
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(JSON.stringify(result)).not.toContain('secret-');
+    expect(JSON.stringify(result)).not.toMatch(/costTrackingLinks|privateNotes|accommodationIds|isAccommodationPublic|isReadOnly/);
+    expect(result.locations).toHaveLength(2);
+    expect(result.locations[0].notes).toBe('Public location note');
+    expect(result.locations[0].coordinates).toEqual([50, 4]);
+    expect(result.locations[1].accommodationData).toBe('Public stay details');
+    expect(result.routes[0].routePoints).toEqual(trip.travelData?.routes?.[0].routePoints);
+    expect(result.routes[0].subRoutes[0].routePoints).toEqual(trip.travelData?.routes?.[0].subRoutes?.[0].routePoints);
+    expect(result.accommodations.map((stay: { id: string }) => stay.id)).toEqual(['public-accommodation']);
+    expect(result.days).toHaveLength(populatedDays ? 1 : 0);
+    if (populatedDays) {
+      expect(result.days[0].locations[0].id).toBe('period-location');
+      expect(result.days[0].transportation.routePoints).toEqual(result.routes[0].routePoints);
+    }
+    expect(trip.travelData?.routes?.[0].privateNotes).toBe('secret-route-note');
+  });
+
+  it.each([false, true])('preserves all admin collections with populated days=%s', async (populatedDays) => {
+    const trip = buildMixedJourneyPrivacyFixture(populatedDays);
+    mockLoadUnifiedTripData.mockResolvedValue(trip);
+    const response = await GET(new NextRequest('https://admin.example.test/api/travel-data?id=mixed-privacy-trip', {
+      headers: { host: 'admin.example.test' },
+    }));
+    const result = await response.json();
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(result).toEqual(JSON.parse(JSON.stringify({
+      id: trip.id, title: trip.title, description: trip.description,
+      startDate: trip.startDate, endDate: trip.endDate,
+      ...trip.travelData, accommodations: trip.accommodations, publicUpdates: [],
+    })));
   });
 
   afterAll(() => {
