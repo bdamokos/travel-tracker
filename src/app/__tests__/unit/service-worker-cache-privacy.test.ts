@@ -33,7 +33,7 @@ const makeRedirectedBasicResponse = (body: BodyInit | null, url: string, init: R
   return response;
 };
 
-const loadServiceWorker = (cache: CacheMock, fetchMock: jest.Mock): ListenerMap => {
+const loadServiceWorker = (cache: CacheMock, fetchMock: jest.Mock, cacheNames: string[] = [], deleteCache = jest.fn().mockResolvedValue(true)): ListenerMap => {
   const listeners: ListenerMap = {};
   const swPath = path.join(process.cwd(), 'public/sw.js');
   const swSource = fs.readFileSync(swPath, 'utf8');
@@ -51,8 +51,8 @@ const loadServiceWorker = (cache: CacheMock, fetchMock: jest.Mock): ListenerMap 
     },
     caches: {
       open: jest.fn().mockResolvedValue(cache),
-      keys: jest.fn().mockResolvedValue([]),
-      delete: jest.fn().mockResolvedValue(true)
+      keys: jest.fn().mockResolvedValue(cacheNames),
+      delete: deleteCache
     },
     fetch: fetchMock,
     Response,
@@ -103,7 +103,7 @@ describe('service worker cache privacy', () => {
       keys: jest.fn().mockResolvedValue([]),
       delete: jest.fn().mockResolvedValue(true)
     };
-    const fetchMock = jest.fn().mockResolvedValue(new Response('fresh', {
+    const fetchMock = jest.fn().mockResolvedValue(makeBasicResponse('fresh', 'https://admin.example.test/api/weather/Budapest', {
       status: 200,
       headers: { 'Cache-Control': 'Private, No-Store' }
     }));
@@ -116,6 +116,94 @@ describe('service worker cache privacy', () => {
 
     expect(await response.text()).toBe('fresh');
     expect(cache.put).not.toHaveBeenCalled();
+  });
+
+  const privateUrls = [
+    '/api/shadow-trips',
+    '/api/shadow-trips/trip-1',
+    '/api/shadow-trips/trip-1?view=planning',
+    '/api/shadow-trips/',
+    '/api/backups',
+    '/api/backups?type=trip&q=synthetic',
+    '/api/backups/backup-1',
+  ];
+
+  it.each(privateUrls)('never stores or replays normal fetches for %s', async (pathname) => {
+    const url = `https://admin.example.test${pathname}`;
+    const secret = '{"syntheticSecret":"fixture-only"}';
+    const cache: CacheMock = {
+      match: jest.fn().mockResolvedValue(makeBasicResponse(secret, url)),
+      put: jest.fn().mockResolvedValue(undefined),
+      keys: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(true)
+    };
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(makeBasicResponse(secret, url))
+      .mockResolvedValueOnce(makeBasicResponse('forbidden', url, { status: 403 }))
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { Location: '/login' } }))
+      .mockRejectedValueOnce(new Error('offline'));
+    const listeners = loadServiceWorker(cache, fetchMock);
+    const request = makeRequestLike(url);
+
+    expect(await (await dispatchFetch(listeners, request)).text()).toBe(secret);
+    expect((await dispatchFetch(listeners, request)).status).toBe(403);
+    const redirect = await dispatchFetch(listeners, request);
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.get('Location')).toBe('/login');
+    const offline = await dispatchFetch(listeners, request);
+    expect(offline.status).toBe(503);
+    expect(await offline.text()).not.toContain('fixture-only');
+    expect(offline.headers.get('Cache-Control')).toBe('no-store');
+    expect(cache.match).not.toHaveBeenCalled();
+    expect(cache.put).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(request, { cache: 'no-store' });
+  });
+
+  it.each(['/api/weather/Budapest', '/api/backups-public', '/api/shadow-trips-public'])(
+    'preserves cacheable normal fetches for %s', async (pathname) => {
+      const url = `https://admin.example.test${pathname}`;
+      const cache: CacheMock = {
+        match: jest.fn().mockResolvedValue(makeBasicResponse('cached public', url)),
+        put: jest.fn().mockResolvedValue(undefined),
+        keys: jest.fn().mockResolvedValue([]),
+        delete: jest.fn().mockResolvedValue(true)
+      };
+      const fetchMock = jest.fn()
+        .mockResolvedValueOnce(makeBasicResponse('fresh public', url))
+        .mockRejectedValueOnce(new Error('offline'));
+      const listeners = loadServiceWorker(cache, fetchMock);
+      const request = makeRequestLike(url);
+      expect(await (await dispatchFetch(listeners, request)).text()).toBe('fresh public');
+      expect(cache.put).toHaveBeenCalledTimes(1);
+      expect(await (await dispatchFetch(listeners, request)).text()).toBe('cached public');
+    }
+  );
+
+  it('evicts old cache versions and private copies from every surviving cache', async () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'public/sw.js'), 'utf8');
+    const version = source.match(/const CACHE_VERSION = '([^']+)'/)?.[1];
+    expect(version).not.toBe('v13');
+    const activeCaches = ['app-shell', 'static', 'data', 'tiles'].map((prefix) => `${prefix}-${version}`);
+    const privateKeys = privateUrls.map((pathname) => new Request(`https://admin.example.test${pathname}`));
+    const publicKey = new Request('https://admin.example.test/api/weather/Budapest');
+    const foreignKey = new Request('https://other.example.test/api/backups');
+    const cache: CacheMock = {
+      match: jest.fn().mockResolvedValue(new Response('synthetic cached response')),
+      put: jest.fn(),
+      keys: jest.fn().mockResolvedValue([...privateKeys, publicKey, foreignKey]),
+      delete: jest.fn().mockResolvedValue(true)
+    };
+    const deleteCache = jest.fn().mockResolvedValue(true);
+    const listeners = loadServiceWorker(cache, jest.fn(), [...activeCaches, 'data-v13', 'app-shell-v12'], deleteCache);
+    const waitUntil = jest.fn();
+    listeners.activate({ waitUntil });
+    await waitUntil.mock.calls[0][0];
+    expect(deleteCache.mock.calls).toEqual([['data-v13'], ['app-shell-v12']]);
+    for (const key of privateKeys) {
+      expect(cache.delete.mock.calls.filter(([deleted]) => deleted === key)).toHaveLength(activeCaches.length);
+    }
+    expect(cache.delete.mock.calls.some(([deleted]) => deleted === publicKey)).toBe(false);
+    expect(cache.delete.mock.calls.some(([deleted]) => deleted === foreignKey)).toBe(false);
   });
 
   it('treats private admin data APIs as network-only even when cached data exists', async () => {

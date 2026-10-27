@@ -139,6 +139,8 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
+- Private shadow-trip and backup API families must use network-only service-worker handling and `private, no-store` responses. Cache-safety migrations must bump `CACHE_VERSION` and evict private entries from surviving caches as well as deleting old versions; response headers alone cannot remove legacy Cache Storage copies.
+
 - Weather range limits must count the same local calendar days that `formatISO`/`addDays` consume. Construct day ordinals with `setUTCFullYear(year, month, day)` together: both `Date.UTC` and date-fns 4.1.0 calendar differences can normalize year-zero leap days through 1900. Bound enumeration independently because cached summary ranges also reach it.
 - Public privacy filtering must sanitize every present collection independently: unified trips can contain `days` alongside top-level `locations` and `routes`, including when `days` is empty. Route privacy rules also apply recursively to nested `subRoutes` while retaining public geometry.
 
