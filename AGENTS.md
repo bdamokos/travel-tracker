@@ -139,6 +139,8 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
+- CSV cell quoting must include bare CR as well as LF, commas and quotes after formula-prefix sanitization; otherwise CR-aware readers can turn embedded expense/payee text into new records. Export regression tests roundtrip actual helpers through Python's standard-library CSV reader, so local test environments need `python3`.
+
 - Private shadow-trip and backup API families must use network-only service-worker handling and `private, no-store` responses. Cache-safety migrations must bump `CACHE_VERSION` and evict private entries from surviving caches as well as deleting old versions; response headers alone cannot remove legacy Cache Storage copies.
 - YNAB ZIP extraction must count actual output bytes before retaining chunks or decoding UTF-8. JSZip pause does not stop an active synchronous inflater call; `ynabZip` reads raw ZIP member bytes with yauzl and owns a native zlib stream inside an awaited `pipeline` so overflow destroys upstream expansion before rejection completes.
 
