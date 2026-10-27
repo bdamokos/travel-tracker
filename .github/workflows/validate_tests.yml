@@ -16,6 +16,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Test restore authentication with synthetic command stubs
+        run: python3 tools/tests/test_restore_auth.py
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@v1
 

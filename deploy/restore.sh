@@ -18,6 +18,7 @@
 # ==============================================================================
 
 # Exit on error
+set +x
 set -e
 
 # Change to deploy directory
@@ -29,6 +30,9 @@ if [ -f .env ]; then
     source .env
     set +a
 fi
+
+# Keep authentication material shell-local, including when inherited or sourced.
+unset PASSWORD
 
 # Configuration
 PI_HOST=${PI_HOST:-}
@@ -66,7 +70,7 @@ get_password() {
 # Function to prompt for password
 prompt_for_password() {
     echo -n "Enter your SSH password for $PI_USER@$PI_HOST: "
-    read -s PASSWORD
+    read -r -s PASSWORD
     echo
     
     # Test the password
@@ -85,7 +89,7 @@ test_ssh_connection() {
         exit 1
     fi
     
-    if sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $PI_USER@$PI_HOST "echo 'SSH ok'" >/dev/null 2>&1; then
+    if run_with_password ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 $PI_USER@$PI_HOST "echo 'SSH ok'" >/dev/null 2>&1; then
         return 0
     else
         return 1
@@ -93,8 +97,21 @@ test_ssh_connection() {
 }
 
 # Function to run SSH commands with password
+run_with_password() {
+    case "$PASSWORD" in
+        *$'\n'*) echo "❌ Password must be a single line." >&2; return 1 ;;
+    esac
+    # A pipe-backed descriptor avoids argv, environment and credential files.
+    sshpass -d 3 "$@" 3< <(printf '%s\n' "$PASSWORD")
+}
+
 run_ssh() {
-    sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "$1"
+    run_with_password ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "$1"
+}
+
+run_sudo() {
+    # SSH stdin carries only sudo authentication; archive output stays on stdout.
+    printf '%s\n' "$PASSWORD" | run_ssh "sudo -S -p '' $1"
 }
 
 # Validate configuration
@@ -206,7 +223,7 @@ echo "🛡️  Creating safety backup LOCALLY: $LOCAL_SAFETY_BACKUP"
 # Use specific tar logic to stream remote data to local file
 # Using sudo to ensure we can read all files (even root-owned ones)
 REMOTE_DATA_PATH_ESCAPED=$(printf '%q' "$REMOTE_DATA_PATH")
-if (umask 077 && sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST "echo \"$PASSWORD\" | sudo -S tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_SAFETY_BACKUP"); then
+if (umask 077 && run_sudo "tar -czf - -C $REMOTE_DATA_PATH_ESCAPED ." > "$LOCAL_SAFETY_BACKUP"); then
     chmod 600 "$LOCAL_SAFETY_BACKUP"
     echo "✅ Safety backup saved to $LOCAL_SAFETY_BACKUP"
 else
@@ -218,12 +235,12 @@ fi
 # Wipe and Restore
 echo "🧹 Wiping existing data (using sudo)..."
 # Use sudo with password to ensure permissions
-run_ssh "echo \"$PASSWORD\" | sudo -S rm -rf \"$REMOTE_DATA_PATH\"/*"
+run_sudo "rm -rf \"$REMOTE_DATA_PATH\"/*"
 
 echo "📦 Uploading backup file..."
 TEMP_REMOTE_FILE="/tmp/restore-upload-$(date +%s).tar.gz"
 
-if sshpass -p "$PASSWORD" scp -o StrictHostKeyChecking=no "$BACKUP_FILE" $PI_USER@$PI_HOST:"$TEMP_REMOTE_FILE"; then
+if run_with_password scp -o StrictHostKeyChecking=no "$BACKUP_FILE" $PI_USER@$PI_HOST:"$TEMP_REMOTE_FILE"; then
     echo "✅ Backup uploaded to $TEMP_REMOTE_FILE"
 else
     echo "❌ Failed to upload backup file."
@@ -232,7 +249,7 @@ fi
 
 echo "📦 Extracting backup (using sudo)..."
 # Extract using sudo from the temp file
-if run_ssh "echo \"$PASSWORD\" | sudo -S tar -xzf \"$TEMP_REMOTE_FILE\" -C \"$REMOTE_DATA_PATH\""; then
+if run_sudo "tar -xzf \"$TEMP_REMOTE_FILE\" -C \"$REMOTE_DATA_PATH\""; then
     echo "✅ Extraction successful."
 else
     echo "❌ Extraction failed."
@@ -248,9 +265,9 @@ run_ssh "rm -f \"$TEMP_REMOTE_FILE\""
 # Fix permissions after restore (users often have permission issues if files are restored as root)
 echo "🔧 Fixing permissions..."
 OWNER_SPEC_ESCAPED=$(printf '%q' "$PI_USER:$CONTAINER_DATA_GID")
-run_ssh "echo \"$PASSWORD\" | sudo -S chown -R $OWNER_SPEC_ESCAPED $REMOTE_DATA_PATH_ESCAPED"
-run_ssh "echo \"$PASSWORD\" | sudo -S find $REMOTE_DATA_PATH_ESCAPED -type d -exec chmod 770 {} +"
-run_ssh "echo \"$PASSWORD\" | sudo -S find $REMOTE_DATA_PATH_ESCAPED -type f -exec chmod 660 {} +"
+run_sudo "chown -R $OWNER_SPEC_ESCAPED $REMOTE_DATA_PATH_ESCAPED"
+run_sudo "find $REMOTE_DATA_PATH_ESCAPED -type d -exec chmod 770 {} +"
+run_sudo "find $REMOTE_DATA_PATH_ESCAPED -type f -exec chmod 660 {} +"
 
 
 echo "✅ Backup restored successfully."
