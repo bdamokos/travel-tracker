@@ -35,6 +35,11 @@ describe('weather API validation', () => {
     ['invalid start date', 'location', 'lat=47.5&lon=19&start=2026-02-30&end=2026-03-01'],
     ['reversed location range', 'location', 'lat=47.5&lon=19&start=2026-03-02&end=2026-03-01'],
     ['too-long location range', 'location', 'lat=47.5&lon=19&start=2026-01-01&end=2027-01-10'],
+    ['early-year alias', 'location', 'lat=47.5&lon=19&start=0001-01-01&end=1901-01-01'],
+    ['year-zero alias', 'location', 'lat=47.5&lon=19&start=0000-01-01&end=1900-01-01'],
+    ['year-99 alias', 'location', 'lat=47.5&lon=19&start=0099-01-01&end=1999-01-01'],
+    ['reversed early-year range', 'location', 'lat=47.5&lon=19&start=1901-01-01&end=0001-01-01'],
+    ['invalid early-year leap day', 'location', 'lat=47.5&lon=19&start=0001-02-29&end=0001-03-01'],
   ])('rejects %s before calling the weather service', async (_name, path, query) => {
     const response = await GET(buildRequest(path, query), {
       params: Promise.resolve({ params: [path] }),
@@ -47,6 +52,19 @@ describe('weather API validation', () => {
     expect(mockWeatherService.getWeatherForLocation).not.toHaveBeenCalled();
     expect(mockWeatherService.getWeatherForDate).not.toHaveBeenCalled();
     expect(mockWeatherService.getWeatherForecast).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['0004-02-28', '0004-03-01'],
+    ['0099-12-31', '0100-01-01'],
+    ['2024-02-28', '2024-03-01'],
+  ])('accepts valid short range %s to %s', async (start, end) => {
+    mockWeatherService.getWeatherForLocation.mockResolvedValue({ dailyWeather: [] });
+    const response = await GET(buildRequest('location', `lat=47.5&lon=19&start=${start}&end=${end}`), {
+      params: Promise.resolve({ params: ['location'] }),
+    });
+    expect(response.status).toBe(200);
+    expect(mockWeatherService.getWeatherForLocation).toHaveBeenCalledTimes(1);
   });
 
   it('rejects malformed date endpoint input before calling the weather service', async () => {
