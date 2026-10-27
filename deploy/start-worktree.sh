@@ -21,7 +21,9 @@ Usage: ./deploy/start-worktree.sh <branch> [target-dir] [base-branch]
 Creates a new git worktree for the given branch. If the branch does not exist,
 it is created from the base branch (defaults to the current branch or main).
 Creates data/backups and installs dependencies without lifecycle scripts when
-Bun is available. Deployment configuration is not read, copied, or modified.
+Bun is available. This helper does not read, copy, or modify the main
+repository's deploy/.env. Bun's existing project environment-file behavior
+remains unchanged.
 
 Note: This script does not change your shell directory. After it finishes, run
 "cd <target_dir>" yourself.
@@ -84,7 +86,8 @@ else
   echo "Bun not found; skipping dependency install."
 fi
 
-echo "Deployment configuration is not copied; provision it separately through the approved secrets workflow if needed."
+echo "Main repository deploy/.env is not read, copied, or modified; provision configuration separately through the approved secrets workflow if needed."
+echo "Bun retains its existing project environment-file behavior."
 
 echo "Worktree ready at ${target_dir}"
 echo "Run 'cd ${target_dir}' to enter the worktree."

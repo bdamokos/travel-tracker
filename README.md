@@ -83,9 +83,10 @@ bun run dev
 Run `./deploy/start-worktree.sh <branch> [target-dir] [base-branch]` to create a
 worktree, prepare `data/backups`, and install dependencies with lifecycle scripts
 disabled when Bun is available. Then enter the printed directory to work there.
-The helper does not read, copy, or modify deployment configuration, including
-`deploy/.env`. If deployment configuration is needed, provision it separately
-through the approved secrets workflow.
+The helper does not read, copy, or modify the main repository's `deploy/.env`.
+Bun retains its existing behavior for environment files in the checked-out
+project. If deployment configuration is needed, provision it separately through
+the approved secrets workflow.
 
 ### Installation (for production)
 

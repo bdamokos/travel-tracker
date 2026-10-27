@@ -9,7 +9,7 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-describe('worktree helper configuration isolation', () => {
+describe('worktree helper main-repository configuration preservation', () => {
   let fixture: string;
   let repo: string;
   let target: string;
@@ -118,7 +118,8 @@ exit "\${FIXTURE_BUN_EXIT:-0}"
       expect(result.stdout).toContain(`Worktree ready at ${target}`);
       expect(existsSync(join(target, 'data', 'backups'))).toBe(true);
       expect(result.stdout).not.toContain('SYNTHETIC_CONFIG');
-      expect(result.stdout).toContain('Deployment configuration is not copied');
+      expect(result.stdout).toContain('Main repository deploy/.env is not read, copied, or modified');
+      expect(result.stdout).toContain('Bun retains its existing project environment-file behavior.');
     },
   );
 
@@ -130,6 +131,14 @@ exit "\${FIXTURE_BUN_EXIT:-0}"
       `bun <install> <--cwd> <${target}> <--ignore-scripts>\n`,
     );
     expect(result.stdout).toContain(`Run 'cd ${target}' to enter the worktree.`);
+  });
+
+  it('documents the main-repository configuration boundary and retained Bun behavior in help', () => {
+    const result = runHelper(['--help']);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("This helper does not read, copy, or modify the main\nrepository's deploy/.env.");
+    expect(result.stdout).toContain("Bun's existing project environment-file behavior\nremains unchanged.");
+    expect(readFileSync(log, 'utf8')).toBe('');
   });
 
   it('retains explicit target/base and new branch creation without Bun or source configuration', () => {
