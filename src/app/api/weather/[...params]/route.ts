@@ -5,8 +5,8 @@ import {
   parseWeatherDateInput,
   weatherService
 } from '@/app/services/weatherService';
-import { Location } from '@/app/types';
 import { parseCoordinate } from '@/app/lib/coordinateValidation';
+import { Location } from '@/app/types';
 
 function badRequest(error: string): NextResponse {
   return NextResponse.json({ success: false, error }, { status: 400 });

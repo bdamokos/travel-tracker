@@ -5,6 +5,10 @@ import { NextRequest } from 'next/server';
 import { GET as getWeather } from '@/app/api/weather/[...params]/route';
 import { GET as getWikipedia, PUT as putWikipedia } from '@/app/api/wikipedia/[locationName]/route';
 
+// The actual weather module supplies pure date helpers but resolves its data path on import.
+jest.mock('@/app/lib/dataDirectory', () => ({
+  getDataDir: jest.fn(() => '/unused-coordinate-api-test-data'),
+}));
 jest.mock('@/app/services/weatherService', () => ({
   ...jest.requireActual('@/app/services/weatherService'),
   weatherService: {
