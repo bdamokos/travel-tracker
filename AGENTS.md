@@ -139,6 +139,7 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
+- YNAB file preview must index category mappings once and retain the first entry for each exact category name, including `none`; overwriting duplicate names changes preview/import agreement. Keep original transaction indices when processing so instance import keys remain stable.
 - Private shadow-trip and backup API families must use network-only service-worker handling and `private, no-store` responses. Cache-safety migrations must bump `CACHE_VERSION` and evict private entries from surviving caches as well as deleting old versions; response headers alone cannot remove legacy Cache Storage copies.
 - YNAB ZIP extraction must count actual output bytes before retaining chunks or decoding UTF-8. JSZip pause does not stop an active synchronous inflater call; `ynabZip` reads raw ZIP member bytes with yauzl and owns a native zlib stream inside an awaited `pipeline` so overflow destroys upstream expansion before rejection completes.
 
