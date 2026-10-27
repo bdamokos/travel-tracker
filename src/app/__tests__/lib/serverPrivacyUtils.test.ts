@@ -4,6 +4,7 @@ import {
   filterTravelDataForServer,
 } from '@/app/lib/serverPrivacyUtils';
 import { Accommodation } from '@/app/types';
+import { buildMixedJourneyPrivacyFixture } from '@/app/__tests__/utils/mixedJourneyPrivacyFixture';
 
 describe('server privacy utilities', () => {
   const originalAdminDomain = process.env.ADMIN_DOMAIN;
@@ -64,6 +65,37 @@ describe('server privacy utilities', () => {
         costTrackingLinks: undefined,
       },
     ]);
+  });
+
+  it.each([false, true])('filters mixed collections through the direct journey helper, populated=%s', (populatedDays) => {
+    const trip = buildMixedJourneyPrivacyFixture(populatedDays);
+    const journey = {
+      id: trip.id, title: trip.title, startDate: new Date(trip.startDate),
+      ...trip.travelData, days: trip.travelData?.days ?? [], accommodations: trip.accommodations,
+    };
+    const result = filterJourneyForServer(journey, 'travel.example');
+    expect(JSON.stringify(result)).not.toContain('secret-');
+    expect(result.days).toHaveLength(populatedDays ? 1 : 0);
+    expect(journey.locations?.[0].accommodationData).toBe('secret-booking');
+  });
+
+  it.each([undefined, [], [{
+    id: 'period', title: 'Period', date: new Date('2026-01-01'), locations: [],
+  }]])('sanitizes nested route copies while preserving their geometry with days=%j', (days) => {
+    const route = {
+      id: 'route', type: 'train' as const, from: 'A', to: 'B',
+      privateNotes: 'secret-root', costTrackingLinks: [{ expenseId: 'secret-expense' }],
+      isReadOnly: true, routePoints: [[50, 4], [51, 5]] as [number, number][],
+    };
+    const nestedRoute = { ...route, subRoutes: [{ ...route, subRoutes: [route] }] };
+    const data = { routes: [nestedRoute], days };
+    const result = filterTravelDataForServer(data, null);
+    expect(JSON.stringify(result)).not.toContain('secret-');
+    expect(JSON.stringify(result)).not.toContain('isReadOnly');
+    expect(JSON.stringify(result).match(/routePoints/g)).toHaveLength(3);
+    expect(result.routes?.[0].routePoints).toEqual(route.routePoints);
+    expect(filterTravelDataForServer(data, 'admin.example')).toBe(data);
+    expect(route.privateNotes).toBe('secret-root');
   });
 
   it('removes top-level private accommodations when journey days are present', () => {
