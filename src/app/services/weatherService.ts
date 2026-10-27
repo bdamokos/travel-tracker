@@ -391,9 +391,13 @@ function enumerateDateStrings(startISO: string, endISO: string): string[] {
   const start = parseISO(startISO);
   const end = parseISO(endISO);
   if (!isValid(start) || !isValid(end) || isAfter(start, end)) return [];
+  validateDateRange(start, end);
   const dates: string[] = [];
   let cursor = start;
   while (!isAfter(cursor, end)) {
+    if (dates.length >= MAX_LOCATION_WEATHER_SPAN_DAYS) {
+      throw new Error(`Weather date range cannot exceed ${MAX_LOCATION_WEATHER_SPAN_DAYS} days`);
+    }
     dates.push(toISODate(cursor));
     cursor = addDays(cursor, 1);
   }
@@ -609,10 +613,8 @@ function safeDate(year: number, month: number, day: number): Date {
 }
 
 export function daysBetweenInclusive(start: Date, end: Date): number {
-  const s = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-  const e = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
-  const ms = e.getTime() - s.getTime();
-  return Math.floor(ms / (24 * 60 * 60 * 1000)) + 1;
+  // Match the local calendar days used by toISODate and addDays, preserving literal years.
+  return differenceInCalendarDays(end, start) + 1;
 }
 
 /**
@@ -638,6 +640,7 @@ async function computeHistoricalAverage(
   const end = parseISO(endISO);
   if (!isValid(start) || !isValid(end) || isAfter(start, end)) return [];
 
+  validateDateRange(start, end);
   const numDays = daysBetweenInclusive(start, end);
   const accum: Array<{
     temps: number[];
