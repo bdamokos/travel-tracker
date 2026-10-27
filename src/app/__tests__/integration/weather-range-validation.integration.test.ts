@@ -1,10 +1,13 @@
 import fs from 'fs/promises';
+import { addDays, formatISO, parseISO } from 'date-fns';
 import { NextRequest } from 'next/server';
 
 import { GET } from '@/app/api/weather/[...params]/route';
+import { weatherServiceTestUtils } from '@/app/services/weatherService';
 
 describe('weather range API and service integration', () => {
   beforeEach(() => {
+    weatherServiceTestUtils.resetRateLimitStateForTests();
     jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined);
     jest.spyOn(fs, 'readFile').mockRejectedValue(new Error('No synthetic cache'));
     jest.spyOn(fs, 'writeFile').mockResolvedValue(undefined);
@@ -12,7 +15,9 @@ describe('weather range API and service integration', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
+    weatherServiceTestUtils.resetRateLimitStateForTests();
   });
 
   it.each([
@@ -69,5 +74,44 @@ describe('weather range API and service integration', () => {
     expect(fs.readFile).toHaveBeenCalledTimes(1);
     expect(global.fetch).not.toHaveBeenCalled();
     expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['0000-02-28', '0000-02-29'],
+    ['0000-02-29', '0000-03-01'],
+  ])('preserves year-zero leap-day historical fallback for %s to %s', async (start, end) => {
+    jest.useFakeTimers({ now: new Date('2026-10-27T12:00:00Z') });
+    jest.mocked(global.fetch).mockImplementation(async input => {
+      const url = new URL(String(input));
+      const first = parseISO(url.searchParams.get('start_date')!);
+      const last = parseISO(url.searchParams.get('end_date')!);
+      // Only modern, at-most-three-day synthetic archive responses are permitted.
+      expect(first.getFullYear()).toBeGreaterThanOrEqual(2016);
+      expect(last.getFullYear()).toBeLessThanOrEqual(2025);
+      const dates: string[] = [];
+      for (let day = first; day <= last && dates.length < 4; day = addDays(day, 1)) {
+        dates.push(formatISO(day, { representation: 'date' }));
+      }
+      expect(dates.length).toBeLessThanOrEqual(3);
+      return new Response(JSON.stringify({ daily: {
+        time: dates,
+        temperature_2m_max: dates.map(() => 10),
+        temperature_2m_min: dates.map(() => 0),
+      } }));
+    });
+
+    const pending = GET(new NextRequest(
+      `http://localhost/api/weather/location?lat=47.5&lon=19&start=${start}&end=${end}`
+    ), { params: Promise.resolve({ params: ['location'] }) });
+    await jest.runAllTimersAsync();
+    const response = await pending;
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.dailyWeather.map((day: { date: string }) => day.date)).toEqual([start, end]);
+    expect(global.fetch).toHaveBeenCalledTimes(10);
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    const saved = JSON.parse(String(jest.mocked(fs.writeFile).mock.calls[0][1]));
+    expect(saved.summary.dailyWeather.map((day: { date: string }) => day.date)).toEqual([start, end]);
   });
 });

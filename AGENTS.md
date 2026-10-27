@@ -139,7 +139,7 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
-- Weather range limits must count the same local calendar days that `formatISO`/`addDays` consume; use `differenceInCalendarDays` to preserve literal years 0–99, and bound enumeration independently because cached summary ranges also reach it.
+- Weather range limits must count the same local calendar days that `formatISO`/`addDays` consume. Construct day ordinals with `setUTCFullYear(year, month, day)` together: both `Date.UTC` and date-fns 4.1.0 calendar differences can normalize year-zero leap days through 1900. Bound enumeration independently because cached summary ranges also reach it.
 
 - Next.js 16.4.1 raises the optional Sharp dependency floor to `^0.35.5`. Verify the effective lockfile/platform package separately from Next's version; image optimization is reachable directly through `/_next/image` even without `next/image` imports.
 

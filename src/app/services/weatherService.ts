@@ -613,8 +613,12 @@ function safeDate(year: number, month: number, day: number): Date {
 }
 
 export function daysBetweenInclusive(start: Date, end: Date): number {
-  // Match the local calendar days used by toISODate and addDays, preserving literal years.
-  return differenceInCalendarDays(end, start) + 1;
+  // Set all calendar fields together so year-zero leap days never normalize through 1900.
+  const startDay = new Date(0);
+  startDay.setUTCFullYear(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = new Date(0);
+  endDay.setUTCFullYear(end.getFullYear(), end.getMonth(), end.getDate());
+  return (endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000) + 1;
 }
 
 /**
