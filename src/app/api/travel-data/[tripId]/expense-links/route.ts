@@ -4,6 +4,8 @@ import { createExpenseLinkingService } from '@/app/lib/expenseLinkingService';
 import { TravelLinkInfo } from '@/app/lib/expenseTravelLookup';
 import { isAdminDomain } from '@/app/lib/server-domains';
 
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
+
 interface ExpenseLink {
   expenseId: string;
   travelItemId: string;
@@ -56,7 +58,7 @@ const requireAdminDomain = async (): Promise<NextResponse<{ error: string }> | n
 
   return NextResponse.json(
     { error: 'Forbidden - admin domain required' },
-    { status: 403 }
+    { headers: PRIVATE_NO_STORE_HEADERS, status: 403 }
   );
 };
 
@@ -75,7 +77,7 @@ export async function GET(
     if (!tripId) {
       return NextResponse.json({ 
         error: 'Trip ID is required' 
-      }, { status: 400 });
+      }, { headers: PRIVATE_NO_STORE_HEADERS, status: 400 });
     }
 
     // Load trip data
@@ -83,7 +85,7 @@ export async function GET(
     if (!tripData) {
       return NextResponse.json({ 
         error: 'Trip not found' 
-      }, { status: 404 });
+      }, { headers: PRIVATE_NO_STORE_HEADERS, status: 404 });
     }
 
     const expenseLinks: ExpenseLink[] = [];
@@ -240,13 +242,13 @@ export async function GET(
       });
     }
 
-    return NextResponse.json(expenseLinks);
+    return NextResponse.json(expenseLinks, { headers: PRIVATE_NO_STORE_HEADERS });
 
   } catch (error) {
     console.error('Error fetching expense links:', error);
     return NextResponse.json({
       error: 'Internal server error'
-    }, { status: 500 });
+    }, { headers: PRIVATE_NO_STORE_HEADERS, status: 500 });
   }
 }
 
