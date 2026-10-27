@@ -3,6 +3,8 @@ import { loadUnifiedTripData, saveUnifiedTripData } from '@/app/lib/unifiedDataS
 import { Accommodation } from '@/app/types';
 import { isAdminDomain } from '@/app/lib/server-domains';
 
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
+
 
 // Generate unique ID
 function generateId(): string {
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Check if request is from admin domain
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 403 });
     }
     
     const { searchParams } = new URL(request.url);
@@ -23,12 +25,12 @@ export async function GET(request: NextRequest) {
     const locationId = searchParams.get('locationId');
     
     if (!tripId) {
-      return NextResponse.json({ error: 'tripId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'tripId is required' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 400 });
     }
     
     const tripData = await loadUnifiedTripData(tripId);
     if (!tripData) {
-      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Trip not found' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 404 });
     }
     
     const accommodations = tripData.accommodations || [];
@@ -36,14 +38,14 @@ export async function GET(request: NextRequest) {
     if (locationId) {
       // Filter by location
       const filtered = accommodations.filter(acc => acc.locationId === locationId);
-      return NextResponse.json(filtered);
+      return NextResponse.json(filtered, { headers: PRIVATE_NO_STORE_HEADERS });
     }
     
     // Return all accommodations for this trip
-    return NextResponse.json(accommodations);
+    return NextResponse.json(accommodations, { headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error loading accommodations:', error);
-    return NextResponse.json({ error: 'Failed to load accommodations' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to load accommodations' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 500 });
   }
 }
 

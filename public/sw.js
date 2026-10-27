@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v14';
+const CACHE_VERSION = 'v15';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -222,16 +222,30 @@ const scheduleTileCacheTrim = async () => {
 const isDataRequest = (url) =>
   url.origin === self.location.origin &&
   (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/api/'));
-const isPrivateDataRequest = (url) =>
-  url.origin === self.location.origin &&
-  (url.pathname.startsWith('/api/cost-tracking') ||
+const isPrivateDataRequest = (url) => {
+  if (url.origin !== self.location.origin) {
+    return false;
+  }
+
+  // Treat encoded spellings conservatively for cache decisions, without changing the request.
+  let pathname = url.pathname;
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // Keep the original path when it is not valid percent-encoded UTF-8.
+  }
+
+  return (
+    pathname.startsWith('/api/cost-tracking') ||
     ['/api/shadow-trips', '/api/backups'].some(
-      (prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`)
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
     ) ||
-    url.pathname.startsWith('/admin/api/') ||
-    url.pathname.startsWith('/api/travel-data') ||
-    url.pathname.endsWith('/expense-links') ||
-    url.pathname.includes('/expense-links/'));
+    pathname.startsWith('/admin/api/') ||
+    pathname.startsWith('/api/travel-data') ||
+    pathname.endsWith('/expense-links') ||
+    pathname.includes('/expense-links/')
+  );
+};
 const isAppRouteRequest = (url) =>
   url.origin === self.location.origin &&
   !isDataRequest(url) &&
@@ -304,6 +318,10 @@ const resolvePreCacheResponse = async (url) => {
   let requestUrl = new URL(url, self.location.origin).toString();
 
   for (let redirectCount = 0; redirectCount <= MAX_PRECACHE_REDIRECTS; redirectCount += 1) {
+    if (isPrivateDataRequest(new URL(requestUrl))) {
+      break;
+    }
+
     const response = await fetchWithTimeout(requestUrl, { redirect: 'manual' });
     if (isCacheableResponse(response) && !isRedirectResponse(response)) {
       return response;
@@ -316,7 +334,7 @@ const resolvePreCacheResponse = async (url) => {
       }
 
       const finalUrl = new URL(followedResponse.url || requestUrl, requestUrl);
-      if (finalUrl.origin !== self.location.origin) {
+      if (finalUrl.origin !== self.location.origin || isPrivateDataRequest(finalUrl)) {
         break;
       }
 
@@ -631,6 +649,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Private APIs must bypass every cache strategy, including document navigations and warmup.
+  if (isPrivateDataRequest(url)) {
+    event.respondWith(networkOnly(request));
+    return;
+  }
+
   if (isWarmupRequest && isAppRouteRequest(url)) {
     event.respondWith(networkFirst(request, APP_SHELL_CACHE, { fallbackToCacheOnHttpError: true }));
     return;
@@ -642,11 +666,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isDataRequest(url)) {
-    if (isPrivateDataRequest(url)) {
-      event.respondWith(networkOnly(request));
-      return;
-    }
-
     event.respondWith(networkFirst(request, DATA_CACHE));
     return;
   }
