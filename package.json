@@ -48,6 +48,7 @@
     "react-leaflet": "^5.0.0",
     "recharts": "^3.5.1",
     "swr": "^2.3.7",
+    "yauzl": "^3.4.0",
     "ynab": "^2.10.0",
     "zod": "3.25.76"
   },
@@ -62,6 +63,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/yauzl": "^3.4.0",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
     "eslint": "^9.39.1",
