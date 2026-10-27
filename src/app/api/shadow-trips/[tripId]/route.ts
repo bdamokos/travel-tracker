@@ -8,6 +8,8 @@ import { UnifiedTripData } from '@/app/lib/dataMigration';
 import { getDataDir } from '@/app/lib/dataDirectory';
 import { isAdminHost } from '@/app/lib/server-domains';
 
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
+
 const DATA_DIR = getDataDir();
 const SHADOW_DATA_FILE = join(DATA_DIR, 'shadowTravelData.json');
 
@@ -75,7 +77,7 @@ export async function GET(
     if (!isAdmin) {
       return NextResponse.json(
         { error: 'Shadow trips are only accessible in admin mode' },
-        { status: 403 }
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 403 }
       );
     }
 
@@ -84,7 +86,7 @@ export async function GET(
     if (!realTripData) {
       return NextResponse.json(
         { error: 'Base trip not found' },
-        { status: 404 }
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 404 }
       );
     }
 
@@ -113,12 +115,12 @@ export async function GET(
     // Merge real and shadow data
     const mergedData = mergeTripWithShadowData(realTripData, shadowTrip);
 
-    return NextResponse.json(mergedData);
+    return NextResponse.json(mergedData, { headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error loading shadow trip data:', error);
     return NextResponse.json(
       { error: 'Failed to load shadow trip data' },
-      { status: 500 }
+      { headers: PRIVATE_NO_STORE_HEADERS, status: 500 }
     );
   }
 }
@@ -138,7 +140,7 @@ export async function PUT(
     if (!isAdmin) {
       return NextResponse.json(
         { error: 'Shadow trips are only accessible in admin mode' },
-        { status: 403 }
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 403 }
       );
     }
 
@@ -147,7 +149,7 @@ export async function PUT(
     if (!realTripData) {
       return NextResponse.json(
         { error: 'Base trip not found' },
-        { status: 404 }
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 404 }
       );
     }
 
@@ -172,12 +174,12 @@ export async function PUT(
     shadowData[tripId] = shadowTrip;
     await saveShadowData(shadowData);
 
-    return NextResponse.json(shadowTrip);
+    return NextResponse.json(shadowTrip, { headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error updating shadow trip data:', error);
     return NextResponse.json(
       { error: 'Failed to update shadow trip data' },
-      { status: 500 }
+      { headers: PRIVATE_NO_STORE_HEADERS, status: 500 }
     );
   }
 }
@@ -197,7 +199,7 @@ export async function DELETE(
     if (!isAdmin) {
       return NextResponse.json(
         { error: 'Shadow trips are only accessible in admin mode' },
-        { status: 403 }
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 403 }
       );
     }
 
@@ -207,19 +209,19 @@ export async function DELETE(
     if (!shadowData[tripId]) {
       return NextResponse.json(
         { error: 'Shadow trip not found' },
-        { status: 404 }
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 404 }
       );
     }
 
     delete shadowData[tripId];
     await saveShadowData(shadowData);
 
-    return NextResponse.json({ message: 'Shadow trip deleted successfully' });
+    return NextResponse.json({ message: 'Shadow trip deleted successfully' }, { headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error deleting shadow trip data:', error);
     return NextResponse.json(
       { error: 'Failed to delete shadow trip data' },
-      { status: 500 }
+      { headers: PRIVATE_NO_STORE_HEADERS, status: 500 }
     );
   }
 }

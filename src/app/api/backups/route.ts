@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { backupService } from '@/app/lib/backupService';
 import { isAdminDomain } from '@/app/lib/server-domains';
 
+const PRIVATE_NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store' } as const;
+
 export async function GET(request: NextRequest) {
   try {
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -22,10 +24,10 @@ export async function GET(request: NextRequest) {
       backupService.getStorageStats()
     ]);
 
-    return NextResponse.json({ backups, stats });
+    return NextResponse.json({ backups, stats }, { headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error listing backups:', error);
-    return NextResponse.json({ error: 'Failed to list backups' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to list backups' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 500 });
   }
 }
 
@@ -33,20 +35,20 @@ export async function POST(request: NextRequest) {
   try {
     const isAdmin = await isAdminDomain();
     if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 403 });
     }
 
     const body = (await request.json().catch(() => ({}))) as { action?: string };
 
     if (body.action === 'synchronize') {
       const result = await backupService.synchronizeMetadata();
-      return NextResponse.json({ success: true, result });
+      return NextResponse.json({ success: true, result }, { headers: PRIVATE_NO_STORE_HEADERS });
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 400 });
   } catch (error) {
     console.error('Error processing backups action:', error);
-    return NextResponse.json({ error: 'Failed to process backups action' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process backups action' }, { headers: PRIVATE_NO_STORE_HEADERS, status: 500 });
   }
 }
 
