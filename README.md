@@ -78,6 +78,15 @@ bun run dev
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
+### Development worktrees
+
+Run `./deploy/start-worktree.sh <branch> [target-dir] [base-branch]` to create a
+worktree, prepare `data/backups`, and install dependencies with lifecycle scripts
+disabled when Bun is available. Then enter the printed directory to work there.
+The helper does not read, copy, or modify deployment configuration, including
+`deploy/.env`. If deployment configuration is needed, provision it separately
+through the approved secrets workflow.
+
 ### Installation (for production)
 
 See the [deploy](./deploy) directory for example instructions on how to deploy the application.
