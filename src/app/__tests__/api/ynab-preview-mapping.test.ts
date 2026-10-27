@@ -44,7 +44,7 @@ async function preview(
   transactions: YnabTransaction[],
   mappings: YnabCategoryMapping[],
   options: { showAll?: boolean; importData?: Partial<YnabImportData> } = {}
-) {
+): Promise<Response> {
   jest.mocked(readFile).mockResolvedValue(JSON.stringify({ transactions }));
   jest.mocked(loadUnifiedTripData).mockResolvedValue({
     schemaVersion: 9,
