@@ -139,8 +139,7 @@ For seeding a fresh server with sample map data (trips, locations, routes, cost 
 ## New learnings
 As you go, document new learnings, discoveries, important structural decisions in this AGENTS.md file.
 
-- Wikipedia batch refresh configuration must be validated before metadata/trip access: integer `batchSize` 1–20, `delayBetweenRequests` 0–30000 ms, `maxRetries` 0–3, and `timeoutMs` 1–30000 ms. Bodyless POSTs from `useWikipediaRefresh` retain defaults; malformed supplied JSON/configuration returns 400.
-
+- Weather range limits must count the same local calendar days that `formatISO`/`addDays` consume. Construct day ordinals with `setUTCFullYear(year, month, day)` together: both `Date.UTC` and date-fns 4.1.0 calendar differences can normalize year-zero leap days through 1900. Bound enumeration independently because cached summary ranges also reach it.
 - Public privacy filtering must sanitize every present collection independently: unified trips can contain `days` alongside top-level `locations` and `routes`, including when `days` is empty. Route privacy rules also apply recursively to nested `subRoutes` while retaining public geometry.
 
 - Next.js 16.4.1 raises the optional Sharp dependency floor to `^0.35.5`. Verify the effective lockfile/platform package separately from Next's version; image optimization is reachable directly through `/_next/image` even without `next/image` imports.
@@ -249,3 +248,4 @@ As you go, document new learnings, discoveries, important structural decisions i
 - OSRM routing remains enabled by default via `https://router.project-osrm.org`; operators can set `OSRM_BASE_URL` for a private backend, and `/api/routing/osrm` responses should stay `private, no-store` because route payloads can contain admin itinerary coordinates.
 - Local sync scripts such as `sync-main.sh`, `sync-github.sh`, and `sync-from-github.sh` are ignored tooling; GitHub-to-Forgejo sync should replay GitHub-only commits onto local `main` with `git cherry-pick -S` and push the signed local `main`, never direct-push `github/main:main`, because direct ref pushes preserve GitHub-created commit objects and signatures.
 - Root production TypeScript config now targets `es2022` under Next.js 16/SWC and no longer needs `ignoreDeprecations: "5.0"`; broad test typechecking should be staged separately because including all Jest files currently exposes existing fixture/type drift instead of a clean CI-ready check.
+- Wikipedia batch refresh configuration must be validated before metadata/trip access: integer `batchSize` 1–20, `delayBetweenRequests` 0–30000 ms, `maxRetries` 0–3, and `timeoutMs` 1–30000 ms. Bodyless POSTs from `useWikipediaRefresh` retain defaults; malformed supplied JSON/configuration returns 400.
