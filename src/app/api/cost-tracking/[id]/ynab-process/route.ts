@@ -148,15 +148,18 @@ async function handleProcessTransactions(
   const uniqueTransactionKeys = new Set<string>();
   let alreadyImportedCount = 0;
   let invalidDateCount = 0;
-  const mappedCategories = new Set(mappings.map(m => m.ynabCategory));
+  const mappingsByCategory = new Map<string, YnabCategoryMapping>();
+  mappings.forEach(mapping => {
+    const category = mapping.ynabCategory;
+    // Match Array.find precedence, including a first mapping of 'none'.
+    if (!mappingsByCategory.has(category)) {
+      mappingsByCategory.set(category, mapping);
+    }
+  });
 
   for (const [index, transaction] of tempData.transactions.entries()) {
-    if (!mappedCategories.has(transaction.Category)) {
-      continue; // Skip unmapped categories
-    }
-
-    const mapping = mappings.find(m => m.ynabCategory === transaction.Category);
-    if (!mapping || mapping.mappingType === 'none') continue; // Skip 'none' mappings
+    const mapping = mappingsByCategory.get(transaction.Category);
+    if (!mapping || mapping.mappingType === 'none') continue; // Skip unmapped and 'none' categories
 
     const isoDate = getValidYnabISODate(transaction.Date);
     if (!isoDate) {
