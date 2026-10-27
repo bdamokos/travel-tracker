@@ -5,19 +5,11 @@ import {
   parseWeatherDateInput,
   weatherService
 } from '@/app/services/weatherService';
+import { parseCoordinate } from '@/app/lib/coordinateValidation';
 import { Location } from '@/app/types';
-
-const coordinatePattern = /^[-+]?(?:\d+\.?\d*|\.\d+)$/;
 
 function badRequest(error: string): NextResponse {
   return NextResponse.json({ success: false, error }, { status: 400 });
-}
-
-function parseCoordinate(value: string | null, min: number, max: number): number | null {
-  if (value == null || value.trim() !== value || !coordinatePattern.test(value)) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
-  return parsed;
 }
 
 function parseForecastDays(value: string | null): number | null {
