@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v13';
+const CACHE_VERSION = 'v14';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DATA_CACHE = `data-${CACHE_VERSION}`;
@@ -150,7 +150,7 @@ const fetchWithTimeout = async (input, init = {}, timeoutMs = PRECACHE_FETCH_TIM
   }
 };
 
-const purgeRedirectResponsesFromCache = async (cacheName) => {
+const purgeUnsafeResponsesFromCache = async (cacheName) => {
   const cache = await openCacheSafely(cacheName);
   if (!cache) {
     return;
@@ -161,6 +161,11 @@ const purgeRedirectResponsesFromCache = async (cacheName) => {
   await Promise.all(
     keys.map(async (key) => {
       try {
+        if (isPrivateDataRequest(new URL(key.url))) {
+          await cache.delete(key);
+          return;
+        }
+
         const response = await cache.match(key);
         if (isRedirectResponse(response)) {
           await cache.delete(key);
@@ -220,6 +225,9 @@ const isDataRequest = (url) =>
 const isPrivateDataRequest = (url) =>
   url.origin === self.location.origin &&
   (url.pathname.startsWith('/api/cost-tracking') ||
+    ['/api/shadow-trips', '/api/backups'].some(
+      (prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`)
+    ) ||
     url.pathname.startsWith('/admin/api/') ||
     url.pathname.startsWith('/api/travel-data') ||
     url.pathname.endsWith('/expense-links') ||
@@ -389,7 +397,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(keys.filter((key) => !ACTIVE_CACHES.includes(key)).map((key) => caches.delete(key)))
       )
-      .then(() => Promise.all(ACTIVE_CACHES.map((cacheName) => purgeRedirectResponsesFromCache(cacheName))))
+      .then(() => Promise.all(ACTIVE_CACHES.map((cacheName) => purgeUnsafeResponsesFromCache(cacheName))))
       .then(() => scheduleTileCacheTrim())
       .then(() => self.clients.claim())
   );
@@ -513,7 +521,7 @@ const networkFirst = async (request, cacheName, { fallbackToCacheOnHttpError = f
 
 const networkOnly = async (request) => {
   try {
-    return await fetch(request);
+    return await fetch(request, { cache: 'no-store' });
   } catch {
     // Fall through to the explicit offline response below.
   }
