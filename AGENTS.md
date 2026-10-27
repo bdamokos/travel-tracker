@@ -141,6 +141,8 @@ As you go, document new learnings, discoveries, important structural decisions i
 
 - Wikipedia batch refresh configuration must be validated before metadata/trip access: integer `batchSize` 1–20, `delayBetweenRequests` 0–30000 ms, `maxRetries` 0–3, and `timeoutMs` 1–30000 ms. Bodyless POSTs from `useWikipediaRefresh` retain defaults; malformed supplied JSON/configuration returns 400.
 
+- Public privacy filtering must sanitize every present collection independently: unified trips can contain `days` alongside top-level `locations` and `routes`, including when `days` is empty. Route privacy rules also apply recursively to nested `subRoutes` while retaining public geometry.
+
 - Next.js 16.4.1 raises the optional Sharp dependency floor to `^0.35.5`. Verify the effective lockfile/platform package separately from Next's version; image optimization is reachable directly through `/_next/image` even without `next/image` imports.
 
 - Next.js 16.3.3 requires regenerating `bun.lock`, including its Next/SWC and Sharp dependencies. Active build CI uses `bun install --frozen-lockfile` to detect manifest-only Dependabot updates. Docker uses Bun 1.3.14 for installation and serving, with Node installed only in the builder stage because Bun-native Next.js 16.3.3 builds crash on Alpine (Bun 1.3.4 during page collection; 1.3.14 on build exit).
