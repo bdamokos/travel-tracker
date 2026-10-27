@@ -80,7 +80,7 @@ export function sanitizeSpreadsheetCell(value: string): string {
 
 export function escapeCsvValue(value: string): string {
   const sanitizedValue = sanitizeSpreadsheetCell(value);
-  if (sanitizedValue.includes('"') || sanitizedValue.includes(',') || sanitizedValue.includes('\n')) {
+  if (sanitizedValue.includes('"') || sanitizedValue.includes(',') || sanitizedValue.includes('\n') || sanitizedValue.includes('\r')) {
     return `"${sanitizedValue.replace(/"/g, '""')}"`;
   }
   return sanitizedValue;
