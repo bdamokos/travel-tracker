@@ -7,20 +7,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { wikipediaService } from '@/app/services/wikipediaService';
 import { isAdminDomain } from '@/app/lib/server-domains';
 import { requireAdminDomain } from '@/app/lib/adminRouteGuard';
+import { parseCoordinate } from '@/app/lib/coordinateValidation';
 
 const MAX_LOCATION_NAME_LENGTH = 120;
 const MAX_WIKIPEDIA_REF_LENGTH = 160;
-const coordinatePattern = /^[-+]?(?:\d+\.?\d*|\.\d+)$/;
 
 function badRequest(error: string): NextResponse {
   return NextResponse.json({ success: false, error }, { status: 400 });
-}
-
-function parseCoordinate(value: string | null, min: number, max: number): number | null {
-  if (value == null || value.trim() !== value || !coordinatePattern.test(value)) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
-  return parsed;
 }
 
 function parseCoordinates(lat: string | null, lon: string | null): [number, number] | null {
